@@ -1,0 +1,171 @@
+{
+  "author": "Jonathan Yantis",
+  "license": "CC BY 4.0",
+  "date": "2026-11-02",
+  "primary_runs": [
+    {
+      "label": "S1",
+      "folder": ".",
+      "capture_audit": {
+        "PPS_rows": 600,
+        "qualified": 600,
+        "invalid_or_no_fix": 0,
+        "PPS_record_number_gaps": 0,
+        "map_rows": 6022,
+        "map_refused": 27,
+        "replayed": 600,
+        "unreplayed": 0,
+        "anchor_selection_checked": 600,
+        "anchor_selection_unknown": 0,
+        "mismatches": 0,
+        "accepted_map_record_gaps": 0,
+        "NTP_record_gaps": 0,
+        "NTP_exchange_records": 299,
+        "NTP_accepted": 299,
+        "post_expiry_shadow_rows": 0,
+        "console_dropped": 0,
+        "clean_gate": true
+      },
+      "heldout": {
+        "n": 300,
+        "mean_us": -55.86134707365015,
+        "rms_us": 64.21454419642242,
+        "centered_std_us": 31.67045294073779,
+        "abs_p99_us": 109.73968069683961,
+        "max_abs_us": 110.97521346276964,
+        "MAD_sigma_us": 41.13957975178593
+      },
+      "future_error_trend": {
+        "slope_us_per_s": -0.36564762913421345,
+        "intercept_at_first_validation_PPS_us": -1.1971256607778997,
+        "descriptive_detrended_residual": {
+          "n": 300,
+          "mean_us": 2.1567932625051373e-15,
+          "rms_us": 0.5440353428523899,
+          "centered_std_us": 0.5440353428523899,
+          "abs_p99_us": 1.5985569020182737,
+          "max_abs_us": 1.6435924762304475,
+          "MAD_sigma_us": 0.6035380499934649
+        },
+        "role": "Posthoc precision/drift diagnostic only; no validation mean or rate correction is applied to heldout accuracy"
+      },
+      "fixed_full_logging_warmup_s": null
+    },
+    {
+      "label": "S2",
+      "folder": "controls/same-boot-01",
+      "capture_audit": {
+        "PPS_rows": 600,
+        "qualified": 600,
+        "invalid_or_no_fix": 0,
+        "PPS_record_number_gaps": 0,
+        "map_rows": 6021,
+        "map_refused": 39,
+        "replayed": 600,
+        "unreplayed": 0,
+        "anchor_selection_checked": 600,
+        "anchor_selection_unknown": 0,
+        "mismatches": 0,
+        "accepted_map_record_gaps": 0,
+        "NTP_record_gaps": 0,
+        "NTP_exchange_records": 297,
+        "NTP_accepted": 297,
+        "post_expiry_shadow_rows": 0,
+        "console_dropped": 0,
+        "clean_gate": true
+      },
+      "heldout": {
+        "n": 300,
+        "mean_us": -6.219348850501061,
+        "rms_us": 7.795161657501634,
+        "centered_std_us": 4.69938774122276,
+        "abs_p99_us": 15.355123635288919,
+        "max_abs_us": 15.734047101426455,
+        "MAD_sigma_us": 5.857506941335473
+      },
+      "future_error_trend": {
+        "slope_us_per_s": -0.05362604306869601,
+        "intercept_at_first_validation_PPS_us": 1.797730133963177,
+        "descriptive_detrended_residual": {
+          "n": 300,
+          "mean_us": -1.6497914145929826e-15,
+          "rms_us": 0.7186232631546583,
+          "centered_std_us": 0.7186232631546583,
+          "abs_p99_us": 1.7507541740956247,
+          "max_abs_us": 1.9026089409851812,
+          "MAD_sigma_us": 0.648459177252602
+        },
+        "role": "Posthoc precision/drift diagnostic only; no validation mean or rate correction is applied to heldout accuracy"
+      },
+      "fixed_full_logging_warmup_s": null
+    },
+    {
+      "label": "S3",
+      "folder": "controls/same-boot-02",
+      "capture_audit": {
+        "PPS_rows": 600,
+        "qualified": 600,
+        "invalid_or_no_fix": 0,
+        "PPS_record_number_gaps": 0,
+        "map_rows": 8775,
+        "map_refused": 41,
+        "replayed": 600,
+        "unreplayed": 0,
+        "anchor_selection_checked": 600,
+        "anchor_selection_unknown": 0,
+        "mismatches": 0,
+        "accepted_map_record_gaps": 0,
+        "NTP_record_gaps": 0,
+        "NTP_exchange_records": 302,
+        "NTP_accepted": 302,
+        "post_expiry_shadow_rows": 0,
+        "console_dropped": 0,
+        "clean_gate": true
+      },
+      "heldout": {
+        "n": 300,
+        "mean_us": 16.458177165290998,
+        "rms_us": 18.736746916739378,
+        "centered_std_us": 8.955115265469034,
+        "abs_p99_us": 31.434958193811866,
+        "max_abs_us": 31.708538804668166,
+        "MAD_sigma_us": 11.52499566249862
+      },
+      "future_error_trend": {
+        "slope_us_per_s": 0.10339379277379816,
+        "intercept_at_first_validation_PPS_us": 1.0008375224535033,
+        "descriptive_detrended_residual": {
+          "n": 300,
+          "mean_us": 8.275787462726687e-17,
+          "rms_us": 0.13506831196306343,
+          "centered_std_us": 0.13506831196306343,
+          "abs_p99_us": 0.338335644292993,
+          "max_abs_us": 0.3876173943355381,
+          "MAD_sigma_us": 0.13900610084643933
+        },
+        "role": "Posthoc precision/drift diagnostic only; no validation mean or rate correction is applied to heldout accuracy"
+      },
+      "fixed_full_logging_warmup_s": 300
+    }
+  ],
+  "total_distinct_PPS_records": 1800,
+  "total_distinct_validation_PPS": 900,
+  "replicate_scope": "Three sequential non-overlapping same-device/same-image/same-boot windows, not independent devices or environments. Do not pool errors across differing sealed rates/bases.",
+  "secondary": {
+    "label": "S2-L",
+    "folder": "controls/same-boot-longspan",
+    "shares_validation_witnesses_with": "S2",
+    "status": "Predeclared secondary historical-NTP fit, not independent trial"
+  },
+  "earlier_population": "SL023 incomplete raw histories and changed image/boot/logging; context only, not part of clean cohort",
+  "later_interrupted_trial": {
+    "reason": "Operator explicitly stopped testing to prepare the paper",
+    "PPS_records_before_stop": 39,
+    "completed_native600s": false,
+    "frozen_model_sealed": false,
+    "status": "INCOMPLETE_OPERATOR_CANCELLED; partial raw retained privately; no validation result selected",
+    "next_trial_started": false
+  },
+  "hardware_testing": "STOPPED_BY_OPERATOR; scheduled repeat monitor PAUSED",
+  "preparation_scope": "Offline author-review revision <=8pages; publication approval pending"
+}

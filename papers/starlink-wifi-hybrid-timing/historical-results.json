@@ -1,0 +1,213 @@
+{
+  "author": "Jonathan Yantis",
+  "license": "CC BY 4.0",
+  "status": "SEPARATE_HISTORICAL_POPULATIONS_NOT_NEW_RUN",
+  "AP_shadow_field02": {
+    "duration_s": 600,
+    "PPS_records": 599,
+    "qualified": 580,
+    "boundary_censored": 1,
+    "beacon_causal_RMS_us": 0.4120107587,
+    "phase_gain_us": 3855.274912,
+    "phase_span_s": 598,
+    "descriptive_rate_ppm": 6.446741755,
+    "UTC_accuracy": "UNQUALIFIED"
+  },
+  "development_field03": {
+    "PPS_records": 600,
+    "qualified": 600,
+    "replayed": 587,
+    "unreplayed": 13,
+    "mismatches": 0,
+    "missing_NTP_maps": 1,
+    "NTP_accepted": 297,
+    "raw_phase": {
+      "n": 600,
+      "mean_us": 1494.7043137041749,
+      "rms_us": 4331.44676363482,
+      "centered_std_us": 4065.3769912268513,
+      "abs_p99_us": 15429.570036776,
+      "max_abs_us": 21647.548803631
+    },
+    "MIN_RTT8_phase": {
+      "n": 600,
+      "mean_us": 213.84764703750832,
+      "rms_us": 223.05188663322434,
+      "centered_std_us": 63.41394158355099,
+      "abs_p99_us": 415.836497447,
+      "max_abs_us": 815.672608985
+    },
+    "exploratory_last16_models": {
+      "burst_min_OLS": {
+        "rate_ppm": 1.6948282679523476,
+        "training_n": 18,
+        "later300": {
+          "n": 300,
+          "mean_us": 0.5850182496965154,
+          "rms_us": 2.559049418758942,
+          "centered_std_us": 2.4912823154296473,
+          "abs_p99_us": 6.5539793546601,
+          "max_abs_us": 6.72697224888168
+        }
+      },
+      "burst_min_weighted": {
+        "rate_ppm": 1.6914259519935844,
+        "training_n": 18,
+        "later300": {
+          "n": 300,
+          "mean_us": 0.047453237301916334,
+          "rms_us": 2.25884260937456,
+          "centered_std_us": 2.2583441111123075,
+          "abs_p99_us": 5.517975878766094,
+          "max_abs_us": 5.684164152014148
+        }
+      },
+      "burst_min_TheilSen": {
+        "rate_ppm": 1.8255569634584017,
+        "training_n": 18,
+        "later300": {
+          "n": 300,
+          "mean_us": 21.240117209286097,
+          "rms_us": 25.127046806300985,
+          "centered_std_us": 13.424824100964196,
+          "abs_p99_us": 46.36080052732092,
+          "max_abs_us": 46.90544825002354
+        }
+      },
+      "low_delay_250_OLS": {
+        "rate_ppm": 1.8872216899197753,
+        "training_n": 22,
+        "later300": {
+          "n": 300,
+          "mean_us": 30.983127513528895,
+          "rms_us": 36.211088405400794,
+          "centered_std_us": 18.742698124447305,
+          "abs_p99_us": 65.13767831537518,
+          "max_abs_us": 65.86731991333056
+        }
+      },
+      "low_delay_250_TheilSen": {
+        "rate_ppm": 1.8467423464746355,
+        "training_n": 22,
+        "later300": {
+          "n": 300,
+          "mean_us": 24.58740206517191,
+          "rms_us": 28.93275801546003,
+          "centered_std_us": 15.250053969306034,
+          "abs_p99_us": 52.81173886137998,
+          "max_abs_us": 53.41994262864472
+        }
+      },
+      "low_delay_500_OLS": {
+        "rate_ppm": 1.832082069464922,
+        "training_n": 34,
+        "later300": {
+          "n": 300,
+          "mean_us": 22.271082214825032,
+          "rms_us": 26.298854833528026,
+          "centered_std_us": 13.986731660237304,
+          "abs_p99_us": 48.34769198163201,
+          "max_abs_us": 48.91191499017225
+        }
+      },
+      "low_delay_500_TheilSen": {
+        "rate_ppm": 1.8358059679506142,
+        "training_n": 34,
+        "later300": {
+          "n": 300,
+          "mean_us": 22.859457180548446,
+          "rms_us": 26.96776022584271,
+          "centered_std_us": 14.307526306431043,
+          "abs_p99_us": 49.48161717312303,
+          "max_abs_us": 50.05701185875421
+        }
+      },
+      "low_delay_1000_OLS": {
+        "rate_ppm": 1.916923159136301,
+        "training_n": 51,
+        "later300": {
+          "n": 300,
+          "mean_us": 35.67595171358473,
+          "rms_us": 41.55489167684285,
+          "centered_std_us": 21.308108588143487,
+          "abs_p99_us": 74.181760558304,
+          "max_abs_us": 75.0005064174207
+        }
+      },
+      "low_delay_1000_TheilSen": {
+        "rate_ppm": 1.8845401495256395,
+        "training_n": 51,
+        "later300": {
+          "n": 300,
+          "mean_us": 30.559444847756065,
+          "rms_us": 35.72874712069636,
+          "centered_std_us": 18.511177742424273,
+          "abs_p99_us": 64.32115063166069,
+          "max_abs_us": 65.04274762165872
+        }
+      },
+      "burst_min_prior_gate": {
+        "rate_ppm": 1.6948282679523476,
+        "training_n": 18,
+        "later300": {
+          "n": 300,
+          "mean_us": 0.5850182496965154,
+          "rms_us": 2.559049418758942,
+          "centered_std_us": 2.4912823154296473,
+          "abs_p99_us": 6.5539793546601,
+          "max_abs_us": 6.72697224888168
+        }
+      }
+    }
+  },
+  "older_OLS_full300_base": {
+    "base_us": 238.96444928504488,
+    "rate_ppm": 1.6948282679523479,
+    "retrospective_later300_RMS_us": 4.763358114,
+    "separate_prospective60_RMS_us": 17.443507187,
+    "prospective60_mean_us": 17.372859,
+    "prospective60_std_us": 1.568343,
+    "prospective60_max_us": 19.875699,
+    "validation_start_after_cutoff_s": 486.968,
+    "prospective60_replayed": 60
+  },
+  "preceding_repeat_field04": {
+    "PPS_records": 600,
+    "qualified": 599,
+    "invalid": 1,
+    "replayed": 558,
+    "unreplayed": 41,
+    "mismatches": 0,
+    "truncated_NTP_maps": 2,
+    "truncated_beacons": 2,
+    "original_receipt": "INCOMPLETE",
+    "clean_gate": false,
+    "rate_ppm": 1.6957925915291854,
+    "base_us": 188.4275885689839,
+    "future300": {
+      "n": 300,
+      "mean_us": 0.824587718213696,
+      "rms_us": 1.0947297693584768,
+      "centered_std_us": 0.7200613605039462,
+      "abs_p99_us": 1.83954446407094,
+      "max_abs_us": 1.9405089146423222
+    },
+    "GNSS_rate_diagnostic_only": {
+      "train": {
+        "n": 299,
+        "GNSS_witness_relative_rate_ppm": 1.7289571622775721,
+        "descriptive_residual_RMS_us": 1.5125221828778643,
+        "span_local_s": 298.9994802906804
+      },
+      "future": {
+        "n": 300,
+        "GNSS_witness_relative_rate_ppm": 1.6980347819314754,
+        "descriptive_residual_RMS_us": 0.6933853780294856,
+        "span_local_s": 298.9994916697228
+      },
+      "NTP_rate_ppm": 1.6957925915291854,
+      "future_rate_minus_NTP_ppm": 0.002242190402290012
+    }
+  },
+  "limits": "All models are estimator-specific; no pooling/calibration transfer. Earlier data selected the policy; incomplete populations retained. Raw logs unavailable publicly."
+}

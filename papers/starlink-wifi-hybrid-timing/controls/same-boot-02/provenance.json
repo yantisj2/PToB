@@ -1,0 +1,67 @@
+{
+  "author": "Jonathan Yantis",
+  "date": "2026-11-02",
+  "license": "CC BY 4.0 for original selected evidence/derived datasets; MIT snapshot code",
+  "selection": "Explicit relative numeric NTP/PPS allowlist only; every main-window exchange and PPS record. No raw logs, network identifiers, factory bindings, credentials or images.",
+  "transformations": [
+    "Subtract native capture start from local timestamps",
+    "Subtract first accepted NTP UTC-minus-local offset from later offsets",
+    "Retain phase-origin modulo1s only; no absolute UTC epoch",
+    "Invalid PPS numeric fields empty with original validity flags; local_us=0 sentinel",
+    "Evaluate unchanged private sealed model for every qualified later PPS"
+  ],
+  "raw_reproduction_limit": "Private raw clock/map histories unavailable publicly; selected derivatives reproduce estimator and error summaries but not physical event timestamps.",
+  "private_input_hashes": [
+    {
+      "label": "measurement-selected.log",
+      "bytes": 8486417,
+      "sha256": "009853c6da6848f837182542b8852e3d5e6d0491a6f0c7bb26159b6749b53a3a"
+    },
+    {
+      "label": "pps-with-map-history.log",
+      "bytes": 11939953,
+      "sha256": "6ee794997f7087a6ef88dfb2a8f673c85dc5f0b2704d0947a74b49c6f5c631ce"
+    },
+    {
+      "label": "direct-ntp-replay.json",
+      "bytes": 1412,
+      "sha256": "6ec0f30dcee4dba220ef8e9258d0e32bc71869dbfeb760d0025da9b1ed21e908"
+    },
+    {
+      "label": "receipt.json",
+      "bytes": 2967649,
+      "sha256": "cb14547aae2cc5da55a59b4e0a61051be8131e9ff16192722f6d41d71916952f"
+    },
+    {
+      "label": "frozen-model.json",
+      "bytes": 2289,
+      "sha256": "8b740a59912f73e63eb8439f0a0778ee652d8f0ec5bc27e51dac77b5964540c1"
+    },
+    {
+      "label": "frozen-training-only.log",
+      "bytes": 263713,
+      "sha256": "97301a2a97d75462b0aaa1626859f66b29a01a5544d92181145f61571d07bcd2"
+    }
+  ],
+  "new_capture_audit": {
+    "PPS_rows": 600,
+    "qualified": 600,
+    "invalid_or_no_fix": 0,
+    "PPS_record_number_gaps": 0,
+    "map_rows": 8775,
+    "map_refused": 41,
+    "replayed": 600,
+    "unreplayed": 0,
+    "anchor_selection_checked": 600,
+    "anchor_selection_unknown": 0,
+    "mismatches": 0,
+    "accepted_map_record_gaps": 0,
+    "NTP_record_gaps": 0,
+    "NTP_exchange_records": 302,
+    "NTP_accepted": 302,
+    "post_expiry_shadow_rows": 0,
+    "console_dropped": 0,
+    "clean_gate": true
+  },
+  "CSV_packaging": "LF line endings; numeric content unchanged from selected relative derivatives."
+}

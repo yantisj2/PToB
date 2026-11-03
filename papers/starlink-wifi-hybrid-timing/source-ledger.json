@@ -1,0 +1,173 @@
+{
+  "status": "AUTHOR_REVIEW_DRAFT_NUMERICAL_REVIEW_COMPLETE",
+  "author": "Jonathan Yantis",
+  "review_date": "2026-11-03",
+  "sources": [
+    {
+      "key": "rfc5905",
+      "citation": "D. Mills, J. Martin, J. Burbank and W. Kasch, RFC 5905, Network Time Protocol Version 4: Protocol and Algorithms Specification, June 2010.",
+      "url": "https://www.rfc-editor.org/rfc/rfc5905.html",
+      "inspected": "Sections 7.3 and 8 (timestamp endpoints and four-timestamp equations), Sections 8-10, Appendix A.5.1 zero-transmit checks, A.5.2 filtering and clock-state routines; endpoint passage rechecked 2 Nov. 2026.",
+      "supports": "Four-timestamp estimation; earliest accessible timestamp placement; eight-stage delay-ranked filtering; jitter/dispersion; temporal spike suppression and separate persistent-step handling; rejecting zero transmit timestamps.",
+      "boundary": "The custom MIN_RTT8 and prior-OLS gate are not the full RFC algorithm. The source does not calibrate this client's send/recv endpoints, identify Starlink discipline or turn its metadata into an accuracy bound. A separately found malformed-zero admission issue was not encountered in the first clean trial's nonzero accepted training server timestamps.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "chrony",
+      "citation": "chrony project, chrony.conf(5), version 4.8 manual, accessed 2 November 2026.",
+      "url": "https://chrony-project.org/doc/4.8/chrony.conf.html",
+      "inspected": "Pinned version4.8: maxdelaydevratio, maxdelayquant, mindelay, asymmetry, offset, maxupdateskew; statistics-log regression/run diagnostics. Asymmetry/offset passages rechecked 2 Nov. 2026.",
+      "supports": "Established delay-based admission, explicit known offset correction, frequency-estimate uncertainty gating and residual-sign-run diagnostics for a poor linear model.",
+      "boundary": "Implementation documentation is prior art, not evidence that custom weights, gates or thresholds are optimal for Starlink/ESP32. Variable jitter-asymmetry estimation does not identify unknown fixed path bias. No chrony code is used in this firmware.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "riley",
+      "citation": "W. J. Riley, Handbook of Frequency Stability Analysis, NIST Special Publication 1065, July 2008.",
+      "url": "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication1065.pdf",
+      "inspected": "Section 5.2.7 Time Error Prediction; Section 5.25 Environmental Sensitivity (printed p60, PDF p70); Sections 10.3-10.6 and 10.10-10.11 gaps, jumps and outliers. Environmental passage rechecked 2 Nov. 2026.",
+      "supports": "Time prediction depends on initial phase/frequency, subsequent drift and noise. Environmental changes can produce phase/frequency variation and should be separated from noise. Median-deviation methods help identify outliers; genuine phase/frequency changes require explanation.",
+      "boundary": "No device-specific W12 or GNSS temperature coefficient is supplied. Environmental effects are hypotheses, not observed causes here. Detrending for noise characterization must not erase failed prospective witnesses or be relabeled accuracy. The reference/instrument uncertainty is not established by this handbook.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "nist2016",
+      "citation": "M. A. Lombardi, A. N. Novick, G. Neville-Neil and B. Cooke, Accurate, Traceable, and Verifiable Time Synchronization for World Financial Markets, Journal of Research of NIST 121, 2016, DOI 10.6028/jres.121.023.",
+      "url": "https://tf.nist.gov/general/pdf/2868.pdf",
+      "inspected": "Section 5, pp454-456 (PDF pp19-21): source accuracy, client holdover, software stack latency, path asymmetry and four-timestamp estimation; exact paragraphs rechecked 2 Nov. 2026.",
+      "supports": "Source clock, client holdover, software delays and path asymmetry jointly limit network timing. Small RTT does not establish symmetric one-way delay. Measurement endpoint placement matters.",
+      "boundary": "No Starlink performance, source-only jitter, client latency or terrestrial/satellite-path contribution is measured by this source. Its calibrated financial-network results and protocol comparisons are not transferred to this experiment.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "rfc8633",
+      "citation": "D. Reilly, H. Stenn and D. Sibold, RFC 8633, Network Time Protocol Best Current Practices, July 2019.",
+      "url": "https://www.rfc-editor.org/rfc/rfc8633.html",
+      "inspected": "Sections 3.2, 3.3 and 3.5.",
+      "supports": "Enough sources, reference diversity and monitoring reduce common failures; apparently different devices can share chipset/firmware dependencies.",
+      "boundary": "The single-terminal experiment is not multi-source fault tolerance. A second GNSS receiver may share GNSS-system dependencies; independence must be justified.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "traceability2019",
+      "citation": "M. Lombardi, D. Matsakis and J. Levine, Metrological and legal traceability of time signals, Inside GNSS, 1 March 2019.",
+      "url": "https://www.nist.gov/publications/metrological-and-legal-traceability-time-signals-0",
+      "inspected": "NIST primary publication metadata/abstract.",
+      "supports": "Traceability requires an unbroken calibration chain with documented uncertainty.",
+      "boundary": "Measuring a stable phase difference or subtracting a fitted base does not independently establish UTC traceability; no legal advice or compliance claim is made.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "starlink",
+      "citation": "Starlink Help Center, Does Starlink provide time synchronization or NTP servers?, accessed 2 November 2026.",
+      "url": "https://starlink.com/au/support/article/0873e885-831a-9f4e-4808-2838a28f2e69",
+      "inspected": "Official indexed article content; direct regional page may serve JavaScript shell.",
+      "supports": "Each terminal exposes GPS-based NTP at 192.168.100.1 on a best-effort basis without an accuracy guarantee.",
+      "boundary": "No server PPS/timestamp calibration, source-jitter bound, correction cadence, AP-TSF alignment or UTC guarantee is specified. Loose/intermittent NTP discipline is explicitly a hypothesis, not a result established by this page or the client measurements.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "levine2016",
+      "citation": "Judah Levine, An Algorithm for Synchronizing a Clock When the Data Are Received Over a Network With an Unstable Delay, IEEE TUFFC63(4),561–570,2016, doi10.1109/TUFFC.2015.2495014.",
+      "url": "https://tf.nist.gov/general/pdf/2769.pdf",
+      "inspected": "Printedp569 Sec.V.A andV.B, Eqs18–19; printedp570 summary.",
+      "supports": "Network/clock covariance separation needs additional information; two-timescale phase/frequency averaging has established prior art.",
+      "boundary": "No Starlink noise decomposition, independent-domain guarantee or optimality/accuracy result for our servo.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "freris2011",
+      "citation": "N.M.Freris,S.R.Graham,P.R.Kumar, Fundamental Limits on Synchronizing Clocks Over Networks, IEEE TAC56(6),1352–1364,2011, doi10.1109/TAC.2010.2089210.",
+      "url": "https://cs.nyu.edu/~apanda/classes/sp25/papers/time-sync-limits.pdf",
+      "inspected": "Printedp1354 Sec.III;pp1355–56 Theorems1–2;pp1356–57 Theorem4.",
+      "supports": "Clock offsets and unknown directional delays are not separately identifiable even in ideal affine-clock/fixed-delay models; known asymmetry adds information.",
+      "boundary": "Skew-identifiability results use fixed ideal assumptions. They do not prove frequency accuracy under nonstationary Wi-Fi delay or AP wander.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "ntpdiscipline",
+      "citation": "NTP Project, Clock Discipline Algorithm, reference implementation documentation,23November2022 revision.",
+      "url": "https://www.ntp.org/documentation/4.2.8-series/discipline/",
+      "inspected": "Clock Discipline Operations (phase amortization paragraph); Loop Dynamics (averaging-time jitter/wander tradeoff paragraph). Opened and read2November2026; rendered web lines22–24 and27–34 in the recorded inspection.",
+      "supports": "Phase amortization and the averaging-time tradeoff between network jitter and oscillator wander are established control principles.",
+      "boundary": "The experimental raw80 servo is not the reference implementation type2 PLL/FLL loop; no optimality, physical output, global stability proof or transferred example performance is claimed.",
+      "accessed": "2026-11-02"
+    },
+    {
+      "key": "espheader",
+      "citation": "Espressif Systems, ESP-IDFv5.5.5 Wi-Fi receive-control header, commitb774170ff46c393eeb5e495ea37936038d3f4f4f.",
+      "url": "https://raw.githubusercontent.com/espressif/esp-idf/b774170ff46c393eeb5e495ea37936038d3f4f4f/components/esp_wifi/include/local/esp_wifi_types_native.h",
+      "inspected": "wifi_pkt_rx_ctrl_t.timestamp member, nearline59, pinned installed SDK.",
+      "supports": "Receive timestamp is32bits in microsecond units; timestamp precision requires modem/light sleep disabled.",
+      "boundary": "Units are not UTC accuracy. Header does not establish physical RF endpoint/fixed bias, independence from AP discipline or public phone/laptop API availability.",
+      "accessed": "2026-11-02"
+    }
+  ],
+  "terms": "Primary sources cited/paraphrased only; no third-party text or figures imported.",
+  "revision_scope": "Fresh SL027 R1–R2 locked-parameter validation primary; both closed acquisition/model/map/anchor/method/base audits complete. Historical SL025 paired and SL024 direct-NTP populations retained separately. Matching PDF/edition build and visual identity are recorded by edition.json; publication is not approved.",
+  "claim_boundaries": [
+    "Empirical values come from the selected experiment/evidence populations, not from the cited standards or NIST examples.",
+    "Historical SL024 clean S1/S2/S3 are distinct600-PPS trials on one image/boot; secondary S2-L shares S2's300 future witnesses and cannot count as another trial.",
+    "Frozen models ignore later NTP. Source/path/client packet effects can bias training; later phase drift compares the chosen fixed rate with the actual local/reference trajectory.",
+    "PPS-relative mean, centered scatter, RMS, error slope and post-hoc detrended RMS answer different questions. Detrended residuals and the43-PPS0.067us segment are not delivered or traceable UTC accuracy.",
+    "Observed NTP residuals cannot be divided into terminal, transport and client contributions. Temperature, server discipline, logging, AP correction and selection effects are hypotheses with unresolved confounds.",
+    "The AP beacon clock is a separate observable; its drift is not a measurement of Starlink NTP discipline. No correction cadence or hardware-clock relationship was established.",
+    "All future errors, incomplete populations, interrupted follow-up and unstarted attempts remain accounted for. No retuning or residual clipping is applied to the clean tests.",
+    "Paired900s frozen forecasts beyond60s are research holdover and must not be ranked as continuous NTP service.",
+    "Continuous matched local/AP models use identical NTP minima and weights/publication information; shared-AP Huber weights are explicitly AP-assisted on both branches.",
+    "Historical SL025 P1 is retrospective development; parameters/code/dependencies/nominees locked before P2/P3 heldout inspection; poor outcomes remain, no validation winner selection.",
+    "Every native AP-unavailable PPS remains unknown. Native availability and independently replayed physical/map/input histories have separate denominators.",
+    "Raw80-integrated software phase continuity is not a measured electrical output or calibrated accuracy result.",
+    "Public selected predictions/bases reproduce error/statistics only; private raw acquisition, causal fit publication and physical maps are separately audited.",
+    "P3 has incomplete retained input/phase-base replay; native-computed curves remain observations, not clean validation of long-memory calibrated errors. Later raw predictions do not repair an unknown fixed-base dependency.",
+    "The confirmed queued-PPS/current-counter race is a client conversion/association failure with raw pulse retained. It does not establish missing GNSS pulses, USB record loss or the physical cause of smooth rate drift. Some reset-epoch unknowns are conservative replayer limitations, separate from genuinely unrecorded initial history.",
+    "SL027R1–R2 both use the exact earlier locked estimator/filter parameters; no fresh GNSS error, rate or validation winner selects a correction. All future tails remain in the scored populations.",
+    "SL027 transactional publication and bounded retry change acquisition reliability/instrumentation, not the locked estimator. All failed attempts remain in raw audit; same-context refused AP MAPs are excluded only from the method view. Explicit reset/new-epoch barriers and every native-invalid PPS remain.",
+    "SL026600-PPS qualification retains600AP/588common,98.0percent availability,0mismatches/newfaults and failed98.1percent gate. Separate author acceptance authorized a distinctSL027paper cohort; it does not convert the failure to pass or qualify newfirmware.",
+    "The pre-access collector startup failure produced no timing observations. New captures use an at-least300s fullraw warmup, finite1800s windows and8s expiry gaps followed by30s recorded reprime; missing histories remain unknown.",
+    "Earlier SL025P3 input/base verification failures are retained, even where a new replay could recognize later reset semantics. New firmware/boot observations do not repair old evidence or establish a unique cause of smooth phase drift.",
+    "The initial three-window plan was superseded by an author-directed stop afterR2, afterR1wasavailable but beforeR2future scoring. R3isnotacquired, not a failed/missing trial. Model/filterparameters remainlocked; dataquality acceptance doesnot require microsecond performance.",
+    "Primary phase-corrected system comparison is nominatedHuber_AP900 versusAP-freeall900NTP/localWLS900. SharedHuberlocal issecondary/AP-derivedweights, notAP-free. IdenticalpriorPPSidentities eachhaveownnumericbase; nofuture recentering/detrending. Weighting+coordinate differ, so APoscillatorinformation isnotuniquelyisolated.",
+    "Fresh SL027 R1 and R2 each retain 1800/1800 physical/local/AP PPS and 900/900 verified future predictions for all 13 continuous methods, including retained target-input and prior phase-base histories; no gaps, numerical mismatches, new fault increments or bridge resets are observed. These finite counts are not a reliability bound.",
+    "One unpaired pre-window NTP record remains unknown and is not a retained dependency. R1/R2 AP refusals 97/122 and local refusals 895/779 remain recorded; read refusal is not equated to missing PPS.",
+    "Primary own-prior-phase-corrected RMS is all-NTP WLS900 37.180349/35.662355 us versus nominated robust AP900 19.225534/8.240024 us on the same 900 future witnesses per run. Each has its own numeric base on the same 16 prior PPS identities. No future mean, GNSS rate or detrending is used for correction.",
+    "R1 primary RMS gain comes from reduced squared bias while centered scatter increases from 15.015593 to 15.450799 us. R2 scatter decreases from 14.425272 to 6.704474 us; 86.4492 percent of its mean-square gain is squared-bias reduction and 13.5508 percent is variance reduction. These are descriptive decompositions, not statistical significance or universal jitter-suppression claims.",
+    "Primary raw phase RMS remains 224.160081/226.778237 us for AP-free WLS900 and 217.045995/218.520781 us for robust AP900. External GNSS phase calibration is essential to interpreting the corrected scores and is not a portable GNSS-free UTC guarantee.",
+    "Ordinary AP900 and the nominated AP servo60 regress in R1 and improve in R2. The complete matrix retains all 13 locked continuous candidates. No validation winner or horizon replaces the nominees; two correlated same-boot windows do not establish a general performance distribution.",
+    "Each fresh run has 56 complete retained training burst minima. Native training discarded-partial counters are R1=0/R2=1; offline candidate admission counters are R1=0/R2=0 and remain separately recorded, not silently equated. R2 future admissions retain 56 all-NTP versus 55 paired minima with one AP-mapping omission. Canonical gate rejections/reacquisitions are zero. Huber downweighting is separate; empirical spike-rejection benefit is unproven. Residual scatter mixes source, path, client and coordinate contributions.",
+    "Frozen AP forecasts have 900 future PPS per run, but only 44/58 are under true source age 60 s. Longer holdover and post-hoc detrended 0.936408/0.367218 us RMS are not continuous service, achieved forecast accuracy or UTC uncertainty.",
+    "Parsed-record byte rates in adjacent 60-second bins increase 9.768629/8.072194 percent at the fresh validation cutoffs. Emission-time assignment is approximate and does not measure CPU/thermal impact. Both methods share the workload, but no unique logger, local-oscillator, terminal or AP cause is isolated."
+  ],
+  "working_source_state": {
+    "primary_results_ready": true,
+    "primary_runs": [
+      "R1",
+      "R2"
+    ],
+    "historical_paired_runs": [
+      "P1",
+      "P2",
+      "P3"
+    ],
+    "source_or_boot_cohorts_distinct": true,
+    "initial_plan_runs": [
+      "R1",
+      "R2",
+      "R3"
+    ],
+    "not_acquired_runs": {
+      "R3": "Author-directed stop afterR2, declared beforeR2future scoring; not failed/missing."
+    },
+    "edition_identity_authority": "edition.json binds the matching source/PDF and review checks; this ledger does not certify compilation or visual layout.",
+    "independent_numerical_review": {
+      "fresh_runs": [
+        "R1",
+        "R2"
+      ],
+      "R2_all_13_raw_and_fixed_base_statistic_max_delta_us": 0.0,
+      "selected_continuous_prediction_and_error_rows_checked": 23400,
+      "selected_vs_private_prediction_max_delta_us": 0.0,
+      "statistics_do_not_establish_UTC_metrology": true
+    }
+  }
+}

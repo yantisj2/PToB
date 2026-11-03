@@ -1,5 +1,66 @@
 # Manuscript history
 
+## 2026-11-03 — Starlink hybrid draft authorized for GitHub publication
+
+- Publish the approved seven-page Starlink hybrid paper, its unchanged reviewed
+  LaTeX/PDF, selected evidence and offline reproduction helpers on GitHub main.
+- Import only this research package from the reviewed local checkpoint, with
+  research links and paper-specific verification; exclude all unpublished
+  firmware, client, target and unrelated changes and their commit ancestry.
+- Preserve the prepared edition manifest and record companion-document changes
+  in the publication receipt. Keep the earlier unapproved beacon feasibility
+  manuscript local; it is not a dependency of public reproduction.
+- No new measurements, manuscript edits, final-paper promotion, hardware
+  qualification or website deployment accompany this publication.
+
+## 2026-11-03 - Starlink hybrid timing public-review packaging
+
+- Record author approval for public draft review and feature the paper in the
+  root research section and research catalogue under its reviewed title.
+- Give the package the canonical `starlink-wifi-hybrid-timing` name, including
+  the descriptive PDF and LaTeX filenames. Update reproduction paths and the
+  verifier; retain the previous PDF review link as a byte-identical copy.
+- Preserve the reviewed source/PDF, seven-page layout, selected data, historical
+  evidence identities and measured results. A separate approval receipt records
+  promotion from author review to public draft review; the manuscript's original
+  review labels remain. No new hardware results or final-paper promotion.
+
+## 2026-11-03 — two-run Starlink paired-clock author-review revision
+
+- Revise the canonical Starlink paper around two fresh R1–R2 locked-validation
+  windows, carrying all 13 continuous methods unchanged. Each retains all
+  1800 physical/local/AP PPS and all 900 verified future predictions per method,
+  including complete prior phase-base and target-input histories. No data gaps,
+  numerical mismatches, new faults or bridge resets are found in either window.
+- Lead with own-prior-phase-corrected RMS against the AP-free all-NTP WLS900
+  control: nominated robust AP 19.226/8.240 microseconds versus 37.180/35.662.
+  The first gain reduces bias while slightly worsening centered scatter; the
+  second reduces both. Preserve ordinary-AP and servo regressions, raw phase
+  above 200 microseconds and the shared-Huber local control's AP-derived weights.
+- Retain all five paired windows and 72,000 selected method/opportunity records
+  for public standard-library error/statistics recomputation. Separate that
+  reproduction from private acquisition, physical-map, model-publication and
+  base-witness replay; do not import raw logs or private identities.
+- Preserve the original three-window plan and its later author-directed stop
+  after R2, declared before R2 future scoring. R3 is not acquired under that
+  amendment and is not reported as a failed/missing trial. Parameters remain
+  locked; no data-quality acceptance requires microsecond performance.
+- Separate transactional bridge publication, fresh queued-edge association,
+  integer continuity arithmetic and bounded read retries from estimator changes.
+  Preserve reset barriers, native unknowns and actual inter-window logging gaps
+  with recorded reprime; historical failures are not retrospectively repaired.
+- Retain the SL026 failed 98.1% availability gate and its measured 98.0% common
+  coverage. Record separate author acceptance to proceed, without relabeling it
+  as a pass or claiming qualification of a different image/boot.
+- Keep SL025 P1–P3 and the SL024 frozen study as distinct historical evidence,
+  including incomplete input/base histories and poor timing tails. Preserve
+  GNSS-only fixed phase calibration, unpartitioned source/path/client jitter,
+  hypothesis-only physical attribution and unknown UTC/output uncertainty.
+  Zero canonical gate rejects do not demonstrate field spike rejection.
+  Record the fresh logging workload steps as causal-attribution confounds;
+  holdover beyond the 60-second lease and post-hoc detrended precision remain
+  separate from continuous-service accuracy. Publication is not approved.
+
 ## 2026-11-02 — Pi gateway draft authorized for GitHub main publication
 
 - Record the subsequent push authorization and publish the unchanged seven-page

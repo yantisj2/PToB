@@ -1,0 +1,562 @@
+{
+  "schema": 2,
+  "edition_id": "starlink-paired-clock-2026-11-03-two-run-author-review",
+  "title": "Paired Clock Time Transfer from Starlink over Wi-Fi: Causal Filtering, Drift, and GNSS-Shadow Validation",
+  "author": "Jonathan Yantis",
+  "date": "2026-11-03",
+  "prepared_utc": "2026-11-03T04:26:59.695074+00:00",
+  "status": "AUTHOR_REVIEW_DRAFT",
+  "publication_approved": false,
+  "draft_promoted_to_final": false,
+  "pages": 7,
+  "maximum_requested_pages": 8,
+  "license": "CC BY4.0 original paper/figures/selected evidence/datasets; MIT original code and ordinary documentation",
+  "bibliography_entries": 11,
+  "cited_bibliography_entries": 10,
+  "primary_cohort": {
+    "runtime": "0.2.7-sl",
+    "implementation_revision": "c19c4a6a4bbabc6bc9771306710dd216a90cf00f",
+    "runs": [
+      "R1",
+      "R2"
+    ],
+    "same_image_boot_and_cadence_within_cohort": true,
+    "native_window_seconds": 1800,
+    "training_seconds": 900,
+    "future_seconds": 900,
+    "physical_main_PPS": 3600,
+    "future_PPS": 1800,
+    "all13_continuous_methods_verified_future_per_run": 900,
+    "new_fault_counter_increments": 0,
+    "bridge_resets": 0,
+    "numerical_mismatches": 0,
+    "physical_PPS_gaps": 0,
+    "termination": "Author reduced original3-window sequence afterR1 was available and beforeR2freeze/future scoring. Both acquired windows retained. R3notacquired, not a failed/missing trial.",
+    "hardware": "Explicitly authorized exactC4only; hardwarecapture closed and ownership released after secondpass; remaininganalysisoffline."
+  },
+  "historical_cohorts": [
+    {
+      "runtime": "0.2.5-sl",
+      "implementation_revision": "f7c7fd79317b6aef63f30600001e58b5d66dd598",
+      "runs": [
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "scope": "P1 exploratory; P2/P3 locked validation. P3 incomplete map/input/base histories remain explicit with native-computed and verified populations separate."
+    },
+    {
+      "runtime": "SL024",
+      "implementation_revision": "796e645",
+      "runs": [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      "scope": "Earlier three clean600PPS frozen-NTP windows, all300future each. Longer-historyS2-L sharesS2witnesses, not independent validation. Original selected models unchanged."
+    }
+  ],
+  "selected_derivatives": {
+    "windows": [
+      "P1",
+      "P2",
+      "P3",
+      "R1",
+      "R2"
+    ],
+    "primary_runs": [
+      "R1",
+      "R2"
+    ],
+    "model_PPS_rows": 72000,
+    "continuous_candidates": 13,
+    "native_frozen_controls": 3,
+    "future_opportunities_per_window": 900,
+    "provenance_sha256": "1ab101d6ea5a35e860c06f80298aa13cadd1ac21c6f60017b3e8b24ab8c41745",
+    "reproduction": "Standard-library selectedprediction/base arithmetic and all metrics/tables; publicReportLab reproducesvectorfigure. Not rawacquisition, causal estimator execution, physical endpoints or uncertainty calibration.",
+    "canonical_CSV_line_endings": "LF; no field or row values changed"
+  },
+  "primary_reported_metrics": {
+    "R1": {
+      "future_n": 900,
+      "unknown": 0,
+      "trueage_under60_n": 900,
+      "phase_corrected": {
+        "all900": {
+          "n": 900,
+          "mean_us": -34.01338454329305,
+          "centered_std_us": 15.01559295458352,
+          "rms_us": 37.180349109007366,
+          "abs_p99_us": 67.32886389642954,
+          "max_abs_us": 67.66184107214212,
+          "drift_ppm": 0.017382240622462523,
+          "posthoc_detrended_RMS_us": 14.320383451525284
+        },
+        "Huber_AP900": {
+          "n": 900,
+          "mean_us": 11.440890305770768,
+          "centered_std_us": 15.450798973747585,
+          "rms_us": 19.225534060614258,
+          "abs_p99_us": 43.07906533777714,
+          "max_abs_us": 43.853002563118935,
+          "drift_ppm": 0.03849996117326464,
+          "posthoc_detrended_RMS_us": 11.776047496358265
+        }
+      },
+      "raw": {
+        "all900": {
+          "n": 900,
+          "mean_us": 223.65659816569752,
+          "centered_std_us": 15.01559295458352,
+          "rms_us": 224.1600810466262,
+          "abs_p99_us": 252.47502410411835,
+          "max_abs_us": 253.21266961097717,
+          "drift_ppm": 0.017382240622462523,
+          "posthoc_detrended_RMS_us": 14.320383451525284
+        },
+        "Huber_AP900": {
+          "n": 900,
+          "mean_us": 216.4953499819173,
+          "centered_std_us": 15.450798973747585,
+          "rms_us": 217.0459945558084,
+          "abs_p99_us": 248.13352501392365,
+          "max_abs_us": 248.90746223926544,
+          "drift_ppm": 0.03849996117326464,
+          "posthoc_detrended_RMS_us": 11.776047496358265
+        }
+      },
+      "MSE_decomposition": {
+        "MSE_reduction_us2": 1012.7571999518259,
+        "mean_squared_reduction_us2": 1026.016357101247,
+        "variance_reduction_us2": -13.259157149421185,
+        "bias_fraction_of_positive_MSE_gain": 1.0130921381255564
+      }
+    },
+    "R2": {
+      "future_n": 900,
+      "unknown": 0,
+      "trueage_under60_n": 900,
+      "phase_corrected": {
+        "all900": {
+          "n": 900,
+          "mean_us": -32.614645649360284,
+          "centered_std_us": 14.42527160107619,
+          "rms_us": 35.66235510448169,
+          "abs_p99_us": 54.76735509186983,
+          "max_abs_us": 55.21131516247988,
+          "drift_ppm": -0.023797744335404054,
+          "posthoc_detrended_RMS_us": 13.033070364912826
+        },
+        "Huber_AP900": {
+          "n": 900,
+          "mean_us": -4.79040885316001,
+          "centered_std_us": 6.704474278413487,
+          "rms_us": 8.240023806418392,
+          "abs_p99_us": 20.069040179252625,
+          "max_abs_us": 20.24101412296295,
+          "drift_ppm": 0.003711685241554515,
+          "posthoc_detrended_RMS_us": 6.63476090704936
+        }
+      },
+      "raw": {
+        "all900": {
+          "n": 900,
+          "mean_us": 226.3189789832963,
+          "centered_std_us": 14.42527160107619,
+          "rms_us": 226.77823685002608,
+          "abs_p99_us": 259.5370056629181,
+          "max_abs_us": 260.66391587257385,
+          "drift_ppm": -0.023797744335404054,
+          "posthoc_detrended_RMS_us": 13.033070364912826
+        },
+        "Huber_AP900": {
+          "n": 900,
+          "mean_us": 218.41790640009773,
+          "centered_std_us": 6.704474278413487,
+          "rms_us": 218.520781189231,
+          "abs_p99_us": 230.3457317352295,
+          "max_abs_us": 230.69577956199646,
+          "drift_ppm": 0.0037116852415545144,
+          "posthoc_detrended_RMS_us": 6.63476090704936
+        }
+      },
+      "MSE_decomposition": {
+        "MSE_reduction_us2": 1203.9055792678096,
+        "mean_squared_reduction_us2": 1040.767093852902,
+        "variance_reduction_us2": 163.1384854149072,
+        "bias_fraction_of_positive_MSE_gain": 0.8644922922326475
+      }
+    }
+  },
+  "calibration": "Each estimator own fixedprior GNSS phasebase on same16priorPPSidentities; no GNSS rate, future recentering, validation detrending or fresh filterselection. Raw phase statistics remain separate. Not portable GNSS-free or calibrated UTC/output accuracy.",
+  "methods": {
+    "original_locked_code_sha256": "7d30123d4273f4e226f60610c8e381062b7ec40372d140d7e7c12d38aadf78db",
+    "semantic_adapter_sha256": "827f87bb27c9768deef2adaa154e1bcd7c666f04dd7168c26209efad47f4836b",
+    "selection": "Nominated robust AP model vsAP-freeall900WLS; shared-Huberlocal issecondary/AP-derivedweights. All declared candidates and poor outcomes retained; no validation winner selected."
+  },
+  "claim_boundary": "PPS-relative input phase after measured prior correction. R1gain reducesbias with slightlyworse scatter; R2reducesboth. Two correlatedsamebootwindows do not establish generalperformance, source-onlyjitter, APdiscipline orsubmicrosecondUTC. Loggingworkload steps remaincausalconfounds; posthocdetrendedprecision andolder-than60sfrozenholdover remainseparate.",
+  "prior_reviewed_edition": {
+    "git_revision": "ad5764827f410a038649c965810aa01d3496d183",
+    "date": "2026-11-02",
+    "pages": 7,
+    "pdf_sha256": "37c9cb55961b1553f433dbc9c5e79943321fcaad2a5119d5d69d9940bfe81356",
+    "source_sha256": "2865b95f806dde2453b87202b2e38114ac7a8ee93dfc957b9198ce1bd13b708f"
+  },
+  "prior_beacon_paper_pdf_sha256": "c39a992691ffe09460c95fc7eb08caec19bf2eb87e90ea9e542716e5f9c9d448",
+  "compiler": "Tectonic0.17.0 publicv33bundle; BibTeX/unsrtnat; finalcachednativecompile withno undefinedreferences/overfull/underfull warnings.",
+  "checks": {
+    "private_raw_replay": "R1/R2 completePPS/map/anchor/nativefit and retainedinput/baseavailability replay; zero mismatches/gaps/newfaultincrements/resets, outside-windowunpairedNTPunknown retained.",
+    "root_metrics": "Independent aggregate calculations for all13continuous+3frozenmethods bothruns matched selectedresults <1e-7us tolerance.",
+    "researcher": "IndependentR2all13raw/fixedmean/std/RMS/P99/max/drift/posthocstatistics maxdifference0; all28800freshselectedrows matchprivateoutput.",
+    "public_reproduction": "Isolated explicitpublicinputs regenerate results, allfour tables/master andvectorfigure byte-identically withoutprivate rawlogs/images/credentials/estimators.",
+    "latex": "Sevenpages, no compiler/reference/overfull/underfull warnings.",
+    "visual": "Allseven final110dpi pages verified; cleartables/vectorfigure, no clipping/overlap/missingglyphs;10ptfont/margins retained."
+  },
+  "verification_command": "python3 tools/verify_starlink_ntp_paper.py",
+  "review_authorization": "User requestedtwo-runpaper atsamecanonicalPDF and phase-correctedRMSvsAP-freecontrol; shortenhardwareonly, finishpaperproperly. Authorreviewonly; no push/publication.",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 11971,
+      "sha256": "c92790f7fac23fd0d61b622a74ebd1a21079d3e3b91fa9c2c4c5a70fe5f38ccb"
+    },
+    {
+      "path": "docs/PUBLICATION_REVIEW.md",
+      "bytes": 4180,
+      "sha256": "23c0f5c7017fb6ce0997caff83a32094bca8e7436a7e28458c31c154e0ea18cf"
+    },
+    {
+      "path": "papers/CHANGELOG.md",
+      "bytes": 28792,
+      "sha256": "a91f434a05fbc0a5e24b32f096425d156644331fb91e0404de09520def584f8e"
+    },
+    {
+      "path": "papers/README.md",
+      "bytes": 29896,
+      "sha256": "e07610ab10b33fd5573121b38b3a517440c17375354c4e9930c39708f5b94451"
+    },
+    {
+      "path": "papers/starlink-ntp-frozen-clock/.gitattributes",
+      "bytes": 13,
+      "sha256": "547f59603028195ff9f8a87d04c4651551e8bd0d68f075257dfd549cd846b25b"
+    },
+    {
+      "path": "papers/starlink-ntp-frozen-clock/README.md",
+      "bytes": 756,
+      "sha256": "40909d7d438fb5db74dfdb18b00921ee20c0b5aed2df049f754e6a3d5a5ae7f6"
+    },
+    {
+      "path": "papers/starlink-ntp-frozen-clock/main.pdf",
+      "bytes": 135873,
+      "sha256": "00a3e272b742f437fec0db7bd6b705deb73348b7e319dbfd011ca513056f542e"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/.gitattributes",
+      "bytes": 31,
+      "sha256": "292141c2d443923a04f4f6dc58227320c780fae28c91c7ee794c894663e6376b"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/LICENSE.md",
+      "bytes": 726,
+      "sha256": "896ede7863c23312ffa2d9bd3b640f4b3d4cafd992a2b112344de9bc7ffa6029"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/README.md",
+      "bytes": 9363,
+      "sha256": "d1e375b0305bd7c3844f70501c3248a3c1e95c64d1aa04d24ba9c2c992f0136f"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/analyze.py",
+      "bytes": 9040,
+      "sha256": "ace541a1466246b6e686644f600c5c40358e86d76d9f7cd645dc16775c7aa8bf"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/clean-accuracy-table.tex",
+      "bytes": 767,
+      "sha256": "8345bf42c2c5335a8a403b2a5c16e5615f2fc3ea50009eb14c9ee94f8fc3dfd8"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/clean-jitter-table.tex",
+      "bytes": 608,
+      "sha256": "fbd150cc17e41bfb870af95b61cf4cec9e5e112917d70a3849605024bf6027dd"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/cohort.json",
+      "bytes": 6118,
+      "sha256": "4c00caf7d5cdfe1016dce0e79c03abe9b05c23ec1c27c7c65def746ed46ab816"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/comparison-table.tex",
+      "bytes": 535,
+      "sha256": "88db96bd58bcc15feb4740e3d373a6b63012c35ad82daa1b1abb17127a80855f"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-01/ntp.csv",
+      "bytes": 13543,
+      "sha256": "62dd0c97ee2d5f403988d649900c7ab006b4e8ff54d335ba7a3fd005f172ec0f"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-01/observations.json",
+      "bytes": 1538,
+      "sha256": "24fac7f75312b35512aeb6ec5df8e3b2d49fc59aace8acec77f5387f3b7abf92"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-01/pps.csv",
+      "bytes": 48166,
+      "sha256": "e2c6a6300277eb755e1bbb38c3f8c3214f0f79cb55a1ec5e5a0c45e9c940958b"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-01/provenance.json",
+      "bytes": 2511,
+      "sha256": "aab079c60cc21990a278e5884643e7be49b7f88b44edc2ef256d99edc52f9361"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-01/results.json",
+      "bytes": 8596,
+      "sha256": "947ed1717cebfda0a93dba372601c3345b20ec1172470f53e8c53f54eadb32aa"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-01/sealed-model.json",
+      "bytes": 1182,
+      "sha256": "ee9894fd1ab79bc972240958cf5d75ed7c5fb4b4ec2639203daed9f1d099a733"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-02/ntp.csv",
+      "bytes": 14076,
+      "sha256": "8ab8958c05992d97e1d97c6c402f3e09c70fbc4badbe3e234ceffc7be30d712b"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-02/observations.json",
+      "bytes": 1628,
+      "sha256": "2539689b2aeea9227e11eb975cac2e30d08dac2e1aec70709da0cbe93ff3dfba"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-02/pps.csv",
+      "bytes": 48011,
+      "sha256": "b4ade34f0d5f4b610283b28116bd82ed1f0cd466754dcc8b112d7bf9f82b701c"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-02/provenance.json",
+      "bytes": 2512,
+      "sha256": "8e7108bc231b515e7f7782cf192e5438833f5a46a9794d3afc83111a223a99b1"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-02/results.json",
+      "bytes": 8553,
+      "sha256": "6439cf128456b7100a1d62b7a9826f2b75b1e5e82825fbdd702c10c9c440fac5"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-02/sealed-model.json",
+      "bytes": 1205,
+      "sha256": "bf11cb282b297ef7e1573263a9561a35f9c4a791aaeaa2fc144e83904339fa96"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-longspan/ntp.csv",
+      "bytes": 29461,
+      "sha256": "efee4918c009394a2ca8aec4391ce2b57bd6bf9c72f61803a3af36132cd95d89"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-longspan/observations.json",
+      "bytes": 1939,
+      "sha256": "b8a50bfe27d887171f488d6743902bf9230b76f365e35cdb7bff88102c066ac4"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-longspan/pps.csv",
+      "bytes": 48082,
+      "sha256": "9a665b87d1dc0d171a1d74beda723cf258898dacb1de733ef2b7cc32220a8347"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-longspan/provenance.json",
+      "bytes": 1199,
+      "sha256": "5b2b7e0515d96f29e9f4e020b4f19caa0db287fe4ba2246fb0d0a69e6301adc0"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-longspan/results.json",
+      "bytes": 8629,
+      "sha256": "9d9b000bacbbc2fd2aba85d497b837150a4b97278e774b216e72eda5d8c510f8"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/controls/same-boot-longspan/sealed-model.json",
+      "bytes": 1538,
+      "sha256": "f316956561e2275444fc2fe96ef9ed17144307f1bc42d86c924dd5d6a4161d3b"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/fresh-summary.tex",
+      "bytes": 863,
+      "sha256": "f79488d805e9f230bd77885aba4f5b8282c94bc7b6451a26c5135ac86445492f"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/historical-results.json",
+      "bytes": 6560,
+      "sha256": "e4d3f5d2b0153fe2c5911acacf602f7a96112db666e5e423c3da2c6b60ec0abe"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/horizon-table.tex",
+      "bytes": 729,
+      "sha256": "1e935abd2fc231739814eb85b77150c5609198cec3e4aa23cacd49f3760908fd"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/README.md",
+      "bytes": 6906,
+      "sha256": "52ce94aada3168b84c56f316e2d37673e83aed7c8132e14fe38d0ac018e90302"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/accuracy-table.tex",
+      "bytes": 1123,
+      "sha256": "d6c07c093d17fff4bc13cfd10fe27323aca931acabd5ae2683541dea854d871a"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/analyze.py",
+      "bytes": 15442,
+      "sha256": "a7667b10357dae5e649f4a115e86bd241ff5ea292597f973f2c6c2efd769b720"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/bases.json",
+      "bytes": 52142,
+      "sha256": "60c6cd8a6c1fe99690c9dc5aa014b4a64809ecb72773c2db670892a98f232f94"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/filter-table.tex",
+      "bytes": 1040,
+      "sha256": "d27eb3f3e311974c5590432a51d20ad49a4df284c68382f624fa39add4ff50e5"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/frozen-table.tex",
+      "bytes": 697,
+      "sha256": "ceeceeb2bef3ecb4564cb9bdb1d940dbdfd51f1671b5caabc5deb6d037077d05"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/future.csv",
+      "bytes": 9683964,
+      "sha256": "de2be155085ed338d92ea9be30b46615d42572504b5924a8e93356afd2d946d1"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/jitter-table.tex",
+      "bytes": 568,
+      "sha256": "4b126ebd6bc4aba0800d103caeb29acb0da3d30d8093f31ff673aa702b71189c"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/phase-curves.pdf",
+      "bytes": 50515,
+      "sha256": "5aaaabcf546da94b5c51c2c43cba9d216a6cd59ed14dda213cfe77d1c4f22ea0"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/plot.py",
+      "bytes": 5235,
+      "sha256": "da4ca8579a11763dd828539aaa4153b7fd7fadaac8b700ddb9357a4523790a6b"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/provenance.json",
+      "bytes": 79180,
+      "sha256": "1ab101d6ea5a35e860c06f80298aa13cadd1ac21c6f60017b3e8b24ab8c41745"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/results.json",
+      "bytes": 704045,
+      "sha256": "c12ce2480d477e8c96999f11a87b8a5e4425b0940bb1dc2324174d01ce910550"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/hybrid/tables.tex",
+      "bytes": 191,
+      "sha256": "88ac8d51cba754de73a8499d2378676de0a7687d9bd843c0a23d33fb4272ed7c"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/jitter-summary.tex",
+      "bytes": 810,
+      "sha256": "cde53bf281d618d1b79ac5871576fdca2aec39395d747f4bb3ce0ee4cfb5cc87"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/make_tables.py",
+      "bytes": 9087,
+      "sha256": "1100469fd12022f56def1c8ddb09427e2ad72342a4f6686adba041920d1ba429"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/ntp.csv",
+      "bytes": 13535,
+      "sha256": "9e162512975af3ddb784c961f37ce6b66eb9c48b5d2906bae8da273e18648e9b"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/observations.json",
+      "bytes": 1260,
+      "sha256": "780a06aae1f92929921c9a18ca0d25454783b195aedd8c7219e7f806036040f6"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/plot.py",
+      "bytes": 4113,
+      "sha256": "4b17ea08933238f26833a98dbf26746f0d0528343286c9fdfdea8c4dde770ed4"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/pps.csv",
+      "bytes": 47612,
+      "sha256": "fbd15d9f64db0ebf9debd29e5eb5e88365a5b72e0f8671bc57e5335e0b333545"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/provenance.json",
+      "bytes": 4243,
+      "sha256": "c24072106f271e38600f4ae4443c6329437feeca5e91a9a6ff36f85d225238ab"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/references.bib",
+      "bytes": 3425,
+      "sha256": "b219f82a47e3785a713c753feadd8fe62536c2b9c1ae3f6d0d902838310cc6be"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/results.json",
+      "bytes": 8550,
+      "sha256": "e607f6e49f236134d4062365cac20d079686f50c8e3ecc407002be7872d7c9ef"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/results.tex",
+      "bytes": 211,
+      "sha256": "4623af8d777ffdfbb5c686f8c010fe214aaa84807503aec4a79076c4b8c78342"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/sealed-model.json",
+      "bytes": 1158,
+      "sha256": "48288e52307bc1a3c909e7eb7459d5d91eba6f25a4c53a784bb8243e2e29f999"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/short-age-table.tex",
+      "bytes": 626,
+      "sha256": "64d44bb6e83cfe02ac68244e720d3cbe1a6e1cb5a9ba528823cf89ada36ea8f1"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/source-ledger.json",
+      "bytes": 18483,
+      "sha256": "f16aff0f700734670d780fd2afa7c347438e337695ea2ae39e9858ad68dfcd25"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf",
+      "bytes": 135873,
+      "sha256": "00a3e272b742f437fec0db7bd6b705deb73348b7e319dbfd011ca513056f542e"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.tex",
+      "bytes": 25115,
+      "sha256": "85bdd0dc773e61d93288db0c7af0c95c6528c7fbd8cb1bca12ffc949ecc7824c"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/timing-results.pdf",
+      "bytes": 22179,
+      "sha256": "d386b579b26e1630f79d8edd8206f082a332b4786d45cb36d6155d206373b252"
+    },
+    {
+      "path": "tools/verify_starlink_ntp_paper.py",
+      "bytes": 6463,
+      "sha256": "cea0f0ea7868b25ba551f4dbce6d7edcb6696e6d26f4d1f0e003cfb617030531"
+    }
+  ],
+  "canonical_pdf": "papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf",
+  "canonical_source": "papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.tex",
+  "public_review_approval": "papers/starlink-wifi-hybrid-timing/publication.json",
+  "packaging": {
+    "date": "2026-11-03",
+    "updated_utc": "2026-11-03T11:52:28.386399+00:00",
+    "reviewed_commit": "5de54d9b1346dc145d1bb3164207412496dcabc4",
+    "reviewed_edition_sha256": "2da0563da614b191816ccd36efd7ac04d718b690b7153020c4ab4e26b9c98bc5",
+    "canonical_name": "starlink-wifi-hybrid-timing",
+    "reviewed_source_pdf_unchanged": true,
+    "previous_review_link": "papers/starlink-ntp-frozen-clock/main.pdf",
+    "preserved_checkpoint": "The prepared author-review fields and manuscript labels remain; publication.json records subsequent approval for public draft review."
+  }
+}

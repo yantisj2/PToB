@@ -1,0 +1,26 @@
+{
+  "author": "Jonathan Yantis",
+  "license": "CC BY 4.0",
+  "status": "SECONDARY_MODEL_SHARED_CURRENT_PPS_NOT_INDEPENDENT_TRIAL",
+  "selection": "All historical field05 main NTP observations in current relative coordinates; all current field06 NTP/PPS records. Same fixed policy, separately sealed rate and GNSS base. No future error selection.",
+  "original_selected_inputs": [
+    {
+      "label": "ntp.csv",
+      "sha256": "fa8d3ab37a92ebc4a63d0860e9ac12170cd0971bcc93630bedef6e2d3948895b"
+    },
+    {
+      "label": "controls/same-boot-01/ntp.csv",
+      "sha256": "87fad390cb20d9f6c12f9554da41347f7eaedd7e1d89df33d4af25e0c8a5baf3"
+    },
+    {
+      "label": "controls/same-boot-01/pps.csv",
+      "sha256": "9f59281ea3b075c53017c88528b44e1e9dca30d70334c12c389e997291f33393"
+    }
+  ],
+  "coordinate_transform": {
+    "local_shift_us": -1013015596,
+    "offset_shift_us": -1929
+  },
+  "limits": "Same-clock time span includes an unrecorded idle interval. Missing intervening exchanges are not invented; partial bursts remain omitted. This is a second model on the same future witnesses.",
+  "CSV_packaging": "LF line endings; numeric content unchanged from selected relative derivatives."
+}

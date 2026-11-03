@@ -1,0 +1,291 @@
+{
+  "model": {
+    "x0": 9664326,
+    "y0": 19,
+    "a": 16.617183482899605,
+    "ppm": 1.762039641958032
+  },
+  "fixed_base_us": 218.6888218968721,
+  "calibration_PPS": [
+    1321,
+    1322,
+    1323,
+    1324,
+    1325,
+    1326,
+    1327,
+    1328,
+    1329,
+    1330,
+    1331,
+    1332,
+    1333,
+    1334,
+    1335,
+    1336
+  ],
+  "counts": {
+    "PPS_total": 600,
+    "PPS_valid": 600,
+    "PPS_invalid": 0,
+    "training_exchange_n": 147,
+    "complete_bursts": 18,
+    "omitted_burst_lengths": [
+      1,
+      2
+    ],
+    "admitted_minima": 18,
+    "gate_rejections": 0,
+    "source_shift_resets": 0,
+    "validation_PPS_total": 300,
+    "validation_PPS_valid": 300
+  },
+  "gate_rejections": [],
+  "source_shift_resets": [],
+  "prior_innovations": {
+    "n": 10,
+    "mean_us": -0.7198598192762745,
+    "rms_us": 128.10556218090642,
+    "centered_std_us": 128.10353962138078,
+    "abs_p99_us": 296.1344464912269,
+    "max_abs_us": 296.1344464912269,
+    "MAD_sigma_us": 57.597466995740525
+  },
+  "observed_source_plus_transfer_residual": {
+    "all_training_exchanges": {
+      "n": 147,
+      "mean_us": 837.9086226486862,
+      "rms_us": 9608.867939397993,
+      "centered_std_us": 9572.26473813181,
+      "abs_p99_us": 50152.82260428613,
+      "max_abs_us": 70234.99679105327,
+      "MAD_sigma_us": 816.58073777377
+    },
+    "training_burst_minima": {
+      "n": 18,
+      "mean_us": 0.8724345332111846,
+      "rms_us": 92.61620577653706,
+      "centered_std_us": 92.61209656641576,
+      "abs_p99_us": 255.44764645793896,
+      "max_abs_us": 255.44764645793896,
+      "MAD_sigma_us": 40.731389622980934
+    },
+    "heldout_exchanges": {
+      "n": 150,
+      "mean_us": 1059.454640753955,
+      "rms_us": 2807.5593736369397,
+      "centered_std_us": 2599.9895193407137,
+      "abs_p99_us": 11591.63334924727,
+      "max_abs_us": 11782.199556939635,
+      "MAD_sigma_us": 816.3506015654488
+    }
+  },
+  "all_qualified_PPS": {
+    "raw": {
+      "n": 600,
+      "mean_us": 236.145307138725,
+      "rms_us": 5470.285122005683,
+      "centered_std_us": 5465.1856976641775,
+      "abs_p99_us": 19961.512234114,
+      "max_abs_us": 70454.706524158,
+      "MAD_sigma_us": 810.0743966781648
+    },
+    "MIN_RTT8": {
+      "n": 600,
+      "mean_us": 200.26697380539164,
+      "rms_us": 214.53933268599198,
+      "centered_std_us": 76.94325488424126,
+      "abs_p99_us": 426.23765838,
+      "max_abs_us": 525.065679483,
+      "MAD_sigma_us": 37.068193469250296
+    }
+  },
+  "paired_future_MIN_RTT8_comparator": {
+    "scope": "Descriptive comparator; same pre-cutoff last16 PPS rule, estimator-specific phase base, no validation mean subtraction",
+    "base_us": 190.70327438125,
+    "uncorrected": {
+      "n": 300,
+      "mean_us": 197.92799694839334,
+      "rms_us": 206.61354733187386,
+      "centered_std_us": 59.27618379296422,
+      "abs_p99_us": 327.203858089,
+      "max_abs_us": 332.619328033,
+      "MAD_sigma_us": 34.92092928638161
+    },
+    "fixed_base_corrected": {
+      "n": 300,
+      "mean_us": 7.224722567143335,
+      "rms_us": 59.71484389353675,
+      "centered_std_us": 59.27618379296422,
+      "abs_p99_us": 157.62150037925,
+      "max_abs_us": 161.61891838625,
+      "MAD_sigma_us": 34.92092928638161
+    }
+  },
+  "heldout": {
+    "n": 300,
+    "mean_us": -6.219348850501061,
+    "rms_us": 7.795161657501634,
+    "centered_std_us": 4.69938774122276,
+    "abs_p99_us": 15.355123635288919,
+    "max_abs_us": 15.734047101426455,
+    "MAD_sigma_us": 5.857506941335473
+  },
+  "horizons": {
+    "10": {
+      "n": 0,
+      "maximum_forecast_age_s": null
+    },
+    "30": {
+      "n": 13,
+      "mean_us": -0.18510310437823835,
+      "rms_us": 0.19750133983234971,
+      "centered_std_us": 0.06887394271502312,
+      "abs_p99_us": 0.31759861240368537,
+      "max_abs_us": 0.31759861240368537,
+      "MAD_sigma_us": 0.08009167800671056,
+      "maximum_forecast_age_s": 29.580273404980545
+    },
+    "60": {
+      "n": 43,
+      "mean_us": -0.3664576368784922,
+      "rms_us": 0.4066543901341061,
+      "centered_std_us": 0.17628554503637814,
+      "abs_p99_us": 0.6804296856117844,
+      "max_abs_us": 0.6804296856117844,
+      "MAD_sigma_us": 0.15011615760248329,
+      "maximum_forecast_age_s": 59.58022010250077
+    },
+    "120": {
+      "n": 103,
+      "mean_us": -1.2142535758924562,
+      "rms_us": 1.5155884338163497,
+      "centered_std_us": 0.9069710878248982,
+      "abs_p99_us": 3.0503123888234995,
+      "max_abs_us": 3.1695810577994905,
+      "MAD_sigma_us": 1.0164950051780657,
+      "maximum_forecast_age_s": 119.58011189116155
+    },
+    "300": {
+      "n": 283,
+      "mean_us": -5.692294758536866,
+      "rms_us": 7.13455772551103,
+      "centered_std_us": 4.301127098864068,
+      "abs_p99_us": 14.068152360475239,
+      "max_abs_us": 14.211877391364368,
+      "MAD_sigma_us": 5.507264720628009,
+      "maximum_forecast_age_s": 299.57978368230795
+    }
+  },
+  "synthetic_gate_checks": "PASS: synthetic isolated spike rejected; three-step sequence withdraws model. Not hardware evidence.",
+  "network_delay_us": {
+    "n": 297,
+    "min": 2344,
+    "median": 4743,
+    "max": 159907
+  },
+  "leave_one_burst_out_rate_sensitivity": {
+    "n": 18,
+    "min_ppm": 1.6343136028631953,
+    "max_ppm": 1.8813530463165447,
+    "range_ppm": 0.24703944345334938,
+    "meaning": "Training-data sensitivity diagnostic only; not an uncertainty interval and no model reselection"
+  },
+  "last_admitted_training_receive_us": 283384614,
+  "future_error_trend": {
+    "slope_us_per_s": -0.05362604306869601,
+    "intercept_at_first_validation_PPS_us": 1.797730133963177,
+    "descriptive_detrended_residual": {
+      "n": 300,
+      "mean_us": -1.6497914145929826e-15,
+      "rms_us": 0.7186232631546583,
+      "centered_std_us": 0.7186232631546583,
+      "abs_p99_us": 1.7507541740956247,
+      "max_abs_us": 1.9026089409851812,
+      "MAD_sigma_us": 0.648459177252602
+    },
+    "role": "Posthoc precision/drift diagnostic only; no validation mean or rate correction is applied to heldout accuracy"
+  },
+  "post_cutoff_horizons": {
+    "10": {
+      "n": 10,
+      "mean_us": -0.1741433291594916,
+      "rms_us": 0.18945836415259376,
+      "centered_std_us": 0.07462286952822031,
+      "abs_p99_us": 0.31759861240368537,
+      "max_abs_us": 0.31759861240368537,
+      "MAD_sigma_us": 0.056226780355433166
+    },
+    "30": {
+      "n": 30,
+      "mean_us": -0.2654701287492751,
+      "rms_us": 0.28048337212024177,
+      "centered_std_us": 0.09053470482519552,
+      "abs_p99_us": 0.41010723563132956,
+      "max_abs_us": 0.41010723563132956,
+      "MAD_sigma_us": 0.07597306768638942
+    },
+    "60": {
+      "n": 60,
+      "mean_us": -0.5409676450055808,
+      "rms_us": 0.6314101110520565,
+      "centered_std_us": 0.32562668102581255,
+      "abs_p99_us": 1.1595085208894886,
+      "max_abs_us": 1.1595085208894886,
+      "MAD_sigma_us": 0.30902158029569604
+    },
+    "120": {
+      "n": 120,
+      "mean_us": -1.551837018375269,
+      "rms_us": 1.9519268369440403,
+      "centered_std_us": 1.183984900740935,
+      "abs_p99_us": 3.8516835538120517,
+      "max_abs_us": 3.978981375935774,
+      "MAD_sigma_us": 1.2955239962640293
+    },
+    "300": {
+      "n": 300,
+      "mean_us": -6.219348850501061,
+      "rms_us": 7.795161657501634,
+      "centered_std_us": 4.69938774122276,
+      "abs_p99_us": 15.355123635288919,
+      "max_abs_us": 15.734047101426455,
+      "MAD_sigma_us": 5.857506941335473
+    }
+  },
+  "heldout_age_range_s": [
+    17.580294683585194,
+    316.5797522055198
+  ],
+  "GNSS_rate_diagnostic_only": {
+    "training": {
+      "n": 300,
+      "rate_ppm": 1.7756307746314954,
+      "residual": {
+        "n": 300,
+        "mean_us": -1.0291027289592117e-14,
+        "rms_us": 0.23471526188804828,
+        "centered_std_us": 0.23471526188804828,
+        "abs_p99_us": 0.6680312397131516,
+        "max_abs_us": 0.7601390188760719,
+        "MAD_sigma_us": 0.2502302820540278
+      },
+      "role": "Post-hoc diagnostic only; never trains/reselects NTP model"
+    },
+    "future": {
+      "n": 300,
+      "rate_ppm": 1.8156656849961004,
+      "residual": {
+        "n": 300,
+        "mean_us": -3.592311633345465e-14,
+        "rms_us": 0.7186232584503932,
+        "centered_std_us": 0.7186232584503932,
+        "abs_p99_us": 1.750754169988972,
+        "max_abs_us": 1.9026089369754118,
+        "MAD_sigma_us": 0.6484591725245654
+      },
+      "role": "Post-hoc diagnostic only; never trains/reselects NTP model"
+    }
+  },
+  "verification": "PASS: exact selected policy and heldout derivatives; private raw clock-bridge replay is a separate audit"
+}

@@ -2,6 +2,16 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+The **3 November 2026 [Starlink hybrid timing paper](../papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf)**
+is approved for public draft review. The [approval record](../papers/starlink-wifi-hybrid-timing/publication.json)
+binds the unchanged reviewed seven-page manuscript and PDF under their named
+canonical paths. Its selected two-run measurements, full estimator matrix,
+prior GNSS phase calibration and historical failures remain explicit.
+The [previous PDF review link](../papers/starlink-ntp-frozen-clock/main.pdf)
+is retained as a byte-identical copy. This approval
+covers repository research packaging; hardware qualification and website
+publication remain separate.
+
 The **2 November 2026 [Pi/M-HAT gateway draft](../papers/pi5-mhat-gateway/main.pdf)**
 and its complete final measured population are approved for public draft review.
 The [approval record](../papers/pi5-mhat-gateway/publication.json) preserves the

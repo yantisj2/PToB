@@ -88,6 +88,17 @@ implementing a BLE mesh role. A general GATT time-client service remains planned
 
 ## Research and review
 
+**Approved public review draft, 3 November 2026:**
+[Paired Clock Time Transfer from Starlink over Wi-Fi: Causal Filtering, Drift, and GNSS-Shadow Validation](papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf)
+is a seven-page study of Starlink NTP combined with Wi-Fi beacon timing.
+After fixed prior GNSS phase calibration, the robust hybrid measures
+19.226/8.240 microseconds RMS versus 37.180/35.662 for NTP-only timing across
+two runs of 900 future PPS each. These are calibrated input-phase comparisons;
+portable UTC and physical output accuracy remain unqualified.
+[Source, selected data and reproduction](papers/starlink-wifi-hybrid-timing/README.md)
+and the [public-review approval](papers/starlink-wifi-hybrid-timing/publication.json)
+accompany the draft.
+
 **Approved public review draft, 2 November 2026:**
 [A Raspberry Pi Time Server at the Edge of a BLE Timing Mesh](papers/pi5-mhat-gateway/main.pdf)
 describes the Pi 5/M-HAT PPS gateway in seven pages. Its complete final window

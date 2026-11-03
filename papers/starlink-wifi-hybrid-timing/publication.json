@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "MIT",
+  "edition_date": "2026-11-03",
+  "approved_utc": "2026-11-03T11:52:28.386399+00:00",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "Add this paper to the research section and give it a proper name in the repo for public review",
+  "reviewed_commit": "5de54d9b1346dc145d1bb3164207412496dcabc4",
+  "reviewed_prepared_edition_sha256": "2da0563da614b191816ccd36efd7ac04d718b690b7153020c4ab4e26b9c98bc5",
+  "edition": "papers/starlink-wifi-hybrid-timing/edition.json",
+  "edition_sha256": "3b839aaa900e397ab8121f5624bc45d853a814b8cedc5c6695a11d829b0747ff",
+  "canonical_pdf": "papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf",
+  "canonical_source": "papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.tex",
+  "title": "Paired Clock Time Transfer from Starlink over Wi-Fi: Causal Filtering, Drift, and GNSS-Shadow Validation",
+  "reviewed_pdf_sha256": "00a3e272b742f437fec0db7bd6b705deb73348b7e319dbfd011ca513056f542e",
+  "reviewed_source_sha256": "85bdd0dc773e61d93288db0c7af0c95c6528c7fbd8cb1bca12ffc949ecc7824c",
+  "reviewed_source_pdf_unchanged": true,
+  "draft_promoted_to_final": false,
+  "new_hardware_measurements": false,
+  "hardware_accuracy_qualified": false,
+  "pages": 7,
+  "scope": "Approved public research draft: repository naming, research listings, source/PDF, selected measured evidence and reproducible checks. No remote push, website deployment or hardware operation is performed by this packaging change.",
+  "preserved_checkpoint": "The reviewed manuscript retains its author-review labels and original prepared edition fields. This separate receipt records later author approval for public draft review. Prior editions remain in Git.",
+  "legacy_review_pdf": "papers/starlink-ntp-frozen-clock/main.pdf",
+  "evidence_boundary": "Same two audited SL027 runs, all900futurePPS perrun/method, own prior GNSS phase correction and all historical failures/unknowns. No new accuracy claim or changed measurement.",
+  "publication_files": [
+    {
+      "path": "README.md",
+      "bytes": 11971,
+      "sha256": "c92790f7fac23fd0d61b622a74ebd1a21079d3e3b91fa9c2c4c5a70fe5f38ccb"
+    },
+    {
+      "path": "docs/PUBLICATION_REVIEW.md",
+      "bytes": 4180,
+      "sha256": "23c0f5c7017fb6ce0997caff83a32094bca8e7436a7e28458c31c154e0ea18cf"
+    },
+    {
+      "path": "papers/CHANGELOG.md",
+      "bytes": 25873,
+      "sha256": "fde331f97f4c713fd84ec8f1b74bc1103369daf4776c79c0e29b9bfe3da97d0a"
+    },
+    {
+      "path": "papers/README.md",
+      "bytes": 29290,
+      "sha256": "49e8934fa672bcef854158187602928c20b619d3306579798345a1a8ff0dd5d6"
+    },
+    {
+      "path": "papers/starlink-ntp-frozen-clock/README.md",
+      "bytes": 756,
+      "sha256": "40909d7d438fb5db74dfdb18b00921ee20c0b5aed2df049f754e6a3d5a5ae7f6"
+    },
+    {
+      "path": "papers/starlink-ntp-frozen-clock/main.pdf",
+      "bytes": 135873,
+      "sha256": "00a3e272b742f437fec0db7bd6b705deb73348b7e319dbfd011ca513056f542e"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/README.md",
+      "bytes": 9572,
+      "sha256": "635a95b393c719eb9cf67d7128560b0c9388e883c81b5a7a8445a8c6cd9994ba"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/edition.json",
+      "bytes": 23048,
+      "sha256": "3b839aaa900e397ab8121f5624bc45d853a814b8cedc5c6695a11d829b0747ff"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf",
+      "bytes": 135873,
+      "sha256": "00a3e272b742f437fec0db7bd6b705deb73348b7e319dbfd011ca513056f542e"
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.tex",
+      "bytes": 25115,
+      "sha256": "85bdd0dc773e61d93288db0c7af0c95c6528c7fbd8cb1bca12ffc949ecc7824c"
+    },
+    {
+      "path": "tools/verify_starlink_ntp_paper.py",
+      "bytes": 7340,
+      "sha256": "6b8bb1902a53631e78e5467f7407a189bc028677b53913410cc2ec3adafd3dcb"
+    }
+  ],
+  "delivery_instruction": "We need to publish the new Starlink paper to GitHub yet keep the firmware changes and other changes out for now",
+  "delivery_status": "AUTHORIZED_FOR_GITHUB_MAIN_PUBLICATION",
+  "github_push_authorized": true,
+  "canonical_repository": "https://github.com/yantisj2/PToB",
+  "public_base_commit": "5b0728ed757bc29c7a92f8cba5bb12afbd1c2bf9",
+  "imported_review_checkpoint": "4696d51f63e0afa5f9b9091f51ff94aa79c08c46",
+  "publication_scope": "Approved Starlink hybrid research draft only: unchanged reviewed LaTeX/PDF, selected evidence, paper helpers, legacy PDF link and research catalogue/documentation. No firmware, images, client/target changes, raw laboratory records, unrelated branch ancestry, website deployment or hardware operation.",
+  "excluded_prior_beacon_study": {
+    "path": "papers/starlink-wifi-timing/",
+    "pdf_sha256": "c39a992691ffe09460c95fc7eb08caec19bf2eb87e90ea9e542716e5f9c9d448",
+    "reason": "Separate earlier author-review draft; not approved for this publication and not required to reproduce the selected hybrid results."
+  },
+  "updated_companions": [
+    {
+      "path": "papers/README.md",
+      "prepared_sha256": "e07610ab10b33fd5573121b38b3a517440c17375354c4e9930c39708f5b94451",
+      "current_sha256": "49e8934fa672bcef854158187602928c20b619d3306579798345a1a8ff0dd5d6",
+      "current_bytes": 29290,
+      "reason": "Paper-only publication on the public base; omit unapproved study and preserve standalone verification."
+    },
+    {
+      "path": "papers/CHANGELOG.md",
+      "prepared_sha256": "a91f434a05fbc0a5e24b32f096425d156644331fb91e0404de09520def584f8e",
+      "current_sha256": "fde331f97f4c713fd84ec8f1b74bc1103369daf4776c79c0e29b9bfe3da97d0a",
+      "current_bytes": 25873,
+      "reason": "Paper-only publication on the public base; omit unapproved study and preserve standalone verification."
+    },
+    {
+      "path": "papers/starlink-wifi-hybrid-timing/README.md",
+      "prepared_sha256": "d1e375b0305bd7c3844f70501c3248a3c1e95c64d1aa04d24ba9c2c992f0136f",
+      "current_sha256": "635a95b393c719eb9cf67d7128560b0c9388e883c81b5a7a8445a8c6cd9994ba",
+      "current_bytes": 9572,
+      "reason": "Paper-only publication on the public base; omit unapproved study and preserve standalone verification."
+    },
+    {
+      "path": "tools/verify_starlink_ntp_paper.py",
+      "prepared_sha256": "cea0f0ea7868b25ba551f4dbce6d7edcb6696e6d26f4d1f0e003cfb617030531",
+      "current_sha256": "6b8bb1902a53631e78e5467f7407a189bc028677b53913410cc2ec3adafd3dcb",
+      "current_bytes": 7340,
+      "reason": "Paper-only publication on the public base; omit unapproved study and preserve standalone verification."
+    }
+  ],
+  "validation": {
+    "selected_data_and_tables": "PASS",
+    "clean_public_copy_without_git_or_private_inputs": "PASS",
+    "manuscript_and_selected_data_tamper_detection": "PASS",
+    "local_markdown_links": "PASS",
+    "known_private_material_scan": "PASS; existing exclusion-policy text in docs/PUBLICATION_REVIEW.md retained",
+    "reviewed_source_pdf_and_prepared_edition_unchanged": true,
+    "pages": 7,
+    "new_measurements": false
+  }
+}

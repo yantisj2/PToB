@@ -1,5 +1,19 @@
 # Research papers — drafts
 
+**Approved public review draft, 3 November 2026 (UTC):**
+[Paired Clock Time Transfer from Starlink over Wi-Fi](starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf)
+compares two fresh locked-validation windows, retaining all 900 future PPS per
+method. After each estimator's own fixed prior GNSS phase calibration, the
+nominated robust AP hybrid gives 19.226/8.240 microseconds RMS versus
+37.180/35.662 for an AP-free NTP/local control on the same witnesses. R1 reduces
+bias while slightly worsening scatter; R2 reduces both. Ordinary AP fits and
+servos have mixed outcomes, and raw phase RMS remains above 200 microseconds.
+Historical incomplete populations and the 64.215-microsecond direct-NTP
+failure remain separate. This does not qualify portable GNSS-free UTC or output
+accuracy. [Source, evidence and reproduction](starlink-wifi-hybrid-timing/README.md)
+and [public-review approval](starlink-wifi-hybrid-timing/publication.json)
+accompany this seven-page draft.
+
 **Approved public review draft, 2 November 2026:**
 [A Raspberry Pi Time Server at the Edge of a BLE Timing Mesh](pi5-mhat-gateway/main.pdf)
 is a seven-page Pi 5/M-HAT integration study. Its final fixed window retains

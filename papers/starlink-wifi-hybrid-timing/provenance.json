@@ -1,0 +1,102 @@
+{
+  "author": "Jonathan Yantis",
+  "date": "2026-11-02",
+  "license": "CC BY 4.0 for original selected evidence/derived datasets; MIT snapshot code",
+  "selection": "Explicit relative numeric NTP/PPS allowlist only; every main-window exchange and PPS record. No raw logs, network identifiers, factory bindings, credentials or images.",
+  "transformations": [
+    "Subtract native capture start from local timestamps",
+    "Subtract first accepted NTP UTC-minus-local offset from later offsets",
+    "Retain phase-origin modulo1s only; no absolute UTC epoch",
+    "Invalid PPS numeric fields empty with original validity flags; local_us=0 sentinel",
+    "Evaluate unchanged private sealed model for every qualified later PPS"
+  ],
+  "raw_reproduction_limit": "Private raw clock/map histories unavailable publicly; selected derivatives reproduce estimator and error summaries but not physical event timestamps.",
+  "private_input_hashes": [
+    {
+      "label": "measurement-selected.log",
+      "bytes": 8308194,
+      "sha256": "01c470be1fa1667a887c7932de876448ef49ab04d753027987e6a49298a516b3"
+    },
+    {
+      "label": "pps-with-map-history.log",
+      "bytes": 8530975,
+      "sha256": "a85d23f1d39ef1a6b1cb29b373d1331291013c93142a7e8f836c87bd5343a0a0"
+    },
+    {
+      "label": "direct-ntp-replay.json",
+      "bytes": 1415,
+      "sha256": "6f0d2578f417788d3d7ded74f5c68f52cb75d46f958b77bc76f02a87437273ad"
+    },
+    {
+      "label": "receipt.json",
+      "bytes": 2229125,
+      "sha256": "f22dd0b8f996cbbec339c8575513d24a13068e7209f806e606571296165f0dc8"
+    },
+    {
+      "label": "frozen-model.json",
+      "bytes": 2233,
+      "sha256": "dcf8a25c804097808242df4f203a78d5a5e04fd683c9168f512a39f6a9dadb89"
+    },
+    {
+      "label": "frozen-training-only.log",
+      "bytes": 257751,
+      "sha256": "35c102e6adc423e149af23764628ecc95e16e3ca1d6862913ab7b676b2017377"
+    }
+  ],
+  "new_capture_audit": {
+    "PPS_rows": 600,
+    "qualified": 600,
+    "invalid_or_no_fix": 0,
+    "PPS_record_number_gaps": 0,
+    "map_rows": 6022,
+    "map_refused": 27,
+    "replayed": 600,
+    "unreplayed": 0,
+    "anchor_selection_checked": 600,
+    "anchor_selection_unknown": 0,
+    "mismatches": 0,
+    "accepted_map_record_gaps": 0,
+    "NTP_record_gaps": 0,
+    "NTP_exchange_records": 299,
+    "NTP_accepted": 299,
+    "post_expiry_shadow_rows": 0,
+    "console_dropped": 0,
+    "clean_gate": true
+  },
+  "between_run_changes": {
+    "field04": "SL0.2.3 character-wise VFS/4096B TX ring; separate boot",
+    "field05": "SL0.2.4 direct complete-frame writes/65536B TX ring; new boot",
+    "unchanged": "NTP timing endpoints, request schedule, MIN_RTT8, offline frozen selection/gate/weight/base rules",
+    "refitted": "Each boot gets a fresh NTP-derived rate and GNSS measured fixed base",
+    "limitation": "Not a matched same-firmware repeat. Diagnostic CPU load, software timing and thermal/boot state may confound the outcome; cause unassigned."
+  },
+  "historical_input_hashes": [
+    {
+      "label": "field02/results.json",
+      "bytes": 149751,
+      "sha256": "01ee98c9cd762925abe2c271a770534a32492a92f96e40d4379cbd9403b4e5e9"
+    },
+    {
+      "label": "field03/frozen-tuning-exploratory.json",
+      "bytes": 25680,
+      "sha256": "d28ff35b8e5f29be1c4eb7dce7b9e3a99b23b765d91bd4434cd5b36b5c8b789c"
+    },
+    {
+      "label": "field03/base-offset-calibration.json",
+      "bytes": 3168,
+      "sha256": "1ab10d36b799c32b46b5489f64cbf73965ed058cc340d012c06b7598dc786e7b"
+    },
+    {
+      "label": "field04/audit-after-failed-receipt.json",
+      "bytes": 2243,
+      "sha256": "d138cb50778cc494c20d2395a261cd0f8489860848896b9eecb76f0918c75138"
+    },
+    {
+      "label": "controlled-local-rate-diagnostic.json",
+      "bytes": 2263,
+      "sha256": "edab350ed5f538aca5daadfadb27fffaf128fbeecda982397ae5caa8cee6e816"
+    }
+  ],
+  "controlled_comparison": "field05 and field06 same installed SL024 image and same boot verified locally. Elapsed time and environmental/thermal conditions remain uncontrolled. Secondary longspan model predeclared and sealed before current future error inspection; same field06 witnesses.",
+  "CSV_packaging": "LF line endings; numeric content unchanged from selected relative derivatives."
+}
