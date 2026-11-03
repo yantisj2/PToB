@@ -12,7 +12,7 @@ clock are unchanged.
 
 A 65-point history selects the first real accepted pair per 500 ms bucket, never
 by residual. Channel-centered16/32s fits require24/32 points,85% span and8 repeated-channel
-degrees of freedom. Both rate guards must be<=10ppb, agree within5ppb and
+degrees of freedom. Short/long rate guards must be<=20/10ppb, agree within5ppb and
 improve on the fast-rate guard. The median with the fast rate must remain
 within three fast guards(bounded15..250ppb); adjustment is capped by that
 guard(bounded5..100ppb). Insufficient, stale or rejected fits
@@ -36,7 +36,7 @@ runtime high-water observations remain separate checks.
 The boot/source-bound `holdover` console query returns committed rate-input
 coordinates, all-witness coordinates/cursor, fit choices, actual local output
 map and the exact frozen entry maps of two shadow lanes. `holdover data` is a
-smaller read-only trace for capturing all witnesses without printing populations.
+smaller read-only latest-witness snapshot. It cannot capture bursts losslessly.
 The raw witness cursor counts consumed physical pairs, separately from packet
 and protocol acceptance counts. Gaps in capture remain missing records.
 One lane probes2s;
@@ -89,8 +89,18 @@ python3 firmware/t096/tools/holdover_replay.py capture.jsonl \
   --out holdover-replay.json
 ```
 
-Capture the compact `data` trace fast enough to preserve the witness cursor and
-the selected rate inputs. Ordinary console polling need not do so. Missing
+For a complete trace, `holdover capture 000a1220` enables660000ms of accepted
+witness capture in the existing eight-record radio-audit ring. Zero stops;
+the maximum lease is900000ms. `holdover trace <8hex cursor>` drains up to eight
+records, reporting the next cursor, produced count and overwritten-record gaps.
+The capture command returns the initial cursor without discarding existing audit
+records. Each row contains audit sequence, witness sequence, tick, parent ns,
+availability tick, channel, sampled-for-fit flag, capture epoch and context.
+Ordinary thinned radio-audit records continue; only explicitly leased HOLD
+records bypass thinning. No additional ring is allocated: smaller bounded
+indices fund the lease within the existing1108-byte audit storage. Formatting
+and host history remain outside the timing owner. Drain faster than incoming
+records and retain sequence gaps. Missing
 prehistory or missing records cannot certify full independent replay. The
 production phase correction is an existing empirical calibration input, not a
 new fitted offset or an accuracy bound.

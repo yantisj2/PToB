@@ -142,6 +142,12 @@ static void hold_witness(const struct rc5_reference *r){
   k_mutex_lock(&state_lock,K_FOREVER);hold_view.pair_tick=r->rx;hold_view.pair_ns=r->parent_tx_ns;
   hold_view.available=r->completed_at;hold_view.channel=r->channel;k_mutex_unlock(&state_lock);
  }
+ if(r2_radio_audit_capturing()){
+  struct r2_radio_audit_record q={.kind=R2_AUDIT_HOLD,.tick=r->rx,.ns=r->parent_tx_ns,
+   .available=r->completed_at,.generation=hold_pair_serial,.channel=r->channel,.raw=sampled,
+   .epoch=capture_epoch,.root_epoch=hold_resets};
+  r2_radio_audit_put(&q);
+ }
 }
 static void hold_prepare(const struct rc5_reference *r){
  if(!local_clock.count||!fit.valid||!fit_rms_valid)return;

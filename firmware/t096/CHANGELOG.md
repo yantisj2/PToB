@@ -1,5 +1,20 @@
 # T096 changelog
 
+## 0.15.271 — bounded witness capture and usable short-rate guard
+
+An explicit at-most15min capture lease records every accepted BLE witness in
+the existing eight-entry audit ring. Batched reads retain raw sequence, causal
+availability, fit-input selection and context; overflow remains visible.
+Ordinary audit selection and capacity remain intact. Smaller ring indices fund
+the lease within the original1108-byte storage; HOLD stays at1280 bytes.
+Host replay orders actual witness availability and checks independent fits
+against only inputs available at each fit time.
+
+Allow a20ppb short-fit guard while retaining the10ppb long guard,5ppb rate
+agreement and fast-uncertainty adjustment cap. This responds to observed short
+guards of11..19ppb blocking slow consensus; it adds no uncertainty qualification.
+Fresh hardware populations must validate the changed policy independently.
+
 ## 0.15.270 — cadence-safe frequency selection and complete shadow models
 
 Select the first actual accepted pair in each500ms bucket instead of a minimum

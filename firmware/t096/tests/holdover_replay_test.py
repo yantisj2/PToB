@@ -16,3 +16,17 @@ corrupt=copy.deepcopy(rows);corrupt[1100]['payload']['raw_pair'][1]+=1500
 f=replay(corrupt)['groups'][0];assert f['onboard_replay']['mismatches']and not f['all_witness_replay_complete']
 assert any(x['candidate']['failed_or_unknown']>1 for x in f['ages'])
 print('PASS independent raw-witness/C-shadow replay, floating rate oracle,100 prospective prefixes, missing records and corrupt-witness negative controls')
+
+batched=[]
+for row in rows:
+ p=row['payload'];tick,ns,available,seq=p['raw_pair']
+ batched.append(dict(source=row['source'],boot=row['boot'],payload=dict(schema=3,records=[[seq,seq,tick,ns,available,p['channel'],int(p['pair'][0]==tick),p['epoch'],p['resets']]])))
+ batched.append(row)
+b=replay(batched)['groups'][0]
+assert b['supported_ms']==r['supported_ms']and b['all_witness_replay_complete']
+assert b['rate_replay']==r['rate_replay']and b['onboard_replay']==r['onboard_replay']
+# USB can return a batch after a later full snapshot; availability ordering is
+# causal and must preserve the same independent replay.
+for i in range(0,len(batched)-4,4):batched[i:i+4]=batched[i+1:i+4]+batched[i:i+1]
+assert replay(batched)['groups'][0]['onboard_replay']==r['onboard_replay']
+print('PASS bounded batch expansion and USB reply reordering with no future fit inputs')

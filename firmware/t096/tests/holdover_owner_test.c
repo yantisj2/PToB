@@ -9,6 +9,9 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include "radio_audit.h"
+uint32_t holdover_test_uptime;
+#include "../src/radio_audit.c"
 #define K_FOREVER 0
 static unsigned state_lock;
 typedef int atomic_t;
@@ -43,6 +46,8 @@ int main(int argc,char **argv){
  current_origin.utc_offset=1000000000000LL;
  struct rc5_state state={.bound=true,.context_until=UINT64_MAX,.root_boot=11,.root_epoch=1,.parent_boot=12,.parent_epoch=1};
  hold_reset(2);
+ assert(r2_radio_audit_capture(900001)==-EINVAL);
+ assert(!r2_radio_audit_capture(900000));
  unsigned selected=0,continuous=0;
  for(unsigned i=1;i<=6400;i++){
   uint64_t tick=R2_CAPTURE_HZ+(uint64_t)i*1000000;
@@ -63,6 +68,26 @@ int main(int argc,char **argv){
  }
  printf("owner selection=%u continuity=%u starts=%u ends=%u rates=%d/%d guards=%u/%u\n",selected,continuous,starts,ends,hold_rate.short_fit.rate,hold_rate.long_fit.rate,hold_rate.short_fit.guard,hold_rate.long_fit.guard);fflush(stdout);
  assert(selected&&continuous&&starts>100&&ends>100&&hold_rate.count<=65);
+ /* Real shared ring: bounded batches, overflow visible, ordinary records and
+  * selection retained, lease expires across uptime wrap, no allocations. */
+ assert(sizeof audit+sizeof audit_lock+sizeof audit_head+sizeof audit_count+
+        sizeof audit_stats+sizeof audit_capture_until+sizeof audit_capture_active<=8*sizeof(struct r2_radio_audit_record)+sizeof(struct k_spinlock)+16);
+ char trace_json[1800];assert(r2_radio_audit_trace(trace_json,sizeof trace_json,0)>0);
+ assert(strstr(trace_json,"\"missed\":6392")&&strstr(trace_json,"\"capturing\":true"));
+ struct r2_radio_audit_status st;struct r2_radio_audit_record record;
+ assert(r2_radio_audit_read(0,&record,&st)&&record.generation==6393&&record.kind==R2_AUDIT_HOLD);
+ assert(r2_radio_audit_trace(trace_json,20,0)==-ENOSPC);
+ assert(!r2_radio_audit_capture(0)&&!r2_radio_audit_capturing());
+ uint32_t produced=st.produced;record=(struct r2_radio_audit_record){.kind=R2_AUDIT_HOLD};r2_radio_audit_put(&record);
+ assert(!r2_radio_audit_read(produced,&record,&st)&&st.produced==produced);
+ record=(struct r2_radio_audit_record){.kind=R2_AUDIT_RX,.event=1};r2_radio_audit_put(&record);
+ assert(!r2_radio_audit_read(produced,&record,&st));
+ record=(struct r2_radio_audit_record){.kind=R2_AUDIT_RX,.event=16};r2_radio_audit_put(&record);
+ assert(r2_radio_audit_read(produced,&record,&st)&&st.produced==produced+1);
+ holdover_test_uptime=UINT32_MAX-100;assert(!r2_radio_audit_capture(200)&&r2_radio_audit_capturing());
+ holdover_test_uptime=98;assert(r2_radio_audit_capturing());holdover_test_uptime=99;assert(!r2_radio_audit_capturing());
+ holdover_test_uptime=UINT32_MAX-100;assert(!r2_radio_audit_capture(101)&&r2_radio_audit_capturing());
+ holdover_test_uptime=0;assert(!r2_radio_audit_capturing());
  assert(sizeof hold_rate+sizeof hold_estimate+sizeof hold_trial+sizeof hold_view+sizeof hold_serial+sizeof hold_resets<=1280);
  uint64_t utc;uint32_t age;assert(hold_read(&utc,&age)&&age<=2);
  assert(r2_dynamic_service_holdover_test(999)==-EINVAL);

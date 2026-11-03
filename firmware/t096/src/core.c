@@ -86,6 +86,11 @@ int r2_parse(const char *line, struct r2_request *out)
   if(out->op==R2_HOLDOVER){
    if(count==6)return 0;
    if(count==7&&!strcmp(parts[6],"data")){out->trace_page=1;return 0;}
+   if(count==8&&(!strcmp(parts[6],"trace")||!strcmp(parts[6],"capture"))){
+    if(!hex(parts[7],8,&out->nonce))return -EINVAL;
+    out->trace_page=!strcmp(parts[6],"trace")?2:3;
+    return out->trace_page==3&&out->nonce>900000?-EINVAL:0;
+   }
    if(count!=7||!hex(parts[6],8,&out->nonce))return -EINVAL;
    uint64_t duration=out->nonce&UINT64_C(0x7fffffff);
    if((duration&&duration<1000)||duration>120000)return -EINVAL;

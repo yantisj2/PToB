@@ -114,7 +114,7 @@ static inline void r2_hold_refresh(struct r2_hold_rate *s,uint64_t at){
 static inline int32_t r2_hold_choose(const struct r2_hold_rate *s,uint64_t at,int32_t fast,uint32_t fast_guard,bool *selected){
  *selected=false;
  if(!s->refreshed||at<s->refreshed||at-s->refreshed>2*R2_CAPTURE_HZ||at<s->last_tick||
-    at-s->last_tick>2*R2_CAPTURE_HZ||s->short_fit.guard>10||s->long_fit.guard>10||
+    at-s->last_tick>2*R2_CAPTURE_HZ||s->short_fit.guard>20||s->long_fit.guard>10||
     s->long_fit.guard>=fast_guard||r2_hold_abs((int64_t)s->short_fit.rate-s->long_fit.rate)>5)return fast;
  int32_t a=fast,b=s->short_fit.rate,c=s->long_fit.rate,t;
  if(a>b){t=a;a=b;b=t;}if(b>c){t=b;b=c;c=t;}if(a>b){t=a;a=b;b=t;}

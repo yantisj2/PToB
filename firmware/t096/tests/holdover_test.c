@@ -24,6 +24,12 @@ static void frequency(int32_t truth,uint64_t offset){
  assert(r2_hold_choose(&s,s.last_available,truth+10,5,&selected)==truth+5&&selected);
  assert(r2_hold_choose(&s,s.last_available,truth+2000,100,&selected)==truth+2000&&!selected);
  assert(r2_hold_choose(&s,s.last_available+3*R2_CAPTURE_HZ,truth+10,100,&selected)==truth+10&&!selected);
+ struct r2_hold_rate guarded=s;guarded.short_fit.guard=20;guarded.long_fit.guard=10;
+ (void)r2_hold_choose(&guarded,s.last_available,truth+10,100,&selected);assert(selected);
+ guarded.short_fit.guard=21;
+ assert(r2_hold_choose(&guarded,s.last_available,truth+10,100,&selected)==truth+10&&!selected);
+ guarded.short_fit.guard=20;guarded.long_fit.guard=11;
+ assert(r2_hold_choose(&guarded,s.last_available,truth+10,100,&selected)==truth+10&&!selected);
  assert(!r2_hold_observe(&s,s.last_tick,s.origin_ns,s.last_available,0));
  assert(!r2_hold_observe(&s,s.last_tick+R2_CAPTURE_HZ,s.origin_ns,s.last_tick,0));
  assert(!r2_hold_observe(&s,s.last_tick+R2_CAPTURE_HZ,s.origin_ns,s.last_available+R2_CAPTURE_HZ,37));

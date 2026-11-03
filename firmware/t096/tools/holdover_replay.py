@@ -48,22 +48,40 @@ def table(runs):
  return result
 def replay(rows,starts=100,warmup_ms=32000,spacing_ms=2000,bias_ns=10543):
  scopes=defaultdict(list)
+ # Batch witness availability, rather than USB reply time, determines order.
+ # When a real trace exists, latest-witness snapshots are diagnostics only.
+ # The offline rate oracle may see all points but fit() enforces availability.
+ traced={(r.get('source',r.get('payload',r).get('source')),r.get('boot',r.get('payload',r).get('boot')))for r in rows if r.get('payload',r).get('schema')==3}
  for row in rows:
   p=row.get('payload',row)
-  if 'raw_pair'not in p:continue
-  key=(row.get('source',p.get('source')),row.get('boot',p.get('boot')),p['epoch'],p['resets'])
-  scopes[key].append(p)
+  source,boot=row.get('source',p.get('source')),row.get('boot',p.get('boot'))
+  expanded=[]
+  if p.get('schema')==3:
+   for audit_seq,seq,tick,ns,available,ch,sampled,epoch,context in p['records']:
+    expanded.append(dict(now_tick=available,raw_pair=[tick,ns,available,seq],
+     pair=[tick,ns,available]if sampled else[0,0,0],channel=ch,epoch=epoch,resets=context))
+  elif 'raw_pair'in p or 'map'in p:
+   p=p.copy()
+   if (source,boot)in traced:p.pop('raw_pair',None)
+   expanded.append(p)
+  for p in expanded:scopes[(source,boot,p['epoch'],p['resets'])].append(p)
  output=[]
  for scope,data in scopes.items():
+  data.sort(key=lambda p:p['now_tick'])
   raw=[];points=[];point_ticks=set();last_seq=None;missing=0;origin=None;next_start=None;runs=[]
   active=[];models={};rate_checks=rate_errors=guard_errors=0;last_fit=0;first_raw=None;duplicates=0
   for p in data:
-   tick,ns,available,seq=p['raw_pair'];now=p['now_tick']
-   if not seq or available>now:continue
-   if first_raw is None:first_raw=tick
+   pair=p.get('pair',[0,0,0]);ch=p.get('channel')
+   if pair[0]and pair[0]not in point_ticks and ch is not None:
+    point_ticks.add(pair[0]);points.append((*pair,ch))
+  points.sort()
+  for p in data:
+   now=p['now_tick'];tick,ns,available,seq=p.get('raw_pair',[0,0,0,0])
+   if available>now:raise ValueError('witness not yet available')
+   if seq and first_raw is None:first_raw=tick
    gap=0
-   if last_seq is not None and seq<last_seq:raise ValueError('raw witness cursor regressed inside scope')
-   if last_seq is None or seq>last_seq:
+   if seq and last_seq is not None and seq<last_seq:raise ValueError('raw witness cursor regressed inside scope')
+   if seq and (last_seq is None or seq>last_seq):
     gap=0 if last_seq is None else seq-last_seq-1;missing+=gap
     raw.append((tick,ns+bias_ns,seq));last_seq=seq
     for r in active:
@@ -77,10 +95,7 @@ def replay(rows,starts=100,warmup_ms=32000,spacing_ms=2000,bias_ns=10543):
        r['prefix'][age]=dict(**r['maximum'],unknown=bool(r['missing']or tick-r['start']>(age+1000)*16000),
         witnesses=r['witnesses'],overshoot_ticks=tick-r['start']-age*16000)
     active=[r for r in active if 120000 not in r['prefix']and tick-r['start']<=121*HZ]
-   else:duplicates+=1
-   pair=p.get('pair',[0,0,0]);ch=p.get('channel')
-   if pair[0]and pair[0]not in point_ticks and ch is not None:
-    point_ticks.add(pair[0]);points.append((*pair,ch));points.sort()
+   elif seq:duplicates+=1
    if 'rates'in p and p.get('fit_at',0)>last_fit:
     at=p['fit_at'];last_fit=at
     if points and at-points[0][0]>=32*HZ:
