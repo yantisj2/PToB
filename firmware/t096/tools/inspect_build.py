@@ -454,7 +454,7 @@ def inspect(out,allow_development=False):
             default_on=False,precision_sf=7,precision_bandwidth_hz=[41667,500000],
             assignment='ABBA_CURSOR_DIV2',control='SF12_BW500',hopping='UNCHANGED_64',
             accounting='CONSERVATIVE_NARROW_BOTH_ARMS',purpose='RAW_ENDPOINT_CHARACTERIZATION_ONLY')
-        if slow:expected_experiment.update(precision_bandwidth_hz=[41667,62500,125000,250000,500000],assignment='FWD_REV_CURSOR_DIV2',hopping='FIXED_2_ACTUAL_ACCOUNTING',precision_channels=[16,48],arm_phy=[2,4,5,6,3],precision_us=30000000,sync_offset_us=7000000,follow_offset_us=2500000,follow_latest_us=4500000,frame_us=15000000)
+        if slow:expected_experiment.update(precision_bandwidth_hz=[41667,62500,125000,250000,500000],assignment='FWD_REV_CURSOR_DIV2',hopping='FIXED_2_ACTUAL_ACCOUNTING',precision_channels=[16,48],arm_phy=[2,4,5,6,3],precision_us=30000000,sync_offset_us=7000000,follow_offset_us=2500000,follow_latest_us=4500000,frame_us=15000000,source_hold_us=5000000)
         require(r.get('bandwidth_experiment')==expected_experiment,'Bandwidth experiment receipt')
         private_sha=hashlib.sha256((private_sha+(':bw-experiment:SWEEP_SF7_SLOW30_600S_FIXED16_48' if slow else ':bw-experiment:ABBA_SF7_240S')).encode()).hexdigest()
     else:require('R2_LORA_BW_EXPERIMENT=1' not in commands,'Unexpected bandwidth experiment')
