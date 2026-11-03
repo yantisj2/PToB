@@ -658,11 +658,42 @@ static void scratch263_test(void){
  r2_lora_init(1,22,1,&test_group);for(unsigned i=0;i<4;i++)assert(!tx_due[0][i]&&!tx_due[1][i]);for(unsigned i=0;i<24;i++)assert(r2_diag_scratch.controller.words[i]==UINT32_C(0x5a5a5a5a));
  puts("PASS slow due counters reuse existing32B scratch, preserve376B fault/observer prefix and24word controller tail, legacy fieldszero, bootclearswithoutNV");
 }
+static void staged_grant_test(unsigned mode){
+ unsigned kind=LP_META+(mode-95)/4,action=(mode-95)%4;
+ prepare_tx();
+ if(kind!=LP_META){launch();done(role.tx.reservation.slot_us,LP_META);}
+ if(kind==LP_FOLLOW){now_us=role.tx.reservation.slot_us+LP_SYNC_OFFSET_US;step();done(sent_at_us,LP_SYNC);}
+ uint64_t due=kind==LP_META?role.tx.core.durable.next_slot_us:
+  kind==LP_SYNC?role.tx.reservation.slot_us+LP_SYNC_OFFSET_US:owner.last_sync_us+LP_FOLLOW_OFFSET_US;
+ now_us=due-(kind==LP_META?PRECHARGE_LEAD_US:1000000);step();
+ assert(owner.prepared_kind==kind&&!owner.tx_kind);
+ uint64_t charge=lp_charged(&role.tx.core.durable,now_us),slot=role.tx.reservation.slot_us;
+ uint32_t stream=role.tx.stream,serial=role.tx.core.durable.serial,refunds=owner.no_rf_refunds;
+ unsigned count=txs;now_us=due;
+ struct rc8_export m=source();m.anchor_tick=m.from_tick=now_us*16;m.anchor_ns+=now_us*1000;
+ m.until_tick=(now_us+lp_duration(kind)-1)*16;++m.map_generation;r2_lora_source_publish(&m);step();
+ assert(txs==count&&owner.prepared_kind==kind&&!owner.tx_kind&&prepared_size==lp_size(kind));
+ assert(role.tx.reservation.slot_us==slot&&role.tx.stream==stream&&role.tx.core.durable.serial==serial);
+ assert(lp_charged(&role.tx.core.durable,now_us)==charge&&owner.no_rf_refunds==refunds);
+ now_us=due+100000;
+ if(action==1)r2_lora_source_withdraw();
+ else{
+  if(action==3)now_us=kind==LP_FOLLOW?owner.last_sync_us+LP_FOLLOW_LATEST_US-4000:due+LP_LAUNCH_LATE_US+1;
+  m=source();m.anchor_tick=m.from_tick=now_us*16;m.anchor_ns+=now_us*1000;++m.map_generation;
+  if(action==2)++m.scope.source_epoch;
+  r2_lora_source_publish(&m);
+ }
+ step();
+ if(action==0){assert(txs==count+1&&owner.tx_kind==kind&&sent_at_us==due+100000);
+  assert(lp_charged(&role.tx.core.durable,now_us)==charge&&owner.no_rf_refunds==refunds&&role.tx.stream==stream);
+ }else{assert(txs==count&&!owner.tx_kind&&!atomic_get(&faulted));step();assert(txs==count);}
+ printf("PASS staged original grant kind=%u action=%u preserves token/debit/context; withdrawal and original deadlines fence RF\n",kind,action);
+}
 #endif
 int main(int argc,char **argv){
  assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);
 #ifdef R2_LORA_PASSIVE_SLOW
- if(mode==94)scratch263_test();else if(mode==82||mode==83||mode==90||mode==91)engineering263_test(mode);else if(mode==71||mode==72||mode==80||mode==84||mode==92||mode==93)rendezvous261_test(mode);else if(mode>=73)projection261_test(mode);else if(mode>=66&&mode<=69)cancellation260_test(mode);else if(mode==56)delayed_tx_test(mode);else if(mode>=57)timers260_test(mode);else if(mode>=47)source_read_test(mode);else if(mode==46)receive_window_test();else if(mode>=39)prepared_fence_test(mode);else if(mode>=35)delayed_tx_test(mode);else
+ if(mode>=95)staged_grant_test(mode);else if(mode==94)scratch263_test();else if(mode==82||mode==83||mode==90||mode==91)engineering263_test(mode);else if(mode==71||mode==72||mode==80||mode==84||mode==92||mode==93)rendezvous261_test(mode);else if(mode>=73)projection261_test(mode);else if(mode>=66&&mode<=69)cancellation260_test(mode);else if(mode==56)delayed_tx_test(mode);else if(mode>=57)timers260_test(mode);else if(mode>=47)source_read_test(mode);else if(mode==46)receive_window_test();else if(mode>=39)prepared_fence_test(mode);else if(mode>=35)delayed_tx_test(mode);else
 #endif
  if(mode>=28)drain_test(mode);else if(mode>=21)scheduling_test(mode);else if(mode==20)replay_test();else if(mode>=9&&mode<=15)bridge_test(mode);else owner_test(mode);
  printf("PASS RAM mode=%u cadence=%u checkpoint=%zu tx=%zu rx=%zu replay=%zu owner=%zu\n",mode,LP_SCHEDULE,sizeof(struct lp_checkpoint),sizeof(struct lp_tx),sizeof(struct lp_rx),sizeof replay,sizeof role);

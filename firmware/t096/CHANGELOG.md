@@ -1,5 +1,21 @@
 # T096 changelog
 
+## 0.15.274 — preserve staged LoRa work while awaiting source room
+
+Check the current original grant against the complete physical packet budget
+before consuming the prepared FIFO token. META, SYNC and FOLLOW may wait for a
+fresh authenticated grant inside their existing launch windows. A healthy wait
+retains its reservation, slot, context and full charge; it does not restart the
+two-second preparation or count as a driver launch. The driver's single-use
+token, final source/callback fences and all absolute deadlines remain intact.
+This addresses repeated META preparation missing the short BLE grant window;
+it does not extend source permission or qualify delivery or timing accuracy.
+
+Production-owner tests cover fresh grants, source withdrawal, changed source
+epochs and grants arriving after the deadline for all three packet kinds. The
+previous consume-before-admission path is a causal negative control. Wire3,
+P30/D120/M300, packet contents, PHY, cap and receiver discipline are unchanged.
+
 ## 0.15.273 — wire3 P30/D120/M300 and sparse clock discipline
 
 Passive schedule3 sends precision every30s and DISC every120s, keeping META

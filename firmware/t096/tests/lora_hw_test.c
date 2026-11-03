@@ -388,6 +388,10 @@ int main(int argc,char **argv){
    uint64_t expected=((UINT64_C(902400000)+400000*ch)*(UINT64_C(1)<<25)+16000000)/32000000;
    assert(word==expected&&configured_modulation[0]==7&&configured_modulation[1]==10&&configured_modulation[2]==2&&!configured_modulation[3]);
    assert(r2_lora_hw_budget_us(24)==231951&&r2_lora_hw_budget_us(32)==268814&&!r2_lora_hw_budget_us(112));
+#ifdef R2_QA_PASSIVE_BUDGET
+   assert(r2_lora_hw_budget_us(lp_size(LP_SYNC))==lp_duration(LP_SYNC));
+   assert(r2_lora_hw_budget_us(lp_size(LP_FOLLOW))==lp_duration(LP_FOLLOW));
+#endif
    assert(!r2_lora_hw_tx(payload,24,5)&&last_budget==231951);
    assert(r2_lora_hw_passive_configure(R2_LORA_DTS,0)==-EBUSY);
    mock_us+=221951;inject(1);mock_us+=12345;struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1&&e.end_since_enable_us==221951&&e.end_local_us==mock_us-12345);
@@ -397,6 +401,10 @@ int main(int argc,char **argv){
    assert(!r2_lora_hw_passive_configure(R2_LORA_DTS,0));
    assert(configured_modulation[0]==12&&configured_modulation[1]==6&&configured_modulation[2]==2&&!configured_modulation[3]);
    assert(r2_lora_hw_budget_us(28)==454416&&r2_lora_hw_budget_us(112)==1142544&&!r2_lora_hw_budget_us(80));
+#ifdef R2_QA_PASSIVE_BUDGET
+   assert(r2_lora_hw_budget_us(lp_size(LP_DISC))==lp_duration(LP_DISC));
+   assert(r2_lora_hw_budget_us(lp_size(LP_META))==lp_duration(LP_META));
+#endif
    if(mode==265){assert(!r2_lora_hw_rx_rearm()&&configured_irq==0x262);packet_length=112;inject(2);
     struct r2_lora_hw_event e;assert(r2_lora_hw_take(&e)==1&&e.kind==R2_LORA_HW_RX_DONE&&e.length==112&&e.tick==physical_tick);
    }else if(mode==266){assert(!r2_lora_hw_tx(payload,112,5)&&last_budget==1142544);}

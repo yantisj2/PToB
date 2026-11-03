@@ -633,6 +633,15 @@ static bool restore(uint64_t first_slot){
 #ifdef R2_LORA_PASSIVE_SLOW
 static int launch_prepared(unsigned kind,uint64_t finish,struct r2_capture limit){
  if(owner.prepared_kind!=kind)return -EAGAIN;
+ /* Waiting for a fresh original grant must not consume staged FIFO work or
+  * retire its reservation. META has a narrow packet-sized BLE launch window;
+  * restarting its two-second preparation after every refusal can repeatedly
+  * miss that window. This check emits no RF and keeps the original slot and
+  * finish deadline. The driver still consumes its token and repeats admission
+  * after this check, then fences the final SetTx callback against preemption. */
+ int ready=r2_lora_hw_source_preflight(r2_lora_hw_budget_us(lp_size(kind)),generation,finish,
+  limit.tick,limit.epoch,mono());
+ if(ready)return ready;
  struct r2_capture floor;if(!r2_capture_now(&floor))return -EAGAIN;
  k_spinlock_key_t key=k_spin_lock(&lock);++map_version;role.tx.pinned=false;
  role.tx.edge=(struct r2_lora_hw_edge){.tick=floor.tick,.capture_epoch=floor.epoch,.generation=generation};
@@ -955,6 +964,9 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  owner.source_room_us=r2_capture_now(&observed)&&observed.epoch==limit.epoch&&observed.tick<limit.tick?(uint32_t)((limit.tick-observed.tick)/16):0;
  r2_diag_scratch.lora.attempt.source_room_us=owner.source_room_us;r2_diag_scratch.lora.attempt.valid|=16;
  attempted=true;rc=launch_prepared(r->control,r->slot_us+LP_LAUNCH_PAD_US+lp_duration(r->control),limit);
+ /* An intact prepared token means the capture-only precheck deferred work;
+  * no driver attempt, cancellation, debit refund or new context occurred. */
+ if(rc==-EAGAIN&&owner.prepared_kind==r->control)return 0;
 #else
  rc=launch_control(now,phase_ns,source_epoch,root_boot,limit,&attempted);
 #endif

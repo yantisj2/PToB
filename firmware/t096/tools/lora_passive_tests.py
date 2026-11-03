@@ -76,7 +76,12 @@ def main():
     body=a.out/'owner_body.c'
     body.write_text(re.sub(r'^#include[^\n]*\n','',(APP/'src/lora_hw.c').read_text(),flags=re.M))
     driver=a.out/'passive_driver'
-    subprocess.run([*flags,'-DR2_LORA_PASSIVE_FAST=1','-DR2_LORA_OWNER_BODY="'+str(body.resolve())+'"',str(APP/'tests/lora_hw_test.c'),'-o',str(driver)],check=True)
+    budget=a.out/'passive_budget.h'
+    duration=re.search(r'uint32_t lp_duration\(unsigned k\)\{.*?\n\}',(APP/'src/lora_passive_core.c').read_text(),re.S)
+    size=re.search(r'size_t lp_size\(unsigned k\)\{.*?\n\}',(APP/'protocol/lora_passive.c').read_text(),re.S)
+    assert duration and size
+    budget.write_text('#include "lora_passive_core.h"\n'+duration.group(0)+'\n'+size.group(0)+'\n')
+    subprocess.run([*flags,'-DR2_LORA_PASSIVE_FAST=1','-DR2_QA_PASSIVE_BUDGET=1','-include',str(budget),'-DR2_LORA_OWNER_BODY="'+str(body.resolve())+'"',str(APP/'tests/lora_hw_test.c'),'-o',str(driver)],check=True)
     for mode in range(201,283):subprocess.run([str(driver),str(mode)],check=True)
     for mode in range(350,379):subprocess.run([str(driver),str(mode)],check=True)
     receipt=dict(status='PASS_PRODUCTION_C_FAKE_BOUNDARIES',hardware='NOT_TESTED',deployment_authorized=False,wire_oracle=True,driver_cases=111,offered_hours_per_campaign=2,phases_us=sorted(campaigns),admitted_frames_per_campaign={str(k):len(v[0]) for k,v in campaigns.items()},worst_rolling_hour_us=hour,worst_channel_20s_us=dwell,sources={str(s.relative_to(APP)):hashlib.sha256(s.read_bytes()).hexdigest() for s in [*sources,APP/'src/lora_hw.c',APP/'include/lora_hw.h',APP/'include/lora_watchdog.h',APP/'include/lora_passive_core.h',APP/'protocol/lora_passive.h',APP/'tests/lora_hw_test.c',Path(__file__)]})

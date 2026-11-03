@@ -160,6 +160,13 @@ replacement and reconfiguration invalidate prepared work. Source turnover drains
 the old transaction and requires a fresh META/stream; it cannot rewrite an
 already captured SYNC with a later map.
 
+An insufficient current grant leaves the prepared FIFO token and reservation
+intact while waiting inside the original launch window. Only actual driver
+entry consumes that token; the driver and final callback repeat source and
+finish checks. This avoids restarting preparation after every packet-sized
+grant refusal. Such capture-only waits can increase source rejection diagnostics
+without being actual launch refusals, cancellations or additional reservations.
+
 A completed physical SYNC retains its exact event/map through bounded projection
 contention retries. Hardware DONE and airtime accounting occur once. First DONE
 admission retains its 2 s age cap; later polls validate the saved event/audit,
@@ -351,7 +358,9 @@ source us, required us, remaining finish us, source-rejection count,
 finish-rejection count, generation, no-RF evidence, UTC phase us]. Reasons are 1
 SOURCE_ROOM and 2 FINISH_WINDOW. Points are 1 pre-reservation, 2 driver entry, 3
 after SPI/before SetTx, 4 callback source fence and 5 callback finish fence. The
-pre-reservation required room includes time to the planned start. Later cap
+point-1 capture-only required room includes time to the planned start when
+pre-reserving, or the complete current packet when waiting with staged work.
+Later cap
 refusals do not erase this record. `no_rf_refunds` counts exact single-use RAM
 reservation refunds after synchronous healthy pre-SetTx rejection. Callback
 fences, ordinary cancellation, possible RF and terminal faults retain charge. No

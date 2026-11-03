@@ -13,7 +13,7 @@ def main():
  cases=0;log=[]
  for profile,defs in [('slow',['-DR2_LORA_PASSIVE_SLOW=1']),('fast',['-DR2_LORA_PASSIVE_FAST=1']),('diagnostic',['-DR2_LORA_PASSIVE_FAST=1','-DR2_LORA_TX_DIAGNOSTIC=1'])]:
   binary=a.out/profile;r=subprocess.run([*flags,*defs,*map(str,sources),'-o',str(binary)],capture_output=True,text=True);(a.out/(profile+'-compile.log')).write_text(r.stdout+r.stderr);r.check_returncode()
-  for mode in [*range(1,16),20,*range(21,95)]:
+  for mode in [*range(1,16),20,*range(21,107)]:
    if profile!='slow' and mode>=35:continue
    if profile!='slow' and mode==5:continue
    if profile=='diagnostic' and (mode>=28 or mode in (2,3,7,9,10,11,12,13,14,15,20,22,23,24,25,26,27)):continue
@@ -31,6 +31,10 @@ def main():
   r=subprocess.run([str(oldbinary),str(mode)],capture_output=True,text=True);(a.out/('old-rendezvous-negative-'+str(mode)+'.log')).write_text(r.stdout+r.stderr);r.check_returncode();assert 'physically missed' in r.stdout;print(r.stdout.strip());cases+=1
  # Causal negatives: preserve every other current fence/profile value.
  variants=[]
+ oldgrant=a.out/'old_consumed_grant.c';oldgrant.write_text(body.read_text().replace(
+  'int ready=r2_lora_hw_source_preflight(r2_lora_hw_budget_us(lp_size(kind)),generation,finish,\n  limit.tick,limit.epoch,mono());\n if(ready)return ready;',
+  '/* Negative control: consume prepared work before source admission. */'))
+ variants.append(('old-consumed-grant',95,[f.replace(str(body),str(oldgrant))for f in flags],sources,'owner.prepared_kind==kind'))
  oldcodec=a.out/'old400_codec.c';oldcodec.write_text((APP/'protocol/lora_passive.c').read_text().replace('p->delay_10ms>LP_MAX_DELAY_10MS','p->delay_10ms>400'))
  variants.append(('old400-delay',82,flags,[oldcodec if f==APP/'protocol/lora_passive.c' else f for f in sources],'"error":-22'))
  oldpredict=a.out/'old_predicted_tune.c';oldpredict.write_text(body.read_text().replace('if(wait_control)return 0;','(void)wait_control;'))
