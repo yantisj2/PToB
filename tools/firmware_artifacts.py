@@ -173,7 +173,7 @@ def grouping(root, r):
     # Do not key by firmware version, source hash, calibration hash or enrollment:
     # doing so would silently create a new permanent retention bucket every run.
     options = {k: bool(r.get(k, False)) for k in ('estimated_relay', 'fine_clock',
-               'lora_rx', 'lora_passive_fast', 'lora_passive_slow', 'lora_tx_diagnostic', 'rc9', 'controller_diagnostics', 'gnss_fast_map_diagnostic')}
+               'lora_rx', 'lora_passive_fast', 'lora_passive_slow', 'lora_tx_diagnostic', 'lora_bw_experiment', 'rc9', 'controller_diagnostics', 'gnss_fast_map_diagnostic')}
     options['listening_percent'] = r.get('listening_percent', 100)
     options['gnss'] = bool(device.get('gnss_profile'))
     backend = r.get('clock_backend') or {}

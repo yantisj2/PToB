@@ -41,6 +41,8 @@
 #define LAB_RUN_US UINT64_C(36000000)
 #define DIAGNOSTIC_CHARGE_US UINT32_C(12000000)
 #define DIAGNOSTIC_CAPTURE_US UINT64_C(1500000)
+#elif defined(R2_LORA_BW_EXPERIMENT)
+#define LAB_RUN_US UINT64_C(240000000)
 #else
 #define LAB_RUN_US UINT64_C(900000000)
 #endif
@@ -48,6 +50,13 @@
 #define DIAGNOSTIC_JSON "true"
 #else
 #define DIAGNOSTIC_JSON "false"
+#endif
+#ifdef R2_LORA_BW_EXPERIMENT
+#define BW_EXPERIMENT_JSON "\"bw_experiment\":true,\"bw_rule\":\"ABBA_CURSOR_DIV2\",\"precision_sf\":7,\"common_grid_phase_us\":400000,\"bw_hz\":[41667,500000],"
+#define SOURCE_GRID_PHASE_NS UINT64_C(400000000)
+#else
+#define BW_EXPERIMENT_JSON ""
+#define SOURCE_GRID_PHASE_NS UINT64_C(200000000)
 #endif
 #define REBOOT_CONTROL_GUARD_US UINT64_C(4000000)
 #ifdef R2_LORA_PASSIVE_SLOW
@@ -108,7 +117,11 @@ static void due_lateness(unsigned kind,uint64_t target,uint64_t now){(void)kind;
 static struct r2_tz_lease source_tz;
 static struct r2_lora_view published;
 static uint64_t shadow_tick;
-struct lp_audit {uint64_t tick,epoch,start_us,end_us;uint32_t cursor;uint8_t phy,channel,valid;};
+struct lp_audit {uint64_t tick,epoch,start_us,end_us;uint32_t cursor;uint8_t phy,channel,valid;
+#ifdef R2_LORA_BW_EXPERIMENT
+ int16_t rssi;int8_t snr;bool packet_status_valid;
+#endif
+};
 /* Last physical event of each kind. Each kind recurs no faster than4s, so a
  * bounded1Hz console collector can retain every event and its denominator. */
 #ifdef R2_LORA_PASSIVE_SLOW
@@ -196,7 +209,7 @@ void r2_lora_control(bool rc,bool allowed,enum rc8_selected preferred){
 void r2_lora_mesh_contact(bool present){if(present)atomic_or(&flags,MESH_CONTACT);else atomic_and(&flags,~MESH_CONTACT);}
 void r2_lora_request(bool on){
  k_spinlock_key_t key=k_spin_lock(&lock);
-#ifdef R2_LORA_TX_DIAGNOSTIC
+#if defined(R2_LORA_TX_DIAGNOSTIC)||defined(R2_LORA_BW_EXPERIMENT)
  /* One explicit finite arm per boot; repeated ON cannot renew its budget. */
  if(on&&r2_diag_scratch.lora.diagnostic.used){k_spin_unlock(&lock,key);return;}
  if(on){r2_diag_scratch.lora.diagnostic.used=true;r2_diag_scratch.lora.diagnostic.armed_us=mono();}
@@ -515,6 +528,15 @@ static bool physical(const struct r2_lora_hw_event *h,uint64_t *event){
  uint64_t age=(at.tick-h->tick+15)/16;if(age>2000000||age>us)return false;
  *event=us-age;return true;
 }
+static unsigned precision_phy(uint32_t cursor){
+#ifdef R2_LORA_BW_EXPERIMENT
+ /* Authenticated cursor chooses A B B A; SYNC and FOLLOW share one arm.
+  * Original64-hop mapping and20s channel cooldowns are unchanged. */
+ return lp_bw_arm(cursor)?R2_LORA_FHSS_BW500:R2_LORA_FHSS;
+#else
+ (void)cursor;return R2_LORA_FHSS;
+#endif
+}
 static int tune(unsigned phy,unsigned channel,bool receive){
  if(owner.listening){int rc=r2_lora_hw_idle();if(rc)return rc;owner.listening=false;}
  int rc=r2_lora_hw_passive_configure(phy,channel);
@@ -745,13 +767,14 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   uint64_t room=(limit.tick-observed.tick)/16;uint32_t bounded=room>UINT32_MAX?UINT32_MAX:(uint32_t)room;
   if(bounded>owner.max_source_room_us){owner.max_source_room_us=bounded;owner.max_source_phase_us=(uint32_t)((phase_ns%UINT64_C(1000000000))/1000);}}
  if(owner.tx_kind)return 0;
- /* Choose the initial fixed monotonic phase200ms after the source second.
+ /* Choose the initial fixed monotonic source phase. Production uses200ms;
+  * the finite common A/B setup uses400ms to probe observed BLE grant room.
   * Own-GNSS passive LoRa has its separate three-second PPS grant; delivered
   * BLE time retains the original authenticated upstream bound.
   * Never slew/rephase an admitted stream; service restarts retain next_slot.
   * Per-boot accounting survives service changes; no prior boot is restored. */
  uint64_t period_ns=UINT64_C(1000000000);
- uint64_t delay_ns=(period_ns+UINT64_C(200000000)-phase_ns%period_ns)%period_ns;
+ uint64_t delay_ns=(period_ns+SOURCE_GRID_PHASE_NS-phase_ns%period_ns)%period_ns;
 #ifdef R2_LORA_PASSIVE_SLOW
  if(delay_ns<PRECHARGE_LEAD_US*1000)delay_ns+=((PRECHARGE_LEAD_US*1000-delay_ns+period_ns-1)/period_ns)*period_ns;
 #else
@@ -766,7 +789,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   uint64_t at=role.tx.reservation.slot_us+LP_SYNC_OFFSET_US;
 #ifdef R2_LORA_PASSIVE_SLOW
   if(owner.prepared_kind!=LP_SYNC&&now+PAIR_PREPARE_LEAD_US>=at){
-   int rc=tune(R2_LORA_FHSS,lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
+   int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
    rc=send_pair(LP_SYNC,0,limit);if(rc)return rc;now=mono();
   }
 #endif
@@ -792,7 +815,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   if(source==SOURCE_ABSENT){begin_stop(0);return 0;}
   int rc=0;
 #else
-  int rc=tune(R2_LORA_FHSS,lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
+  int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
 #endif
   owner.source_phase_us=(uint32_t)((phase_ns%UINT64_C(1000000000))/1000);
 #ifdef R2_LORA_PASSIVE_SLOW
@@ -811,7 +834,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   uint64_t at=owner.last_sync_us+LP_FOLLOW_OFFSET_US;
 #ifdef R2_LORA_PASSIVE_SLOW
   if(owner.prepared_kind!=LP_FOLLOW){
-   int rc=tune(R2_LORA_FHSS,lp_channel(t->order,role.tx.reservation.cursor+1),false);if(rc)return rc;
+   int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor+1),false);if(rc)return rc;
    rc=send_pair(LP_FOLLOW,0,limit);if(rc)return rc;now=mono();
   }
 #endif
@@ -828,7 +851,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   if(source==SOURCE_ABSENT){begin_stop(0);return 0;}
   int rc=0;
 #else
-  int rc=tune(R2_LORA_FHSS,lp_channel(t->order,role.tx.reservation.cursor+1),false);if(rc)return rc;
+  int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor+1),false);if(rc)return rc;
 #endif
   owner.source_phase_us=(uint32_t)((phase_ns%UINT64_C(1000000000))/1000);
 #ifdef R2_LORA_PASSIVE_SLOW
@@ -861,6 +884,11 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  bool job_owned=owner.stage==3&&utc_running_token,over_cap=false;
 #ifdef R2_LORA_PASSIVE_SLOW
  if(!owner.stage)job_owned=utc_plan(now,t,&target,&over_cap);
+#endif
+#ifdef R2_LORA_BW_EXPERIMENT
+ /* No reservation may outlive the single finite characterization arm. */
+ if(!owner.stage&&!owner.tx_kind&&!t->durable.pending&&target+LP_FRAME_END_US>lab_until){
+  r2_lora_request(false);return 0;}
 #endif
  #ifdef R2_LORA_TX_DIAGNOSTIC
  /* Reserve only complete original frames. Host loss cannot create a partial
@@ -1009,6 +1037,11 @@ static int __attribute__((noinline)) receive_event(const struct r2_lora_hw_event
  if(lp_decode(&p,h->frame,h->length,r->context,group)){inc(&owner.bad);return 0;}
  k_spinlock_key_t audit_key=k_spin_lock(&lock);
  audits[AUDIT_INDEX(p.kind)]=(struct lp_audit){.tick=h->tick,.epoch=h->capture_epoch,.start_us=event,.end_us=now,.cursor=p.cursor,.phy=owner.phy,.channel=owner.channel,.valid=true};
+#ifdef R2_LORA_BW_EXPERIMENT
+ audits[AUDIT_INDEX(p.kind)].rssi=h->rssi_half_dbm;
+ audits[AUDIT_INDEX(p.kind)].snr=h->snr_quarter_db;
+ audits[AUDIT_INDEX(p.kind)].packet_status_valid=h->packet_status_valid;
+#endif
  k_spin_unlock(&lock,audit_key);
 #ifdef R2_LORA_PASSIVE_SLOW
  audit_kind=p.kind;
@@ -1033,7 +1066,7 @@ static int __attribute__((noinline)) receive_event(const struct r2_lora_hw_event
   owner.next_control_us=start+LP_BEAT_US;
  }else if(p.kind==LP_SYNC){
   if(lp_rx_sync(r,p.cursor,h->tick,h->capture_epoch,event,now)){
-   owner.listening=false;return tune(R2_LORA_FHSS,lp_channel(r->order,p.cursor+1),true);
+   owner.listening=false;return tune(precision_phy(p.cursor),lp_channel(r->order,p.cursor+1),true);
   }
  }else if(p.kind==LP_FOLLOW){
   bool accepted=lp_rx_follow(r,&p,NULL,h->capture_epoch,now);
@@ -1196,9 +1229,9 @@ static int receive_step(uint64_t now){
 #ifndef R2_LORA_PASSIVE_SLOW
   if(r->prediction)r->prediction=false;
 #endif
-  return tune(R2_LORA_FHSS,lp_channel(r->order,r->hint_cursor),true);
+  return tune(precision_phy(r->hint_cursor),lp_channel(r->order,r->hint_cursor),true);
  }
- if(owner.phy==R2_LORA_FHSS&&!r->pending&&!r->hint)return tune(R2_LORA_DTS,0,true);
+ if(owner.phy!=R2_LORA_DTS&&!r->pending&&!r->hint)return tune(R2_LORA_DTS,0,true);
  return 0;
 }
 static bool fenced(void){k_spinlock_key_t key=k_spin_lock(&lock);bool value=stop_deadline!=0;k_spin_unlock(&lock,key);return value;}
@@ -1404,7 +1437,7 @@ int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
  uint64_t age=display_available&&sampled>=reference?(sampled-reference)/1000:UINT64_MAX;
  uint32_t reference_age=age>UINT32_MAX?UINT32_MAX:(uint32_t)age;
  return snprintf(out,capacity,
- "{\"diag\":1,\"tx_diagnostic\":" DIAGNOSTIC_JSON ",\"profile\":\"%s\",\"result\":%d,\"boot\":\"%016llx\",\"at_us\":%llu,"
+ "{" BW_EXPERIMENT_JSON "\"diag\":1,\"tx_diagnostic\":" DIAGNOSTIC_JSON ",\"profile\":\"%s\",\"result\":%d,\"boot\":\"%016llx\",\"at_us\":%llu,"
  "\"transmitter\":%s,\"requested\":%s,\"active\":%s,\"fault\":%s,\"inhibited\":%s,\"error\":%d,\"tx_gate\":%u,"
  "\"emitter\":\"%016llx\",\"emitter_boot\":\"%016llx\",\"stream\":%u,\"source_epoch\":%u,\"capture_epoch\":%llu,"
  "\"serial\":%u,\"cursor\":%u,\"event_mono_us\":%llu,\"event_tick\":%llu,\"event_ns\":%llu,"
@@ -1464,7 +1497,7 @@ until=lab_until;
  else if(r2_diag_scratch.lora.retained.record[0]==R2_LORA_FAULT_MAGIC){memcpy(fault_words,r2_diag_scratch.lora.retained.record,sizeof fault_words);fault_boot=r2_diag_scratch.lora.retained.boot;}
  irq_unlock(fault_key);
  return snprintf(out,capacity,
- "{\"passive\":3,\"runtime_state\":\"RAM_ONLY\",\"tx_diagnostic\":" DIAGNOSTIC_JSON ",\"diagnostic_arm_us\":%llu,\"diagnostic_charge_us\":%u,\"profile\":\"%s\",\"cap_us\":%llu,\"result\":%d,"
+ "{" BW_EXPERIMENT_JSON "\"passive\":3,\"runtime_state\":\"RAM_ONLY\",\"tx_diagnostic\":" DIAGNOSTIC_JSON ",\"diagnostic_arm_us\":%llu,\"diagnostic_charge_us\":%u,\"profile\":\"%s\",\"cap_us\":%llu,\"result\":%d,"
  "\"boot\":\"%016llx\",\"configured_tx\":\"%016llx\",\"transmitter\":%s,\"requested\":%s,\"active\":%s,\"closed\":%s,\"fault\":%s,"
  "\"lab_until_us\":%llu,\"quiet_until_us\":%llu,\"stack_unused\":%u,\"error\":%d,"
  "\"emitter\":\"%016llx\",\"emitter_boot\":\"%016llx\",\"stream\":%u,\"source_epoch\":%u,\"root_boot\":\"%016llx\",\"seed\":%u,\"cursor\":%u,\"serial\":%u,"
@@ -1475,6 +1508,9 @@ until=lab_until;
  "\"refused\":%u,\"late\":%u,\"missing_map\":%u,\"bad\":%u,\"sent\":[%u,%u,%u,%u],\"received\":[%u,%u,%u,%u],"
  "\"at_us\":%llu,\"tx_admission_us\":[%u,%d,%u,%u],\"tx_attempt\":[%u,%u,%u,%u,%u,%d,%d,%u,%u,%u,%u,%u],"
  "\"tx_source_max_us\":[%u,%u],\"tx_reject\":[%u,%u,%llu,%llu,%llu,%u,%u,%u,%u,%u,%u,%u,%u],\"no_rf_refunds\":%u,\"store_timing\":[%u,%u,%u,%u,%u],\"audit\":[[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u]],"
+#ifdef R2_LORA_BW_EXPERIMENT
+ "\"audit_rf\":[[%d,%d,%u],[%d,%d,%u],[%d,%d,%u],[%d,%d,%u]],"
+#endif
  "\"rf_window_us\":[%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu],\"prediction_window_us\":[%llu,%llu],\"schedule_window_us\":[%llu,%llu,%llu,%llu],\"tx_due_us\":[[%u,%u,%u,%u],[%u,%u,%u,%u]],\"sync_map\":[%u,%u,%u,%u],\"source_read\":[%u,%u,%u,%u],\"owner\":[%u,%u,%u],\"startup\":[%u,%u],\"hw\":[%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"drain_result\":%d,"
  "\"fault_boot\":\"%016llx\",\"checkpoint_dirty\":%s,\"fault_words\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u]}",
  (unsigned long long)PASSIVE_DIAGNOSTIC_ARM_US,PASSIVE_DIAGNOSTIC_CHARGE_US,LP_PROFILE_NAME,(unsigned long long)LP_CAP_US,result,(unsigned long long)physical_boot,(unsigned long long)transmitter_factory,transmitter?"true":"false",v.requested?"true":"false",v.active?"true":"false",atomic_get(&closed)?"true":"false",atomic_get(&faulted)?"true":"false",
@@ -1492,6 +1528,11 @@ until=lab_until;
 #define AUDIT_ARGS(i) (unsigned long long)audit[i].tick,(unsigned long long)audit[i].epoch,(unsigned long long)audit[i].start_us,(unsigned long long)audit[i].end_us,audit[i].cursor,audit[i].phy,audit[i].channel,audit[i].valid
  AUDIT_ARGS(0),AUDIT_ARGS(1),AUDIT_ARGS(2),AUDIT_ARGS(3),
 #undef AUDIT_ARGS
+#ifdef R2_LORA_BW_EXPERIMENT
+#define AUDIT_RF(i) audit[i].rssi,audit[i].snr,audit[i].packet_status_valid?1:0
+ AUDIT_RF(0),AUDIT_RF(1),AUDIT_RF(2),AUDIT_RF(3),
+#undef AUDIT_RF
+#endif
  (unsigned long long)LP_LAUNCH_LATE_US,(unsigned long long)LP_LAUNCH_PAD_US,(unsigned long long)LP_FOLLOW_OFFSET_US,(unsigned long long)LP_FOLLOW_LATEST_US,(unsigned long long)LP_HEADER_WINDOW_US,(unsigned long long)LP_HINT_RETIRE_US,(unsigned long long)LP_PENDING_US,(unsigned long long)LP_CONTROL_PROCESS_US,(unsigned long long)LP_PREDICT_HEADER_WINDOW_US,(unsigned long long)LP_PREDICT_HINT_RETIRE_US,(unsigned long long)LP_SYNC_OFFSET_US,(unsigned long long)LP_FRAME_END_US,(unsigned long long)LP_RX_TUNE_LEAD_US,(unsigned long long)LP_CONTROL_RETIRE_US,due[0][0],due[0][1],due[0][2],due[0][3],due[1][0],due[1][1],due[1][2],due[1][3],sync_stats[0],sync_stats[1],sync_stats[2],sync_stats[3],reads[0],reads[1],reads[2],reads[3],d.stage,d.phy,d.channel,startup0,startup1,
  h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_error,h.cutoffs,h.invalid_capture,h.error,h.phase,h.launch_aborts,h.busy_aborts,r2_lora_close_result(),
  (unsigned long long)fault_boot,checkpoint_dirty?"true":"false",fault_words[0],fault_words[1],fault_words[2],fault_words[3],fault_words[4],fault_words[5],fault_words[6],fault_words[7],fault_words[8],fault_words[9],fault_words[10],fault_words[11],fault_words[12],fault_words[13],fault_words[14],fault_words[15]);

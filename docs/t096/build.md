@@ -183,6 +183,48 @@ most 15 min of 4 s precision/12 s META under a 1080 s/h engineering cap; `lora 0
 closes it. Fast work cannot qualify slow operation. Both passive schedules
 reject RTT commands and grant no normal RC7/RC9, GM or USB timing authority.
 
+### Finite bandwidth characterization
+
+For separately authorized timing experiments, add `--lora-bw-experiment` to
+`--lora-passive-fast` on matching normal GM/RC images. It rejects slow, DC/PC and
+non-timing diagnostic builds. `RAM_BW_AB_4_12` boots OFF and permits one explicit
+240s `lora 01` arm per boot; repeated ON cannot extend it, and OFF prevents rearm.
+Do not enable it during installation: prepare both exact devices and capture
+first, then arm the receiver and the designated source. No frame may be reserved
+past the original arm deadline. A host disconnect does not renew the arm.
+
+Experimental authenticated schedule5 is rejected by ordinary fast/slow images.
+The SYNC cursor divided by2 selects repeating A/B/B/A slots: A is SF7/BW41.67,
+B is SF7/BW500; FOLLOW uses the same arm. DTS stays SF12/BW500, with the same
+4s/12s lab cadence, CR4/6, preamble12, power and capture endpoints. Both arms use
+the per-packet SX1262 modulation workaround. Original source/finish/RF/capture
+and watchdog gates,64-hop ordering and20s channel cooldowns remain in force.
+Reservations charge the conservative narrow durations for both arms; the
+production P30/D120/M300 configuration and108s cap remain unchanged.
+
+The common experimental grid starts400ms after a source second, probing original
+BLE grant room observed in prior characterization. Both arms use the same phase;
+ordinary images retain200ms. The45ms late gate and50ms finish pad are unchanged.
+The bounded-grant host model checks400ms admission and a200ms negative control;
+it does not prove the physical source will repeat the modeled grant phase.
+
+Full `lora` and compact diagnostics label the experiment and ABBA rule. Packet
+audits retain cursor/channel and actual PHY:1 DTS,2 narrow precision,3 wide
+precision. Lab-only `audit_rf` rows pair each audit with RSSI in half-dBm, SNR in
+quarter-dB and an explicit packet-status-valid bit. Retain unknown metrics.
+Save original SYNC events and adjacent independent PPS, offered,
+received, unbracketed and missing counts. Report each arm's raw mean, uncentered
+RMS, centered variation and tails separately, plus time/crossover and channel
+populations. Different hop channels are a confound in a short run. This is raw
+endpoint characterization; it does not qualify30s holdover or UTC accuracy.
+Keep images private, follow normal build retention and exact-device readback,
+then restore the identified approved normal images and settings.
+
+```sh
+python3 firmware/t096/tools/lora_bw_experiment_tests.py \
+  --deps artifacts/deps --out artifacts/lora-bw-check-01
+```
+
 When neither passive option is selected, the historical
 [RC8 wire5 implementation](../../protocol/rc8/README.md) remains a distinct
 build configuration. Its default zero transmitter binding leaves LoRa hardware

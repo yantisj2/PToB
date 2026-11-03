@@ -51,7 +51,7 @@ uint64_t lp_charged(const struct lp_checkpoint *s,uint64_t now){
 static bool checkpoint_valid(const struct lp_checkpoint *s){
  return s&&s->minute<=UINT64_MAX/LP_MINUTE_US&&s->seed&&s->cursor<=UINT32_MAX-2&&s->slot!=UINT32_MAX&&
  s->serial!=UINT32_MAX&&s->pending<=2&&s->fh_disabled<=1&&
- (s->schedule==0||s->schedule==LP_FAST||s->schedule==LP_SLOW)&&!(s->owed&~(LP_OWED_PAIR|LP_OWED_META))&&
+ (s->schedule==0||s->schedule==LP_FAST||s->schedule==LP_SLOW||s->schedule==LP_SCHEDULE)&&!(s->owed&~(LP_OWED_PAIR|LP_OWED_META))&&
  (!((s->cursor&1)&&!s->pending&&!s->fh_disabled))&&lp_charged(s,s->minute*LP_MINUTE_US)<=LP_HISTORY_CAP_US;
 }
 bool lp_checkpoint_carry(struct lp_checkpoint *s,uint64_t now,uint64_t first,uint32_t boot_ms){
@@ -182,13 +182,19 @@ void lp_tx_control_complete(struct lp_tx *t){
 static bool confirm(struct lp_tx *t,unsigned kind,uint64_t end,bool defer){
  if(!t||!t->ready||!t->pair||end<t->slot_us||end>=t->slot_us+LP_FRAME_END_US)return false;
  struct lp_checkpoint s=t->durable;
+ uint32_t duration=lp_duration(kind);
+#ifdef R2_LORA_BW_EXPERIMENT
+ /* Reservations retain narrow charge; completion admits only this packet's
+  * actual on-air duration and the original launch/finish window. */
+ if(lp_bw_arm(s.cursor))duration=kind==LP_SYNC?28496:kind==LP_FOLLOW?31568:duration;
+#endif
  if(kind==LP_SYNC&&s.pending==1){
-  if(end<t->slot_us+LP_SYNC_OFFSET_US-50000+lp_duration(LP_SYNC)-10000||end>t->slot_us+LP_SYNC_OFFSET_US+LP_LAUNCH_PAD_US+lp_duration(LP_SYNC))return false;
+  if(end<t->slot_us+LP_SYNC_OFFSET_US-50000+duration-10000||end>t->slot_us+LP_SYNC_OFFSET_US+LP_LAUNCH_PAD_US+duration)return false;
   s.channel_end_ms[lp_channel(t->order,s.cursor)]=(uint32_t)((end+999)/1000);
   ++s.cursor;s.pending=2;t->sync_end_us=end;
  }else if(kind==LP_FOLLOW&&s.pending==2){
-  if(end<t->sync_end_us+250000+lp_duration(LP_FOLLOW)-10000||
-     end>t->sync_end_us+LP_FOLLOW_LATEST_US+lp_duration(LP_FOLLOW))return false;
+  if(end<t->sync_end_us+250000+duration-10000||
+     end>t->sync_end_us+LP_FOLLOW_LATEST_US+duration)return false;
   s.channel_end_ms[lp_channel(t->order,s.cursor)]=(uint32_t)((end+999)/1000);
   ++s.cursor;s.pending=0;
 #ifdef R2_LORA_PASSIVE_SLOW

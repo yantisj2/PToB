@@ -413,7 +413,7 @@ def inspect(out,allow_development=False):
         if slow:
             require(r.get('passive_schedule')==dict(id=3,precision_us=30000000,discovery_us=120000000,
                     metadata_us=300000000,rolling_hour_cap_us=108000000),'Enhanced passive schedule/cap binding')
-        require(r.get('secondary_lora_class')==('RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
+        require(r.get('secondary_lora_class')==('RAM_BW_AB_4_12' if r.get('lora_bw_experiment') else 'RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
         require(r.get('runtime_state')=='RAM_ONLY' and r.get('passive_wire_version')==3,'RAM/wire cohort receipt')
         require(not ({'lp_store_load','lp_store_save','lp_store_prepare','lp_tx_restore','lp_checkpoint_carry'}&linked_names),'Persistence leaked into native LoRa owner')
         require(int(r['lora_backup_transmitter_factory'],16)==0,'Automatic backup emitter prohibited')
@@ -438,6 +438,14 @@ def inspect(out,allow_development=False):
         require(not slow and r['profile']=='GM' and json.loads((out/'device.json').read_text())['device_id']==transmitter and 'R2_LORA_TX_DIAGNOSTIC=1' in commands,'Diagnostic TX exact/profile binding')
         private_sha=hashlib.sha256((private_sha+':tx-diagnostic:1').encode()).hexdigest()
     else:require('R2_LORA_TX_DIAGNOSTIC=1' not in commands,'Unexpected diagnostic TX')
+    if r.get('lora_bw_experiment'):
+        require(passive and not slow and not r.get('lora_tx_diagnostic') and 'R2_LORA_BW_EXPERIMENT=1' in commands,'Bandwidth experiment profile binding')
+        require(r.get('bandwidth_experiment')==dict(schedule=5,arm_us=240000000,one_arm_per_boot=True,common_grid_phase_us=400000,
+            default_on=False,precision_sf=7,precision_bandwidth_hz=[41667,500000],
+            assignment='ABBA_CURSOR_DIV2',control='SF12_BW500',hopping='UNCHANGED_64',
+            accounting='CONSERVATIVE_NARROW_BOTH_ARMS',purpose='RAW_ENDPOINT_CHARACTERIZATION_ONLY'),'Bandwidth experiment receipt')
+        private_sha=hashlib.sha256((private_sha+':bw-experiment:ABBA_SF7_240S').encode()).hexdigest()
+    else:require('R2_LORA_BW_EXPERIMENT=1' not in commands,'Unexpected bandwidth experiment')
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')

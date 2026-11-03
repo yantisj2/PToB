@@ -1,5 +1,24 @@
 # T096 changelog
 
+## 0.15.278 — finite laboratory bandwidth characterization
+
+An explicit passive-fast build option adds one default-OFF, nonrenewable240s
+SF7 bandwidth experiment. Authenticated schedule5 isolates its packets from
+ordinary fast/slow listeners. Precision follows BW41.67/BW500/BW500/BW41.67
+by cursor, with the same arm for SYNC and FOLLOW. DTS remains SF12/BW500.
+Power, CR4/6, preamble12, physical capture, source admission, original packet
+windows,64-hop order and20s channel cooldowns remain unchanged. Both arms
+use the corrected per-packet modulation workaround. Reservations conservatively
+charge narrow airtime for both arms; no production cap or PHY default changes.
+The common experimental grid uses400ms source phase to probe prior BLE grant
+room, while ordinary images retain200ms and all late/source/finish gates stay
+unchanged. Lab audits retain original packet RSSI/SNR and validity for each kind.
+
+This option characterizes raw endpoint phase against independent PPS, which
+never trains the estimator. Different hop channels across arms remain a
+confound. A short run, fit residual or centered noise comparison cannot qualify
+30s holdover, calibrated UTC, field range or a future design change.
+
 ## 0.15.277 — approved narrow PHY and owner-stage diagnostics
 
 Keep precision SF7/BW41.67 and DTS SF12/BW500, P30/D120/M300 and the108s
@@ -9,7 +28,7 @@ no new diagnostic storage. They separate source, results, receive, BLE polling,
 admission, timing/control and publication, and include preemption and waits.
 They do not establish CPU occupancy.
 
-The physical sparse LoRa estimator and endpoint remain unchanged. Three-state
+The ordinary sparse LoRa estimator and physical endpoint are retained. Three-state
 recursive work is offline and unqualified; PPS never trains the delivered
 clock. Native/build/readback and independent held-out validation remain
 separate gates.

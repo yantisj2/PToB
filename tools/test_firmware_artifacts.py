@@ -126,6 +126,13 @@ class RetentionTests(unittest.TestCase):
         self.assertEqual(len(plan['latest']), 4)
         self.assertTrue(all(x['action'] == 'compact' for x in plan['actions']))
 
+    def test_bandwidth_experiment_has_separate_retention(self):
+        root = self.build(profile='GM')
+        normal = storage.read(root / 'receipt.json')
+        normal.update(artifact_class='PTOB_T096_RC7', lora_passive_fast=True)
+        experiment = {**normal, 'lora_bw_experiment': True}
+        self.assertNotEqual(storage.grouping(root, normal), storage.grouping(root, experiment))
+
     def test_diagnostic_tx_and_normal_fast_have_separate_retention(self):
         normal, diagnostic = [], []
         for enabled, rows in ((False, normal), (True, diagnostic)):

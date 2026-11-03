@@ -24,7 +24,11 @@ struct r2_lora_hw_event {
 #endif
 };
 #if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
-enum r2_lora_passive_phy {R2_LORA_DTS=1,R2_LORA_FHSS=2};
+enum r2_lora_passive_phy {R2_LORA_DTS=1,R2_LORA_FHSS=2
+#ifdef R2_LORA_BW_EXPERIMENT
+ ,R2_LORA_FHSS_BW500=3
+#endif
+};
 /* Idle-only retune. DTS uses captured RxDone; FHSS keeps HeaderValid.
  * No power/FEM setting changes and no implicit transmit/rearm. */
 int r2_lora_hw_passive_configure(enum r2_lora_passive_phy,unsigned channel);

@@ -4,6 +4,9 @@
 #if defined(R2_LORA_TX_DIAGNOSTIC) && (!defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW))
 #error "Diagnostic TX requires explicit passive fast only"
 #endif
+#if defined(R2_LORA_BW_EXPERIMENT) && (!defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_TX_DIAGNOSTIC))
+#error "Bandwidth experiment requires explicit passive fast only, without diagnostic TX"
+#endif
 #define LP_FAST 1u
 #define LP_SLOW 3u
 #define LP_HISTORY_CAP_US UINT64_C(1080000000)
@@ -11,6 +14,11 @@
 #define LP_WINDOW_US UINT64_C(300000000)
 #define LP_HOUR_US UINT64_C(3600000000)
 #define LP_MINUTE_US UINT64_C(60000000)
+#ifdef R2_LORA_BW_EXPERIMENT
+static inline unsigned lp_bw_arm(uint32_t cursor){
+ unsigned slot=(cursor/2)%4;return slot==1||slot==2;
+}
+#endif
 #ifdef R2_LORA_PASSIVE_SLOW
 #define LP_SCHEDULE LP_SLOW
 /* P30/D120/M300. Schedule2 is deliberately incompatible. Each precision
@@ -42,7 +50,12 @@
 #define LP_SYNC_PROCESS_US UINT64_C(1000000)
 #define LP_RETRY_US UINT64_C(3000000)
 #else
+#ifdef R2_LORA_BW_EXPERIMENT
+/* Finite characterization namespace. Ordinary fast/slow decoders reject it. */
+#define LP_SCHEDULE 5u
+#else
 #define LP_SCHEDULE LP_FAST
+#endif
 #define LP_SYNC_PROCESS_US UINT64_C(500000)
 #define LP_RETRY_US UINT64_C(2000000)
 #define LP_BEAT_US UINT64_C(4000000)
@@ -72,7 +85,11 @@
 #define LP_PROFILE_NAME "RAM_DIAG_4_12"
 #else
 #define LP_CAP_US LP_HISTORY_CAP_US
+#ifdef R2_LORA_BW_EXPERIMENT
+#define LP_PROFILE_NAME "RAM_BW_AB_4_12"
+#else
 #define LP_PROFILE_NAME "RAM_LAB_4_12"
+#endif
 #endif
 #endif
 /* Maximum normal SYNC-to-SYNC interval from two independent control/SYNC

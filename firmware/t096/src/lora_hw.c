@@ -740,7 +740,11 @@ int r2_lora_hw_idle(void) {
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
 int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
   atomic_clear(&prepared_budget);
-  if((phy!=R2_LORA_DTS&&phy!=R2_LORA_FHSS)||channel>=64||(phy==R2_LORA_DTS&&channel))return -EINVAL;
+  if((phy!=R2_LORA_DTS&&phy!=R2_LORA_FHSS
+#ifdef R2_LORA_BW_EXPERIMENT
+      &&phy!=R2_LORA_FHSS_BW500
+#endif
+      )||channel>=64||(phy==R2_LORA_DTS&&channel))return -EINVAL;
   if(!atomic_get(&running)||atomic_get(&fault))return -ECANCELED;
   if(atomic_get(&phase)!=1||atomic_get(&dma_inflight)||atomic_get(&latched))return -EBUSY;
   /* SX1262 SetRfFrequency units=32MHz/2^25; round nearest. The regional
@@ -748,7 +752,13 @@ int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
   uint64_t hz=phy==R2_LORA_DTS?UINT64_C(915000000):UINT64_C(902400000)+400000*channel;
   uint32_t word=(uint32_t)((hz*(UINT64_C(1)<<25)+16000000)/32000000);
   uint8_t frequency[]={(uint8_t)(word>>24),(uint8_t)(word>>16),(uint8_t)(word>>8),(uint8_t)word};
-  const uint8_t mod[]={phy==R2_LORA_DTS?12:7,phy==R2_LORA_DTS?6:10,2,0};
+  const uint8_t mod[]={phy==R2_LORA_DTS?12:7,
+#ifdef R2_LORA_BW_EXPERIMENT
+    phy==R2_LORA_FHSS?10:6,
+#else
+    phy==R2_LORA_DTS?6:10,
+#endif
+    2,0};
   int rc=command(0x86,frequency,sizeof frequency);
   if(!rc)rc=command(0x8b,mod,sizeof mod);
   if(rc)return rc==-ECANCELED?rc:fail(rc);
@@ -761,6 +771,9 @@ uint32_t r2_lora_hw_budget_us(size_t n) {
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
   if(passive_phy==R2_LORA_DTS)return n==28?454416:n==112?1142544:0;
   if(passive_phy==R2_LORA_FHSS)return n==24?231951:n==32?268814:0;
+#ifdef R2_LORA_BW_EXPERIMENT
+  if(passive_phy==R2_LORA_FHSS_BW500)return n==24?28496:n==32?31568:0;
+#endif
   return 0; /* This image cannot accidentally transmit the old wire/PHY. */
 #else
   return n <= 80 ? TIMING_CUTOFF_US : DIAGNOSTIC_CUTOFF_US;
@@ -830,8 +843,8 @@ static int prepare_tx(const uint8_t *bytes,size_t n,uint32_t gen) {
   uint8_t modulation;
   if(!rc)rc=reg_read(0x0889,&modulation);
   if(!rc){
-    if(passive_phy==R2_LORA_DTS)modulation&=(uint8_t)~4u;
-    else modulation|=4u;
+    if(passive_phy==R2_LORA_FHSS)modulation|=4u;
+    else modulation&=(uint8_t)~4u;
     rc=reg_write(0x0889,modulation);
   }
 #endif

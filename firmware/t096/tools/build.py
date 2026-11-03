@@ -83,6 +83,7 @@ def main():
     parser.add_argument('--lora-transmitter-factory', help='Explicit normal-image sole LoRa TX factory ID; absent disables LoRa')
     parser.add_argument('--lora-passive-fast', action='store_true', help='Default-off RAM_LAB_4_12 image; explicit per-boot console selection required')
     parser.add_argument('--lora-tx-diagnostic', action='store_true', help='Finite default-off non-timing PHY TX test; requires GM passive-fast and own exact factory')
+    parser.add_argument('--lora-bw-experiment', action='store_true', help='Finite default-off SF7 BW41.67/BW500 ABBA characterization; passive-fast only')
     parser.add_argument('--lora-passive-slow', action='store_true', help='Production30/120/300 schedule; normal GM/RC boot with RX on')
     parser.add_argument('--lora-backup-transmitter-factory', help='Explicit first own-GNSS backup emitter')
     parser.add_argument('--controller-diagnostics', action='store_true', help='Opt-in normal GM/RC prepare FIFO diagnostic canary')
@@ -108,6 +109,8 @@ def main():
         parser.error('Passive fast requires normal GM/RC and an exact transmitter binding')
     if args.lora_tx_diagnostic and (not args.lora_passive_fast or args.lora_passive_slow or args.profile!='GM'):
         parser.error('Diagnostic TX requires GM passive-fast only')
+    if args.lora_bw_experiment and (not args.lora_passive_fast or args.lora_passive_slow or args.lora_tx_diagnostic):
+        parser.error('Bandwidth experiment requires passive-fast without diagnostic TX')
     if args.controller_diagnostics and args.profile not in ('GM','RC'):
         parser.error('Controller diagnostics require normal GM/RC')
     dc = args.profile == 'DC'
@@ -186,10 +189,16 @@ def main():
                'lora_transmitter_factory':transmitter,
                'lora_backup_transmitter_factory':backup,'lora_passive_slow':args.lora_passive_slow,
                'lora_tx_diagnostic':args.lora_tx_diagnostic,
+               'lora_bw_experiment':args.lora_bw_experiment,
                'runtime_state':'RAM_ONLY','passive_wire_version':3,
-               'secondary_lora_class':'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
+               'secondary_lora_class':'RAM_BW_AB_4_12' if args.lora_bw_experiment else 'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
                'lora_passive_fast':args.lora_passive_fast}
     receipt['time_zone'] = tz
+    if args.lora_bw_experiment:
+        receipt['bandwidth_experiment'] = dict(schedule=5,arm_us=240000000,one_arm_per_boot=True,common_grid_phase_us=400000,
+            default_on=False,precision_sf=7,precision_bandwidth_hz=[41667,500000],
+            assignment='ABBA_CURSOR_DIV2',control='SF12_BW500',hopping='UNCHANGED_64',
+            accounting='CONSERVATIVE_NARROW_BOTH_ARMS',purpose='RAW_ENDPOINT_CHARACTERIZATION_ONLY')
     if args.lora_passive_slow:
         receipt['passive_schedule'] = dict(id=3,precision_us=30000000,discovery_us=120000000,
                                          metadata_us=300000000,rolling_hour_cap_us=108000000)
@@ -265,6 +274,7 @@ def main():
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
              '-DR2_LORA_PASSIVE_FAST='+('ON' if args.lora_passive_fast else 'OFF'),
              '-DR2_LORA_TX_DIAGNOSTIC='+('ON' if args.lora_tx_diagnostic else 'OFF'),
+             '-DR2_LORA_BW_EXPERIMENT='+('ON' if args.lora_bw_experiment else 'OFF'),
              '-DR2_LORA_PASSIVE_SLOW='+('ON' if args.lora_passive_slow else 'OFF'),
              '-DR2_LORA_BACKUP_TRANSMITTER_FACTORY='+backup,
              *(['-DR2_TZ_MODE='+str(tz['mode_number']),'-DR2_TZ_MANUAL_ID='+str(tz['id']),
@@ -283,6 +293,7 @@ def main():
         if args.lora_passive_slow:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_30_120_300').encode()).hexdigest()
         if args.lora_passive_fast:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_LAB_4_12').encode()).hexdigest()
         if args.lora_tx_diagnostic:private_hash=hashlib.sha256((private_hash+':tx-diagnostic:1').encode()).hexdigest()
+        if args.lora_bw_experiment:private_hash=hashlib.sha256((private_hash+':bw-experiment:ABBA_SF7_240S').encode()).hexdigest()
         if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()
         binding=hashlib.sha256((source_hash+':'+private_hash+':'+sha(target/'.config')).encode()).hexdigest()
         if '#define R2_WATCHDOG_BINDING "'+binding+'"' not in (out/'target/build_identity.h').read_text():
