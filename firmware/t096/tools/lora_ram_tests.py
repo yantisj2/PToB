@@ -11,11 +11,11 @@ def main():
  flags=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-unused-function','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'include'),'-I'+str(APP/'protocol'),'-I'+str(crypto/'include'),'-DR2_PASSIVE_SERVICE_BODY="'+str(body)+'"','-DR2_HW_ADMISSION_BODY="'+str(hwbody)+'"']
  sources=[APP/'tests/lora_ram_test.c',APP/'src/lora_passive_core.c',APP/'protocol/lora_passive.c',APP/'src/lora_rc8_policy.c',APP/'protocol/lora_rc8.c',APP/'protocol/group_auth.c',*[crypto/'source'/(n+'.c') for n in ('hmac','sha256','utils')]]
  cases=0;log=[]
- for profile,defs in [('slow',['-DR2_LORA_PASSIVE_SLOW=1']),('slow-wide',['-DR2_LORA_PASSIVE_SLOW=1','-DR2_LORA_PASSIVE_WIDE=1']),('fast',['-DR2_LORA_PASSIVE_FAST=1']),('diagnostic',['-DR2_LORA_PASSIVE_FAST=1','-DR2_LORA_TX_DIAGNOSTIC=1'])]:
+ for profile,defs in [('slow',['-DR2_LORA_PASSIVE_SLOW=1']),('fast',['-DR2_LORA_PASSIVE_FAST=1']),('diagnostic',['-DR2_LORA_PASSIVE_FAST=1','-DR2_LORA_TX_DIAGNOSTIC=1'])]:
   binary=a.out/profile;r=subprocess.run([*flags,*defs,*map(str,sources),'-o',str(binary)],capture_output=True,text=True);(a.out/(profile+'-compile.log')).write_text(r.stdout+r.stderr);r.check_returncode()
   for mode in [*range(1,16),20,*range(21,107)]:
-   if not profile.startswith('slow') and mode>=35:continue
-   if not profile.startswith('slow') and mode==5:continue
+   if profile!='slow' and mode>=35:continue
+   if profile!='slow' and mode==5:continue
    if profile=='diagnostic' and (mode>=28 or mode in (2,3,7,9,10,11,12,13,14,15,20,22,23,24,25,26,27)):continue
    r=subprocess.run([str(binary),str(mode)],capture_output=True,text=True);log.append(r.stdout+r.stderr);(a.out/'tests.log').write_text(''.join(log));r.check_returncode();print(r.stdout.strip());cases+=1
  # The old250ms hint retirement must fail the same legal150ms-late SYNC.

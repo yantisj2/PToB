@@ -1,29 +1,18 @@
 # T096 changelog
 
-## 0.15.276 — matched wide precision PHY experiment and owner profiling
+## 0.15.277 — approved narrow PHY and owner-stage diagnostics
 
-Add explicit `--lora-passive-wide` for matched SF11/BW500 DTS and precision packets,
-authenticated schedule4. The narrow schedule3 remains available. Both keep
-P30/D120/M300, the payloads and TX power, original source/capture deadlines,
-and108s rolling-hour cap. DISC/META reserve256784/625424us and SYNC/FOLLOW
-232208/256784us including the unchanged10ms allowance; nominal accounting is
-73.887648s/hour. Shorter META creates source launch room without extending
-its original grant. SF12→SF11 DTS sacrifices about2.5dB typical demodulation
-SNR threshold; no range equivalence is assumed. Apply Semtech's
-TxModulation bit2 workaround before every passive transmission, for DTS and
-the selected timing bandwidth. Independent HMAC/profile rejection and real
-driver/core budget tests cover both profiles. Timestamp precision, sensitivity
-and range gains remain unproven until separate physical characterization.
+Keep precision SF7/BW41.67 and DTS SF12/BW500, P30/D120/M300 and the108s
+rolling-hour cap. The undeployed optional PHY experiment is isolated in Git;
+no device received it. Activate seven existing GM owner wall-time bins with
+no new diagnostic storage. They separate source, results, receive, BLE polling,
+admission, timing/control and publication, and include preemption and waits.
+They do not establish CPU occupancy.
 
-Activate the seven existing GM owner wall-time stage maxima without new
-diagnostic storage. They separate source, results, receive, BLE polling,
-admission, timing/control and publication; they include preemption/waits and
-must not be called CPU occupancy. Existing launch/refund accounting stays
-independent of these measurements.
-
-The delivered clock remains the existing sparse model, without endpoint phase
-calibration. Three-state recursive development and mismatch tests are offline;
-the characterized candidate missed the target and is not deployed here.
+The physical sparse LoRa estimator and endpoint remain unchanged. Three-state
+recursive work is offline and unqualified; PPS never trains the delivered
+clock. Native/build/readback and independent held-out validation remain
+separate gates.
 
 ## 0.15.275 — bounded delivery work and independent PPS collection
 

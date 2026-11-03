@@ -5,8 +5,8 @@
 #include <string.h>
 
 uint32_t lp_duration(unsigned k){
- switch(k){case LP_DISC:return LP_DISC_BUDGET_US;case LP_META:return LP_META_BUDGET_US;
- case LP_SYNC:return LP_SYNC_BUDGET_US;case LP_FOLLOW:return LP_FOLLOW_BUDGET_US;default:return 0;}
+ switch(k){case LP_DISC:return 454416;case LP_META:return 1142544;
+ case LP_SYNC:return 231951;case LP_FOLLOW:return 268814;default:return 0;}
 }
 static bool add(uint64_t a,uint64_t b,uint64_t *out){if(a>UINT64_MAX-b)return false;*out=a+b;return true;}
 static bool commit(struct lp_tx *t,const struct lp_checkpoint *s){
@@ -51,7 +51,7 @@ uint64_t lp_charged(const struct lp_checkpoint *s,uint64_t now){
 static bool checkpoint_valid(const struct lp_checkpoint *s){
  return s&&s->minute<=UINT64_MAX/LP_MINUTE_US&&s->seed&&s->cursor<=UINT32_MAX-2&&s->slot!=UINT32_MAX&&
  s->serial!=UINT32_MAX&&s->pending<=2&&s->fh_disabled<=1&&
- (s->schedule==0||s->schedule==LP_FAST||s->schedule==LP_SLOW||s->schedule==LP_SLOW_WIDE)&&!(s->owed&~(LP_OWED_PAIR|LP_OWED_META))&&
+ (s->schedule==0||s->schedule==LP_FAST||s->schedule==LP_SLOW)&&!(s->owed&~(LP_OWED_PAIR|LP_OWED_META))&&
  (!((s->cursor&1)&&!s->pending&&!s->fh_disabled))&&lp_charged(s,s->minute*LP_MINUTE_US)<=LP_HISTORY_CAP_US;
 }
 bool lp_checkpoint_carry(struct lp_checkpoint *s,uint64_t now,uint64_t first,uint32_t boot_ms){
@@ -112,7 +112,7 @@ static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *
  s.next_slot_us=slot+LP_BEAT_US;
  if(force_meta||manual)control=LP_META;
  if(manual){s.slot=t->durable.slot;s.next_slot_us=t->durable.next_slot_us;s.owed=t->durable.owed;}
- s.schedule=LP_SCHEDULE;
+ s.schedule=LP_SLOW;
 #else
  (void)force_meta;
  s.slot=index+1;s.next_slot_us=slot+LP_BEAT_US;

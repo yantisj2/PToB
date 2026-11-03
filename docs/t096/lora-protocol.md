@@ -266,24 +266,6 @@ public seed supplies hop order, not trust or mesh selection. HeaderValid is not
 first RF arrival; propagation, capture bias and absolute output remain
 uncalibrated.
 
-The opt-in `RAM_30_120_300_BW500` experiment uses SF11/BW500/CR4/6 for DTS and precision
-packets and authenticated schedule4. Narrow timing remains schedule3; their
-META and small-packet contexts cannot mix. Payloads, power, hop raster,
-P30/D120/M300 and every original source/deadline guard remain the same.
-SYNC/FOLLOW RF airtimes are222208/246784us; reservations include10ms each,
-232208/256784us. DISC/META RF airtimes are246784/615424us, with reservations
-256784/625424us. Nominal accounting becomes73.887648s/hour (2.052435%), under
-the unchanged108s cap. This arithmetic establishes neither timestamp gain nor
-sensitivity/range. SF12→SF11 DTS trades about2.5dB typical demodulation SNR
-threshold for shorter packets; this follows table6-1 of the same data sheet
-below and is not a measured link budget. Matched physical characterization is
-required.
-
-Before each passive packet, TxModulation register0x0889 bit2 is cleared for
-500kHz (DTS and wide precision), and set for narrow precision; other bits are
-preserved. This follows Semtech's
-[SX1261/2 data sheet, rev2.2, section15.1](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1198/DS_SX1261_2_V2-2.pdf).
-
 ## RAM, replay and display lifetime
 
 Airtime buckets, cooldowns, hop cursor, serial, pending work, faults, diagnostic

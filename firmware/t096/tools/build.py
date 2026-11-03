@@ -84,7 +84,6 @@ def main():
     parser.add_argument('--lora-passive-fast', action='store_true', help='Default-off RAM_LAB_4_12 image; explicit per-boot console selection required')
     parser.add_argument('--lora-tx-diagnostic', action='store_true', help='Finite default-off non-timing PHY TX test; requires GM passive-fast and own exact factory')
     parser.add_argument('--lora-passive-slow', action='store_true', help='Production30/120/300 schedule; normal GM/RC boot with RX on')
-    parser.add_argument('--lora-passive-wide', action='store_true', help='Experimental matched SF11/BW500 DTS + precision PHY; requires slow, authenticated schedule4')
     parser.add_argument('--lora-backup-transmitter-factory', help='Explicit first own-GNSS backup emitter')
     parser.add_argument('--controller-diagnostics', action='store_true', help='Opt-in normal GM/RC prepare FIFO diagnostic canary')
     parser.add_argument('--development', action='store_true')
@@ -103,8 +102,6 @@ def main():
         parser.error('Commit reviewed public inputs before a release-candidate build')
     if args.lora_passive_fast and args.lora_passive_slow:
         parser.error('Select one passive schedule')
-    if args.lora_passive_wide and not args.lora_passive_slow:
-        parser.error('Wide precision PHY requires passive slow')
     if args.lora_backup_transmitter_factory and not args.lora_passive_slow:
         parser.error('Backup binding requires production slow')
     if (args.lora_passive_fast or args.lora_passive_slow) and (args.profile not in ('GM','RC') or not args.lora_transmitter_factory or args.legacy_gm_regression):
@@ -188,17 +185,13 @@ def main():
                'device_config_sha256':sha(args.device_config),
                'lora_transmitter_factory':transmitter,
                'lora_backup_transmitter_factory':backup,'lora_passive_slow':args.lora_passive_slow,
-               'lora_passive_wide':args.lora_passive_wide,
                'lora_tx_diagnostic':args.lora_tx_diagnostic,
                'runtime_state':'RAM_ONLY','passive_wire_version':3,
-               'secondary_lora_class':'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300_BW500' if args.lora_passive_wide else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
+               'secondary_lora_class':'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
                'lora_passive_fast':args.lora_passive_fast}
-    if args.lora_passive_slow:
-        receipt['passive_modulation'] = dict(DTS=[11 if args.lora_passive_wide else 12,6,2,0],
-                precision=[11,6,2,0] if args.lora_passive_wide else [7,10,2,0])
     receipt['time_zone'] = tz
     if args.lora_passive_slow:
-        receipt['passive_schedule'] = dict(id=4 if args.lora_passive_wide else 3,precision_us=30000000,discovery_us=120000000,
+        receipt['passive_schedule'] = dict(id=3,precision_us=30000000,discovery_us=120000000,
                                          metadata_us=300000000,rolling_hour_cap_us=108000000)
     receipt['gm7_controller'] = None if not args.gm7 else {
         'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
@@ -273,7 +266,6 @@ def main():
              '-DR2_LORA_PASSIVE_FAST='+('ON' if args.lora_passive_fast else 'OFF'),
              '-DR2_LORA_TX_DIAGNOSTIC='+('ON' if args.lora_tx_diagnostic else 'OFF'),
              '-DR2_LORA_PASSIVE_SLOW='+('ON' if args.lora_passive_slow else 'OFF'),
-             '-DR2_LORA_PASSIVE_WIDE='+('ON' if args.lora_passive_wide else 'OFF'),
              '-DR2_LORA_BACKUP_TRANSMITTER_FACTORY='+backup,
              *(['-DR2_TZ_MODE='+str(tz['mode_number']),'-DR2_TZ_MANUAL_ID='+str(tz['id']),
                 '-DR2_TZ_MANUAL_MIN='+str(tz['offset_min'])] if tz else []),
@@ -289,7 +281,6 @@ def main():
         target=out/'target/zephyr'
         private_hash=private_binding(sha(secret),transmitter)
         if args.lora_passive_slow:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_30_120_300').encode()).hexdigest()
-        if args.lora_passive_wide:private_hash=hashlib.sha256((private_hash+':lora-phy:SF11_BW500_ALL').encode()).hexdigest()
         if args.lora_passive_fast:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_LAB_4_12').encode()).hexdigest()
         if args.lora_tx_diagnostic:private_hash=hashlib.sha256((private_hash+':tx-diagnostic:1').encode()).hexdigest()
         if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()

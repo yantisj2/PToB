@@ -409,10 +409,9 @@ def inspect(out,allow_development=False):
         require(not any(s.startswith('r2_lora_') for s in names),'LoRa owner leaked into DC/PC')
         require('CONFIG_NRFX_SPIM1=y' not in config and 'CONFIG_NRFX_TIMER4=y' not in config,'LoRa peripherals leaked into DC/PC')
     if passive:
-        wide=r.get('lora_passive_wide',False)
-        profile='RAM_30_120_300_BW500' if wide else 'RAM_30_120_300' if slow else 'RAM_LAB_4_12'
+        profile='RAM_30_120_300' if slow else 'RAM_LAB_4_12'
         if slow:
-            require(r.get('passive_schedule')==dict(id=4 if wide else 3,precision_us=30000000,discovery_us=120000000,
+            require(r.get('passive_schedule')==dict(id=3,precision_us=30000000,discovery_us=120000000,
                     metadata_us=300000000,rolling_hour_cap_us=108000000),'Enhanced passive schedule/cap binding')
         require(r.get('secondary_lora_class')==('RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
         require(r.get('runtime_state')=='RAM_ONLY' and r.get('passive_wire_version')==3,'RAM/wire cohort receipt')
@@ -433,13 +432,8 @@ def inspect(out,allow_development=False):
         require('/src/lora_service.c' not in commands and '/src/lora_passive_store.c' not in commands,'Passive owner membership')
         dts=(out/'target/zephyr/zephyr.dts').read_text()
         require('passive_lora_state' in dts and '0xd7000' in dts and '0x8000' in dts,'Missing dedicated passive ledger partition')
-        require(('R2_LORA_PASSIVE_WIDE=1'in commands)==wide and (not wide or slow),'Wide PHY compile/receipt binding')
-        if slow and 'passive_modulation'in r:
-            require(r['passive_modulation']==dict(DTS=[11 if wide else 12,6,2,0],
-                    precision=[11,6,2,0] if wide else [7,10,2,0]),'Four-parameter modulation receipt binding')
-        suffix=':lora-passive:'+('RAM_30_120_300' if slow else profile)
+        suffix=':lora-passive:'+profile
         private_sha=hashlib.sha256((private_sha+suffix).encode()).hexdigest()
-        if wide:private_sha=hashlib.sha256((private_sha+':lora-phy:SF11_BW500_ALL').encode()).hexdigest()
     if r.get('lora_tx_diagnostic'):
         require(not slow and r['profile']=='GM' and json.loads((out/'device.json').read_text())['device_id']==transmitter and 'R2_LORA_TX_DIAGNOSTIC=1' in commands,'Diagnostic TX exact/profile binding')
         private_sha=hashlib.sha256((private_sha+':tx-diagnostic:1').encode()).hexdigest()

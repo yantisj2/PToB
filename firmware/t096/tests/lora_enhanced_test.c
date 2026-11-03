@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 static void budget(void){
- assert((LP_SCHEDULE==3||LP_SCHEDULE==4)&&LP_BEAT_US==30000000&&LP_META_BEATS==10&&LP_CAP_US==108000000);
+ assert(LP_SCHEDULE==3&&LP_BEAT_US==30000000&&LP_META_BEATS==10&&LP_CAP_US==108000000);
  const uint64_t phase[]={0,1,49999,50000,14999999,15000000,29999999,30000000,44999999,45000000,59999999};
  for(unsigned p=0;p<sizeof phase/sizeof phase[0];p++){
   uint64_t first=UINT64_C(3600000000)+phase[p],maximum=0;unsigned disc=0,meta=0,pairs=0;
@@ -24,13 +24,7 @@ static void budget(void){
    assert(lp_tx_capture_sync(&tx,sync));
    assert(lp_tx_capture_follow(&tx,sync+LP_FOLLOW_OFFSET_US+lp_duration(LP_FOLLOW)-10000));
    assert(!tx.durable.pending&&!tx.durable.owed);
-   if(i==119)assert(disc==30&&meta==12&&lp_charged(&tx.durable,at)==
-#ifdef R2_LORA_PASSIVE_WIDE
-    73887648
-#else
-    87434808
-#endif
-   );
+   if(i==119)assert(disc==30&&meta==12&&lp_charged(&tx.durable,at)==87434808);
   }
   assert(pairs==5760&&disc==1440&&meta==576&&maximum<=90534063);
   printf("BUDGET %llu %llu %u %u %u\n",(unsigned long long)phase[p],(unsigned long long)maximum,pairs,disc,meta);
@@ -39,10 +33,10 @@ static void budget(void){
  struct lp_tx tx;struct lp_reservation r;assert(lp_tx_start(&tx,17,1000000,1000000,1000));
  tx.durable.slot=2;
  assert(lp_tx_reserve(&tx,1000000,&r)&&!r.control&&r.has_pair);
- assert(lp_charged(&tx.durable,1000000)==LP_SYNC_BUDGET_US+LP_FOLLOW_BUDGET_US);
+ assert(lp_charged(&tx.durable,1000000)==500765);
  assert(lp_tx_refund_no_rf(&tx,&r)&&!lp_charged(&tx.durable,1000000));
  assert(!lp_tx_refund_no_rf(&tx,&r));
- tx.durable.buckets[0]=LP_CAP_US-(LP_SYNC_BUDGET_US+LP_FOLLOW_BUDGET_US-1);
+ tx.durable.buckets[0]=LP_CAP_US-500764;
  assert(!lp_tx_reserve(&tx,1000000,&r));
  puts("PASS enhanced48h full-charge, phases, independent DISC/META, pair-only and no-RF boundaries");
 }

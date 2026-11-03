@@ -17,13 +17,6 @@ import firmware_artifacts as storage
 
 
 class RetentionTests(unittest.TestCase):
-    def test_matched_wide_PHY_retains_separate_configuration(self):
-        narrow, wide = self.build(), self.build()
-        n=storage.read(narrow/'receipt.json');n['lora_passive_slow']=True
-        w=dict(n,lora_passive_wide=True)
-        self.assertNotEqual(storage.grouping(narrow,n),storage.grouping(wide,w))
-        self.assertEqual(storage.grouping(narrow,n),storage.grouping(narrow,dict(n,lora_passive_wide=False)))
-
     def test_automatic_catalog_limits_mutations_to_completed_group(self):
         old, previous, latest = [self.build() for _ in range(3)]
         unrelated = self.build(device='0000000000000002')

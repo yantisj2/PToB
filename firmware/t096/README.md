@@ -83,10 +83,7 @@ authenticated locked BLE time from another GM. Becoming ACTIVE does not enable
 LoRa TX on another device. There is no automatic backup emitter.
 
 The slow profile sends precision every30s, discovery every120s and full META
-every300s. Matched narrow schedule3 or opt-in SF11/BW500 schedule4 receivers
-are required. The experimental wide profile shortens DTS packets and trades
-control sensitivity for launch room; timing/range improvement is unproven.
-The7s SYNC offset and
+every300s. Matched schedule-3 receivers are required; the7s SYNC offset and
 packet-level source/capture guards remain mandatory. GNSS and BLE timing retain priority. Internal precision/META retries
 retain owed work after proven closure; clients send no ACK or retransmission.
 See the [build guide](../../docs/t096/build.md#optional-lora-configuration) for
@@ -166,8 +163,8 @@ time. Source, cap or hardware gates may still inhibit LoRa.
 
 The precision page separates stream RMS, local PPS continuity and ACTIVE/HOT
 duration. Shadow-PPS compares the selected BLE or LoRa clock with local PPS
-when eligible. LoRa records expose raw phase and any separately applied endpoint correction.
-Passive wire3 applies no correction; PPS never trains the LoRa clock.
+when eligible. LoRa records expose raw phase and the phase after its measured
+RTT endpoint-delay correction; PPS never trains the LoRa clock.
 These are relative timing statistics, not independent UTC accuracy measurements.
 Clock calculations, USB timestamps and diagnostics stay UTC.
 
