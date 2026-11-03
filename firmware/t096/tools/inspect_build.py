@@ -65,7 +65,7 @@ def inspect(out,allow_development=False):
     payload=b''.join(data[i+32:i+288] for i in range(0,len(data),512))
     binary=(out/'target/zephyr/zephyr.bin').read_bytes()
     require(payload[:len(binary)]==binary and all(x==0 for x in payload[len(binary):]),'UF2/BIN mismatch')
-    flash_end=0;ram_end=0;allocations={};ui_mutable_bytes=0;linked_names=set()
+    flash_end=0;ram_end=0;allocations={};ui_mutable_bytes=0;linked_names=set();holdover_mutable_bytes=0
     lora_display_mutable={name:0 for name in (('main.c','ui_service.c','lora_passive_service.c','lora_hw.c') if passive else ('main.c','ui_service.c','lora_service.c','lora_hw.c'))}
     if slow:lora_display_mutable['gm7_admission']=0
     with (out/'target/zephyr/zephyr.elf').open('rb') as f:
@@ -83,6 +83,8 @@ def inspect(out,allow_development=False):
             linked_names.add(symbol.name)
             if symbol['st_info']['type']=='STT_FILE':symbol_owner=symbol.name
             index=symbol['st_shndx']
+            if symbol_owner=='rc_dynamic_service.c' and symbol.name.startswith('hold_') and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
+                if elf.get_section(index)['sh_flags']&1:holdover_mutable_bytes+=int(symbol['st_size'])
             if symbol_owner=='ui_service.c' and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
                 if elf.get_section(index)['sh_flags']&1:ui_mutable_bytes+=int(symbol['st_size'])
             if slow and symbol_owner=='gm7_service.c' and symbol.name in ('lora_admitted_epoch','lora_readmission'):
@@ -98,6 +100,8 @@ def inspect(out,allow_development=False):
                 size=int(symbol['st_size']),address=int(symbol['st_value']),
                 section=section.name,type=section['sh_type']))
     config=(out/'target/zephyr/.config').read_text()
+    if gm7 and r['profile'] in ('GM','RC') and tuple(map(int,r['version'].split('.')))>=(0,15,269):
+        require(1000<=holdover_mutable_bytes<=1280,'Complete local HOLD state exceeds1280B or is missing')
     crash_allowance=crash_static_allowance(gm7,r['profile'],tuple(map(int,r['version'].split('.'))),config,allocations)
     # .194 adds64B of linked HOT retention/transition diagnostics (including alignment).
     # Account for it separately from the unchanged RC8 ceiling and absolute RAM floor.
@@ -423,7 +427,7 @@ def inspect(out,allow_development=False):
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
-    return {'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
+    return {'holdover_mutable_bytes':holdover_mutable_bytes,'holdover_mutable_budget_bytes':1280,'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

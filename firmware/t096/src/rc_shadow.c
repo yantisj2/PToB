@@ -125,7 +125,11 @@ static void shadow_poll(bool allow_field){
    if(r.map.normal){
     int64_t ns=0;
     bool projected;
-    if(r.map.lora){
+    if(r.map.local_hold){
+     uint64_t value,elapsed;
+     projected=rc5_map_project(&r.map.map,r.edge.tick,&value,&elapsed)&&value<=INT64_MAX;
+     if(projected)ns=(int64_t)value;
+    }else if(r.map.lora){
      /* Match the delivered LoRa watch's affine formula, including its100ppm
       * rate domain. No normal BLE servo/slew or GNSS fit is substituted. */
      uint64_t ticks=r.edge.tick>=r.map.normal_map.delivery?r.edge.tick-r.map.normal_map.delivery:UINT64_MAX;

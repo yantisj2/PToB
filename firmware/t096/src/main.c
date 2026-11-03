@@ -43,6 +43,7 @@
 #ifdef R2_RC_PROFILE
 #include "rc_unicast.h"
 #include "rc_dynamic_service.h"
+#include "runtime_profile.h"
 #endif
 #include "r2_enrollment.h"
 #endif
@@ -202,7 +203,7 @@ static void __attribute__((noinline)) shadow_reply(const struct r2_request *r,ui
     char raw_phase_json[32];if(q.valid)snprintf(raw_phase_json,sizeof raw_phase_json,"%lld",(long long)raw_phase);else strcpy(raw_phase_json,"null");
     int n=snprintf(json,sizeof json,
       "{\"schema\":2,\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"found\":%s,\"enabled\":%s,\"edges\":%u,\"queue_drops\":%u,\"overwritten\":%u,\"disabled_edges\":%u,\"duplicates\":%u,\"now_tick\":%llu,\"now_epoch\":%llu,\"sequence\":%u,\"edge_tick\":%llu,\"edge_epoch\":%llu,\"arrival_us\":%lld,\"reason\":%u,\"map_valid\":%s,\"map_generation\":%u,\"activation_lo\":%llu,\"activation_tick\":%llu,\"discipline_tick\":%llu,\"relay_ns\":%llu,\"utc_ns\":%lld,\"phase_ns\":%lld,\"pll\":%s,\"parent\":\"%016llx\",\"parent_boot\":\"%016llx\",\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"root_epoch\":%u,\"parent_epoch\":%u,\"train\":%u,\"accepted\":%u,\"root_issued_ns\":%llu,\"reference_seen\":%s,\"association\":%u,\"reference_fix\":%s,\"reference_pps\":%s,\"reference_reason\":%u,\"rmc_utc_us\":%lld,\"rmc_at_us\":%lld,\"applied_phase_correction_ns\":%d,\"input\":\"%s\",\"applied_lora_delay_ns\":%u,\"uncorrected_phase_ns\":%s,\"absolute_error_ns\":null}",
-      R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,result,found?"true":"false",st.enabled?"true":"false",st.edges,st.drops,st.overwritten,st.disabled,st.duplicates,(unsigned long long)st.now_tick,(unsigned long long)st.epoch,q.sequence,(unsigned long long)q.edge.tick,(unsigned long long)q.edge.epoch,(long long)q.arrival_us,q.reason,q.valid?"true":"false",q.map.map.generation,(unsigned long long)q.map.lo,(unsigned long long)q.map.active,(unsigned long long)q.map.map.effective,(unsigned long long)q.relay_ns,(long long)q.utc_ns,(long long)q.phase_ns,q.pll?"true":"false",(unsigned long long)q.map.parent,(unsigned long long)q.map.parent_boot,(unsigned long long)q.map.root,(unsigned long long)q.map.root_boot,q.map.root_epoch,q.map.parent_epoch,q.map.train,q.map.accepted,(unsigned long long)q.map.issued,q.reference_seen?"true":"false",q.association,q.reference_fix?"true":"false",q.reference_pps?"true":"false",q.reference_reason,(long long)q.rmc_utc_us,(long long)q.rmc_at_us,q.map.lora?0:(r2_enrollment.boundary_field?rc_direct_pps_correction(r2_enrollment.boundary_profile):RC_DIRECT_PPS_CORRECTION_NS),q.map.lora?"LORA":q.map.normal?"BLE":"RC_FIELD",q.map.lora_delay_ns,raw_phase_json);
+      R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,result,found?"true":"false",st.enabled?"true":"false",st.edges,st.drops,st.overwritten,st.disabled,st.duplicates,(unsigned long long)st.now_tick,(unsigned long long)st.epoch,q.sequence,(unsigned long long)q.edge.tick,(unsigned long long)q.edge.epoch,(long long)q.arrival_us,q.reason,q.valid?"true":"false",q.map.map.generation,(unsigned long long)q.map.lo,(unsigned long long)q.map.active,(unsigned long long)q.map.map.effective,(unsigned long long)q.relay_ns,(long long)q.utc_ns,(long long)q.phase_ns,q.pll?"true":"false",(unsigned long long)q.map.parent,(unsigned long long)q.map.parent_boot,(unsigned long long)q.map.root,(unsigned long long)q.map.root_boot,q.map.root_epoch,q.map.parent_epoch,q.map.train,q.map.accepted,(unsigned long long)q.map.issued,q.reference_seen?"true":"false",q.association,q.reference_fix?"true":"false",q.reference_pps?"true":"false",q.reference_reason,(long long)q.rmc_utc_us,(long long)q.rmc_at_us,q.map.lora?0:(r2_enrollment.boundary_field?rc_direct_pps_correction(r2_enrollment.boundary_profile):RC_DIRECT_PPS_CORRECTION_NS),q.map.lora?"LORA":q.map.local_hold?"BLE_LOCAL_HOLD":q.map.normal?"BLE":"RC_FIELD",q.map.lora_delay_ns,raw_phase_json);
     if(n<0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
 #ifdef R2_PC_PROFILE
     int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"image_profile\":\"PC\",\"pc_projection\":%s,\"experimental\":true}",q.map.experimental?"true":"false");
@@ -277,6 +278,19 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
   }
 #endif
 #ifdef R2_NATIVE_BLE
+  if(r->op==R2_HOLDOVER){
+#ifdef R2_RC_PROFILE
+    int test_result=r->seconds?(r2_switch_rc_active()&&maintenance.phase==R2_IDLE?r2_dynamic_service_holdover_test((uint32_t)r->nonce):-EACCES):0;
+    int n=r2_dynamic_service_holdover_json(json,sizeof json);
+    if(n>0&&(size_t)n<sizeof json){int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"source\":\"%s\",\"boot\":\"%016llx\",\"result\":%d}",R2_SOURCE_SHA,(unsigned long long)identity.boot,test_result);if(extra<0)n=-1;else n+=extra-1;}
+#else
+    int n=snprintf(json,sizeof json,"{\"available\":false}");
+#endif
+    if(n<=0||reply_sequence==UINT32_MAX)return;
+    n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);
+    if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);
+    return;
+  }
   if(r->op==R2_RADIO_AUDIT){
     struct r2_radio_audit_record q={0};struct r2_radio_audit_status st;
     bool found=r2_radio_audit_read((uint32_t)r->nonce,&q,&st);

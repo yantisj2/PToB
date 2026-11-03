@@ -69,5 +69,14 @@ int main(void){
   assert(i<3?r.valid:!r.valid&&r.reason==RC_SHADOW_EXPIRED);
  }
 #endif
- puts("PASS actual normal/RC witness worker: immutable causal maps, metadata deferral, normal1.5s/RC500ms expiry, withdraw and raw PPS association; no witness feedback");
+ r2_shadow_enable(true);r2_shadow_normal_withdraw();r2_shadow_lora_withdraw();cursor=r.sequence;
+ m=(struct rc_shadow_map){.normal=true,.local_hold=true,.normal_map={.valid=true},
+  .map={.effective=16000000,.anchor_tick=16000000,.anchor_ns=1000000100,.generation=10},
+  .normal_until=121*R2_CAPTURE_HZ,.lo=16001000,.epoch=1,.root=1,.root_boot=9,.source_expires=1};
+ now_tick=16002000;r2_shadow_normal_map(&m);
+ e.tick=61*R2_CAPTURE_HZ;r2_shadow_edge(e,1000);r2_shadow_poll_normal();
+ assert(r2_shadow_read(cursor,&r,&st)&&r.valid&&r.map.local_hold&&r.phase_ns==100&&!r.pll);cursor=r.sequence;
+ e.tick=121*R2_CAPTURE_HZ;r2_shadow_edge(e,1000);r2_shadow_poll_normal();
+ assert(r2_shadow_read(cursor,&r,&st)&&!r.valid&&r.reason==RC_SHADOW_EXPIRED);
+ puts("PASS immutable normal/RC/LoRa/local-HOLD PPS maps, independent expiry, metadata deferral and no witness feedback");
 }

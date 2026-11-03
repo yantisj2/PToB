@@ -20,3 +20,5 @@ int r2_dynamic_service_name(const char *);
 int r2_dynamic_service_parent_target(uint64_t);
 uint32_t r2_dynamic_service_stack_unused(void);
 int r2_service_restart(uint64_t arrival_ms);
+int r2_dynamic_service_holdover_json(char *,size_t);
+int r2_dynamic_service_holdover_test(uint32_t);

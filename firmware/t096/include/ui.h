@@ -69,7 +69,7 @@ struct r2_ui_model {
  unsigned root,coordinator,standby;
  unsigned relay_upstream;
  bool relay_selected;uint8_t time_relay_hops; /* Actual selected authenticated route depth. */
- bool boundary_clock,rc_source_held;uint32_t rc_update_age_ms,rc_source_age_ms;
+ bool boundary_clock,rc_source_held,ble_local_holdover;uint32_t rc_update_age_ms,rc_source_age_ms;
  struct r2_clock_quality quality;
  uint32_t admission_ms,hot_refusal;
  bool source_eligible,gm_capable,hot_ready,local_hot_standby,gm_cold;

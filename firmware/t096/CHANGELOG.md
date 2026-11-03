@@ -1,5 +1,21 @@
 # T096 changelog
 
+## 0.15.269 — bounded BLE rate holdover and paired shadow verification
+
+RC7 retains a continuous, BLE-only local estimate with guarded16/32s
+channel-aware rate consensus. A65-point fixed history, two paired frozen
+shadow lanes and bounded published diagnostics share a1280-byte mutable-state
+ceiling. No temperature steering or learned-state persistence is added.
+Finite local-output tests keep BLE as witness; physical PPS observes the same
+local map without training it. Local HOLD has unknown bounds and grants no
+relay, USB observation, source or authentication permission. PC is excluded.
+The portable clock adapter also covers LoRa's opposite rate convention;
+LoRa's delivered model and source leases remain independent.
+
+See [holdover policy and checks](../../docs/t096/holdover.md). Sanitizer and
+native results are software/resource checks; measured sub-microsecond duration
+requires the exact-device captures and their complete populations.
+
 ## 0.15.268 — nominal 28 dBm T096 LoRa output default
 
 Raise SX1262 drive from 9 to 18 dBm through the existing external PA, targeting

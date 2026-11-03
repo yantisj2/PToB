@@ -312,6 +312,7 @@ bool r2_ui_analog(const struct r2_ui_model *m,uint64_t now)
 #ifdef R2_LORA
  if(lora_selected(m))return lora_face_current(m,now);
 #endif
+ if(m->ble_local_holdover)return now>=m->sampled_ms&&now-m->sampled_ms<=2500&&m->platform_ready&&!m->profile_switching&&m->profile_rc&&m->ble_active&&(!m->ble_rx_supported||m->ble_rx_requested)&&m->clock.valid&&m->clock.utc_us>=0&&r2_ui_ble_current(m,now);
  if(now<m->sampled_ms||now-m->sampled_ms>2500||!m->platform_ready||!m->clock.valid||m->clock.utc_us<0||!m->scope_active)return false;
  if(m->role==R2_UI_GM)return m->clock.source_available||m->gm_source_fresh;
  if(m->boundary_clock)return m->role==R2_UI_FOLLOWER&&m->authenticated_gm&&r2_ui_ble_current(m,now)&&m->precision.map_valid;
@@ -334,7 +335,7 @@ const char *r2_ui_servo_state(const struct r2_ui_model *m,uint64_t now)
 #ifdef R2_LORA
  if(lora_selected(m))return lora_current(m,now)?(!lora_face_current(m,now)||m->lora.display_acquiring?"ACQUIRING":m->lora.display_held?"HOLD":"RECEIVING"):"UNAVAILABLE";
 #endif
- if(m->boundary_clock)return r2_ui_analog(m,now)?(m->rc_source_held?"HELD SOURCE":"RECEIVING"):"ACQUIRING";
+ if(m->boundary_clock)return r2_ui_analog(m,now)?(m->ble_local_holdover?"LOCAL HOLD":m->rc_source_held?"HELD SOURCE":"RECEIVING"):"ACQUIRING";
  if(r2_ui_face_locked(m,now))return "LOCKED";
  if(now<m->sampled_ms||now-m->sampled_ms>2500||(m->ble_time_selected&&!r2_ui_ble_current(m,now))||!m->scope_active||
     m->role!=R2_UI_FOLLOWER||!m->precision.authorized)return "UNAVAILABLE";
@@ -554,6 +555,7 @@ void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_sta
  s.utc_second=s.utc_valid?(uint32_t)(display_utc/1000000):0;
  s.subsecond_quarter=s.utc_valid?(display_utc%1000000)/250000:0;
  s.state=!s.utc_valid?CLOCK_NO_TIME:s.native_analog_eligible?CLOCK_LOCKED:CLOCK_ACQUIRING;
+ if(m->ble_local_holdover&&s.utc_valid)s.state=CLOCK_HOLDOVER;
  bool settling=now>=m->sampled_ms&&now-m->sampled_ms<=2500&&(m->sync_attempt||(m->boundary_clock&&m->ble_active&&!r2_ui_ble_current(m,now)))&&!s.native_analog_eligible;
  if(settling)s.state=CLOCK_ACQUIRING;
  s.native_reason=settling?UI_NATIVE_NONE:coarse&&!face_locked?UI_NATIVE_SOURCE_STALE:!fresh?UI_NATIVE_SOURCE_STALE:!s.utc_valid?UI_NATIVE_NO_TIME:

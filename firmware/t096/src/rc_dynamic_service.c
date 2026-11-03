@@ -26,6 +26,7 @@ static uint64_t coarse_tz_sequence;
 #include "rc_admission_policy.h"
 #include "rc_transport_hold.h"
 #include "rc_shadow.h"
+#include "holdover.h"
 #ifdef R2_PC_PROFILE
 #include "pc_experiment.h"
 #endif
@@ -211,6 +212,7 @@ static atomic_t fault, stop_requested, started;
 static struct k_thread owner_thread;
 K_THREAD_STACK_DEFINE(owner_stack, 8192);
 K_MUTEX_DEFINE(state_lock);
+#include "holdover_service.inc"
 static uint32_t transport_snapshot[13];
 static uint32_t acquisition_snapshot[20];
 static uint32_t cap_received, cap_authenticated, cap_usable;
@@ -1625,6 +1627,7 @@ static void captures(struct r2_capture now) {
             fit_root_boot != timing.root_boot ||
             fit_parent_epoch != timing.parent_epoch ||
             fit_root_epoch != timing.root_epoch) {
+          hold_reset(1);
           memset(&fit, 0, sizeof fit);
           sent_count = 0;
           fit_parent_boot = timing.parent_boot;
@@ -1641,6 +1644,7 @@ static void captures(struct r2_capture now) {
         /* Score the old projection before this pair can train either fit/map. */
         if(!r2_pc_observe(&timing.reference,capture_epoch))continue;
 #endif
+        hold_witness(&timing.reference);
         (void)rc5_rate_add(&fit, &timing.reference);
         fit_rms_valid = rc5_rate_rms(&fit, &fit_rms);
         /* Hardware TX/RX ADDRESS captures: no simulator bias constant imported.
@@ -1665,7 +1669,8 @@ static void captures(struct r2_capture now) {
             rc5_clock_discipline(&local_clock, &timing, &fit, &rate);
         if (disciplined) {
           discipline_commit(timing.reference.completed_at);
-          if (activation_known)
+          hold_prepare(&timing.reference);
+          if (activation_known&&!hold_shadow_publish(activation))
             r2_shadow_map(&local_clock, &timing, activation.tick,
                           activation.epoch);
         }
@@ -2216,6 +2221,7 @@ static void owner(void *a, void *b, void *c) {
      */
     r2_shadow_poll();
     if (r2_capture_now(&now)) {
+      hold_tick(now.tick);
       holdover_poll(now.tick);
       if (running && holdover_expired && published.count) {
         publish();
@@ -2329,6 +2335,7 @@ int r2_service_configure(const struct r2_identity *id,
   fit = (struct rc5_rate_fit){0};
   local_clock = (struct rc5_clock){.hold_ticks = RC_FIELD_HOLD_TICKS};
   delivery = (struct r2_link_quality){0};
+  hold_reset(2);
   routes = (struct rc5_routes){.count = 2,
                                .node = {{0},
                                         {.id = self_identity,
@@ -2556,6 +2563,16 @@ void r2_service_ui(struct r2_ui_model *m) {
     m->coarse_valid = false;
     r2_ui_select_ble_time(m, s.follower_utc, s.time_sampled_us, mono_us(),
                           s.service_until, live && s.follower_clock_valid);
+    uint64_t held_utc;uint32_t held_age;
+    if(live&&hold_read(&held_utc,&held_age)){
+      uint64_t at=mono_us();
+      m->clock.utc_us=(int64_t)held_utc;m->clock.valid=true;
+      uint64_t remaining=(uint64_t)(120000-held_age)*1000;
+      m->ble_time_selected=true;m->ble_valid_until_us=at+(remaining<500000?remaining:500000);
+      m->ble_local_holdover=!s.follower_clock_valid;
+      m->rc_source_held=m->ble_local_holdover||held_age>=500;
+      m->rc_update_age_ms=held_age;
+    }
   }
 }
 int r2_service_relay(uint64_t session, uint32_t seconds, uint64_t arrival) {

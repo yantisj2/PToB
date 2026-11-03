@@ -51,6 +51,7 @@ int r2_parse(const char *line, struct r2_request *out)
   else if (!strcmp(parts[5],"name")) out->op = R2_NAME;
   else if (!strcmp(parts[5],"relay")) out->op = R2_RELAY;
   else if (!strcmp(parts[5],"shadow")) out->op = R2_SHADOW;
+  else if (!strcmp(parts[5],"holdover")) out->op = R2_HOLDOVER;
   else if (!strcmp(parts[5],"witness")) out->op = R2_WITNESS;
   else if (!strcmp(parts[5],"radio-audit")) out->op = R2_RADIO_AUDIT;
   else if (!strcmp(parts[5],"profile")) out->op = R2_PROFILE;
@@ -82,6 +83,11 @@ int r2_parse(const char *line, struct r2_request *out)
   if(out->op==R2_PC_RUN){uint64_t mode;if(count!=8||!hex(parts[6],8,&mode)||mode<1||mode>4||!hex(parts[7],16,&out->nonce))return -EINVAL;out->trace_page=(unsigned)mode;return 0;}
   if(out->op==R2_PC_CYCLE||out->op==R2_PC_ALIGN){uint64_t cycles;if(count!=8||!hex(parts[6],8,&cycles)||!cycles||cycles>128||!hex(parts[7],16,&out->nonce))return -EINVAL;out->seconds=(uint32_t)cycles;return 0;}
 #endif
+  if(out->op==R2_HOLDOVER){
+   if(count==6)return 0;
+   if(count!=7||!hex(parts[6],8,&out->nonce)||(out->nonce&&out->nonce<1000)||out->nonce>120000)return -EINVAL;
+   out->seconds=1;return 0;
+  }
   if (out->op == R2_STATUS || out->op == R2_CLOCK || out->op == R2_NETWORK || out->op == R2_MARK || out->op == R2_PRECISION || out->op==R2_ROUTE || out->op==R2_JOIN) return count == 6 ? 0 : -EINVAL;
   if(out->op==R2_MENU){
    if(count==6)return 0;

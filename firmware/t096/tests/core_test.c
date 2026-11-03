@@ -9,6 +9,13 @@ static const char source[]="0123456789abcdef0123456789abcdef0123456789abcdef0123
 static void parse_tests(void)
 {
   struct r2_request r; char command[256];
+  const unsigned holds[]={0,999,1000,12000,120000,120001};
+  for(unsigned i=0;i<sizeof holds/sizeof holds[0];i++){
+    snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b holdover %08x",silicon,source,holds[i]);
+    bool valid=!holds[i]||(holds[i]>=1000&&holds[i]<=120000);
+    assert(valid?!r2_parse(command,&r)&&r.op==R2_HOLDOVER&&r.nonce==holds[i]&&r.seconds==1:r2_parse(command,&r));
+    if(valid){assert(r2_bound(&r,silicon,source,123));r.boot=0;assert(!r2_bound(&r,silicon,source,123));}
+  }
   snprintf(command,sizeof(command),"r2 00000001 %s %s 0000000000000000 status",silicon,source);
   assert(!r2_parse(command,&r) && r.id==1 && r.op==R2_STATUS);
   assert(r2_bound(&r,silicon,source,123));

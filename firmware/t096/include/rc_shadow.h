@@ -16,7 +16,7 @@ struct rc_shadow_map {
 #endif
  struct rc5_map map;uint64_t lo,active,epoch,parent,parent_boot,root,root_boot,issued,source_expires;
  int64_t utc_offset;uint32_t root_epoch,parent_epoch,train,accepted;
- r2_servo_map_t normal_map;uint64_t normal_until;bool normal,lora,retired;
+ r2_servo_map_t normal_map;uint64_t normal_until;bool normal,lora,retired,local_hold;
  uint32_t lora_delay_ns; /* Uses prior trailing padding; observation only. */
 };
 struct rc_shadow_history {struct rc_shadow_map map[RC_SHADOW_HISTORY];unsigned head,count;};
