@@ -13,7 +13,7 @@ def rounded(x):return int(x+.5)if x>=0 else int(x-.5)
 def project(model,second):
  at,ns,rate,phase=model;age=second-at
  return ns+age*1000000000+int(age*rate)+rounded(phase*min(1.,age))
-def run(binary,seed,wander,noise,bias,drop=False,ramp=0.):
+def run(binary,seed,wander,noise,bias,drop=False,ramp=0.,drift_state=False):
  rng=random.Random(seed);phase=0.;rate=100.;origin=1793724000000000000
  truth=[];points=[];events=[]
  for sec in range(3600):
@@ -30,8 +30,9 @@ def run(binary,seed,wander,noise,bias,drop=False,ramp=0.):
  model=None;errors=[];raw=[];ages=[[]for _ in range(30)];last_event=None
  for sec in range(3600):
   if sec in commits:
-   ns,state=commits[sec];phase,rate,*cov=state;rate=rounded(rate)
-   target=ns+3*1000000000+3*rate+rounded(phase)
+   ns,state=commits[sec];phase,rate,*cov=state;drift=cov[0]if drift_state else 0.
+   target=ns+3*1000000000+rounded(phase+3*rate+4.5*drift)
+   rate=rounded(rate+3*drift)
    previous=project(model,sec)if model else target
    model=(sec,previous,rate,target-previous);last_event=sec-3
    raw_model=(sec,ns+3*1000000000,0,0)
@@ -43,7 +44,7 @@ def run(binary,seed,wander,noise,bias,drop=False,ramp=0.):
    ages[sec%30].append(error)
  return errors,raw,ages
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--binary',type=Path,required=True);p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--binary',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--drift-state',action='store_true');a=p.parse_args()
  populations=[]
  for name,wander,noise,bias,drop in [('constant',0.,4200,0,False),('matched_wander',.01,4200,0,False),
   ('larger_wander',1.,4200,0,False),('fixed_endpoint_bias',0.,4200,10000,False),('lost_pairs',.01,4200,0,True),
@@ -51,7 +52,7 @@ def main():
   all_errors=[];all_raw=[];all_ages=[[]for _ in range(30)];runs=[]
   for seed in range(100):
    ramp=.1 if name=='frequency_ramp'else 0.
-   errors,raw,ages=run(a.binary,seed,wander,noise,bias,drop,ramp);all_errors.extend(errors);all_raw.extend(raw);runs.append(stats(errors))
+   errors,raw,ages=run(a.binary,seed,wander,noise,bias,drop,ramp,a.drift_state);all_errors.extend(errors);all_raw.extend(raw);runs.append(stats(errors))
    for age,values in enumerate(ages):all_ages[age].extend(values)
   q=dict(name=name,seeds=100,assumed_actual_frequency_rw_ppb2_per_s=wander,assumed_measurement_sd_ns=noise,
    fixed_bias_ns=bias,frequency_ramp_ppb_per_s=ramp,missing_pair_pattern='2 per300s'if drop else'none',clock=stats(all_errors),
@@ -62,7 +63,7 @@ def main():
  assert populations[0]['clock']['rms_ns']<populations[0]['raw_nominal_anchor']['rms_ns']
  assert populations[3]['clock']['rms_ns']>9000,'A one-way filter must not infer/remove constant endpoint bias'
  report=dict(status='PASS_DECLARED_MODEL_SENSITIVITY_NOT_HARDWARE_QUALIFICATION',hardware=False,
-  filter_measurement_sd_ns=4200,filter_frequency_rw_ppb2_per_s=.01,period_s=30,follow_commit_delay_s=3,
+  filter_measurement_sd_ns=4200,filter_frequency_rw_ppb2_per_s=.01,drift_state=a.drift_state,filter_drift_rw_ppb2_per_s3=1e-8 if a.drift_state else None,period_s=30,follow_commit_delay_s=3,
   phase_slew_s=1,scored_s=[2100,3600],all_tails_retained=True,independent_reference=False,populations=populations)
  a.out.write_text(json.dumps(report,indent=2)+'\n')
  print('PASS actual C servo,600 declared-noise trials; aggregate RMS ns:',[(r['name'],round(r['clock']['rms_ns'],1))for r in populations])
