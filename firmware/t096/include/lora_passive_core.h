@@ -89,13 +89,18 @@ struct lp_rx {
  uint64_t hint_us,last_epoch,last_meta_ns;
  uint32_t serial,highest,pending_cursor,hint_cursor,accepted,rejected,missing;
  uint32_t rms_ns;int32_t rate_ppb;
+ /* Existing16 physical pairs fund sparse180/300s HOLD fits. No BLE samples,
+  * GNSS witness, additional history or timing authority enters these fits. */
+ int32_t baseline_rate_ppb,hold_short_ppb,hold_long_ppb;
+ uint32_t hold_short_guard,hold_long_guard;
  struct r2_tz tz;
  uint8_t fit_count;
- bool cached,bounded,pending,have_pair,hint,prediction,trained;
+ bool cached,bounded,pending,have_pair,hint,prediction,trained,hold_selected;
  /* Frozen last-trained UI map. New source fits cannot mutate this anchor.
   * Same emitter physical boot only; no source/RF/freshness/precision authority. */
  uint64_t display_tick,display_ns,display_us,display_epoch;
- int32_t display_rate_ppb;
+ int32_t display_rate_ppb,display_phase_ns,phase_offset_ns;
+ uint32_t model_accepted;
  bool display_valid,display_acquiring;
 };
 void lp_rx_clear(struct lp_rx *);
@@ -108,6 +113,9 @@ bool lp_rx_meta(struct lp_rx *,const struct lp_packet *,const struct r2_group_co
 bool lp_rx_hint(struct lp_rx *,const struct lp_packet *,uint64_t packet_end_us,uint64_t observed_us);
 bool lp_rx_sync(struct lp_rx *,uint32_t cursor,uint64_t tick,uint64_t epoch,uint64_t event_us,uint64_t observed_us);
 bool lp_rx_follow(struct lp_rx *,const struct lp_packet *,const struct lp_age *,uint64_t epoch,uint64_t observed_us);
+/* Commit at an actual current capture after FOLLOW processing, never a
+ * fabricated arrival time. Frequency/phase fits consume prior physical pairs. */
+bool lp_rx_discipline(struct lp_rx *,uint64_t tick,uint64_t epoch,uint64_t now_us);
 void lp_rx_expire(struct lp_rx *,uint64_t now_us);
 bool lp_rx_estimate(const struct lp_rx *,uint64_t tick,uint64_t epoch,uint64_t now_us,uint64_t *utc_ns);
 /* Same-boot human watch extrapolation. Expiry cannot renew any permission.

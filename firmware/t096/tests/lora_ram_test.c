@@ -528,7 +528,7 @@ static void rendezvous261_test(unsigned mode){
   auto_complete();step();
   if(injected&&owner.stopping&&mode<92)fake_launch_delay_us=200000;
   if(injected&&atomic_get(&closed)&&!closure)closure=now_us-2000;
-  if(txs!=seen){assert(txs==seen+1&&count<64);seen=txs;
+  if(txs!=seen){assert(txs==seen+1&&count<96);seen=txs;
    f[count]=(struct frame){sent_at_us,sent_at_us+lp_duration(owner.tx_kind)-10000,owner.tx_kind,tuning_channel,sent_len,{0}};memcpy(f[count].bytes,sent,sent_len);
    if(injected&&closure&&owner.tx_kind==LP_META&&!recovery_start)recovery_start=sent_at_us;
    ++count;
@@ -568,18 +568,21 @@ static void rendezvous261_test(unsigned mode){
  * SPI/SetTx/queue boundaries, and PHY visibility before Header/RxDone. */
 static void engineering263_test(unsigned mode){
  prepare_tx();fake_encode_delay_us=fake_spi_delay_us=400000;fake_config_delay_us=400000;
- struct bounded_frame {uint64_t start,end;unsigned kind,channel;size_t n;uint8_t bytes[LP_META_BYTES];} f[64];
+ struct bounded_frame {uint64_t start,end;unsigned kind,channel;size_t n;uint8_t bytes[LP_META_BYTES];} f[96];
  unsigned count=0,seen=0;uint64_t finish=now_us+UINT64_C(800000000),max_gap=0,last_sync=0;
  while(now_us<finish){
   struct rc8_export m=source();m.from_tick=m.anchor_tick=now_us*16;m.until_tick=(now_us+3000000)*16;m.anchor_ns+=now_us*1000;m.created_ns=m.anchor_ns;m.expires_ns=m.anchor_ns+UINT64_C(3000000000);m.map_generation=(uint32_t)(now_us/1000);r2_lora_source_publish(&m);
   if(owner.prepared_kind&&!owner.tx_kind){
    uint64_t due=owner.stage==3?role.tx.reservation.slot_us:owner.stage==1?role.tx.reservation.slot_us+LP_SYNC_OFFSET_US:owner.last_sync_us+LP_FOLLOW_OFFSET_US;
-   bool late=mode==82||(role.tx.core.durable.slot%2==0);
+   /* Include a late META after an on-time preceding pair. DISC phases no
+    * longer alternate with META, so slot parity alone misses this boundary. */
+   bool late=mode==82||(role.tx.core.durable.slot%10==1)||
+    (role.tx.core.durable.slot%4==2&&role.tx.core.durable.slot%10!=0);
    if(now_us<due&&due-now_us<=2000)now_us=due+(late?LP_LAUNCH_LATE_US:0);
    fake_launch_delay_us=owner.stage==2?(late?999000:2000):(late?248000:2000);
   }
   auto_complete();step();
-  if(txs!=seen){assert(txs==seen+1&&count<64);seen=txs;
+  if(txs!=seen){assert(txs==seen+1&&count<96);seen=txs;
    f[count]=(struct bounded_frame){sent_at_us,sent_at_us+lp_duration(owner.tx_kind)-10000,owner.tx_kind,tuning_channel,sent_len,{0}};memcpy(f[count].bytes,sent,sent_len);++count;
    if(owner.tx_kind==LP_SYNC){if(last_sync&&sent_at_us-last_sync>max_gap)max_gap=sent_at_us-last_sync;last_sync=sent_at_us;}
   }
@@ -588,16 +591,16 @@ static void engineering263_test(unsigned mode){
  }
  assert(owner.sent[LP_META-1]>=3&&owner.sent[LP_FOLLOW-1]>=13&&owner.sent[LP_SYNC-1]==owner.sent[LP_FOLLOW-1]);
  assert(max_gap<=LP_CADENCE_BOUND_US&&tx_due[1][LP_META-1]==LP_LAUNCH_LATE_US&&tx_due[1][LP_SYNC-1]==LP_LAUNCH_LATE_US&&tx_due[1][LP_FOLLOW-1]==LP_LAUNCH_LATE_US);
- unsigned pairs=owner.sent[LP_FOLLOW-1];char json[4096];assert(r2_lora_diagnostics_json(json,sizeof json,0)>0&&strstr(json,"\"tx_due_us\":[[")&&strstr(json,"\"cadence_bound_us\":62510000"));
+ unsigned pairs=owner.sent[LP_FOLLOW-1];char json[4096];assert(r2_lora_diagnostics_json(json,sizeof json,0)>0&&strstr(json,"\"tx_due_us\":[[")&&strstr(json,"\"cadence_bound_us\":32510000"));
  fake_encode_delay_us=fake_spi_delay_us=fake_launch_delay_us=fake_config_delay_us=0;boot_clear();init(false);fake_config_delay_us=1000000;now_us=f[0].start-2000000;step();
- unsigned index=0,rx_rearms=rearms;bool checked=false,visible=false;uint64_t ready=now_us;
+ unsigned index=0,rx_rearms=rearms,disc_seen=0;bool checked=false,visible=false;uint64_t ready=now_us;
  while(index<count){struct bounded_frame *p=&f[index];
   if(!checked&&now_us>=p->start){checked=true;visible=owner.listening&&ready<=p->start&&tuning_phy==(p->kind<=LP_META?R2_LORA_DTS:R2_LORA_FHSS)&&(p->kind<=LP_META||tuning_channel==p->channel);if(!visible)fprintf(stderr,"PHY index=%u kind=%u now=%llu start=%llu ready=%llu phy=%u channel=%u want=%u nextctrl=%llu hint=%d hintat=%llu pending=%d\n",index,p->kind,(unsigned long long)now_us,(unsigned long long)p->start,(unsigned long long)ready,tuning_phy,tuning_channel,p->channel,(unsigned long long)owner.next_control_us,role.rx.hint,(unsigned long long)role.rx.hint_us,role.rx.pending);assert(visible);}
   if(checked&&visible&&now_us<p->end&&(tuning_phy!=(p->kind<=LP_META?R2_LORA_DTS:R2_LORA_FHSS)||(p->kind>=LP_SYNC&&tuning_channel!=p->channel)))visible=false;
   uint64_t event=p->kind==LP_SYNC?p->start+75000:p->end;
   uint64_t process_at=p->kind==LP_SYNC?event+LP_SYNC_PROCESS_US:p->end+LP_CONTROL_PROCESS_US;
-  bool dropped=(mode==90&&index==3)||(mode==91&&index==6);
-  if(checked&&now_us>=process_at){assert(visible);now_us=process_at;if(!dropped){queued=(struct r2_lora_hw_event){.tick=event*16,.capture_epoch=7,.generation=generation,.kind=R2_LORA_HW_RX_DONE,.length=(uint8_t)p->n};memcpy(queued.frame,p->bytes,p->n);have_event=true;}++index;checked=false;}
+  bool dropped=p->kind==LP_DISC&&((mode==90&&disc_seen==0)||(mode==91&&disc_seen==1));
+  if(checked&&now_us>=process_at){assert(visible);now_us=process_at;if(!dropped){queued=(struct r2_lora_hw_event){.tick=event*16,.capture_epoch=7,.generation=generation,.kind=R2_LORA_HW_RX_DONE,.length=(uint8_t)p->n};memcpy(queued.frame,p->bytes,p->n);have_event=true;}if(p->kind==LP_DISC)++disc_seen;++index;checked=false;}
   uint64_t before_step=now_us;step();if(rearms!=rx_rearms){rx_rearms=rearms;ready=now_us-2000;
    if(checked&&before_step<p->end&&now_us>p->start&&(tuning_phy!=(p->kind<=LP_META?R2_LORA_DTS:R2_LORA_FHSS)||(p->kind>=LP_SYNC&&tuning_channel!=p->channel)))visible=false;
   }

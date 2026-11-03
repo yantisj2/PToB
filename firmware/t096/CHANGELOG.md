@@ -1,5 +1,25 @@
 # T096 changelog
 
+## 0.15.273 — wire3 P30/D120/M300 and sparse clock discipline
+
+Passive schedule3 sends precision every30s and DISC every120s, keeping META
+at300s. Separate control phases permit precision-only slots and preserve the
+existing PHY, lengths, source guards and receive-only clients. Raise the shared
+per-boot rolling-hour engineering cap to108s (3%); nominal reservations are
+87.434808s/h. Older schedule2 receivers require matched updates.
+
+Reuse the bounded HOLD rate consensus on existing sparse180/300s LoRa history.
+A causal median phase fit replaces raw-packet anchoring, committing at an actual
+current capture with a continuous one-second slew. Add exact committed-model
+telemetry and causal frozen-clock RMS analysis; PPS witnesses the delivered
+phase/rate without entering its fit. The target is below1us RMS between30s
+updates, pending physical measurement. Fit residual is a different metric.
+
+Offline checks include48h scheduling/airtime phases, an independent pair-slope
+oracle, authenticated owner/PHY/loss boundaries, display expiry and frozen-clock
+analysis controls. Native resources, installation and field results require
+their own exact candidate records; no hardware or accuracy pass is implied here.
+
 ## 0.15.272 — full bounded slow-consensus correction
 
 Keep the20/10ppb short/long guards and require agreement within10ppb. An

@@ -126,6 +126,9 @@ struct lp_diagnostics {
  uint32_t received[4];uint32_t reserve_lead_us;int32_t launch_late_us;uint32_t source_room_us,source_phase_us;
  uint32_t max_source_room_us,max_source_phase_us,reject_phase_us,no_rf_refunds,fit_span_us;
  int32_t rate;uint32_t storage_max_us;int error;uint8_t pending,fh_disabled,stage,phy,channel;bool trained;
+ int32_t baseline_rate,hold_short_rate,hold_long_rate;
+ uint32_t hold_short_guard,hold_long_guard;bool hold_selected;
+ uint64_t model_tick,model_ns;int32_t model_phase;
 };
 static struct lp_diagnostics diagnostics;
 static struct {bool active,stopping,listening;uint8_t phy,channel,tx_kind,stage,prepared_kind;
@@ -574,7 +577,10 @@ static void __attribute__((noinline)) report(uint64_t now){
   d->last_us=r->last_us;d->physical_until=r->physical_deadline_us;d->meta_until=r->observed_deadline_us;d->root_boot=r->scope.root_boot;
   d->fit_span_us=r->fit_count>1?(uint32_t)((r->fit[r->fit_count-1].tick-r->fit[0].tick)/16):0;
   d->cursor=r->highest;d->serial=r->serial;d->accepted=r->accepted;d->rejected=r->rejected;d->missing=r->missing;
-  d->pending=r->pending;d->trained=r->trained;d->rate=r->rate_ppb;}
+  d->pending=r->pending;d->trained=r->trained;d->rate=r->rate_ppb;
+  d->baseline_rate=r->baseline_rate_ppb;d->hold_short_rate=r->hold_short_ppb;d->hold_long_rate=r->hold_long_ppb;
+  d->hold_short_guard=r->hold_short_guard;d->hold_long_guard=r->hold_long_guard;d->hold_selected=r->trained&&r->hold_selected;}
+ if(!transmitter){d->model_tick=role.rx.display_tick;d->model_ns=role.rx.display_ns;d->model_phase=role.rx.display_phase_ns;}
  d->refused=owner.refused;d->late=owner.late;d->missing_map=owner.missing_map;d->bad=owner.bad;
  d->storage_fail=owner.storage_fail;if(transmitter)d->storage_max_us=owner.storage_max_us;d->error=owner.error;d->stage=owner.stage;d->phy=owner.phy;d->channel=owner.channel;
  d->reserve_lead_us=owner.reserve_lead_us;d->launch_late_us=owner.launch_late_us;
@@ -605,8 +611,8 @@ void __attribute__((noinline)) r2_lora_shadow_publish(void){
  k_spinlock_key_t key=k_spin_lock(&lock);
  const struct lp_diagnostics *d=&diagnostics;
  bool valid=published.active&&published.requested&&published.choice==RC8_SELECT_LORA&&!published.fault&&d->trained&&d->epoch==at.epoch&&now<d->physical_until&&d->last_ns<=INT64_MAX;
- if(valid){m=(struct rc_shadow_map){.normal=true,.lora=true,.normal_map={.delivery=d->last_tick,.anchor=(int64_t)d->last_ns,.rate=d->rate,.valid=true},
-  .map={.effective=d->last_tick,.generation=d->accepted},.lo=at.tick,.epoch=at.epoch,.parent=d->emitter,.parent_boot=d->boot,
+ if(valid){m=(struct rc_shadow_map){.normal=true,.lora=true,.normal_map={.delivery=d->model_tick,.anchor=(int64_t)d->model_ns,.rate=d->rate,.valid=true},
+  .map={.effective=d->model_tick,.generation=d->accepted,.phase_ns=d->model_phase},.lo=at.tick,.epoch=at.epoch,.parent=d->emitter,.parent_boot=d->boot,
   .root=d->emitter,.root_boot=d->root_boot,.root_epoch=d->source_epoch,.accepted=d->accepted,.issued=d->last_ns};until=d->physical_until;}
  k_spin_unlock(&lock,key);
  if(!valid||until<=now)goto withdraw;
@@ -916,6 +922,10 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  }
  struct lp_reservation *r=&role.tx.reservation;
 #ifdef R2_LORA_PASSIVE_SLOW
+ /* An authenticated context and the preceding FOLLOW predict this slot.
+  * No DTS packet is fabricated or charged on precision-only slots. SYNC
+  * still stages and rechecks its original physical/source grant normally. */
+ if(!r->control){owner.stage=1;return 0;}
  if(owner.prepared_kind!=r->control){
   bool prepared=false;int rc=launch_control(mono(),phase_ns,source_epoch,root_boot,limit,&prepared);
   if(rc)return rc;
@@ -1004,6 +1014,9 @@ static int __attribute__((noinline)) receive_event(const struct r2_lora_hw_event
   }
  }else if(p.kind==LP_FOLLOW){
   bool accepted=lp_rx_follow(r,&p,NULL,h->capture_epoch,now);
+#ifdef R2_LORA_PASSIVE_SLOW
+  if(accepted&&r->trained){struct r2_capture at;if(r2_capture_now(&at))lp_rx_discipline(r,at.tick,at.epoch,mono());}
+#endif
   if(accepted)replay[0].cursor=r->highest<=UINT32_MAX-2?r->highest+2:UINT32_MAX;
   owner.listening=false;return tune(R2_LORA_DTS,0,true);
  }
@@ -1072,7 +1085,7 @@ static int __attribute__((noinline)) tx_complete(const struct r2_lora_hw_event *
  if(kind==LP_META||kind==LP_DISC){lp_tx_control_complete(&role.tx.core);
 #ifdef R2_LORA_PASSIVE_SLOW
   /* The received delay is measured from this actual control event, not its
-   * earlier reservation. Keep the recurring60s grid separate. */
+   * earlier reservation. Keep the recurring30s grid separate. */
   role.tx.reservation.slot_us=role.tx.core.slot_us=event;
 #endif
 #ifdef R2_LORA_PASSIVE_SLOW
@@ -1145,7 +1158,9 @@ static int receive_step(uint64_t now){
   * prediction. Capture this absolute horizon before advancing the cursor. */
  bool wait_control=r->prediction&&owner.next_control_us&&owner.next_control_us<r->hint_us&&now<=owner.next_control_us+LP_CONTROL_RETIRE_US;
 #endif
- /* Return to DTS at EVERY predicted control, even while the fit is healthy. */
+ /* Every30s grid point is a possible control opportunity. Listen on DTS
+  * before its SYNC even on precision-only slots; actual DISC is120s and
+  * META300s. Successful FOLLOW chains the next prediction, never authority. */
  if(owner.next_control_us&&now+LP_RX_TUNE_LEAD_US>=owner.next_control_us&&owner.phy!=R2_LORA_DTS){
   int rc=tune(R2_LORA_DTS,0,true);if(rc)return rc;
  }
@@ -1371,6 +1386,7 @@ int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
  "\"emitter\":\"%016llx\",\"emitter_boot\":\"%016llx\",\"stream\":%u,\"source_epoch\":%u,\"capture_epoch\":%llu,"
  "\"serial\":%u,\"cursor\":%u,\"event_mono_us\":%llu,\"event_tick\":%llu,\"event_ns\":%llu,"
  "\"physical_until_us\":%llu,\"meta_until_us\":%llu,\"trained\":%s,\"time_valid\":%s,\"link_fit\":[%u,%u],"
+ "\"hold_selected\":%s,\"hold_rates\":[%d,%d,%d,%u,%d,%u],\"hold_model\":[%llu,%llu,%d,%d],\"discovery_us\":%llu,"
  "\"accepted\":%u,\"rejected\":%u,\"missing\":%u,\"sent\":[%u,%u,%u,%u],\"received\":[%u,%u,%u,%u],"
  "\"late\":%u,\"refused\":%u,\"bad\":%u,\"missing_map\":%u,\"storage_fail\":%u,\"retries\":%u,\"owed\":%u,"
  "\"charged_us\":%llu,\"pending\":%u,\"fh_disabled\":%u,\"hw_errors\":[%u,%u,%u,%u,%u],"
@@ -1381,6 +1397,8 @@ int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
  (unsigned long long)d.emitter,(unsigned long long)d.boot,d.stream,d.source_epoch,(unsigned long long)(tx?0:d.epoch),
  d.serial,d.cursor,(unsigned long long)(tx?0:d.last_us),(unsigned long long)(tx?0:d.last_tick),(unsigned long long)(tx?0:d.last_ns),
  (unsigned long long)(tx?0:d.physical_until),(unsigned long long)(tx?0:d.meta_until),!tx&&d.trained?"true":"false",v.time_valid?"true":"false",v.link_samples,v.link_rms_ns,
+ !tx&&d.hold_selected?"true":"false",d.baseline_rate,d.rate,d.hold_short_rate,d.hold_short_guard,d.hold_long_rate,d.hold_long_guard,
+ (unsigned long long)d.model_tick,(unsigned long long)d.model_ns,d.rate,d.model_phase,(unsigned long long)(LP_BEAT_US*LP_DISC_BEATS),
  tx?0:d.accepted,tx?0:d.rejected,tx?0:d.missing,d.sent[0],d.sent[1],d.sent[2],d.sent[3],
  tx?0:d.received[0],tx?0:d.received[1],tx?0:d.received[2],tx?0:d.received[3],
  d.late,d.refused,d.bad,d.missing_map,d.storage_fail,retries,owed,(unsigned long long)(tx?d.charged:0),d.pending,tx?d.fh_disabled:0,

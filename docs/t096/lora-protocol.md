@@ -44,9 +44,10 @@ teaches authenticated context and coarse TZ. Its UTC value is frozen during
 preparation for context/replay ordering, not an RF-start measurement. DISC
 carries a scheduling hint within an already learned context.
 
-| Setting | RAM_60_300, slow candidate | RAM_LAB_4_12, finite lab |
+| Setting | RAM_30_120_300, slow candidate | RAM_LAB_4_12, finite lab |
 | --- | ---: | ---: |
-| Control/precision period | 60 s | 4 s |
+| Precision period | 30 s | 4 s |
+| DISC period | 120 s | Control slots without META |
 | Nominal META period | 300 s | 12 s |
 | SYNC from captured control start | 7 s | 2 s |
 | Control/SYNC preparation lead | 2 s / 1.5 s | At launch |
@@ -61,8 +62,8 @@ carries a scheduling hint within an already learned context.
 | META/hint processing age | 1 s | 200 ms |
 | SYNC processing age | 1 s | 500 ms |
 | Physical/context expiry | 120 s / 420 s | 6 s / 18 s |
-| Strict normal physical-event cadence bound | 62.51 s | Separate lab checks |
-| Per-boot rolling-hour engineering cap | 72 s | 1080 s |
+| Strict normal physical-event cadence bound | 32.51 s | Separate lab checks |
+| Per-boot rolling-hour engineering cap | 108 s | 1080 s |
 | Boot request | ON | OFF; explicit 15-minute session |
 
 Both variants use normal GM/RC images; DC/PC reject them. The short 4 s
@@ -81,10 +82,59 @@ fresh-control bounds remain independent. The next cursor cannot renew a saved
 prediction's original control+4 s horizon. The 7 s SYNC offset leaves retune
 margin after that retirement horizon.
 
-The strict cadence gate is 60 s + two 1.25 s pads + 10 ms rounding = 62.51 s. A
+The strict cadence gate is 30 s + two 1.25 s pads + 10 ms rounding = 32.51 s. A
 120 s physical hold accommodates recovery but cannot turn a missed pair into a
 passing cadence. META 420 s is an observation lease, not a delivery promise. All
 packet-level source, RF cutoff, capture and watchdog bounds remain mandatory.
+
+### P30/D120/M300 airtime and phase
+
+Each30s slot contains one SYNC/FOLLOW pair. Full META remains112B every300s.
+DISC is28B every120s, offset by one30s slot: META at0/300/600s, DISC at30/150/
+270/390s. These phases do not collide. Other slots contain no DTS control;
+a successful authenticated FOLLOW predicts the next pair. Receivers listen on
+DTS before every possible control slot, preserving late-control/retune fences.
+A lost pair can break that prediction chain until the next DISC or META;
+recovery is not a passing normal-cadence observation. Source-turnover and bounded
+recovery META remain exceptional charged work, never a catch-up burst.
+
+Nominal hourly reservations are120 pairs x500765us,30 DISC x454416us and12 META
+x1142544us: **87.434808s/hour (2.428745%)**. Every packet includes the original
+10ms engineering allowance. The old60/300 schedule reserved65.568396s/hour.
+The108s rolling-hour cap (3%) covers all ordinary and recovery reservations;
+conservative minute-bucket admission can reach90.534063s even on the nominal
+grid. This is accounting arithmetic, not measured RF occupancy or authorization.
+
+The shared bounded HOLD rate consensus uses the existing16-point LoRa history,
+with sparse180/300s pair-slope medians, at least60s pair separation,85% span,
+at least8 valid slopes,20/10ppb internal guards and10ppb window agreement.
+It preserves the BLE selector's bounded admission and150ppb adjustment ceiling,
+with explicit conversion between local-frequency and LoRa correction signs.
+No BLE/GNSS sample trains this LoRa model. Unlike dense BLE fits, the sparse
+fits cannot center repeated channels within their short history; channel delay
+and propagation remain uncalibrated.
+
+Phase is the median historical pair projection at the selected causal rate,
+not the latest raw packet timestamp. The owner commits at an actual current
+capture after FOLLOW. A one-second phase slew preserves the previously delivered
+clock; discrepancies above1ms reacquire explicitly. Physical/context expiry and
+stale display age still originate at the original SYNC event. The original
+180s training requirement stays: ideal30s spacing needs seven observations.
+
+`lora-diag.hold_rates` is [baseline correction, selected correction, short local
+frequency, short guard, long local frequency, long guard], all inppb.
+`hold_model` is [actual commit tick, UTC ns, correction ppb, remaining phase ns].
+The phase correction completes over one second from the commit tick.
+`hold_selected` reports the guarded rate selection; phase fitting applies to
+all trained maps. `discovery_us` explicitly reports120000000.
+
+The engineering target is below1us RMS between updates. Fit residuals alone
+cannot establish it. `lora_holdover_analyze.py` compares frozen causal models
+with later physical pairs, retaining errors, unknowns and censored endpoints.
+Independent local PPS, when available, witnesses the actually delivered affine
+map and slew without training it. Raw phase bias, uncentered RMS, centered
+variation and packet-age populations must be reported separately. No fixed
+PPS-derived subtraction or UTC qualification is implied.
 
 ## Source admission, scheduling and recovery
 
@@ -139,11 +189,10 @@ interrupt latency.
 
 Integers are little endian. Header bytes are `4c 03`, kind/flags, schedule. Kind
 occupies the low nibble; bits 4–5 are zero. HAS_PAIR=`0x80` and
-TIME_VALID=`0x40` are control-only. Schedule 1 selects fast, schedule 2 slow; an
+TIME_VALID=`0x40` are control-only. Schedule 1 selects fast, schedule 3 selects P30/D120/M300; an
 image rejects other schedules. HAS_PAIR requires TIME_VALID and a nonzero 10 ms
 delay hint; without a pair delay is zero. Slow accepts at most 700 delay units,
-fast 400. Earlier wire3 slow receivers with the 400-unit validator reject the
-new 7 s control; deploy matched current receivers. Wire 2 is rejected and no
+fast 400. Earlier schedule-2 slow receivers reject schedule 3; deploy matched current receivers. Wire 2 is rejected and no
 compatibility broadcast or negotiation exists.
 
 | Kind | Bytes including MAC16 | Body after header | MAC domain |
@@ -201,7 +250,7 @@ reservations are charged before transmission; only synchronous single-use proof
 of no SetTx/RF can refund them. Unknown/possible RF keeps its charge. Historical
 ledger/journal banks are neither restored nor written, erased or provisioned;
 their bytes remain untouched. Static credentials remain private build inputs.
-The 72 s rolling-hour cap has no cross-boot enforcement.
+The 108 s rolling-hour cap has no cross-boot enforcement.
 
 A new authenticated emitter boot discards prior pending/context/fit/display
 state and requires fresh META and precision. Within a receiver boot, an
@@ -240,7 +289,7 @@ gain/orientation, placement, terrain, distance, interference, RSSI/SNR,
 acquisition, accepted/missed populations, failures and relative/independent
 timing separately. Bench reception establishes no coverage or emissions result.
 
-The 72 s/h engineering limiter is not an FCC duty-cycle approval. The proposed
+The 108 s/h engineering limiter is not an FCC duty-cycle approval. The proposed
 mixed rendezvous/hopping design needs an applicable equipment-authorization and
 measurement route. For 902–928 MHz hopping channels with measured 20 dB
 bandwidth below 250 kHz, §15.247(a)(1) requires at least 50 frequencies,

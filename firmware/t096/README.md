@@ -75,23 +75,23 @@ Precision payload names alone do not establish coarse-wire compatibility.
 ## Passive LoRa fallback
 
 The [current LoRa design](../../docs/t096/lora-protocol.md) defines passive wire3,
-separate from historical RC8. Select the slow 60/300 s variant and one exact
+separate from historical RC8. Select the slow 30/120/300 s variant and one exact
 transmitter factory at build time. Listeners request RX at boot in both GM and
 RC profiles; GM participation does not suppress passive RX. The designated
 GM-profile device requests TX and may export qualified own-GNSS time or fresh
 authenticated locked BLE time from another GM. Becoming ACTIVE does not enable
 LoRa TX on another device. There is no automatic backup emitter.
 
-The slow profile sends precision/control every 60 s and full META nominally every
-300 s. Matched current receivers are required for its 7 s SYNC offset and delay
-validator. GNSS and BLE timing retain priority. Internal precision/META retries
+The slow profile sends precision every30s, discovery every120s and full META
+every300s. Matched schedule-3 receivers are required; the7s SYNC offset and
+packet-level source/capture guards remain mandatory. GNSS and BLE timing retain priority. Internal precision/META retries
 retain owed work after proven closure; clients send no ACK or retransmission.
 See the [build guide](../../docs/t096/build.md#optional-lora-configuration) for
 selection and the [soak guide](../../docs/t096/lora-soak.md) for measured checks.
 
 Runtime state is RAM-only: boot resets airtime, cooldown/session state, fits,
 faults and replay history. Profile/source changes within a boot retain airtime.
-Historical flash ledger/journal bytes remain unused and untouched. The 72 s per
+Historical flash ledger/journal bytes remain unused and untouched. The 108 s per
 rolling-hour engineering cap has no cross-boot enforcement and establishes no
 FCC compliance. The [design](../../docs/t096/lora-protocol.md#range-and-fcc-compliance-considerations)
 records RF/antenna considerations and future slow-profile range goals; field
@@ -99,8 +99,8 @@ coverage, power and emissions remain unmeasured.
 
 LoRa can drive the digital and analog watch when BLE is unavailable. The watch
 shows **LOR**, relative **LOR RMS**, authenticated emitter identity, actual mode,
-measured RX-strength bars and a **60 s** badge. UTC remains the internal clock
-coordinate. Native fitting needs four points spanning 180 s. RMS describes
+measured RX-strength bars and a **30 s** badge. UTC remains the internal clock
+coordinate. Native fitting needs at least180s of physical observations (seven at ideal30s spacing). RMS describes
 relative physical-link consistency, not independent UTC accuracy, BLE lock or
 an uncertainty bound. LoRa grants no GM service/election, HOT, BLE relay or USB
 timing authority. Passive wire3 has no RTT/ToF exchange.

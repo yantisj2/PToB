@@ -28,6 +28,7 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([sys.executable,str(APP/'tools/lora_init_gate_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-init-gate')],env={**os.environ,'CC':compiler},check=True,timeout=90)
     subprocess.run([sys.executable,str(APP/'tools/lora_hw_tests.py'),'--out',str(out/'lora-hw')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/lora_passive_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-passive')],env={**os.environ,'CC':compiler},check=True,timeout=120)
+    subprocess.run([sys.executable,str(APP/'tools/lora_enhanced_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-enhanced')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/lora_passive_owner_tests.py'),'--deps',str(args.deps),'--out',str(out/'lora-passive-owner')],env={**os.environ,'CC':compiler},check=True,timeout=120)
     subprocess.run([sys.executable,str(APP/'tools/lora_soak_tests.py')],check=True,timeout=30)
     subprocess.run([sys.executable,str(APP/'tools/gm_input_order_tests.py'),'--deps',str(args.deps),'--out',str(out/'gm-input-order')],env={**os.environ,'CC':compiler},check=True,timeout=60)

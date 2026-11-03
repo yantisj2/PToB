@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "rc_shadow.h"
 #include "capture.h"
+#include "holdover.h"
 #ifdef R2_LORA_PASSIVE_SLOW
 #include "../protocol/lora_passive_schedule.h"
 #endif
@@ -141,9 +142,10 @@ static void shadow_poll(bool allow_field){
 #endif
       r.map.normal_map.valid&&r.map.normal_map.anchor>=0&&
       r.map.normal_map.rate>=-100000&&r.map.normal_map.rate<=100000;
-     if(projected){int64_t elapsed=(int64_t)(ticks*125/2);elapsed+=elapsed*r.map.normal_map.rate/INT64_C(1000000000);
-      projected=elapsed>=0&&r.map.normal_map.anchor<=INT64_MAX-elapsed;
-      if(projected)ns=r.map.normal_map.anchor+elapsed;}
+     if(projected){uint64_t value;
+      projected=r2_hold_lora_project(r.edge.tick,r.map.normal_map.delivery,(uint64_t)r.map.normal_map.anchor,
+       r.map.normal_map.rate,r.map.map.phase_ns,&value)&&value<=INT64_MAX;
+      if(projected)ns=(int64_t)value;}
     }else projected=r2_servo_mapped(&r.map.normal_map,r.edge.tick,&ns);
     if(projected&&ns>=0){
      r.valid=true;r.relay_ns=(uint64_t)ns;uint64_t fraction=r.relay_ns%1000000000;

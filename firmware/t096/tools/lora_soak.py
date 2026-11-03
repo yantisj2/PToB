@@ -74,16 +74,18 @@ class Gate:
         self.reason=reason
 
     def observe(self, p, host_ns, transmitter=None):
-        if p.get('diag')!=1 or p.get('profile') not in ('PROD_60_300','RAM_60_300'):
+        if p.get('diag')!=1 or p.get('profile') not in ('PROD_60_300','RAM_60_300','RAM_30_120_300'):
             raise ValueError('slow diagnostic profile required')
         # Current firmware supplies its original observation lease and normal
         # physical-event cadence bound. Older slow profiles retain62s/362s.
-        beat=p.get('beat_us',60000000)
+        enhanced=p.get('profile')=='RAM_30_120_300'
+        beat=p.get('beat_us',30000000 if enhanced else 60000000)
         hold=p.get('hold_us',62000000)
         lease=p.get('lease_us',362000000)
         cadence=p.get('cadence_bound_us',62000000)
         if (any(type(x) is not int for x in (beat,hold,lease,cadence)) or
-            beat!=60000000 or not beat<=cadence<=hold or lease<300000000):
+            beat!=(30000000 if enhanced else 60000000) or not beat<=cadence<=hold or lease<300000000 or
+            (enhanced and (p.get('meta_us')!=300000000 or p.get('discovery_us')!=120000000))):
             raise ValueError('incoherent slow diagnostic timing bounds')
         self.samples+=1
         stamp=host_ns/1e9

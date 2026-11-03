@@ -34,7 +34,7 @@ def main():
  oldcodec=a.out/'old400_codec.c';oldcodec.write_text((APP/'protocol/lora_passive.c').read_text().replace('p->delay_10ms>LP_MAX_DELAY_10MS','p->delay_10ms>400'))
  variants.append(('old400-delay',82,flags,[oldcodec if f==APP/'protocol/lora_passive.c' else f for f in sources],'"error":-22'))
  oldpredict=a.out/'old_predicted_tune.c';oldpredict.write_text(body.read_text().replace('if(wait_control)return 0;','(void)wait_control;'))
- variants.append(('old-predicted-retune',83,[f.replace(str(body),str(oldpredict))for f in flags],sources,'role.rx.rejected'))
+ variants.append(('old-predicted-retune',83,[f.replace(str(body),str(oldpredict))for f in flags],sources,'visible'))
  oldlate=a.out/'old_direct_late.c';oldlate.write_text(body.read_text().replace('utc_finish(UTC_EXPIRED,UTC_FAILED);if(!t->manual)inc(&retry_count);begin_stop(0);return 0;',
   'if(utc_running_token){lp_tx_cancel(t,true);utc_finish(UTC_EXPIRED,UTC_FAILED);if(!t->manual){retry_at_us=now+LP_RETRY_US;++retry_count;}}else{lp_tx_cancel(t,true);retry_at_us=now+LP_RETRY_US;++retry_count;}'))
  variants.append(('old-direct-late',84,[f.replace(str(body),str(oldlate))for f in flags],sources,'injected&&closure'))

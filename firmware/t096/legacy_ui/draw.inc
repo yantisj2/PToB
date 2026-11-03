@@ -533,7 +533,7 @@ static void analog_clock(uint8_t *fb, const ui_snapshot_t *s, int cy) {
     inset_badge(fb,cx-14,cy+7,29,13,C_LCD);
     if(s->native_lora_source){
 #ifdef R2_LORA_PASSIVE_SLOW
-        label(fb,cx-8,cy+10,"60s",1,rate_color);
+        label(fb,cx-8,cy+10,"30s",1,rate_color);
 #else
         /* .25 Hz is the four-second physical timing cadence. Compact only
          * the dot's empty columns to fit the original 29px inset. */

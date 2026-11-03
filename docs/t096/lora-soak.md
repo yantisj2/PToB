@@ -5,7 +5,7 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 This read-only harness measures scheduling, reception and relative timing after
 separately reviewed installation. It neither enables RF nor changes firmware,
 roles, faults or clocks. The [wire3 design](lora-protocol.md) defines matched
-slow 60/300 s receivers, one designated GM-profile emitter, source bounds,
+slow 30/120/300 s receivers, one designated GM-profile emitter, source bounds,
 RAM-only accounting and diagnostic fields. Other GMs can supply BLE time without
 becoming LoRa emitters. Bind verified factories privately; no cross-boot airtime,
 range or FCC compliance follows from this test.
@@ -48,7 +48,7 @@ are reported separately; sampled availability cannot establish continuous uptime
 Each required receiver needs 600 real continuous seconds, three advancing
 ordinary META boundaries in one source/capture context, advancing accepted UTC,
 native training spanning 180 s within the chosen RMS limit, and no missed/late/error
-advances or host gaps. Slow cadence is independently bounded at 62.51 s;
+advances or host gaps. Slow cadence is independently bounded at 32.51 s;
 120 s hold and 420 s META lease cannot excuse a missed pair. Startup failures and
 TX errors restart continuity. A serial jump cannot substitute for elapsed time
 or a missed boundary. Every required receiver must pass before SOAK begins.

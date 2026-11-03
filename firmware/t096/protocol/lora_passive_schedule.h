@@ -5,7 +5,7 @@
 #error "Diagnostic TX requires explicit passive fast only"
 #endif
 #define LP_FAST 1u
-#define LP_SLOW 2u
+#define LP_SLOW 3u
 #define LP_HISTORY_CAP_US UINT64_C(1080000000)
 #define LP_TRAIN_US UINT64_C(180000000)
 #define LP_WINDOW_US UINT64_C(300000000)
@@ -13,10 +13,12 @@
 #define LP_MINUTE_US UINT64_C(60000000)
 #ifdef R2_LORA_PASSIVE_SLOW
 #define LP_SCHEDULE LP_SLOW
-/* Conservative engineering allowances, not measured latency maxima.
- * Cadence remains60/300; each RF/source/capture fence remains original. */
-#define LP_BEAT_US UINT64_C(60000000)
-#define LP_META_BEATS 5u
+/* P30/D120/M300. Schedule2 is deliberately incompatible. Each precision
+ * slot retains the original RF/source/capture fences, with or without DTS. */
+#define LP_BEAT_US UINT64_C(30000000)
+#define LP_META_BEATS 10u
+#define LP_DISC_BEATS 4u
+#define LP_DISC_PHASE 1u
 #define LP_SYNC_OFFSET_US UINT64_C(7000000)
 #define LP_MAX_DELAY_10MS 700u
 #define LP_FRAME_END_US UINT64_C(15000000)
@@ -35,8 +37,8 @@
 #define LP_FOLLOW_LATEST_US UINT64_C(4500000)
 #define LP_HOLD_US UINT64_C(120000000)
 #define LP_LEASE_US UINT64_C(420000000)
-#define LP_CAP_US UINT64_C(72000000)
-#define LP_PROFILE_NAME "RAM_60_300"
+#define LP_CAP_US UINT64_C(108000000)
+#define LP_PROFILE_NAME "RAM_30_120_300"
 #define LP_SYNC_PROCESS_US UINT64_C(1000000)
 #define LP_RETRY_US UINT64_C(3000000)
 #else
@@ -45,6 +47,8 @@
 #define LP_RETRY_US UINT64_C(2000000)
 #define LP_BEAT_US UINT64_C(4000000)
 #define LP_META_BEATS 3u
+#define LP_DISC_BEATS 1u
+#define LP_DISC_PHASE 0u
 #define LP_SYNC_OFFSET_US UINT64_C(2000000)
 #define LP_MAX_DELAY_10MS 400u
 #define LP_FRAME_END_US UINT64_C(3000000)

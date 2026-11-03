@@ -156,10 +156,10 @@ authenticated locked BLE time from another GM. It need not be the serving GM.
 Entering GM restores its TX request; manual OFF lasts until the next RC→GM
 transition or reboot. Other devices cannot become LoRa emitters by changing mode.
 
-Slow uses 60 s precision/control, nominal 300 s META, a 4 s bootstrap guard and 72 s/h
-per-boot engineering accounting. Its 7 s SYNC offset requires matched current
-receivers accepting up to 700 ten-millisecond delay units; earlier 400-unit
-wire3 receivers are incompatible with those controls. The [soak guide](lora-soak.md)
+Slow uses30s precision,120s discovery, unchanged300s META, a4s bootstrap guard
+and108s/h (3%) per-boot engineering accounting. Schedule3 requires matched
+receivers; earlier schedule2 images reject its packets. The7s SYNC offset
+and700-unit delay validator remain. The [soak guide](lora-soak.md)
 separates ordinary reception qualification from [manual UTC jobs](lora-utc-diagnostic.md).
 
 All mutable operational state is RAM-only. Physical boot starts zero airtime,

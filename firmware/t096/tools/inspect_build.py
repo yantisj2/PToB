@@ -402,7 +402,10 @@ def inspect(out,allow_development=False):
         require(not any(s.startswith('r2_lora_') for s in names),'LoRa owner leaked into DC/PC')
         require('CONFIG_NRFX_SPIM1=y' not in config and 'CONFIG_NRFX_TIMER4=y' not in config,'LoRa peripherals leaked into DC/PC')
     if passive:
-        profile='RAM_60_300' if slow else 'RAM_LAB_4_12'
+        profile='RAM_30_120_300' if slow else 'RAM_LAB_4_12'
+        if slow:
+            require(r.get('passive_schedule')==dict(id=3,precision_us=30000000,discovery_us=120000000,
+                    metadata_us=300000000,rolling_hour_cap_us=108000000),'Enhanced passive schedule/cap binding')
         require(r.get('secondary_lora_class')==('RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
         require(r.get('runtime_state')=='RAM_ONLY' and r.get('passive_wire_version')==3,'RAM/wire cohort receipt')
         require(not ({'lp_store_load','lp_store_save','lp_store_prepare','lp_tx_restore','lp_checkpoint_carry'}&linked_names),'Persistence leaked into native LoRa owner')

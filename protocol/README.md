@@ -40,10 +40,14 @@ The following references retain their own version/evidence boundaries:
   [October 2 proposal](../papers/ptob-proposal.pdf): historical architecture and
   protocol editions, not current wire bindings.
 
-The [passive LoRa v2 experimental laboratory variant](lora_passive_v2/README.md) implement
-portable fast-cadence codec/policy and conditional driver hooks. Native owner
-and durable storage integration remain pending; no build or installed device
-selects this wire. RC8 wire5 remains the ordinary T096 LoRa implementation.
+The [current passive LoRa wire3 design](../docs/t096/lora-protocol.md) uses one
+designated emitter and receive-only clients. Schedule3 sends precision every30s,
+DISC every120s and unchanged META every300s under108s/h (3%) RAM-only accounting.
+Matched schedule3 receivers are required; the finite4/12s laboratory schedule
+and historical RC8 wires retain their own contracts. The
+[earlier passive v2 component checkpoint](lora_passive_v2/README.md) is historical.
+The held-clock target is below1us RMS between updates; independent physical
+phase, range and RF authorization remain separate measured gates.
 
 Proposed, implemented, installed and qualified behavior are distinct. Preserve
 frozen contracts/vectors; assign explicit versions/domains to incompatible

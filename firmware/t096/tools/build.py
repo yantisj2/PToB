@@ -83,7 +83,7 @@ def main():
     parser.add_argument('--lora-transmitter-factory', help='Explicit normal-image sole LoRa TX factory ID; absent disables LoRa')
     parser.add_argument('--lora-passive-fast', action='store_true', help='Default-off RAM_LAB_4_12 image; explicit per-boot console selection required')
     parser.add_argument('--lora-tx-diagnostic', action='store_true', help='Finite default-off non-timing PHY TX test; requires GM passive-fast and own exact factory')
-    parser.add_argument('--lora-passive-slow', action='store_true', help='Production60/300 schedule; normal GM/RC boot with RX on')
+    parser.add_argument('--lora-passive-slow', action='store_true', help='Production30/120/300 schedule; normal GM/RC boot with RX on')
     parser.add_argument('--lora-backup-transmitter-factory', help='Explicit first own-GNSS backup emitter')
     parser.add_argument('--controller-diagnostics', action='store_true', help='Opt-in normal GM/RC prepare FIFO diagnostic canary')
     parser.add_argument('--development', action='store_true')
@@ -187,9 +187,12 @@ def main():
                'lora_backup_transmitter_factory':backup,'lora_passive_slow':args.lora_passive_slow,
                'lora_tx_diagnostic':args.lora_tx_diagnostic,
                'runtime_state':'RAM_ONLY','passive_wire_version':3,
-               'secondary_lora_class':'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_60_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
+               'secondary_lora_class':'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
                'lora_passive_fast':args.lora_passive_fast}
     receipt['time_zone'] = tz
+    if args.lora_passive_slow:
+        receipt['passive_schedule'] = dict(id=3,precision_us=30000000,discovery_us=120000000,
+                                         metadata_us=300000000,rolling_hour_cap_us=108000000)
     receipt['gm7_controller'] = None if not args.gm7 else {
         'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
         'generator_sha256':sha(APP/'tools/gm7_controller_hooks.py')}
@@ -277,7 +280,7 @@ def main():
             raise ValueError('Source changed during build')
         target=out/'target/zephyr'
         private_hash=private_binding(sha(secret),transmitter)
-        if args.lora_passive_slow:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_60_300').encode()).hexdigest()
+        if args.lora_passive_slow:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_30_120_300').encode()).hexdigest()
         if args.lora_passive_fast:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_LAB_4_12').encode()).hexdigest()
         if args.lora_tx_diagnostic:private_hash=hashlib.sha256((private_hash+':tx-diagnostic:1').encode()).hexdigest()
         if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()

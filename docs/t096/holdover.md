@@ -5,8 +5,8 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 RC7 maintains a separate local BLE-trained clock for the watch and diagnostic
 HOLD tests. The live BLE/relay/USB observation clock keeps its original source
 and permission gates. Local HOLD has unknown uncertainty and is not exported
-as an authenticated observation. GM/DC/PC discipline and LoRa's delivered
-clock are unchanged.
+as an authenticated observation. GM/DC/PC discipline is separate. The [passive LoRa clock](lora-protocol.md)
+uses its own sparse-history adaptation of the shared rate consensus.
 
 ## Frequency and continuity
 
@@ -126,3 +126,9 @@ RC clock convention while preserving its independently authenticated phase.
 Tests exercise both signs and the full LoRa rate range. Its runtime integration
 must retain separate transport provenance, freshness and phase qualification;
 BLE-relative performance does not qualify LoRa or its slow cadence.
+
+The schedule-3 LoRa owner now reuses the bounded rate consensus with180/300s
+physical-pair histories, a causal median phase fit and continuous one-second
+phase slew. Its own16-point history, capture/context lifetime, input bias and
+PPS observations remain separate from BLE. See the linked wire3 contract and
+`lora_enhanced_tests.py`; dense BLE holdover results do not qualify LoRa.

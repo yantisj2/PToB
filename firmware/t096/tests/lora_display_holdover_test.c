@@ -4,7 +4,8 @@
 #undef main
 static struct lp_scope scope;
 static uint8_t context[16];
-static unsigned warm_pairs=4;static uint64_t first_slot;
+#define TRAIN_PAIRS ((unsigned)(LP_TRAIN_US/LP_BEAT_US+1))
+static unsigned warm_pairs=TRAIN_PAIRS;static uint64_t first_slot;
 static void display_diagnostics(void){
  char out[2976],field[96];int n=r2_lora_diagnostics_json(out,sizeof out,0);
  assert(n>0&&(size_t)n<sizeof out&&out[n]==0);
@@ -34,10 +35,10 @@ static void train_watch(void){
   packet(&p,context,slot+LP_SYNC_OFFSET_US+75000,slot+LP_SYNC_OFFSET_US+223000);
   p.kind=LP_FOLLOW;p.utc_ns=UINT64_C(1000000000000)+(slot+LP_SYNC_OFFSET_US)*1000;
   packet(&p,context,slot+LP_SYNC_OFFSET_US+560000,slot+LP_SYNC_OFFSET_US+745000);
-  if(i<3)assert(!role.rx.trained&&role.rx.display_valid&&role.rx.display_acquiring&&published.display_acquiring&&!published.display_held&&published.utc_us&&!published.time_valid&&!published.quality_known&&published.choice==RC8_SELECT_NONE);
+  if(i+1<TRAIN_PAIRS)assert(!role.rx.trained&&role.rx.display_valid&&role.rx.display_acquiring&&published.display_acquiring&&!published.display_held&&published.utc_us&&!published.time_valid&&!published.quality_known&&published.choice==RC8_SELECT_NONE);
  }
- if(warm_pairs<4){display_diagnostics();return;}
- assert(role.rx.trained&&role.rx.display_valid&&!role.rx.display_acquiring&&role.rx.accepted==4&&published.utc_us);display_diagnostics();
+ if(warm_pairs<TRAIN_PAIRS){display_diagnostics();return;}
+ assert(role.rx.trained&&role.rx.display_valid&&!role.rx.display_acquiring&&role.rx.accepted==TRAIN_PAIRS&&published.utc_us);display_diagnostics();
  now_us=role.rx.physical_deadline_us+100;step();
  assert(published.display_held&&published.state==RC8_EXPIRED&&!published.time_valid&&!published.quality_known&&!published.rssi_valid&&published.choice==RC8_SELECT_NONE);
 }
@@ -76,7 +77,7 @@ int main(int argc,char **argv){
    assert(role.rx.display_ns==anchor&&role.rx.display_us==reference&&role.rx.display_tick==tick&&role.rx.display_rate_ppb==0&&published.display_acquiring&&!published.time_valid);
    assert(published.age_ms==(published.sampled_us-reference)/1000&&role.rx.fit_count==1&&!role.rx.trained);
   }else if(mode==21){
-   for(unsigned i=1;i<4;i++){acquisition_pair(first_slot+i*LP_BEAT_US,2*i,1,0,false);if(i<3)assert(published.display_acquiring&&role.rx.display_ns==anchor&&role.rx.display_us==reference);}
+   for(unsigned i=1;i<TRAIN_PAIRS;i++){acquisition_pair(first_slot+i*LP_BEAT_US,2*i,1,0,false);if(i+1<TRAIN_PAIRS)assert(published.display_acquiring&&role.rx.display_ns==anchor&&role.rx.display_us==reference);}
    assert(role.rx.trained&&!role.rx.display_acquiring&&!published.display_acquiring&&!published.display_held&&published.time_valid&&published.quality_known&&published.choice==RC8_SELECT_LORA&&role.rx.display_us>reference);
    now_us=role.rx.physical_deadline_us+1;step();assert(published.display_held&&!published.display_acquiring&&!published.time_valid&&!published.quality_known);
   }else if(mode==22)control_packet(false,false,false);
@@ -112,9 +113,9 @@ int main(int argc,char **argv){
   now_us+=1000000;step();assert(published.utc_us==previous+published.sampled_us-previous_at);
   assert(role.rx.display_rate_ppb==rate&&published.age_ms==(published.sampled_us-reference)/1000);
   scope=role.rx.scope;assert(!lp_context(context,&scope,LP_SLOW,&test_group));
-  uint64_t base=now_us+1000000;
-  for(unsigned i=0;i<4;i++){
-   uint64_t slot=base+i*LP_BEAT_US;uint32_t cursor=10+2*i;
+  uint64_t base=now_us+1000000;uint32_t first_cursor=role.rx.highest+2;
+  for(unsigned i=0;i<TRAIN_PAIRS;i++){
+   uint64_t slot=base+i*LP_BEAT_US;uint32_t cursor=first_cursor+2*i;
    struct lp_packet p={.kind=i?LP_DISC:LP_META,.schedule=LP_SLOW,.scope=scope,.serial=3,.cursor=cursor,.time_valid=true,.has_pair=true,.utc_ns=UINT64_C(1005000000000)+slot*1000,.tz=r2_tz_unknown()};
    p.delay_10ms=(uint16_t)((LP_SYNC_OFFSET_US-(lp_duration(p.kind)-10000)+9999)/10000);
    assert(!tune(R2_LORA_DTS,0,true));packet(&p,context,slot+lp_duration(p.kind)-10000,slot+lp_duration(p.kind)-9000);
@@ -123,14 +124,14 @@ int main(int argc,char **argv){
    packet(&p,context,slot+LP_SYNC_OFFSET_US+75000,slot+LP_SYNC_OFFSET_US+223000);
    p.kind=LP_FOLLOW;p.utc_ns=UINT64_C(1005000000000)+(slot+LP_SYNC_OFFSET_US)*1000;
    packet(&p,context,slot+LP_SYNC_OFFSET_US+560000,slot+LP_SYNC_OFFSET_US+745000);
-   if(i<3){
+   if(i+1<TRAIN_PAIRS){
     assert(role.rx.display_ns==anchor&&role.rx.display_tick==tick&&role.rx.display_us==reference&&role.rx.display_rate_ppb==rate);
     assert(published.display_held&&!published.time_valid&&!published.quality_known&&!role.rx.trained);
     assert(published.age_ms==(published.sampled_us-reference)/1000&&published.until_us==original);
     uint64_t before=published.utc_us,at=published.sampled_us;now_us+=1000000;step();assert(published.utc_us==before+published.sampled_us-at);
    }
   }
-  assert(role.rx.trained&&role.rx.fit_count==4&&!published.display_held&&published.choice==RC8_SELECT_LORA);
+  assert(role.rx.trained&&role.rx.fit_count==TRAIN_PAIRS&&!published.display_held&&published.choice==RC8_SELECT_LORA);
   assert(published.time_valid&&published.quality_known&&role.rx.display_us>reference&&role.rx.display_ns!=anchor);
  }else if(mode==15){++scope.boot;control_packet(true,true,false);assert(!role.rx.display_valid&&!published.utc_us);
  }else if(mode==16){

@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #include "lora_passive_core.h"
+#include "holdover.h"
 #include <limits.h>
 #include <string.h>
 
@@ -99,7 +100,8 @@ static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *
   return false;
 #endif
  }
- unsigned control=index%LP_META_BEATS==0?LP_META:LP_DISC;
+ unsigned control=index%LP_META_BEATS==0?LP_META:
+  index%LP_DISC_BEATS==LP_DISC_PHASE?LP_DISC:0;
  struct lp_checkpoint s=t->durable;
 #ifdef R2_LORA_PASSIVE_SLOW
  bool retry=s.owed!=0;
@@ -232,7 +234,7 @@ bool lp_tx_refund_no_rf(struct lp_tx *t,const struct lp_reservation *r){
  if(!t||!r||!t->ready||t->save||!t->unlaunched||t->durable.fh_disabled||
     t->slot_us!=r->slot_us||t->durable.serial!=r->serial||t->durable.cursor!=r->cursor||
     t->pair!=r->has_pair||t->reserved_control!=r->control||t->durable.pending!=(r->has_pair?1:0)||t->sync_end_us||
-    (r->control!=LP_META&&r->control!=LP_DISC)||(r->control==LP_META&&!r->serial))return false;
+    (r->control&&r->control!=LP_META&&r->control!=LP_DISC)||(r->control==LP_META&&!r->serial))return false;
  uint64_t minute=(r->slot_us+LP_FRAME_END_US)/LP_MINUTE_US;
  uint32_t cost=lp_duration(r->control)+(r->has_pair?lp_duration(LP_SYNC)+lp_duration(LP_FOLLOW):0);
  if(t->durable.minute!=minute||t->durable.buckets[minute%61]<cost)return false;
@@ -254,7 +256,7 @@ bool lp_age_admit(const struct lp_age *a,uint64_t event,uint64_t now,uint64_t *a
 static void pending_clear(struct lp_rx *r){r->pending=r->hint=r->prediction=false;}
 static void withdraw(struct lp_rx *r,bool keep_display){
  if(!keep_display)r->display_valid=r->display_acquiring=false;
- pending_clear(r);r->have_pair=r->trained=r->bounded=false;r->physical_deadline_us=0;
+ pending_clear(r);r->have_pair=r->trained=r->bounded=r->hold_selected=false;r->physical_deadline_us=0;r->model_accepted=0;
  r->fit_count=0;r->meta_deadline_us=r->tz_deadline_us=0;
 }
 bool lp_rx_meta(struct lp_rx *r,const struct lp_packet *p,const struct r2_group_config *g,const struct lp_age *a,uint64_t event,uint64_t now){
@@ -321,6 +323,81 @@ bool lp_rx_sync(struct lp_rx *r,uint32_t cursor,uint64_t tick,uint64_t epoch,uin
  r->pending_epoch=epoch;r->pending_us=event;r->pending_deadline_us=event+LP_PENDING_US;
  return true;
 }
+#ifdef R2_LORA_PASSIVE_SLOW
+/* Sparse LoRa adaptation of the shared HOLD selector. Pair slopes use real
+ * physical observations and at least60s separation. Select medians by bounded
+ * repeated scans rather than allocating a120-slope array on the2KiB worker.
+ * Frequency is local-minus-remote ppb, opposite the LoRa correction multiplier.
+ * These internal agreement guards are not independently measured uncertainty. */
+static bool hold_slope(const struct lp_rx *r,unsigned i,unsigned j,int32_t *rate){
+ uint64_t dt=r->fit[j].tick-r->fit[i].tick;
+ if(dt<UINT64_C(60000000)*16)return false;
+ uint64_t nominal=dt*125/2,remote=r->fit[j].tx_ns-r->fit[i].tx_ns;
+ if(!remote||remote>INT64_MAX)return false;
+ int64_t error=(int64_t)nominal-(int64_t)remote;
+ if(r2_hold_abs(error)>nominal/10000)return false;
+ int64_t ppb=error*INT64_C(1000000000)/(int64_t)remote;
+ if(ppb< -100000||ppb>100000)return false;
+ *rate=(int32_t)ppb;return true;
+}
+static int32_t hold_order(const struct lp_rx *r,unsigned first,unsigned rank,int32_t center,bool deviation){
+ int32_t lo=deviation?0:-100000,hi=deviation?200000:100000;
+ while(lo<hi){
+  int32_t middle=lo+(hi-lo)/2;unsigned count=0;
+  for(unsigned i=first;i<r->fit_count;i++)for(unsigned j=i+1;j<r->fit_count;j++){
+   int32_t rate;if(!hold_slope(r,i,j,&rate))continue;
+   int32_t value=deviation?(int32_t)r2_hold_abs((int64_t)rate-center):rate;
+   if(value<=middle)++count;
+  }
+  if(count>rank)hi=middle;else lo=middle+1;
+ }
+ return lo;
+}
+static struct r2_hold_fit hold_sparse_fit(const struct lp_rx *r,unsigned seconds){
+ struct r2_hold_fit f={.guard=UINT32_MAX};unsigned first=0,n=r->fit_count;
+ while(first<n&&r->fit[n-1].tick-r->fit[first].tick>(uint64_t)seconds*R2_CAPTURE_HZ)++first;
+ if(first==n)return f;
+ f.points=(uint16_t)(n-first);f.span_ms=(uint32_t)((r->fit[n-1].tick-r->fit[first].tick)/16000);
+ if(f.points<4||f.span_ms<seconds*850)return f;
+ for(unsigned i=first;i<n;i++)for(unsigned j=i+1;j<n;j++){
+  int32_t rate;if(hold_slope(r,i,j,&rate))++f.pairs;
+ }
+ if(f.pairs<8)return f;
+ f.rate=hold_order(r,first,(f.pairs-1)/2,0,false);
+ uint32_t spread=(uint32_t)hold_order(r,first,(f.pairs-1)/2,f.rate,true);
+ f.guard=3*spread+1;return f;
+}
+static void hold_sparse_select(struct lp_rx *r){
+ struct r2_hold_fit short_fit=hold_sparse_fit(r,180),long_fit=hold_sparse_fit(r,300);
+ r->hold_short_ppb=short_fit.rate;r->hold_long_ppb=long_fit.rate;
+ r->hold_short_guard=short_fit.guard;r->hold_long_guard=long_fit.guard;
+ struct rc5_map baseline;
+ if(!r2_hold_from_lora(r->last_tick,r->last_tx_ns,r->baseline_rate_ppb,&baseline))return;
+ uint64_t span=(r->fit[r->fit_count-1].tick-r->fit[0].tick)/16;
+ uint64_t guard=((uint64_t)r->rms_ns*3000000+span-1)/span;
+ int32_t selected=r2_hold_consensus(baseline.ppb,guard<UINT32_MAX?(uint32_t)guard:UINT32_MAX,
+  &short_fit,&long_fit,&r->hold_selected);
+ if(r->hold_selected){
+  int64_t correction=-(int64_t)selected*INT64_C(1000000000)/(INT64_C(1000000000)+selected);
+  if(correction< -100000||correction>100000)r->hold_selected=false;
+  else r->rate_ppb=(int32_t)correction;
+ }
+}
+static int64_t hold_phase_residual(const struct lp_rx *r,unsigned i){
+ uint64_t predicted;
+ if(!r2_hold_lora_project(r->last_tick,r->fit[i].tick,r->fit[i].tx_ns,r->rate_ppb,0,&predicted))return INT64_MAX;
+ return predicted>=r->last_tx_ns?(int64_t)(predicted-r->last_tx_ns):-(int64_t)(r->last_tx_ns-predicted);
+}
+static void hold_phase_fit(struct lp_rx *r){
+ int32_t lo=INT32_MIN,hi=INT32_MAX;
+ while(lo<hi){
+  int32_t middle=(int32_t)((int64_t)lo+((int64_t)hi-lo)/2);unsigned count=0;
+  for(unsigned i=0;i<r->fit_count;i++)if(hold_phase_residual(r,i)<=middle)++count;
+  if(count>(r->fit_count-1u)/2)hi=middle;else lo=middle+1;
+ }
+ r->phase_offset_ns=lo;
+}
+#endif
 static void fit(struct lp_rx *r,uint64_t tick,uint64_t ns){
  /* Uniform >=20s sample spacing bounds storage at16 points for300s. Every
   * physical pair is still counted; discarding a fit candidate never renews it. */
@@ -329,7 +406,7 @@ static void fit(struct lp_rx *r,uint64_t tick,uint64_t ns){
  while(n&&tick-r->fit[0].tick>LP_WINDOW_US*16){memmove(r->fit,r->fit+1,(n-1)*sizeof r->fit[0]);--n;}
  if(n&&tick-r->fit[n-1].tick<UINT64_C(20000000)*16){r->fit_count=(uint8_t)n;return;}
  if(n==LP_FIT_CAPACITY){memmove(r->fit,r->fit+1,(--n)*sizeof r->fit[0]);}
- r->fit[n++]=(struct lp_pair){tick,ns};r->fit_count=(uint8_t)n;r->trained=false;
+ r->fit[n++]=(struct lp_pair){tick,ns};r->fit_count=(uint8_t)n;r->trained=r->hold_selected=false;
  if(n<4||tick-r->fit[0].tick<LP_TRAIN_US*16)return;
  double sx=0,sy=0,sxx=0,sxy=0;
  for(unsigned i=0;i<n;i++){
@@ -352,7 +429,11 @@ static void fit(struct lp_rx *r,uint64_t tick,uint64_t ns){
  uint32_t lo=0,hi=UINT32_MAX;
  while(lo<hi){uint32_t mid=lo+(uint32_t)(((uint64_t)hi-lo+1)/2);
   if((double)mid*mid<=variance)lo=mid;else hi=mid-1;}
- r->rms_ns=lo==UINT32_MAX?lo:lo+1;r->rate_ppb=(int32_t)rate;r->trained=true;
+ r->rms_ns=lo==UINT32_MAX?lo:lo+1;r->rate_ppb=r->baseline_rate_ppb=(int32_t)rate;r->trained=true;
+#ifdef R2_LORA_PASSIVE_SLOW
+ hold_sparse_select(r);
+ hold_phase_fit(r);
+#endif
 }
 bool lp_rx_follow(struct lp_rx *r,const struct lp_packet *p,const struct lp_age *a,uint64_t epoch,uint64_t now){
  if(!r||!p||p->kind!=LP_FOLLOW||p->schedule!=LP_SCHEDULE||!r->pending||p->cursor!=r->pending_cursor||epoch!=r->pending_epoch||
@@ -366,8 +447,15 @@ bool lp_rx_follow(struct lp_rx *r,const struct lp_packet *p,const struct lp_age 
  r->last_tick=r->pending_tick;r->last_tx_ns=p->utc_ns;r->last_us=r->pending_us;
  r->highest=p->cursor;r->have_pair=true;r->bounded=r->bounded&&bounded;r->last_epoch=epoch;
  fit(r,r->last_tick,r->last_tx_ns);
- if(r->trained){r->display_tick=r->last_tick;r->display_ns=r->last_tx_ns;
+ if(r->trained){
+#ifndef R2_LORA_PASSIVE_SLOW
+  r->display_tick=r->last_tick;r->display_ns=r->last_tx_ns;
   r->display_us=r->last_us;r->display_epoch=r->last_epoch;r->display_rate_ppb=r->rate_ppb;r->display_valid=true;r->display_acquiring=false;}
+#else
+  /* The native owner commits this causal fit at an actual current capture.
+   * Do not step the delivered phase to the newest noisy raw observation. */
+ }
+#endif
 #ifdef R2_LORA_PASSIVE_SLOW
  else if(!r->display_valid){
   r->display_tick=r->last_tick;r->display_ns=r->last_tx_ns;r->display_us=r->last_us;
@@ -377,6 +465,25 @@ bool lp_rx_follow(struct lp_rx *r,const struct lp_packet *p,const struct lp_age 
  ++r->accepted;
  r->pending=false;r->prediction=true;r->hint=true;r->hint_cursor=p->cursor+2;r->hint_us=r->pending_us+LP_BEAT_US;
  return true;
+}
+bool lp_rx_discipline(struct lp_rx *r,uint64_t tick,uint64_t epoch,uint64_t now){
+ if(!r||!r->trained||!r->have_pair||epoch!=r->last_epoch||tick<r->last_tick||
+    now<r->last_us||now>=r->physical_deadline_us||r->model_accepted==r->accepted)return false;
+ uint64_t phase,target,previous;
+ if(r->phase_offset_ns<0){uint64_t offset=(uint64_t)(-(int64_t)r->phase_offset_ns);if(r->last_tx_ns<offset)return false;phase=r->last_tx_ns-offset;}
+ else{if(r->last_tx_ns>UINT64_MAX-(uint32_t)r->phase_offset_ns)return false;phase=r->last_tx_ns+(uint32_t)r->phase_offset_ns;}
+ if(!r2_hold_lora_project(tick,r->last_tick,phase,r->rate_ppb,0,&target))return false;
+ int32_t slew=0;
+ if(r->display_valid&&!r->display_acquiring&&r->display_epoch==epoch&&
+    r2_hold_lora_project(tick,r->display_tick,r->display_ns,r->display_rate_ppb,r->display_phase_ns,&previous)){
+  int64_t difference=target>=previous?(int64_t)(target-previous):-(int64_t)(previous-target);
+  /* Larger discontinuities reacquire rather than hiding a clock error in an
+   * unbounded slew. This threshold does not filter measurements or tails. */
+  if(r2_hold_abs(difference)<=1000000){slew=(int32_t)difference;target=previous;}
+ }
+ r->display_tick=tick;r->display_ns=target;r->display_rate_ppb=r->rate_ppb;r->display_phase_ns=slew;
+ r->display_epoch=epoch;r->display_us=r->last_us;r->display_valid=true;r->display_acquiring=false;
+ r->model_accepted=r->accepted;return true;
 }
 void lp_rx_expire(struct lp_rx *r,uint64_t now){
  if(!r)return;
@@ -399,23 +506,24 @@ void lp_rx_expire(struct lp_rx *r,uint64_t now){
 bool lp_rx_estimate(const struct lp_rx *r,uint64_t tick,uint64_t epoch,uint64_t now,uint64_t *ns){
  if(!r||!ns||!r->have_pair||!r->trained||epoch!=r->last_epoch||now>=r->physical_deadline_us||
  now>=r->observed_deadline_us||tick<r->last_tick||tick-r->last_tick>LP_HOLD_US*16)return false;
+#ifdef R2_LORA_PASSIVE_SLOW
+ return r->display_valid&&!r->display_acquiring&&r->display_epoch==epoch&&r->model_accepted==r->accepted&&
+  r2_hold_lora_project(tick,r->display_tick,r->display_ns,r->display_rate_ppb,r->display_phase_ns,ns);
+#else
  uint64_t delta=tick-r->last_tick;
  int64_t nominal=(int64_t)(delta*125/2),correction=(int64_t)delta*r->rate_ppb/16000000;
  if(correction<0&&nominal< -correction)return false;
  return add(r->last_tx_ns,(uint64_t)(nominal+correction),ns);
+#endif
 }
 bool lp_rx_display_estimate(struct lp_rx *r,uint64_t tick,uint64_t epoch,uint64_t now,uint64_t *ns){
  if(!r||!ns||!r->display_valid)return false;
  if(epoch!=r->display_epoch||tick<r->display_tick||now<r->display_us){r->display_valid=r->display_acquiring=false;return false;}
  /* Divide before multiplying: no32-bit uptime wrap or unchecked long-hold
   * tick/rate product. Numeric exhaustion expires presentation only. */
- uint64_t delta=tick-r->display_tick,us=delta/16;
- if(us>((uint64_t)INT64_MAX-938)/1000){r->display_valid=r->display_acquiring=false;return false;}
- int64_t nominal=(int64_t)(us*1000+(delta%16)*125/2);
- int64_t correction=(int64_t)(delta/16000000)*r->display_rate_ppb+
-   (int64_t)(delta%16000000)*r->display_rate_ppb/16000000;
- if((correction<0&&nominal< -correction)||(correction>0&&nominal>INT64_MAX-correction))return false;
- return add(r->display_ns,(uint64_t)(nominal+correction),ns);
+ if(!r2_hold_lora_project(tick,r->display_tick,r->display_ns,r->display_rate_ppb,r->display_phase_ns,ns)){
+  r->display_valid=r->display_acquiring=false;return false;}
+ return true;
 }
 bool lp_rx_envelope_current(const struct lp_rx *r,const struct lp_age *a,uint64_t now){
  return r&&a&&r->bounded&&r->trained&&r->have_pair&&now<r->physical_deadline_us&&

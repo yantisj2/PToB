@@ -111,12 +111,14 @@ static inline void r2_hold_refresh(struct r2_hold_rate *s,uint64_t at){
  if(!s->last_available||at<s->last_available||(s->refreshed&&at-s->refreshed<R2_CAPTURE_HZ))return;
  s->short_fit=r2_hold_fit_window(s,at,16);s->long_fit=r2_hold_fit_window(s,at,32);s->refreshed=at;
 }
-static inline int32_t r2_hold_choose(const struct r2_hold_rate *s,uint64_t at,int32_t fast,uint32_t fast_guard,bool *selected){
+/* Shared bounded rate-only consensus. Callers own cadence, causal history,
+ * capture/context continuity and freshness; this grants no source lease. */
+static inline int32_t r2_hold_consensus(int32_t fast,uint32_t fast_guard,
+ const struct r2_hold_fit *short_fit,const struct r2_hold_fit *long_fit,bool *selected){
  *selected=false;
- if(!s->refreshed||at<s->refreshed||at-s->refreshed>2*R2_CAPTURE_HZ||at<s->last_tick||
-    at-s->last_tick>2*R2_CAPTURE_HZ||s->short_fit.guard>20||s->long_fit.guard>10||
-    s->long_fit.guard>=fast_guard||r2_hold_abs((int64_t)s->short_fit.rate-s->long_fit.rate)>10)return fast;
- int32_t a=fast,b=s->short_fit.rate,c=s->long_fit.rate,t;
+ if(short_fit->guard>20||long_fit->guard>10||long_fit->guard>=fast_guard||
+    r2_hold_abs((int64_t)short_fit->rate-long_fit->rate)>10)return fast;
+ int32_t a=fast,b=short_fit->rate,c=long_fit->rate,t;
  if(a>b){t=a;a=b;b=t;}if(b>c){t=b;b=c;c=t;}if(a>b){t=a;a=b;b=t;}
  /* T096's16-pair fast endpoint rate is much noisier than W12's fast fit.
   * Admit only agreement of both slow windows, within the fast error guard;
@@ -130,6 +132,12 @@ static inline int32_t r2_hold_choose(const struct r2_hold_rate *s,uint64_t at,in
  if(delta>cap)delta=cap;
  if(delta< -cap)delta=-cap;
  *selected=true;return fast+(int32_t)delta;
+}
+static inline int32_t r2_hold_choose(const struct r2_hold_rate *s,uint64_t at,int32_t fast,uint32_t fast_guard,bool *selected){
+ *selected=false;
+ if(!s->refreshed||at<s->refreshed||at-s->refreshed>2*R2_CAPTURE_HZ||at<s->last_tick||
+    at-s->last_tick>2*R2_CAPTURE_HZ)return fast;
+ return r2_hold_consensus(fast,fast_guard,&s->short_fit,&s->long_fit,selected);
 }
 /* Reanchor an exact RC5 map at a causal entry. Shadow and production call the
  * same function. The unconsumed phase correction remains explicit. */
@@ -146,6 +154,23 @@ static inline bool r2_hold_from_lora(uint64_t tick,uint64_t ns,int32_t correctio
  int64_t inverse=-(int64_t)correction_ppb*INT64_C(1000000000)/(INT64_C(1000000000)+correction_ppb);
  *out=(struct rc5_map){.effective=tick,.anchor_tick=tick,.anchor_ns=ns,.ppb=(int32_t)inverse,
   .bound=RC5_UNKNOWN,.rate_bound=RC5_UNKNOWN,.capture_bound=RC5_UNKNOWN};return true;
+}
+/* LoRa's exact affine rate convention plus a one-second phase slew. Reuse
+ * this for the delivered clock and its independent PPS witness projection. */
+static inline bool r2_hold_lora_project(uint64_t tick,uint64_t anchor_tick,uint64_t anchor_ns,
+ int32_t rate,int32_t phase,uint64_t *out){
+ if(!out||tick<anchor_tick||rate< -100000||rate>100000)return false;
+ uint64_t dt=tick-anchor_tick,us=dt/16;
+ if(us>((uint64_t)INT64_MAX-938)/1000)return false;
+ int64_t nominal=(int64_t)(us*1000+(dt%16)*125/2);
+ int64_t correction=(int64_t)(dt/16000000)*rate+(int64_t)(dt%16000000)*rate/16000000;
+ int64_t slew=(int64_t)(dt<R2_CAPTURE_HZ?dt:R2_CAPTURE_HZ)*phase/(int64_t)R2_CAPTURE_HZ;
+ if(correction>INT64_MAX-nominal)return false;
+ int64_t elapsed=nominal+correction;
+ if((slew>0&&elapsed>INT64_MAX-slew)||(slew<0&&elapsed<INT64_MIN-slew))return false;
+ elapsed+=slew;
+ if(elapsed<0||anchor_ns>UINT64_MAX-(uint64_t)elapsed)return false;
+ *out=anchor_ns+(uint64_t)elapsed;return true;
 }
 static inline bool r2_hold_trial_value(const struct r2_hold_trial *t,uint64_t tick,unsigned candidate,uint64_t *ns){
  struct rc5_map m={.effective=t->start,.anchor_tick=t->start,.anchor_ns=t->baseline.anchor_ns,

@@ -22,6 +22,20 @@ def sample(s):
 
 
 class Checks(unittest.TestCase):
+    def test_enhanced_schedule_keeps_600s_gate_and_rejects_wrong_control_period(self):
+        g=Gate(10000,5)
+        for s in range(901):
+            p=sample(s);event=s//30*30
+            p.update(profile='RAM_30_120_300',beat_us=30000000,meta_us=300000000,discovery_us=120000000,
+                     hold_us=120000000,lease_us=420000000,cadence_bound_us=32510000,
+                     event_mono_us=(event+10)*1000000,event_tick=(event+10)*16000000,
+                     event_ns=(100000+event)*1000000000,cursor=s//30*2,accepted=s//30+1,
+                     physical_until_us=(event+130)*1000000,meta_until_us=(s//300*300+430)*1000000)
+            g.observe(p,(s+1)*1000000000)
+        self.assertTrue(g.qualified)
+        p['discovery_us']=60000000
+        with self.assertRaises(ValueError):g.observe(p,902000000000)
+
     def test_learned_TZ_survives_time_loss_and_accepts_changed_zone(self):
         with tempfile.TemporaryDirectory() as folder:
             out=Path(folder);m=Monitor(out,['RX'],['RX'],5000,Budget(out,10**7,0),threading.Event())
