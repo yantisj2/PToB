@@ -41,6 +41,9 @@ def inspect(out):
  if (inputs/'ptob_device.h').read_text()!=device_header(d):raise ValueError('Device header does not match N30 inputs')
  if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42') and (r.get('lora_contract')!='PASSIVE_WIRE3_SCHEDULE8_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1' or r.get('lora_event_delay_ns')!=99328000 or r.get('lora_calibration')!='ENGINEERING_SYMBOL_MODEL_UNCALIBRATED_ENDPOINT_UNKNOWN' or r.get('clock_selection_policy')!='LORA_TO_BLE_CONTINUOUS_AUTHENTICATED_LOCK30S_SCOPE_V1'):raise ValueError('N30 passive schedule8/dwell/calibration contract missing')
  if r['version']=='0.2.42' and r.get('precision_display_contract')!='SELECTED_SOURCE_OWN_MODEL_PAIR_REFERENCE_AGE_CAPTURE_ENCLOSURE_V2':raise ValueError('N30 selected-source precision diagnostics contract missing')
+ if r['version']=='0.2.42':
+  commands=json.loads((target/'compile_commands.json').read_text());renderer=[x for x in commands if Path(x['file']).name=='ui_render.cpp']
+  if len(renderer)!=1 or renderer[0]['command'].split().count('-Os')!=1:raise ValueError('N30 portrait renderer size optimization missing')
  if r['version']=='0.2.41' and r.get('precision_display_contract')!='SELECTED_CLOCK_AND_INDEPENDENT_BLE_QUALITY_V1':raise ValueError('N30 selected-clock/independent-BLE-quality display contract missing')
  if r['version'] in ('0.2.41','0.2.42') and r.get('lora_map_refusal_contract')!='WIDE_BRACKET_OLD_ANCHOR_ORIGINAL_EXPIRY_HARD_FENCES_V1':raise ValueError('N30 map-refusal/expiry/fence contract missing')
  headers=[('ptob_device.h','ptob_device.h'),('ptob_registry.h','ptob_registry.h'),('r2-enrollment.h','r2_bench_enrollment.h'),('n30_lora_config.h','n30_lora_config.h')]

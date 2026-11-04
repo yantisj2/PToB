@@ -105,6 +105,9 @@ endif()
 
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=printf" "-Wl,--wrap=puts")
 target_compile_options(${COMPONENT_LIB} PRIVATE -fstack-usage)
+# Keep the portrait renderer within the fixed1MiB application slot. Timing,
+# capture and SDK/controller sources retain their existing compiler options.
+set_source_files_properties("ui_render.cpp" PROPERTIES COMPILE_OPTIONS "-Os")
 
 if(V12_R2_PROFILE STREQUAL "r2-g1")
   target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=ble_hs_hci_cmd_tx" "-Wl,--wrap=ble_hs_hci_rx_evt")

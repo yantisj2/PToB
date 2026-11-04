@@ -8,7 +8,8 @@ internal fit RMS/population, committed rate/phase correction, physical pair age,
 committed clock-reference age and training/availability state. META age remains
 separate. Old RMS values are hidden when the LoRa model is untrained, stale or
 unavailable; no BLE lock or quality is substituted. UTC/RF bounds remain UNKNOWN.
-Timing algorithms, source selection, radio scheduling and calibration are unchanged.
+The renderer uses size optimization within the existing1MiB slot. Timing
+algorithms, source selection, radio scheduling and calibration are unchanged.
 
 ## 0.2.41 — 2026-11-03
 
