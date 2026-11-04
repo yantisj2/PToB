@@ -1,5 +1,19 @@
 # N30 changelog
 
+## 0.2.41 — 2026-11-03
+
+Precision shows the actual selected clock source separately from its independent
+BLE path/root, RMS and lock duration. Page navigation remains presentation only;
+clock selection, the30s recovery dwell, timing models and radio policy are
+unchanged.
+
+A too-wide software mapping bracket may now retain the last qualified capture
+map only when monotonicity, original counter-rate/gap guards and original
+freshness agree. The rejected anchor is never installed; the old map still
+expires at its original two-second limit. Hard/ambiguous failures clear it.
+Diagnostics distinguish soft bracket refusals from hard map resets. This is an
+offline-tested recovery of valid captures, not a new precision qualification.
+
 ## 0.2.40 — 2026-11-03
 
 Keep the Precision page root label tied to its independent BLE model when

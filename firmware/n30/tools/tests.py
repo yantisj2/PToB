@@ -31,6 +31,8 @@ def main():
  subprocess.run(continuity,check=True,timeout=40);subprocess.run([out/'saver-continuity-test'],check=True,timeout=10)
  lora=[str(APP/'tests/lora_policy_test.cpp') if x==str(APP/'tests/ui_test.cpp') else str(out/'lora-policy-test') if x==str(out/'ui-test') else x for x in cmd]
  subprocess.run(lora,check=True,timeout=40);subprocess.run([out/'lora-policy-test'],check=True,timeout=10)
+ mapping=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-I'+str(APP.parent/'w12/legacy'),str(APP/'tests/lora_mapping_test.cpp'),'-o',str(out/'lora-mapping-test')]
+ subprocess.run(mapping,check=True,timeout=40);subprocess.run([out/'lora-mapping-test'],check=True,timeout=10)
  owner=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-I'+str(APP/'tests/lora_fakes'),'-I'+str(APP.parent/'w12/main'),'-I'+str(APP.parent/'w12/legacy'),str(APP/'tests/lora_owner_test.cpp'),'-o',str(out/'lora-owner-test')]
  subprocess.run(owner,check=True,timeout=40);subprocess.run([out/'lora-owner-test'],check=True,timeout=10)
  parent=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-DPTOB_N30=1','-I'+str(APP.parent/'w12/main'),str(APP/'tests/parent_fallback_test.cpp'),'-o',str(out/'parent-fallback-test')]

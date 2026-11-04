@@ -21,7 +21,7 @@ struct n30_lora_view {
  uint8_t role,hop,parent_class,parent_accuracy,losses,recoveries;
  bool requested,active,fault,metadata_known,time_valid,parent_quality;
  uint32_t rx_done,crc_bad,malformed,spi_ok,spi_error,invalid_capture,capture_overflow;
- uint32_t map_accepted,map_rejected,capture_bound_ns,work_max_us,stack_unused,heartbeat_ms;
+ uint32_t map_accepted,map_rejected,map_soft_refused,map_hard_reset,capture_bound_ns,work_max_us,stack_unused,heartbeat_ms;
  uint32_t request_generation,off_ack_generation;
  int32_t error;int16_t rssi_dbm,snr_quarter_db;
  uint8_t mode,stage,opcode;uint32_t transition_remaining_ms;

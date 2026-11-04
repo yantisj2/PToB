@@ -110,17 +110,21 @@ void precision_page(uint8_t* f,const Model& m,uint64_t now){
  const bool locked=live&&p.locked&&p.lock_age_valid&&now>=p.lock_since_us;
  // Casio-style bezel, source strip, large LCD well and segmented stopwatch.
  box(f,1,0,62,128);fill(f,2,1,60,11);center(f,3,"PRECISION",false);
- char out[24];std::snprintf(out,sizeof out,"%.6s",live||rc9?m.root:"----");
- for(char* c=out;*c;c++)if(*c>='a'&&*c<='z')*c=char(*c-'a'+'A');
- if(live&&std::strlen(m.root)>6)out[5]='.';
- small_text(f,5,19,out);
- const char* source=rc9?"RC9":!live?"--":p.source==Source::Ble?"BLE":p.source==Source::Rc1?"RC1":p.source==Source::Rc2?"RC2":"--";
- text(f,33,18,source);uint64_t utc=0;
- if(live&&p.locked&&ble_time(m,now,utc)&&utc%1000000<250000)fill(f,56,19,3,5);
- fill(f,4,29,56,1);
+ // The selected displayed clock and the BLE fitter are independent inputs.
+ // Keep their labels visible together, including during the recovery dwell.
+ char out[24];std::snprintf(out,sizeof out,"CLOCK %s",source_label(m,now));
+ small_text(f,(64-int(std::strlen(out))*4+1)/2,16,out);
+ if(pps_on(m,now))fill(f,56,16,3,5);
+ char root[8];std::snprintf(root,sizeof root,"%.6s",live?m.root:"----");
+ for(char* c=root;*c;c++)if(*c>='a'&&*c<='z')*c=char(*c-'a'+'A');
+ if(live&&std::strlen(m.root)>6)root[5]='.';
+ const char* path=!live?"BLE":p.source==Source::Rc1?"RC1":p.source==Source::Rc2?"RC2":"BLE";
+ std::snprintf(out,sizeof out,"%s %s",path,root);
+ small_text(f,(64-int(std::strlen(out))*4+1)/2,25,out);
+ fill(f,4,34,56,1);
  const char* resolution=rc9?"UTC / UNKNOWN":p.counter_hz==80000000?"80MHz / 12.5ns":p.counter_hz==20000000?"20MHz / 50ns":"COUNTER --";
- small_text(f,(64-int(std::strlen(resolution))*4+1)/2,34,resolution);
- fill(f,4,43,56,1);center(f,47,"SYNC RMS");
+ small_text(f,(64-int(std::strlen(resolution))*4+1)/2,38,resolution);
+ fill(f,4,46,56,1);center(f,49,"BLE RMS");
  unsigned value=p.rms_ns;const char* unit="ns";int dot=0;
  const bool known=live&&value!=UINT32_MAX;
  const unsigned scale=value>=1000000000?1000000000:value>=1000000?1000000:value>=1000?1000:1;
@@ -141,8 +145,8 @@ void precision_page(uint8_t* f,const Model& m,uint64_t now){
  text(f,61-int(std::strlen(out))*6,86,out);
  fill(f,4,98,56,1);
  if(locked){box(f,7,101,6,7);fill(f,6,106,8,6);fill(f,9,108,2,2,false);}else{line(f,8,102,12,102);line(f,8,102,8,106);box(f,6,106,8,6);}
- text(f,23,102,"LOCK");
- if(locked&&(now-p.lock_since_us)/1000000>359999)text(f,50,102,"+");
+ small_text(f,22,102,"BLE LOCK");
+ if(locked&&(now-p.lock_since_us)/1000000>359999)small_text(f,57,102,"+");
  uint64_t elapsed=locked?(now-p.lock_since_us)/1000000:0;elapsed=std::min<uint64_t>(elapsed,359999);
  unsigned v[]={unsigned(elapsed/3600/10),unsigned(elapsed/3600%10),unsigned(elapsed/60%60/10),unsigned(elapsed/60%10),unsigned(elapsed%60/10),unsigned(elapsed%10)};
  int x=7;for(unsigned i=0;i<6;i++){if(live)number(f,x,113,v[i]);else fill(f,x+1,119,4,1);x+=7;if(i==1||i==3){pixel(f,x,117);pixel(f,x,121);x+=4;}}

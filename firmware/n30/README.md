@@ -114,9 +114,10 @@ A failed drain remains a fault. Sleep current, battery lifetime and physical
 wake behavior need hardware validation.
 
 The clock's signal bars describe fresh authenticated parent RSSI, independently
-of lock, and expire after **2 s** without a packet. Precision shows the root,
-BLE/RC1/RC2 path, internal causal RMS, relative drift in ppb, counter/tick size
-and settled-lock duration. Relative drift is diagnostic and does not steer time.
+of lock, and expire after **2 s** without a packet. Precision names the actual **CLOCK** source, then separately shows the
+BLE/RC1/RC2 root/path, **BLE RMS**, relative drift in ppb, counter/tick size
+and **BLE LOCK** duration. LoRa may supply the clock while these independent
+BLE quality metrics remain visible. Relative drift is diagnostic and does not steer time.
 
 ## Precision, evidence and development
 

@@ -18,7 +18,7 @@ uint32_t epoch=0,core_gen=0,raw_offset=0xfedc0000;
 std::vector<uint8_t> ops;spi_transaction_t* pending=nullptr;
 CaptureCallback physical=nullptr,software=nullptr;
 bool capture_timer=false,timer_running=false,physical_enabled=false,software_enabled=false;
-bool dma_fail=false,cancel=false,cancelled=false;int fail_enable=0;
+bool dma_fail=false,cancel=false,cancelled=false,wide_map_once=false;int fail_enable=0;
 uint16_t irq=0;unsigned packet_size=112;std::array<uint8_t,128> packet{};
 uint32_t capture(){return uint32_t(us*80)+raw_offset;}
 }
@@ -64,7 +64,7 @@ esp_err_t mcpwm_capture_channel_enable(mcpwm_cap_channel_handle_t c){const auto 
 esp_err_t mcpwm_capture_channel_disable(mcpwm_cap_channel_handle_t c){(c==reinterpret_cast<void*>(1)?fake::physical_enabled:fake::software_enabled)=false;return 0;}
 esp_err_t mcpwm_capture_timer_stop(mcpwm_cap_timer_handle_t){fake::timer_running=false;return 0;}
 esp_err_t mcpwm_capture_timer_disable(mcpwm_cap_timer_handle_t){fake::capture_timer=false;return 0;}
-esp_err_t mcpwm_capture_channel_trigger_soft_catch(mcpwm_cap_channel_handle_t c){mcpwm_capture_event_data_t e{fake::capture()};fake::software(c,&e,nullptr);return 0;}
+esp_err_t mcpwm_capture_channel_trigger_soft_catch(mcpwm_cap_channel_handle_t c){mcpwm_capture_event_data_t e{fake::capture()};fake::software(c,&e,nullptr);if(fake::wide_map_once){fake::us+=21;fake::wide_map_once=false;}return 0;}
 extern "C" bool n30_lora_reference_read(uint64_t* out){++fake::lora_reference_reads;*out=fake::us*20;return true;}
 // A selected fine clock can spend longer than the LoRa map's20us enclosure
 // in cross-core receiver/fence work. It must never supply LoRa's brackets.
@@ -84,8 +84,8 @@ extern "C" void n30_rc8_snapshot(n30_lora_view* out,uint64_t now){*out={};out->s
 #include N30_LORA_OWNER_SOURCE
 namespace {
 void cold(){
- fake::us=1000000;fake::gpio={};fake::regs={};fake::writes=fake::bus=fake::starts=fake::ends=fake::core_inputs=fake::high_after_cancel=0;fake::ops.clear();fake::pending=nullptr;fake::physical=fake::software=nullptr;fake::capture_timer=fake::timer_running=fake::physical_enabled=fake::software_enabled=false;fake::dma_fail=fake::cancel=fake::cancelled=false;fake::fail_enable=0;fake::irq=0;fake::core_gen=0;fake::packet_size=112;
- owner={};basic={};owned={};published={};hardware={};policy={};mapping={};spi=cap_timer=edge_channel=map_channel=nullptr;task=nullptr;ble_at=request_at=last_map=map_pending=map_before=map_after=stop_at=0;cancel_serial=active_serial=core_generation=map_serial=map_expected=map_capture=raw_capture=raw_generation=raw_serial=0;capture_epoch=0;header_capture=header_generation=header_serial=0;header_until=0;header_pending=false;requested_mode=0;mode_pending=cycle_pending=ble_locked=ble_lock_observed=allowed=ble_parked=false;resources=capture_active=inflight=latched=failed=timer_enabled=timer_started=map_enabled=edge_enabled=emergency=false;capture_drops=capture_invalid=0;
+ fake::us=1000000;fake::gpio={};fake::regs={};fake::writes=fake::bus=fake::starts=fake::ends=fake::core_inputs=fake::high_after_cancel=0;fake::ops.clear();fake::pending=nullptr;fake::physical=fake::software=nullptr;fake::capture_timer=fake::timer_running=fake::physical_enabled=fake::software_enabled=false;fake::dma_fail=fake::cancel=fake::cancelled=fake::wide_map_once=false;fake::fail_enable=0;fake::irq=0;fake::core_gen=0;fake::packet_size=112;
+ owner={};basic={};owned={};published={};hardware={};policy={};mapping={};qualified_map={};spi=cap_timer=edge_channel=map_channel=nullptr;task=nullptr;ble_at=request_at=last_map=map_pending=map_before=map_after=stop_at=0;cancel_serial=active_serial=core_generation=map_serial=map_expected=map_capture=raw_capture=raw_generation=raw_serial=0;capture_epoch=0;header_capture=header_generation=header_serial=0;header_until=0;header_pending=false;requested_mode=0;mode_pending=cycle_pending=ble_locked=ble_lock_observed=allowed=ble_parked=false;resources=capture_active=inflight=latched=failed=timer_enabled=timer_started=map_enabled=edge_enabled=emergency=false;capture_drops=capture_invalid=0;
  assert(configured_receiver());
 }
 void step(bool locked,uint64_t advance=2000){fake::us+=advance;n30_lora_control(locked,fake::us,true);worker_step(true);}
@@ -107,6 +107,14 @@ int main(){
  fake::irq=0x42;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);assert(fake::core_inputs==1&&hardware.crc_bad==1&&!failed);
  fake::packet_size=17;fake::irq=2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);assert(hardware.malformed==1&&fake::core_inputs==1);
  assert(v12::lora_request(false,0));worker_step(true);worker_step(true);assert(owner.drained()&&!owned.enabled&&fake::gpio[12]==0);
+ // A single >20us software bracket cannot discard the old physical map.
+ cold();force_on();for(unsigned i=0;i<10;i++){step(true,250000);step(true,2000);}
+ const auto accepted_map=hardware.map_accepted;assert(accepted_map>=8);
+ fake::wide_map_once=true;step(true,250000);step(true,2000);
+ assert(hardware.map_soft_refused==1&&hardware.map_hard_reset==0&&hardware.map_rejected==1&&hardware.map_accepted==accepted_map);
+ fake::irq=0x10;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);
+ fake::us+=100000;fake::irq=2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);
+ assert(fake::core_inputs==1&&hardware.invalid_capture==0&&!failed);
  cold();fake::cancel=true;force_on();worker_step(true);assert(!failed&&owner.drained()&&!owned.enabled&&fake::high_after_cancel==0);
  cold();fake::fail_enable=1;force_on();worker_step(true);assert(failed&&!owned.enabled&&owner.drained()&&!fake::capture_timer&&!fake::timer_running&&!fake::software_enabled);
  cold();fake::dma_fail=true;force_on();const auto count=fake::starts;for(unsigned i=0;i<5;i++)worker_step(true);assert(failed&&inflight&&!owner.drained()&&fake::starts==count&&fake::pending&&fake::gpio[12]==0);

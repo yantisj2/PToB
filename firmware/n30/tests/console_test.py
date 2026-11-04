@@ -70,6 +70,16 @@ for value in ('0','1'):assert len(c.Parser(nonce,lm).feed(lora_frame(('POLICY','
 try:c.Parser(nonce,lm).feed(lora_frame(('POLICY','ble_locked','2')))
 except RuntimeError:pass
 else:raise AssertionError('Invalid actual BLE lock input accepted')
+# Map classification is mandatory when selected by the new compiled manifest;
+# older wire8 frames remain readable without inventing zero counters.
+import copy
+legacy_rows=copy.deepcopy(lf[0]['rows'])
+for key in ('map_soft_refused','map_hard_reset'):legacy_rows['N30_LORA_COUNTERS'].pop(key)
+c.validate_lora(legacy_rows)
+try:c.validate_lora(legacy_rows,True)
+except RuntimeError:pass
+else:raise AssertionError('Selected map-refusal classification accepted absent counters')
+c.validate_lora(lf[0]['rows'],True)
 print('PASS LoRa CRC frame schema, bound identity, numeric ranges and RX-only/unknown contracts')
 
 def timing_frame(fault=None):

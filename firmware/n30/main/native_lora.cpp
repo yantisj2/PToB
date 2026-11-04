@@ -7,6 +7,7 @@
 #include "lora_core.h"
 #include "lora_owner_gate.hpp"
 #include "ptob_gnss_reference.hpp"
+#include "lora_mapping.hpp"
 #include "n30_lora_config.h"
 #include "driver/spi_master.h"
 #include "driver/mcpwm_cap.h"
@@ -24,7 +25,7 @@ namespace {
 constexpr auto Nss=GPIO_NUM_8,Reset=GPIO_NUM_12,Busy=GPIO_NUM_13,Irq=GPIO_NUM_14;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 v12::LoRaOwnerGate owner;v12::LoRaStatus basic,owned;n30_lora_view published,hardware;
-n30::LoRaPolicy policy;ptob_gnss::CounterMap mapping;
+n30::LoRaPolicy policy;ptob_gnss::CounterMap mapping;ptob_gnss::CounterMap::Anchor qualified_map;
 spi_device_handle_t spi=nullptr;spi_transaction_t transaction{};
 DMA_ATTR uint8_t tx[132]{},rx[132]{};
 mcpwm_cap_timer_handle_t cap_timer=nullptr;mcpwm_cap_channel_handle_t edge_channel=nullptr,map_channel=nullptr;
@@ -87,6 +88,7 @@ bool on_edge(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* e,void
 bool on_map(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* e,void*){
  portENTER_CRITICAL_ISR(&mux);map_capture=e->cap_value;map_serial++;portEXIT_CRITICAL_ISR(&mux);return false;
 }
+void map_clear(){mapping.reset();qualified_map={};}
 int capture_start(){
  if(!cap_timer){
   mcpwm_capture_timer_config_t cfg{};cfg.group_id=0;cfg.clk_src=MCPWM_CAPTURE_CLK_SRC_APB;
@@ -99,7 +101,7 @@ int capture_start(){
   if(mcpwm_new_capture_channel(cap_timer,&ch,&map_channel)!=ESP_OK||mcpwm_capture_channel_register_event_callbacks(map_channel,&mb,nullptr)!=ESP_OK)return -EIO;
  }
  if(capture_epoch==UINT64_MAX)return -EOVERFLOW;
- mapping.reset();last_map=map_pending=0;++capture_epoch;
+ map_clear();last_map=map_pending=0;++capture_epoch;
  if(mcpwm_capture_timer_enable(cap_timer)!=ESP_OK)return -EIO;
  timer_enabled=true;
  if(mcpwm_capture_timer_start(cap_timer)!=ESP_OK)return -EIO;
@@ -116,20 +118,30 @@ void capture_stop(){
  if(map_enabled){if(mcpwm_capture_channel_disable(map_channel)!=ESP_OK)fault(-EIO);else map_enabled=false;}
  if(timer_started){if(mcpwm_capture_timer_stop(cap_timer)!=ESP_OK)fault(-EIO);else timer_started=false;}
  if(timer_enabled){if(mcpwm_capture_timer_disable(cap_timer)!=ESP_OK)fault(-EIO);else timer_enabled=false;}
- mapping.reset();map_pending=0;header_pending=false;portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);
+ map_clear();map_pending=0;header_pending=false;portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);
 }
 void map_step(){
  uint64_t tick;if(!local(tick))return;
  uint32_t serial,cap;portENTER_CRITICAL(&mux);serial=map_serial;cap=map_capture;portEXIT_CRITICAL(&mux);
  if(map_pending&&serial!=map_expected){
-  if(serial!=map_expected+1||!mapping.observe({map_before,map_after,tick,cap})||!mapping.release(tick)){mapping.reset();inc(hardware.map_rejected);}
+  const ptob_gnss::CounterMap::Anchor candidate{map_before,map_after,tick,cap};
+  const bool one=serial==map_expected+1;
+  const bool observed=one&&mapping.observe(candidate);
+  if(observed&&mapping.release(tick))qualified_map=candidate;
+  else{
+   // A rejected wide software bracket cannot erase a still-qualified map.
+   // Keep the exact old anchors/expiry only after all continuity checks pass.
+   if(one&&!observed&&n30::recoverable_map_bracket(candidate,qualified_map))inc(hardware.map_soft_refused);
+   else{map_clear();inc(hardware.map_hard_reset);}
+   inc(hardware.map_rejected);
+  }
   map_pending=0;
- }else if(map_pending&&tick>=map_pending&&tick-map_pending>2000000){mapping.reset();map_pending=0;inc(hardware.map_rejected);}
+ }else if(map_pending&&tick>=map_pending&&tick-map_pending>2000000){map_clear();map_pending=0;inc(hardware.map_rejected);inc(hardware.map_hard_reset);}
  if(!map_pending&&(!last_map||tick-last_map>=5000000)){
   esp_err_t rc;portENTER_CRITICAL(&mux);map_expected=map_serial;
   if(!local(map_before)){portEXIT_CRITICAL(&mux);return;}
   rc=mcpwm_capture_channel_trigger_soft_catch(map_channel);const bool valid=local(map_after);portEXIT_CRITICAL(&mux);
-  if(rc!=ESP_OK||!valid){mapping.reset();inc(hardware.map_rejected);return;}
+  if(rc!=ESP_OK||!valid){map_clear();inc(hardware.map_rejected);inc(hardware.map_hard_reset);return;}
   last_map=map_pending=map_before;
  }
  hardware.map_accepted=mapping.accepted;
@@ -226,7 +238,7 @@ void publish(){
  // Worker-owned protocol state and hardware counters are merged outside the
  // short cross-core publication lock. Unknown uncertainty remains unknown.
  view.requested=false;view.active=owned.enabled;view.fault=failed;view.mode=uint8_t(policy.mode());view.transition_remaining_ms=policy.remaining_ms(now());view.ble_locked=ble_lock_observed;
- view.rx_done=hardware.rx_done;view.crc_bad=hardware.crc_bad;view.malformed=hardware.malformed;view.spi_ok=hardware.spi_ok;view.spi_error=hardware.spi_error;view.invalid_capture=hardware.invalid_capture;view.capture_overflow=0;view.map_accepted=hardware.map_accepted;view.map_rejected=hardware.map_rejected;view.capture_bound_ns=hardware.capture_bound_ns;view.rssi_dbm=hardware.rssi_dbm;view.snr_quarter_db=hardware.snr_quarter_db;view.error=hardware.error;view.stage=hardware.stage;view.opcode=hardware.opcode;view.work_max_us=hardware.work_max_us;view.heartbeat_ms=uint32_t(now()/1000);view.stack_unused=uxTaskGetStackHighWaterMark(nullptr);
+ view.rx_done=hardware.rx_done;view.crc_bad=hardware.crc_bad;view.malformed=hardware.malformed;view.spi_ok=hardware.spi_ok;view.spi_error=hardware.spi_error;view.invalid_capture=hardware.invalid_capture;view.capture_overflow=0;view.map_accepted=hardware.map_accepted;view.map_rejected=hardware.map_rejected;view.map_soft_refused=hardware.map_soft_refused;view.map_hard_reset=hardware.map_hard_reset;view.capture_bound_ns=hardware.capture_bound_ns;view.rssi_dbm=hardware.rssi_dbm;view.snr_quarter_db=hardware.snr_quarter_db;view.error=hardware.error;view.stage=hardware.stage;view.opcode=hardware.opcode;view.work_max_us=hardware.work_max_us;view.heartbeat_ms=uint32_t(now()/1000);view.stack_unused=uxTaskGetStackHighWaterMark(nullptr);
  view.spi_retired=!inflight;view.capture_released=!capture_active&&!edge_enabled&&!map_enabled&&!timer_enabled&&!timer_started;view.reset_asserted=resources&&gpio_get_level(Reset)==0;
  portENTER_CRITICAL(&mux);view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
 }

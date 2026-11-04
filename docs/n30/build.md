@@ -314,7 +314,12 @@ HeaderValid freezes the precision edge; the subsequent RxDone freezes the
 payload without replacing that timestamp. Software brackets map the 80 MHz
 capture counter to the independent 20 MHz XTAL reference and explicitly convert
 it to the shared core's 16 MHz coordinate, retaining capture epochs and enclosure
-uncertainty. ISR arrival time is never used as a physical timestamp. BLE remains
+uncertainty. A rejected software bracket wider than20µs can retain the previous
+qualified map only when the original continuity and counter-rate checks agree;
+its original two-second expiry is unchanged. Nonmonotonic, inconsistent,
+ambiguous or expired mapping evidence clears it. The rejected anchor never
+enters the map. Diagnostics distinguish soft refusals and hard resets.
+ISR arrival time is never used as a physical timestamp. BLE remains
 on core0 and keeps its existing model and fine calibration.
 
 The N30 model adds an **unverified 99.328 ms engineering symbol delay** to the

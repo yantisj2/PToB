@@ -54,4 +54,17 @@ int main(){
  auto refused=fresh(resumed+30030000);choice.select(refused,lv(resumed+30030000),resumed+30030000,false);assert(refused.source==Source::LoRa);
  auto after_gap=fresh(resumed+60040000);choice.select(after_gap,lv(resumed+60040000),resumed+60040000);assert(after_gap.source==Source::LoRa);
  auto expiry=fresh(resumed+60050000);expiry.until_us=expiry.utc_at_us;choice.select(expiry,lv(resumed+60050000),resumed+60050000);assert(expiry.source==Source::LoRa);
+ // Actual short-press/page/cache pipeline cannot restart or bypass the gate.
+ ClockSelection navigation;Input buttons;ClockHold navigation_pixels;View page;unsigned page_changes=0;uint8_t prior_page=page.page;
+ auto initial=fresh(start,false);navigation.select(initial,lv(start),start);
+ const auto qualifies=start+125000;
+ for(uint64_t dt=0;dt<=30000000;dt+=125000){
+  const auto at=qualifies+dt;auto b=fresh(at);navigation.select(b,lv(at),at);
+  const bool pressed=dt>=5000000&&dt%5000000<500000;
+  assert(buttons.update(pressed,at,page)==Action::None);
+  if(page.page!=prior_page){++page_changes;prior_page=page.page;}
+  uint8_t bitmap[FrameBytes];navigation_pixels.update(b,page,at);navigation_pixels.draw(bitmap,b,page,at);navigation_pixels.presented(b,page,at,bitmap);
+  assert(!page.menu.open&&b.source==(dt<30000000?Source::LoRa:Source::Ble));
+ }
+ assert(page_changes>=5);
 }

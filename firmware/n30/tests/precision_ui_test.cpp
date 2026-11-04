@@ -33,14 +33,19 @@ int main(){
  uint8_t counter20[n30::FrameBytes],counter80[n30::FrameBytes];sample(5000000000);
  m.precision.counter_hz=20000000;n30::render(counter20,m,v,now);
  m.precision.counter_hz=80000000;n30::render(counter80,m,v,now);
- assert(std::memcmp(counter20+34*8,counter80+34*8,5*8));
+ assert(std::memcmp(counter20+38*8,counter80+38*8,5*8));
  m.precision.relative_ppb=123;n30::render(counter20,m,v,now);
  m.precision.relative_ppb=-123;n30::render(counter80,m,v,now);
  assert(std::memcmp(counter20+86*8,counter80+86*8,7*8));
  // A24-character registry alias cannot write into the source/PPS field.
  std::snprintf(m.root,sizeof m.root,"ABCDEFGHIJKLMNOPQRSTUVWX");m.precision.source=n30::Source::Rc2;
  n30::render(counter20,m,v,now);std::snprintf(m.root,sizeof m.root,"ABCDEF");n30::render(counter80,m,v,now);
- for(unsigned row=18;row<25;row++)for(unsigned x=32;x<64;x++)assert((counter20[row*8+x/8]&(0x80>>(x%8)))==(counter80[row*8+x/8]&(0x80>>(x%8))));
+ for(unsigned row=15;row<22;row++)for(unsigned x=32;x<64;x++)assert((counter20[row*8+x/8]&(0x80>>(x%8)))==(counter80[row*8+x/8]&(0x80>>(x%8))));
+ // A live LoRa-selected clock is named independently of the live BLE fit.
+ sample(6000000000);m.utc_at_us=now;m.until_us=now+250000;m.utc_us=10000000;m.valid=m.locked=true;m.state=n30::State::Follow;m.source=n30::Source::Ble;m.precision.source=n30::Source::Ble;
+ n30::render(counter20,m,v,now);m.source=n30::Source::LoRa;n30::render(counter80,m,v,now);
+ assert(std::memcmp(counter20+16*8,counter80+16*8,5*8));
+ assert(!std::memcmp(counter20+25*8,counter80+25*8,(128-25)*8));
  // Expired models cannot keep a previous number, ppb or lock duration live.
  uint8_t a[n30::FrameBytes],b[n30::FrameBytes];sample(6000000000);m.precision.rms_ns=170;
  n30::render(a,m,v,now+n30::SnapshotMaxUs);m.precision.rms_ns=85;m.precision.relative_ppb=1234;m.precision.lock_since_us=1;

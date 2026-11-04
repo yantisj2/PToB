@@ -53,8 +53,8 @@ int main(int argc,char** argv){
   std::fclose(f);
  }
  // New page fixtures exercise the actual renderer, not a graphic mockup.
- const char* precision_names[]={"precision-lock","precision-acquire","precision-stale","precision-legacy-rc1","precision-microseconds","precision-long-lock","precision-long-root-rc2","precision-rc1","precision-fault","precision-root-unknown","precision-rc2-pps-off"};
- for(unsigned i=0;i<11;++i){
+ const char* precision_names[]={"precision-lock","precision-acquire","precision-stale","precision-legacy-rc1","precision-microseconds","precision-long-lock","precision-long-root-rc2","precision-rc1","precision-fault","precision-root-unknown","precision-rc2-pps-off","precision-lora-ble-quality"};
+ for(unsigned i=0;i<12;++i){
   n30::Model p;p.sampled_us=p.utc_at_us=5000000000;p.until_us=p.sampled_us+250000;
   p.utc_us=10ULL*3600000000;p.valid=p.locked=true;p.state=n30::State::Follow;p.source=n30::Source::Ble;
   std::snprintf(p.root,sizeof p.root,"TC-02");
@@ -71,12 +71,15 @@ int main(int argc,char** argv){
   if(i==8){p.state=n30::State::Fault;p.valid=p.locked=q.valid=q.locked=q.lock_age_valid=q.relative_known=false;}
   if(i==9)std::snprintf(p.root,sizeof p.root,"----");
   if(i==10){q.source=n30::Source::Rc2;p.utc_us+=250000;q.relative_ppb=0;}
+  if(i==11){p.source=n30::Source::LoRa;q.source=n30::Source::Ble;q.rms_ns=65;}
+  if(i!=11)p.source=q.source;
   p.ble={p.utc_at_us,p.utc_us,p.until_us,1,2,3,p.valid,true};
   n30::View v;v.page=n30::PrecisionPage;n30::render(frame,p,v,p.sampled_us+(i==2?250000:0));
   char path[1024];std::snprintf(path,sizeof path,"%s/%s.pgm",argv[1],precision_names[i]);
   auto f=std::fopen(path,"wb");if(!f)return 3;std::fprintf(f,"P5\n64 128\n255\n");
   for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);
   std::fclose(f);
+  for(bool cw:{false,true}){uint8_t native[n30::FrameBytes];n30::rotate(native,frame,cw);std::snprintf(path,sizeof path,"%s/%s-%s.bin",argv[1],precision_names[i],cw?"cw":"ccw");f=std::fopen(path,"wb");if(!f)return 3;std::fwrite(native,1,sizeof native,f);std::fclose(f);}
  }
  n30::render_splash(frame);
  {char path[1024];std::snprintf(path,sizeof path,"%s/splash.pgm",argv[1]);auto f=std::fopen(path,"wb");if(!f)return 3;

@@ -29,7 +29,7 @@ LORA_NUMBERS={
  'CONTEXT':'source_epoch kind scale metadata_known',
  'ORIGINAL':'sequence corrected captured_tick16 capture_epoch event_local_us event_ns created_ns expires_ns map_generation map_age_us until_us age_ms assurance authority BLE_update',
  'QUALITY':'companion snapshot_age_ms received_us events time_valid known values role hop class accuracy parent_bound_ns correction_age_ms map_life_ms rate_ppb residual_ns losses recoveries link_samples link_rms_ns parent_quality_current',
- 'COUNTERS':'accepted rejected replayed unmatched overflow metadata metadata_misses RXdone CRCbad malformed SPIok SPIerror invalid_capture capture_overflow map_accepted map_rejected',
+ 'COUNTERS':'accepted rejected replayed unmatched overflow metadata metadata_misses RXdone CRCbad malformed SPIok SPIerror invalid_capture capture_overflow map_accepted map_rejected map_soft_refused map_hard_reset',
  'HARDWARE':'requested active fault error stage opcode generation off_ack_generation off_ack SPI_retired capture_released reset_asserted capture_enclosure_ns work_max_us stack_unused heartbeat_ms RSSI_dbm SNR_quarter_db',
  'POLICY':'remaining_ms acquire_us recover_us state sampled_us UTC_us frequency_hz SF BW_hz CR preamble RX_ONLY'}
 LORA_HEX='emitter emitter_boot stream root root_boot parent parent_boot'.split()
@@ -183,10 +183,11 @@ def validate_timing(rows):
  base.require(count==int(s['count']),'Timing batch count')
  contract={'observer':'WORKER_ONLY','cursor':'NONCONSUMING','records':'16','batch':'4','max_ms':'600000','timestamp':'DESCRIPTOR_500NS_TO_TIMER_50NS','RF_bias':'UNKNOWN','UTC_bound':'UNKNOWN','clock_update':'NONE'}
  for key,value in contract.items():base.require(rows['N30_TIMING_CONTRACT'].get(key)==value,'Timing contract: '+key)
-def validate_lora(rows):
+def validate_lora(rows,require_map_classification=False):
  for suffix,names in LORA_NUMBERS.items():
   row=rows['N30_LORA_'+suffix]
   for key in names.split():
+   if key in ('map_soft_refused','map_hard_reset') and key not in row and not require_map_classification:continue
    value=row.get(key,'');signed=key in ('rate_ppb','error','RSSI_dbm','SNR_quarter_db')
    base.require(bool(__import__('re').fullmatch(r'-?(?:0|[1-9][0-9]*)' if signed else r'(?:0|[1-9][0-9]*)',value)),'Invalid LoRa number: '+key)
    number=int(value);limit=2**64 if key in ('captured_tick16','capture_epoch','event_local_us','event_ns','created_ns','expires_ns','until_us','received_us','sampled_us','UTC_us') else 2**32
@@ -230,7 +231,7 @@ class Parser(base.Parser):
   frames=super().feed(data)
   for f in frames:
    if self.manifest.get('n30_frame_kind')=='RC9':validate_rc9(f['rows'])
-   if self.manifest.get('n30_frame_kind')=='LORA':validate_lora(f['rows'])
+   if self.manifest.get('n30_frame_kind')=='LORA':validate_lora(f['rows'],bool(self.manifest.get('lora_map_refusal_contract')))
    if self.manifest.get('n30_frame_kind')=='TIMING':validate_timing(f['rows'])
    if self.manifest.get('n30_frame_kind')=='FINE':
     validate_fine(f['rows'])
