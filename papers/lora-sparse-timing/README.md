@@ -1,9 +1,14 @@
-# Sparse one-way LoRa clock transfer
+# Sparse One-Way LoRa Clock Transfer
 
-Jonathan Yantis. **Draft for author review, 4 November 2026.**
-This edition is not approved for public publication or promotion.
+**Bandwidth Experiments, Authenticated Two-Step Timing, and a Fixed-500-kHz Validation**
 
-[Read the seven-page manuscript](main.pdf) or edit its [canonical LaTeX](main.tex).
+Jonathan Yantis. **Approved for public draft review, 4 November 2026.**
+Repository publication is prepared locally. The author explicitly deferred
+pushing until the firmware fixes can be delivered together; no push or website
+deployment has been performed for this paper.
+
+[Read the seven-page manuscript](sparse-one-way-lora-clock-transfer.pdf)
+or edit its [canonical LaTeX](sparse-one-way-lora-clock-transfer.tex).
 The retrospective describes the authenticated wire3/schedule8 timing path,
 low/high and intermediate bandwidth experiments, frequency hopping, selection
 of a fixed 922.4 MHz / 500 kHz / SF11 / CR4/8 candidate, and the complete
@@ -56,7 +61,7 @@ python3 papers/lora-sparse-timing/tools/plot.py
 Build with a public TeX toolchain, such as Tectonic 0.17.0:
 
 ```sh
-tectonic -X compile papers/lora-sparse-timing/main.tex --outdir artifacts/lora-sparse-paper-tex
+tectonic -X compile papers/lora-sparse-timing/sparse-one-way-lora-clock-transfer.tex --outdir artifacts/lora-sparse-paper-tex
 ```
 
 Copy the rebuilt PDF to this directory only as part of a new matching edition,
@@ -64,6 +69,16 @@ then render and inspect every page. The [edition manifest](edition.json) binds
 the matching source, PDF, figure, selected data and support files. It is an
 identity/review record, not publication approval or firmware qualification.
 The source ledger records primary prior-art references and claim boundaries.
+
+The [publication approval](publication.json) records the author's subsequent
+approval and the explicit hold on pushing. The reviewed LaTeX and PDF retain
+their original author-review labels and bytes; this separate receipt records
+their current public-review status. The [original preparation manifest](preparation.json)
+and build/review record describe the earlier checkpoint at Git commit
+`54ddfa600a940e3bb0257293a2ae40fce5a12fe9`. Its original `main.tex` path is
+preserved in Git; the [previous PDF review link](main.pdf) remains a
+byte-identical copy of the named PDF. This remains a research draft, without
+final-paper promotion or submission.
 
 The measured .288 source digest and later compatible wire-reference commit
 are distinct. Codec/header bytes are identical in those snapshots; processing

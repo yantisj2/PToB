@@ -2,6 +2,15 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+The **4 November 2026 [sparse LoRa timing paper](../papers/lora-sparse-timing/sparse-one-way-lora-clock-transfer.pdf)**
+is approved for public draft review. Its [approval record](../papers/lora-sparse-timing/publication.json)
+binds the unchanged reviewed seven-page manuscript under descriptive PDF/LaTeX
+filenames, with the original preparation record preserved. The calibrated
+900-PPS T096 result, bandwidth-screen limits and incomplete populations remain
+unchanged. This repository packaging is committed locally; the user deferred
+the push until the firmware fixes are ready. No website deployment, new capture,
+final-paper promotion or hardware qualification accompanies this approval.
+
 The **3 November 2026 [Starlink hybrid timing paper](../papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf)**
 is approved for public draft review. The [approval record](../papers/starlink-wifi-hybrid-timing/publication.json)
 binds the unchanged reviewed seven-page manuscript and PDF under their named

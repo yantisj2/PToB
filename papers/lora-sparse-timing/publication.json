@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "approval_date": "2026-11-04",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "The paper is approved, give it a proper name and release it for public review in the repo and research section but don't push to main, we are waiting on the firmware fixes to push at once",
+  "title": "Sparse One-Way LoRa Clock Transfer: Bandwidth Experiments, Authenticated Two-Step Timing, and a Fixed-500-kHz Validation",
+  "prepared_commit": "54ddfa600a940e3bb0257293a2ae40fce5a12fe9",
+  "prepared_edition": "papers/lora-sparse-timing/preparation.json",
+  "prepared_edition_sha256": "acc503721a317dbefc72d7ac2807016ebea4a80278c813c9da1b9d74914262a4",
+  "edition": "papers/lora-sparse-timing/edition.json",
+  "edition_sha256": "563278e7a948db8793e1e1fc19c83a07333819391a57b05e8c9e7b1680aef920",
+  "canonical_pdf": "papers/lora-sparse-timing/sparse-one-way-lora-clock-transfer.pdf",
+  "canonical_source": "papers/lora-sparse-timing/sparse-one-way-lora-clock-transfer.tex",
+  "reviewed_pdf_sha256": "5ce060888f141c1be3c06e8c20d3f4e9e569496b367c2580596e7f51c2143f32",
+  "reviewed_source_sha256": "5a62f48c43eeca4a17bedee3e6d1fa7b83f7627cdc802110ed32a5539dc798ad",
+  "legacy_review_pdf": "papers/lora-sparse-timing/main.pdf",
+  "reviewed_source_pdf_unchanged": true,
+  "pages": 7,
+  "preserved_checkpoint": "The reviewed manuscript retains its original author-review labels and bytes. This separate receipt records subsequent approval for public draft review. The original preparation manifest is preserved byte for byte, and its original paths remain available at the prepared Git commit.",
+  "publication_scope": "Named canonical source/PDF, unchanged selected evidence and reproduction helpers, research-section/catalogue links, approval and edition records. Local repository preparation only; push deferred by the author.",
+  "delivery_status": "PREPARED_LOCALLY_PUSH_DEFERRED_UNTIL_FIRMWARE_FIXES",
+  "github_push_authorized": false,
+  "website_deployment_authorized": false,
+  "draft_promoted_to_final": false,
+  "new_hardware_measurements": false,
+  "hardware_accuracy_qualified": false,
+  "evidence_boundary": "Same measured T096 0.15.288 window: 900/900 future PPS, 269.140 ns RMS delivered-model phase after a frozen prior; selected bandwidth screens, incomplete attempts and availability limits remain distinct. No new experiment or accuracy claim.",
+  "integration_at_approval": [
+    {
+      "path": "README.md",
+      "bytes": 12970,
+      "sha256": "cee4ce94166ee99d5a76446d727f1280d5189de5d55d703a5f4c270f5df9ffed"
+    },
+    {
+      "path": "docs/PUBLICATION_REVIEW.md",
+      "bytes": 4872,
+      "sha256": "91a47ca236d30b7bd2ccba5b174c03ecc35b0bbcec79c302e9139132ede091a0"
+    },
+    {
+      "path": "papers/README.md",
+      "bytes": 30819,
+      "sha256": "ff16a3f38d1cb4bc999a39fb6eee47da6714cc4f9d757a71f99a6e490d6e69b2"
+    },
+    {
+      "path": "papers/CHANGELOG.md",
+      "bytes": 28401,
+      "sha256": "bf34f4daca51540904d7919037faa824aaa35f0216d3f3fc3e56138d735aa01d"
+    },
+    {
+      "path": "papers/lora-sparse-timing/README.md",
+      "bytes": 4891,
+      "sha256": "b7e7ad9ae078134697f114cd1b190515b3512faf30780b65a5c4226b4c09c464"
+    }
+  ],
+  "integration_identity_scope": "Hashes describe companion documents at approval; later repository edits do not change the preserved reviewed manuscript or its evidence.",
+  "validation": {
+    "selected_data_statistics_and_edition_identities": "PASS",
+    "clean_package_without_git_or_private_inputs": "PASS",
+    "reviewed_source_pdf_and_preparation_unchanged": "PASS_AGAINST_PREPARED_GIT_COMMIT",
+    "local_markdown_links": "PASS_196",
+    "pdf_pages": 7,
+    "formatting": "UNCHANGED_FROM_REVIEWED_ALL_PAGE_VISUAL_CHECK",
+    "push_performed": false,
+    "new_measurements": false
+  }
+}

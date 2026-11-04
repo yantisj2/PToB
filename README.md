@@ -88,6 +88,20 @@ implementing a BLE mesh role. A general GATT time-client service remains planned
 
 ## Research and review
 
+**Approved public review draft, 4 November 2026:**
+[Sparse One-Way LoRa Clock Transfer: Bandwidth Experiments, Authenticated Two-Step Timing, and a Fixed-500-kHz Validation](papers/lora-sparse-timing/sparse-one-way-lora-clock-transfer.pdf)
+reports the narrow/high-bandwidth and hopping experiments, wire3 timing format,
+and selected 922.4 MHz / 500 kHz / SF11 / CR4/8 design in seven pages.
+The complete T096 window retains all 900 future PPS observations with
+269.140 ns RMS delivered-model phase after a frozen prior bench correction;
+every five-second interval-age bin remains below 296 ns RMS. These are
+calibrated GNSS-input/model measurements; independent output, portable UTC
+and field-range accuracy remain unqualified.
+[Source, selected data and reproduction](papers/lora-sparse-timing/README.md)
+and the [approval record](papers/lora-sparse-timing/publication.json)
+accompany the paper. Repository publication is prepared locally; the push is
+deferred until the firmware fixes are ready.
+
 **Approved public review draft, 3 November 2026:**
 [Paired Clock Time Transfer from Starlink over Wi-Fi: Causal Filtering, Drift, and GNSS-Shadow Validation](papers/starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf)
 is a seven-page study of Starlink NTP combined with Wi-Fi beacon timing.

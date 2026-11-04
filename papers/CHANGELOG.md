@@ -1,5 +1,20 @@
 # Manuscript history
 
+## 2026-11-04 — sparse LoRa timing paper approved for public review
+
+- Record author approval for public draft review and feature *Sparse One-Way
+  LoRa Clock Transfer: Bandwidth Experiments, Authenticated Two-Step Timing,
+  and a Fixed-500-kHz Validation* in the root research section and paper catalogue.
+- Give the canonical PDF and LaTeX matching descriptive filenames. Preserve
+  the reviewed manuscript bytes, seven-page layout and selected evidence;
+  retain the previous PDF review link as a byte-identical copy.
+- Preserve the original preparation manifest and approval checkpoint in Git.
+  A separate publication receipt records the subsequent approval and named
+  edition; historical author-review labels remain in the reviewed manuscript.
+- Commit this research packaging locally. The user explicitly deferred pushing
+  until the firmware fixes can be delivered together. No push, website
+  deployment, new measurement, firmware edit or final-paper promotion occurs.
+
 ## 2026-11-04 — sparse LoRa timing retrospective for author review
 
 - Add the seven-page *Sparse One-Way LoRa Clock Transfer: Bandwidth

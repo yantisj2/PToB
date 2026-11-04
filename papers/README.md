@@ -1,7 +1,7 @@
 # Research papers — drafts
 
-**Author-review draft, 4 November 2026 — publication approval pending:**
-[Sparse One-Way LoRa Clock Transfer](lora-sparse-timing/main.pdf)
+**Approved public review draft, 4 November 2026 — push deferred:**
+[Sparse One-Way LoRa Clock Transfer](lora-sparse-timing/sparse-one-way-lora-clock-transfer.pdf)
 is a seven-page retrospective of the bandwidth and frequency-hopping
 experiments, authenticated wire3/schedule8 format, and selected fixed
 922.4 MHz / 500 kHz / SF11 / CR4/8 timing profile. The complete T096 validation
@@ -12,8 +12,10 @@ scatter, incomplete attempts and unknown transmission-offer coverage stay
 separate. This is calibrated GNSS-input/model agreement, without independent
 electrical-output, portable UTC or field-range qualification.
 [Source, selected data and reproduction](lora-sparse-timing/README.md)
-accompany the draft. No new hardware experiment was performed; the author
-must review it before public publication.
+and the [public-review approval](lora-sparse-timing/publication.json)
+accompany the draft. The reviewed manuscript is unchanged. No new hardware
+experiment was performed; repository publication is prepared locally, with the
+push deferred until the firmware fixes are ready.
 
 **Approved public review draft, 3 November 2026 (UTC):**
 [Paired Clock Time Transfer from Starlink over Wi-Fi](starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf)
@@ -181,6 +183,7 @@ toward arXiv; it has not been submitted.
 
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
+| Sparse One-Way LoRa Clock Transfer: Bandwidth Experiments, Authenticated Two-Step Timing, and a Fixed-500-kHz Validation | [PDF](lora-sparse-timing/sparse-one-way-lora-clock-transfer.pdf) | [LaTeX](lora-sparse-timing/sparse-one-way-lora-clock-transfer.tex) | 4 November 2026, approved seven-page public review draft; local publication prepared, push deferred |
 | Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability | [PDF](zephyr-timing/main.pdf) | [LaTeX](zephyr-timing/main.tex) | 1 November 2026, approved seven-page public review draft; implementation and prior-art study, comparative hardware evaluation proposed |
 | Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks | [PDF](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf) | [LaTeX](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex) | 30 October 2026, approved research draft; compact selected evidence and offline prefix replay |
 | Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh | [PDF](ble-tail-multipath/main.pdf) | [LaTeX](ble-tail-multipath/main.tex) | 26 October 2026, public review draft; current mechanisms, analytical examples and proposed validation, no new hardware experiment |
