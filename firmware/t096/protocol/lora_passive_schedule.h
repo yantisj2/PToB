@@ -39,9 +39,15 @@ static inline uint32_t lp_bw_packet_budget_us(uint32_t cursor,unsigned bytes){
 #ifdef R2_LORA_PASSIVE_SLOW
 #ifdef R2_LORA_FIXED500_EXPERIMENT
 #define LP_SCHEDULE 8u
-/* Initial raw characterization. A separately frozen prior calibration may
- * replace zero before held-out validation; never learn this from live PPS. */
-#define LP_FIXED_EVENT_DELAY_NS UINT64_C(0)
+/* Frozen build-time prior only. Positive values advance the TX event UTC to
+ * its RX HeaderValid event. This is not learned from the live PPS witness. */
+#ifndef R2_LORA_FIXED500_EVENT_DELAY_NS
+#define R2_LORA_FIXED500_EVENT_DELAY_NS 0
+#endif
+#define LP_FIXED_EVENT_DELAY_NS ((int64_t)R2_LORA_FIXED500_EVENT_DELAY_NS)
+#if R2_LORA_FIXED500_EVENT_DELAY_NS < -1000000000 || R2_LORA_FIXED500_EVENT_DELAY_NS > 1000000000
+#error "Fixed500 event correction exceeds one second"
+#endif
 #elif defined(R2_LORA_BW_EXPERIMENT)
 #define LP_SCHEDULE 7u
 #else

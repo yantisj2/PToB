@@ -85,6 +85,7 @@ def main():
     parser.add_argument('--lora-tx-diagnostic', action='store_true', help='Finite default-off non-timing PHY TX test; requires GM passive-fast and own exact factory')
     parser.add_argument('--lora-bw-experiment', action='store_true', help='Finite default-off SF7 bandwidth ABBA characterization; select one passive schedule')
     parser.add_argument('--lora-fixed500-experiment', action='store_true', help='Matched fixed922.4MHz SF11/CR4/8 P30/M300 experiment')
+    parser.add_argument('--lora-fixed500-event-delay-ns', type=int, default=0, help='Frozen prior correction applied to fixed500 RX model input; no live PPS feedback')
     parser.add_argument('--lora-passive-slow', action='store_true', help='Production30/120/300 schedule; normal GM/RC boot with RX on')
     parser.add_argument('--lora-backup-transmitter-factory', help='Explicit first own-GNSS backup emitter')
     parser.add_argument('--controller-diagnostics', action='store_true', help='Opt-in normal GM/RC prepare FIFO diagnostic canary')
@@ -114,6 +115,8 @@ def main():
         parser.error('Bandwidth experiment requires one passive schedule without diagnostic TX')
     if args.lora_fixed500_experiment and (not args.lora_passive_slow or args.lora_passive_fast or args.lora_bw_experiment or args.lora_tx_diagnostic):
         parser.error('Fixed500 requires slow normal GM/RC without another experiment')
+    if abs(args.lora_fixed500_event_delay_ns)>1000000000 or (args.lora_fixed500_event_delay_ns and not args.lora_fixed500_experiment):
+        parser.error('Event correction requires fixed500 and magnitude at most one second')
     if args.controller_diagnostics and args.profile not in ('GM','RC'):
         parser.error('Controller diagnostics require normal GM/RC')
     dc = args.profile == 'DC'
@@ -212,7 +215,7 @@ def main():
         receipt['passive_schedule'].update(id=8,discovery_us=0,rolling_hour_cap_us=90000000)
         receipt['fixed500_experiment'] = dict(frequency_hz=922400000,sf=11,bandwidth_hz=500000,
             coding_rate='4/8',preamble=12,explicit_header=True,crc=True,source_hold_us=5000000,
-            rx='CONTINUOUS_HEADER_VALID_CRC_CONFIRMED',event_delay_ns=0,default_on=True)
+            rx='CONTINUOUS_HEADER_VALID_CRC_CONFIRMED',event_delay_ns=args.lora_fixed500_event_delay_ns,default_on=True)
     receipt['gm7_controller'] = None if not args.gm7 else {
         'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
         'generator_sha256':sha(APP/'tools/gm7_controller_hooks.py')}
@@ -287,6 +290,7 @@ def main():
              '-DR2_LORA_TX_DIAGNOSTIC='+('ON' if args.lora_tx_diagnostic else 'OFF'),
              '-DR2_LORA_BW_EXPERIMENT='+('ON' if args.lora_bw_experiment else 'OFF'),
              '-DR2_LORA_FIXED500_EXPERIMENT='+('ON' if args.lora_fixed500_experiment else 'OFF'),
+             '-DR2_LORA_FIXED500_EVENT_DELAY_NS='+str(args.lora_fixed500_event_delay_ns),
              '-DR2_LORA_PASSIVE_SLOW='+('ON' if args.lora_passive_slow else 'OFF'),
              '-DR2_LORA_BACKUP_TRANSMITTER_FACTORY='+backup,
              *(['-DR2_TZ_MODE='+str(tz['mode_number']),'-DR2_TZ_MANUAL_ID='+str(tz['id']),
@@ -306,7 +310,9 @@ def main():
         if args.lora_passive_fast:private_hash=hashlib.sha256((private_hash+':lora-passive:RAM_LAB_4_12').encode()).hexdigest()
         if args.lora_tx_diagnostic:private_hash=hashlib.sha256((private_hash+':tx-diagnostic:1').encode()).hexdigest()
         if args.lora_bw_experiment:private_hash=hashlib.sha256((private_hash+(':bw-experiment:SWEEP_SF7_SLOW30_600S_FIXED16_48' if args.lora_passive_slow else ':bw-experiment:ABBA_SF7_240S')).encode()).hexdigest()
-        if args.lora_fixed500_experiment:private_hash=hashlib.sha256((private_hash+':fixed500:922400000_SF11_CR8_P30_M300').encode()).hexdigest()
+        if args.lora_fixed500_experiment:
+            private_hash=hashlib.sha256((private_hash+':fixed500:922400000_SF11_CR8_P30_M300').encode()).hexdigest()
+            private_hash=hashlib.sha256((private_hash+':event-delay-ns:'+str(args.lora_fixed500_event_delay_ns)).encode()).hexdigest()
         if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()
         binding=hashlib.sha256((source_hash+':'+private_hash+':'+sha(target/'.config')).encode()).hexdigest()
         if '#define R2_WATCHDOG_BINDING "'+binding+'"' not in (out/'target/build_identity.h').read_text():

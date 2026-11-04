@@ -1,5 +1,12 @@
 # T096 changelog
 
+## 0.15.287 — frozen fixed500 receiver event calibration
+
+The fixed500 experiment accepts a build-receipted signed event correction,
+default zero, applied before the authenticated receiver model fit. Its delivered
+clock and shadow map share that corrected model; live independent PPS remains
+observation only. The source PHY, schedule, leases and accounting are unchanged.
+
 ## 0.15.286 — matched fixed500 laboratory candidate
 
 An explicit slow-image experiment selects authenticated schedule8, one

@@ -509,12 +509,25 @@ bool lp_rx_follow(struct lp_rx *r,const struct lp_packet *p,const struct lp_age 
  if(!r||!p||p->kind!=LP_FOLLOW||p->schedule!=LP_SCHEDULE||!r->pending||p->cursor!=r->pending_cursor||epoch!=r->pending_epoch||
  now<r->pending_us||now>=r->pending_deadline_us||now>=r->observed_deadline_us){if(r){++r->rejected;pending_clear(r);}return false;}
  uint64_t age;bool bounded=lp_age_admit(a,p->utc_ns,now,&age);
- if(r->last_tick&&(p->cursor<=r->highest||p->utc_ns<=r->last_tx_ns||
+ uint64_t model_ns=p->utc_ns;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ /* Apply the independently frozen prior to the actual model input, before
+  * fitting or delivered-map publication. Authentication/freshness use the
+  * original packet; the correction creates no new source authority. */
+ if(LP_FIXED_EVENT_DELAY_NS<0){
+  uint64_t magnitude=(uint64_t)-LP_FIXED_EVENT_DELAY_NS;
+  if(model_ns<magnitude){++r->rejected;pending_clear(r);return false;}
+  model_ns-=magnitude;
+ }else if(!add(model_ns,(uint64_t)LP_FIXED_EVENT_DELAY_NS,&model_ns)){
+  ++r->rejected;pending_clear(r);return false;
+ }
+#endif
+ if(r->last_tick&&(p->cursor<=r->highest||model_ns<=r->last_tx_ns||
     (epoch==r->last_epoch&&r->pending_tick<=r->last_tick))){++r->rejected;pending_clear(r);return false;}
  r->physical_deadline_us=r->pending_us+LP_HOLD_US;
  if(now>=r->physical_deadline_us){pending_clear(r);return false;}
  if(epoch!=r->last_epoch){r->fit_count=0;if(epoch!=r->display_epoch)r->display_valid=r->display_acquiring=false;}
- r->last_tick=r->pending_tick;r->last_tx_ns=p->utc_ns;r->last_us=r->pending_us;
+ r->last_tick=r->pending_tick;r->last_tx_ns=model_ns;r->last_us=r->pending_us;
  r->highest=p->cursor;r->have_pair=true;r->bounded=r->bounded&&bounded;r->last_epoch=epoch;
  fit(r,r->last_tick,r->last_tx_ns);
  if(r->trained){

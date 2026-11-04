@@ -16,6 +16,10 @@ def main():
  logs=[]
  for mode in (1,2,3,4):
   r=subprocess.run([str(binary),str(mode)],capture_output=True,text=True);logs.append(r.stdout+r.stderr);(a.out/'owner.log').write_text(''.join(logs));r.check_returncode();print(r.stdout.strip())
+ for correction in (123456789,-123456789):
+  calibrated=a.out.resolve()/('owner-calibrated-'+str(correction))
+  subprocess.run([*flags,'-DR2_LORA_FIXED500_EVENT_DELAY_NS='+str(correction),'-DR2_PASSIVE_SERVICE_BODY="'+str(owner)+'"','-DR2_HW_ADMISSION_BODY="'+str(admission)+'"',*map(str,sources),'-o',str(calibrated)],check=True)
+  subprocess.run([str(calibrated),'4'],check=True)
  body=a.out.resolve()/'hw.c';body.write_text(re.sub(r'^#include[^\n]*\n','',hw,flags=re.M))
  fixture=a.out.resolve()/'driver.c';fixture.write_text('#define main original_main\n#include "'+str(APP/'tests/lora_hw_test.c')+'"\n#undef main\nint main(void){assert(!r2_lora_hw_start(4,false));for(unsigned p=1;p<=2;p++){assert(!r2_lora_hw_passive_configure(p,50));uint64_t hz=922400000;uint32_t expected=(uint32_t)((hz*((uint64_t)1<<25)+16000000)/32000000);uint32_t actual=((uint32_t)configured_frequency[0]<<24)|((uint32_t)configured_frequency[1]<<16)|((uint32_t)configured_frequency[2]<<8)|configured_frequency[3];assert(actual==expected&&configured_modulation[0]==11&&configured_modulation[1]==6&&configured_modulation[2]==4&&!configured_modulation[3]);assert(r2_lora_hw_budget_us(24)==273168&&r2_lora_hw_budget_us(32)==305936&&r2_lora_hw_budget_us(112)==797456&&!r2_lora_hw_budget_us(28));regs[0x0889]=0xa5;assert(!r2_lora_hw_prepare(payload,24,5));assert(regs[0x0889]==0xa1);}return 0;}\n')
  driver=a.out.resolve()/'driver';subprocess.run([*flags,'-DR2_LORA_OWNER_BODY="'+str(body)+'"',str(fixture),'-o',str(driver)],check=True);subprocess.run([str(driver)],check=True)

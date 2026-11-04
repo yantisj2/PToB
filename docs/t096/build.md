@@ -158,7 +158,13 @@ authorization. All packets use HeaderValid capture confirmed by CRC/RxDone;
 META conservatively backdates its context observation lease by full airtime.
 The lab selected-BLE LoRa copy adds a fixed5s margin to original expiry;
 duplicate publications cannot renew it and upstream BLE leases are unchanged.
-Raw candidate endpoint delay is zero; independent PPS never trains its clock.
+The endpoint correction defaults to zero. For a separately authorized calibrated
+experiment, `--lora-fixed500-event-delay-ns INTEGER` freezes a signed prior within
+one second in the build receipt and watchdog binding. It adjusts authenticated
+FOLLOW UTC before the receiver fit and delivered map; positive values advance
+TX UTC to RX HeaderValid time. Independent PPS never trains the live clock.
+Calibration is specific to its measured endpoint/path/configuration and does
+not qualify UTC accuracy or range.
 Read the changelog and exact private deployment scope before hardware work.
 Run its actual owner/core/driver synthetic checks offline:
 

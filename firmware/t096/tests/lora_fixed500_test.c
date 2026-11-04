@@ -68,6 +68,7 @@ int main(int argc,char **argv){
   if(i==2)continue; /*lostFOLLOW must not break acquisition of the next pair*/
   struct lp_packet follow={.kind=LP_FOLLOW,.schedule=LP_SCHEDULE,.cursor=2*i,.utc_ns=UINT64_C(1000000000000)+event*1000};
   rx(&follow,event+2800000,event+3000000);assert(role.rx.accepted==i+1-(i>=2));
+  assert(role.rx.last_tx_ns==follow.utc_ns+LP_FIXED_EVENT_DELAY_NS);
   assert(owner.listening&&tuning_phy==R2_LORA_FHSS&&tuning_channel==50);
  }
  uint64_t accepted=role.rx.accepted;lp_rx_expire(&role.rx,role.rx.observed_deadline_us);

@@ -56,7 +56,9 @@
 #define DIAGNOSTIC_JSON "false"
 #endif
 #ifdef R2_LORA_FIXED500_EXPERIMENT
-#define BW_EXPERIMENT_JSON "\"fixed500_experiment\":true,\"frequency_hz\":922400000,\"precision_sf\":11,\"coding_rate_denominator\":8,\"event_delay_ns\":0,"
+#define FIXED_STRING_INNER(v) #v
+#define FIXED_STRING(v) FIXED_STRING_INNER(v)
+#define BW_EXPERIMENT_JSON "\"fixed500_experiment\":true,\"frequency_hz\":922400000,\"precision_sf\":11,\"coding_rate_denominator\":8,\"event_delay_ns\":" FIXED_STRING(R2_LORA_FIXED500_EVENT_DELAY_NS) ","
 #define SOURCE_GRID_PHASE_NS UINT64_C(400000000)
 #elif defined(R2_LORA_BW_EXPERIMENT)
 #ifdef R2_LORA_PASSIVE_SLOW
