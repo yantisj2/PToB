@@ -114,10 +114,22 @@ A failed drain remains a fault. Sleep current, battery lifetime and physical
 wake behavior need hardware validation.
 
 The clock's signal bars describe fresh authenticated parent RSSI, independently
-of lock, and expire after **2 s** without a packet. Precision names the actual **CLOCK** source, then separately shows the
-BLE/RC1/RC2 root/path, **BLE RMS**, relative drift in ppb, counter/tick size
-and **BLE LOCK** duration. LoRa may supply the clock while these independent
-BLE quality metrics remain visible. Relative drift is diagnostic and does not steer time.
+of lock, and expire after **2 s** without a packet. Precision follows the actual
+**CLOCK** input. BLE/RC1/RC2 show their root/path, **BLE RMS**, relative drift
+in ppb, counter/tick size and **BLE LOCK** duration. Relative BLE drift is a
+diagnostic and does not steer time.
+
+For **LOR**, Precision shows the LoRa **TX** emitter and **ROOT**, its independent
+20 MHz XTAL coordinate (**50 ns** ticks), and **E**, the software mapping
+enclosure rounded up to microseconds. E is not a calibrated RF error bound.
+**FIT RMS** is the LoRa model's internal residual statistic; **RATE** is the
+committed correction in ppb and **PHCOR** the correction committed with that
+model, applied over its first second. **PAIR** is the latest physical timing
+sample's age, **N** its fit population, and **REF** the committed clock reference's
+age. META receipt age is separate, available on receiver diagnostics. TRACK,
+HOLD, TRAIN, EXPIRED and NO MAP describe model availability. HOLD means the
+latest physical pair is at least35s old, within the original timing lease. Untrained, stale or unavailable models
+hide old RMS/rate/phase values. **UTC/RF UNKNOWN** preserves their unknown bounds.
 
 ## Precision, evidence and development
 

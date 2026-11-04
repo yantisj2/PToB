@@ -14,12 +14,12 @@ struct n30_lora_view {
  uint64_t created_ns,expires_ns,event_ns,metadata_us;
  uint32_t source_epoch,generation,sequence,corrected_sequence,map_generation,map_age_us;
  uint32_t accepted,rejected,replayed,overflow,unmatched,metadata,metadata_misses;
- uint32_t link_rms_ns,age_ms,snapshot_age_ms,diagnostic_sequence;
+ uint32_t link_rms_ns,age_ms,reference_age_ms,snapshot_age_ms,diagnostic_sequence;
  uint32_t parent_bound_ns,correction_age_ms,map_life_ms,residual_ns;
- int32_t rate_ppb;uint16_t quality_known,quality_values,events;
+ int32_t rate_ppb,phase_ns;uint16_t quality_known,quality_values,events;
  uint8_t context[16],state,assurance,authority,kind,scale,link_samples;
  uint8_t role,hop,parent_class,parent_accuracy,losses,recoveries;
- bool requested,active,fault,metadata_known,time_valid,parent_quality;
+ bool requested,active,fault,metadata_known,time_valid,parent_quality,trained,slow_fit,model_valid;
  uint32_t rx_done,crc_bad,malformed,spi_ok,spi_error,invalid_capture,capture_overflow;
  uint32_t map_accepted,map_rejected,map_soft_refused,map_hard_reset,capture_bound_ns,work_max_us,stack_unused,heartbeat_ms;
  uint32_t request_generation,off_ack_generation;

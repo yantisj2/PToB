@@ -61,7 +61,7 @@ void small_text(uint8_t* f,int x,int y,const char* s,bool on=true){
    else if(c=='n'){const uint8_t a[]={0,6,5,5,5};std::memcpy(rows,a,5);}
    else if(c=='s'){const uint8_t a[]={0,3,6,1,6};std::memcpy(rows,a,5);}
    else std::memcpy(rows,letters3[c-'a'],5);
-  }else if(c=='-'){rows[2]=7;}else if(c=='_'){rows[4]=7;}
+  }else if(c=='-'){rows[2]=7;}else if(c=='+'){rows[1]=rows[3]=2;rows[2]=7;}else if(c=='_'){rows[4]=7;}
   else if(c=='.'){rows[4]=2;}else if(c=='/'){rows[0]=1;rows[1]=1;rows[2]=2;rows[3]=4;rows[4]=4;}
   for(unsigned r=0;r<5;r++)for(unsigned col=0;col<3;col++)if(rows[r]&(4>>col))pixel(f,x+int(col),y+int(r),on);
  }
@@ -105,27 +105,32 @@ void menu_page(uint8_t* f,const Model& m,const View& v,uint64_t now){
  center(f,113,"TAP NEXT");small_text(f,10,123,"HOLD SELECT");
 }
 void precision_page(uint8_t* f,const Model& m,uint64_t now){
- const auto& p=m.precision;const bool live=precision_current(m,now);
+ const auto& p=m.precision;const auto& l=m.lora;
+ const bool lor=m.source==Source::LoRa||(m.source==Source::None&&l.requested);
+ const bool fresh=current(m,now)&&now>=l.sampled_us&&now-l.sampled_us<SnapshotMaxUs;
+ uint64_t lora_utc=0;const bool available=fresh&&lora_time(l,now,lora_utc);
+ const bool live=lor?fresh&&l.trained&&l.model_valid&&available:precision_current(m,now);
  uint64_t functional_utc=0;const bool rc9=m.source==Source::Rc9&&saver_time(m,now,functional_utc);
  const bool locked=live&&p.locked&&p.lock_age_valid&&now>=p.lock_since_us;
  // Casio-style bezel, source strip, large LCD well and segmented stopwatch.
  box(f,1,0,62,128);fill(f,2,1,60,11);center(f,3,"PRECISION",false);
- // The selected displayed clock and the BLE fitter are independent inputs.
- // Keep their labels visible together, including during the recovery dwell.
+ // Each selected input retains its own model and physical capture coordinate.
  char out[24];std::snprintf(out,sizeof out,"CLOCK %s",source_label(m,now));
  small_text(f,(64-int(std::strlen(out))*4+1)/2,16,out);
  if(pps_on(m,now))fill(f,56,16,3,5);
  char root[8];std::snprintf(root,sizeof root,"%.6s",live?m.root:"----");
  for(char* c=root;*c;c++)if(*c>='a'&&*c<='z')*c=char(*c-'a'+'A');
  if(live&&std::strlen(m.root)>6)root[5]='.';
- const char* path=!live?"BLE":p.source==Source::Rc1?"RC1":p.source==Source::Rc2?"RC2":"BLE";
- std::snprintf(out,sizeof out,"%s %s",path,root);
+ const char* path=lor?"TX":!live?"BLE":p.source==Source::Rc1?"RC1":p.source==Source::Rc2?"RC2":"BLE";
+ std::snprintf(out,sizeof out,"%s %.10s",path,lor&&fresh?m.parent:root);
  small_text(f,(64-int(std::strlen(out))*4+1)/2,25,out);
- fill(f,4,34,56,1);
- const char* resolution=rc9?"UTC / UNKNOWN":p.counter_hz==80000000?"80MHz / 12.5ns":p.counter_hz==20000000?"20MHz / 50ns":"COUNTER --";
+ if(lor){std::snprintf(out,sizeof out,"ROOT %.9s",fresh&&l.metadata_known?m.root:"----");small_text(f,(64-int(std::strlen(out))*4+1)/2,32,out);}
+ else fill(f,4,34,56,1);
+ if(lor&&fresh&&l.capture_bound_ns)std::snprintf(out,sizeof out,"20M50ns E%uus",unsigned((uint64_t(l.capture_bound_ns)+999)/1000));else std::snprintf(out,sizeof out,"20M50ns E--");
+ const char* resolution=lor?out:rc9?"UTC / UNKNOWN":p.counter_hz==80000000?"80MHz / 12.5ns":p.counter_hz==20000000?"20MHz / 50ns":"COUNTER --";
  small_text(f,(64-int(std::strlen(resolution))*4+1)/2,38,resolution);
- fill(f,4,46,56,1);center(f,49,"BLE RMS");
- unsigned value=p.rms_ns;const char* unit="ns";int dot=0;
+ fill(f,4,46,56,1);center(f,49,lor?"FIT RMS":"BLE RMS");
+ unsigned value=lor?l.link_rms_ns:p.rms_ns;const char* unit="ns";int dot=0;
  const bool known=live&&value!=UINT32_MAX;
  const unsigned scale=value>=1000000000?1000000000:value>=1000000?1000000:value>=1000?1000:1;
  unit=scale==1000000000?"s":scale==1000000?"ms":scale==1000?"us":"ns";
@@ -140,6 +145,19 @@ void precision_page(uint8_t* f,const Model& m,uint64_t now){
  }
  if(known&&dot)fill(f,dot==1?18:31,76,2,2);
  text(f,47,70,known?unit:"ns");
+ if(lor){
+  fill(f,4,81,56,1);
+  char value_text[12]="--";
+  if(live)signed_count(value_text,sizeof value_text,l.rate_ppb);
+  std::snprintf(out,sizeof out,"RATE %s ppb",value_text);small_text(f,4,85,out);
+  if(live)signed_count(value_text,sizeof value_text,l.phase_ns);
+  std::snprintf(out,sizeof out,"PHCOR %s ns",value_text);small_text(f,4,93,out);
+  if(fresh&&l.age_ms!=UINT32_MAX)std::snprintf(out,sizeof out,"PAIR %us N%u",unsigned(std::min(l.age_ms/1000,9999u)),unsigned(l.link_samples));else std::snprintf(out,sizeof out,"PAIR -- N0");
+  small_text(f,4,101,out);
+  const char* status=!fresh?"STALE":l.fault?"FAULT":!l.requested?"OFF":!l.metadata_known?"META":available?l.age_ms<35000?"TRACK":"HOLD":l.trained?"NO MAP":l.state==3?"EXPIRED":"TRAIN";
+  if(fresh&&l.model_valid&&l.reference_age_ms!=UINT32_MAX)std::snprintf(out,sizeof out,"REF%us %s",unsigned(std::min(l.reference_age_ms/1000,999u)),status);else std::snprintf(out,sizeof out,"REF-- %s",status);
+  small_text(f,4,110,out);small_text(f,4,119,"UTC/RF UNKNOWN");return;
+ }
  fill(f,4,81,56,1);text(f,5,86,"REL");
  if(live&&p.relative_known)signed_count(out,sizeof out,p.relative_ppb);else std::snprintf(out,sizeof out,"--");
  text(f,61-int(std::strlen(out))*6,86,out);

@@ -200,6 +200,11 @@ def validate_lora(rows,require_map_classification=False):
  for suffix,keys in [('CONTEXT','metadata_known'),('ORIGINAL','BLE_update'),('QUALITY','time_valid parent_quality_current'),('HARDWARE','requested active fault off_ack SPI_retired capture_released reset_asserted')]:
   for key in keys.split():base.require(rows['N30_LORA_'+suffix][key] in ('0','1'),'LoRa boolean: '+key)
  base.require(int(rows['N30_LORA_POLICY']['state'])<=3 and int(rows['N30_LORA_QUALITY']['link_samples'])<=16,'LoRa state/fit range')
+ q=rows['N30_LORA_QUALITY']
+ if any(k in q for k in ('trained','slow_fit','model_valid','phase_ns','reference_age_ms')):
+  for key in ('trained','slow_fit','model_valid'):base.require(q.get(key) in ('0','1'),'LoRa model boolean: '+key)
+  timing_number(q,'phase_ns',32,True);timing_number(q,'reference_age_ms')
+  if q['trained']=='0':base.require(q['link_rms_ns']==str(2**32-1),'Untrained LoRa fit retains old RMS')
 
 def validate_rc9(rows):
  for name,keys in {'STATUS':'sampled_us UTC_us until_us valid following fault','ORIGIN':'source_epoch','QUALITY':'assurance authority metadata_known upstream_link_rms_ns','COUNTERS':'sequence accepted rejected','LEASE':'until_us clients serving'}.items():

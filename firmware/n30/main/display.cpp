@@ -193,9 +193,11 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  static n30::ClockSelection clock_selection;clock_selection.select(m,lora,now,n30::ble_locked(s,now));comparison.update(m,now);
  const auto rc9=v12::r2_rc9_status();now=now_us();m.sampled_us=now;
  n30::select_rc9(m,rc9,now,ptob_registry_name(rc9.server),ptob_registry_name(rc9.root));
- if(m.source==n30::Source::LoRa){
-  const auto* name=ptob_registry_name(lora.emitter);
-  if(name)std::snprintf(m.parent,sizeof m.parent,"%s",name);else std::snprintf(m.parent,sizeof m.parent,"%04X",unsigned(lora.emitter&65535));
+ if(m.source==n30::Source::LoRa||(m.source==n30::Source::None&&lora.requested)){
+  const auto* name=ptob_registry_name(lora.root);
+  if(name)std::snprintf(m.root,sizeof m.root,"%s",name);else std::snprintf(m.root,sizeof m.root,"%04X",unsigned(lora.root&65535));
+  const auto* emitter=ptob_registry_name(lora.emitter);
+  if(emitter)std::snprintf(m.parent,sizeof m.parent,"%s",emitter);else std::snprintf(m.parent,sizeof m.parent,"%04X",unsigned(lora.emitter&65535));
  }
  const auto radio=v12::r2_activity();
  // Producer counters retain their actual meaning. RDY has no equivalent

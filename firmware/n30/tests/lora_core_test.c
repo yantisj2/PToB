@@ -25,7 +25,7 @@ int main(void){
   assert(n30_rc8_receive(wire,32,(local+2500000)*16,7,local+2500000,local+2500000,gen));
   n30_rc8_clock((local+2500000)*16,7,local+2500000);n30_rc8_snapshot(&v,local+2500000);
   assert(v.accepted==i+1&&v.root==1&&v.root_boot==22&&v.authority==0&&v.assurance==0);
-  if(i>=6){assert(v.state==2&&v.link_rms_ns<=1&&v.utc_us==base/1000+local+2500000);}
+  if(i>=6){assert(v.state==2&&v.trained&&v.model_valid&&v.link_rms_ns<=1&&v.utc_us==base/1000+local+2500000);assert(v.age_ms==2500&&v.reference_age_ms==2500&&v.snapshot_age_ms>v.reference_age_ms);}
   assert(!n30_rc8_receive(wire,32,(local+2500000)*16,7,local+2500000,local+2500000,gen));
   wire[20]^=1;assert(!n30_rc8_receive(wire,32,(local+2500000)*16,7,local+2500000,local+2500000,gen));
  }
@@ -33,7 +33,7 @@ int main(void){
  const uint32_t accepted=v.accepted;local+=4000000;meta.serial=2;meta.cursor=100;meta.utc_ns=base+local*1000;encode(meta);
  assert(!n30_rc8_receive(wire,112,local*16,7,local,local,gen));n30_rc8_clock(local*16,7,local);n30_rc8_snapshot(&v,local);assert(v.accepted==accepted);
  struct lp_packet p={.kind=LP_SYNC,.schedule=8,.cursor=100};encode(p);assert(!n30_rc8_receive(wire,24,local*16,7,local,local,gen));p.kind=LP_FOLLOW;p.utc_ns=base+local*1000-99328000;encode(p);assert(n30_rc8_receive(wire,32,(local+2500000)*16,7,local+2500000,local+2500000,gen));
- n30_rc8_clock((local+LP_HOLD_US)*16,7,local+LP_HOLD_US);n30_rc8_snapshot(&v,local+LP_HOLD_US);assert(v.state==3&&!v.utc_us&&!v.until_us);
+ n30_rc8_clock((local+LP_HOLD_US)*16,7,local+LP_HOLD_US);n30_rc8_snapshot(&v,local+LP_HOLD_US);assert(v.state==3&&!v.utc_us&&!v.until_us&&!v.trained&&v.link_rms_ns==UINT32_MAX);
  n30_rc8_switch(false);n30_rc8_snapshot(&v,local+LP_HOLD_US);assert(v.state==0&&!v.utc_us&&!v.metadata_known);
  assert(!n30_rc8_init(1,1,group.id,group.epoch,group.psk));
 }

@@ -53,8 +53,8 @@ int main(int argc,char** argv){
   std::fclose(f);
  }
  // New page fixtures exercise the actual renderer, not a graphic mockup.
- const char* precision_names[]={"precision-lock","precision-acquire","precision-stale","precision-legacy-rc1","precision-microseconds","precision-long-lock","precision-long-root-rc2","precision-rc1","precision-fault","precision-root-unknown","precision-rc2-pps-off","precision-lora-ble-quality"};
- for(unsigned i=0;i<12;++i){
+ const char* precision_names[]={"precision-lock","precision-acquire","precision-stale","precision-legacy-rc1","precision-microseconds","precision-long-lock","precision-long-root-rc2","precision-rc1","precision-fault","precision-root-unknown","precision-rc2-pps-off","precision-lora-ble-quality","precision-lora-train","precision-lora-stale","precision-lora-expired","precision-lora-hold","precision-lora-no-meta"};
+ for(unsigned i=0;i<17;++i){
   n30::Model p;p.sampled_us=p.utc_at_us=5000000000;p.until_us=p.sampled_us+250000;
   p.utc_us=10ULL*3600000000;p.valid=p.locked=true;p.state=n30::State::Follow;p.source=n30::Source::Ble;
   std::snprintf(p.root,sizeof p.root,"TC-02");
@@ -71,8 +71,19 @@ int main(int argc,char** argv){
   if(i==8){p.state=n30::State::Fault;p.valid=p.locked=q.valid=q.locked=q.lock_age_valid=q.relative_known=false;}
   if(i==9)std::snprintf(p.root,sizeof p.root,"----");
   if(i==10){q.source=n30::Source::Rc2;p.utc_us+=250000;q.relative_ppb=0;}
-  if(i==11){p.source=n30::Source::LoRa;q.source=n30::Source::Ble;q.rms_ns=65;}
-  if(i!=11)p.source=q.source;
+  if(i>=11){
+   p.source=n30::Source::LoRa;q.source=n30::Source::Ble;q.rms_ns=65;
+   auto& l=p.lora;l.sampled_us=p.sampled_us;l.until_us=p.sampled_us+120000000;l.utc_us=p.utc_us;
+   l.requested=l.active=l.metadata_known=l.time_valid=l.trained=l.model_valid=true;l.state=2;
+   l.link_rms_ns=275;l.link_samples=12;l.rate_ppb=-231;l.phase_ns=143;l.age_ms=12300;l.snapshot_age_ms=234000;l.reference_age_ms=166000;l.capture_bound_ns=12000;
+   std::snprintf(p.parent,sizeof p.parent,"TC-03");std::snprintf(p.root,sizeof p.root,"TC-01");
+   if(i==12){l.trained=l.model_valid=false;l.link_samples=3;l.link_rms_ns=123;}
+   if(i==13)l.sampled_us-=250000;
+   if(i==14){l.trained=false;l.state=3;l.until_us=0;l.age_ms=120000;}
+   if(i==15){l.age_ms=45000;l.reference_age_ms=45000;}
+   if(i==16){l.metadata_known=l.trained=false;l.link_samples=0;l.link_rms_ns=48;}
+  }
+  if(i<11)p.source=q.source;
   p.ble={p.utc_at_us,p.utc_us,p.until_us,1,2,3,p.valid,true};
   n30::View v;v.page=n30::PrecisionPage;n30::render(frame,p,v,p.sampled_us+(i==2?250000:0));
   char path[1024];std::snprintf(path,sizeof path,"%s/%s.pgm",argv[1],precision_names[i]);

@@ -874,16 +874,30 @@ without reading the format or snapshot; host tests cover every public entry, and
 native stack/disassembly review checks the branch before the large allocation.
 This selected call-path review is not a complete vendor/libc stack bound.
 
-## Version 0.2.16: precision watch face
+## Precision watch face
 
 The precision page retains a monochrome watch bezel, large segmented causal
-`SYNC RMS` and a segmented `HH:MM:SS` lock stopwatch. Version 0.2.20 places it
+`BLE RMS` and a segmented `HH:MM:SS` lock stopwatch for BLE clocks. It is
 third (internal page 2), before LoRa on the last page (internal page 3). The top
-strip shows the actual BLE root alias, BLE/RC1/RC2 path and live display PPS.
+strip names the selected CLOCK. BLE clocks show their root alias,
+BLE/RC1/RC2 path and live display PPS.
 Registry lookup uses the full root identity, independently of parent identity;
 long aliases end with a truncation dot. The monochrome frame, button gestures
-and 4 Hz display schedule remain. A 1.5-second hold opens precision help and a
-four-second hold requests shutdown from version 0.2.37.
+and 4 Hz display schedule remain. Hold2.0s opens the shared watch menu.
+
+Selected LoRa uses its own emitter/root and internal fit on this same page.
+`20M50ns` names its independent XTAL map, `E` is the mapping enclosure rounded
+up to microseconds, and `FIT RMS` is internal sample consistency. `RATE` and
+`PHCOR` describe the committed LoRa correction; phase is applied over the
+first second after its commit, so this is not a remaining-slew counter.
+`PAIR` age uses the original physical sample, `N` is the fit population,
+and `REF` age uses the committed clock reference. META receipt age stays
+separate in `snapshot_age_ms` on the receiver diagnostics. `TRACK`, `HOLD`,
+`TRAIN`, `NO MAP` and `EXPIRED` distinguish availability and fitting state.
+HOLD begins at35s physical-pair age; this label changes no lease or model.
+Untrained, stale and unavailable models show dashes for RMS/rate/phase.
+Neither counter ticks nor enclosure/fit values establish UTC/RF accuracy;
+the screen retains `UTC/RF UNKNOWN`. BLE's metrics never fill LoRa fields.
 
 The RMS comes from the active BLE dashboard's settled causal quality, matching
 the clock page. The value remains conditional on current following time and

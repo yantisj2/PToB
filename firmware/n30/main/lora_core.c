@@ -60,10 +60,14 @@ void n30_rc8_snapshot(struct n30_lora_view* out,uint64_t now){
  out->metadata_us=meta_us;out->diagnostic_sequence=r->serial;out->snapshot_age_ms=meta_us&&now>=meta_us?(uint32_t)((now-meta_us)/1000):UINT32_MAX;
  out->parent_bound_ns=out->residual_ns=out->correction_age_ms=out->map_life_ms=UINT32_MAX;
  out->age_ms=UINT32_MAX;out->link_rms_ns=UINT32_MAX;
+ out->trained=r->trained;out->slow_fit=r->hold_selected;
+ out->model_valid=r->display_valid&&!r->display_acquiring&&r->model_accepted==r->accepted;
+ out->phase_ns=r->display_phase_ns;
+ out->reference_age_ms=out->model_valid&&now>=r->display_us&&(now-r->display_us)/1000<=UINT32_MAX?(uint32_t)((now-r->display_us)/1000):UINT32_MAX;
  if(r->last_tick){
   out->edge_us=r->last_us;out->edge_tick=r->last_tick;out->capture_epoch=r->last_epoch;out->event_ns=r->last_tx_ns;
   out->age_ms=now>=r->last_us&&(now-r->last_us)/1000<=UINT32_MAX?(uint32_t)((now-r->last_us)/1000):UINT32_MAX;
-  out->link_samples=r->fit_count;out->link_rms_ns=r->trained?r->rms_ns:UINT32_MAX;out->rate_ppb=r->rate_ppb;
+  out->link_samples=r->fit_count;out->link_rms_ns=r->trained?r->rms_ns:UINT32_MAX;out->rate_ppb=r->display_rate_ppb;
   uint64_t ns;
   if(enabled&&current_us==now&&lp_rx_estimate(r,current_tick,current_epoch,now,&ns)){
    out->state=2;out->utc_us=ns/1000;out->until_us=r->physical_deadline_us<r->observed_deadline_us?r->physical_deadline_us:r->observed_deadline_us;
