@@ -451,10 +451,14 @@ def inspect(out,allow_development=False):
     else:require('R2_LORA_TX_DIAGNOSTIC=1' not in commands,'Unexpected diagnostic TX')
     if r.get('lora_fixed500_experiment'):
         require(slow and not r.get('lora_bw_experiment') and not r.get('lora_tx_diagnostic') and 'R2_LORA_FIXED500_EXPERIMENT=1' in commands,'Fixed500 experiment binding')
+        event_delay=r.get('fixed500_experiment',{}).get('event_delay_ns')
+        require(type(event_delay) is int and abs(event_delay)<=1000000000,'Fixed500 event correction range')
+        require(set(re.findall(r'R2_LORA_FIXED500_EVENT_DELAY_NS=(-?\d+)(?!\d)',commands))=={str(event_delay)},'Fixed500 native event correction binding')
         require(r.get('fixed500_experiment')==dict(frequency_hz=922400000,sf=11,bandwidth_hz=500000,
             coding_rate='4/8',preamble=12,explicit_header=True,crc=True,source_hold_us=5000000,
-            rx='CONTINUOUS_HEADER_VALID_CRC_CONFIRMED',event_delay_ns=0,default_on=True),'Fixed500 receipt')
+            rx='CONTINUOUS_HEADER_VALID_CRC_CONFIRMED',event_delay_ns=event_delay,default_on=True),'Fixed500 receipt')
         private_sha=hashlib.sha256((private_sha+':fixed500:922400000_SF11_CR8_P30_M300').encode()).hexdigest()
+        private_sha=hashlib.sha256((private_sha+':event-delay-ns:'+str(event_delay)).encode()).hexdigest()
     else:require('R2_LORA_FIXED500_EXPERIMENT=1' not in commands,'Unexpected fixed500 experiment')
     if r.get('lora_bw_experiment'):
         require(passive and not r.get('lora_tx_diagnostic') and 'R2_LORA_BW_EXPERIMENT=1' in commands,'Bandwidth experiment profile binding')
