@@ -13,10 +13,13 @@ for i,src in enumerate([APP.parent/'t096/protocol/lora_passive.c',APP.parent/'t0
 subprocess.run([cc,'-std=c11',*flags,APP/'tests/lora_core_test.c',APP/'main/lora_core.c',*objects,'-o',out/'core'],check=True)
 subprocess.run([out/'core'],check=True)
 subprocess.run([cxx,'-std=c++20',*flags,APP/'tests/lora_policy_test.cpp','-o',out/'policy'],check=True);subprocess.run([out/'policy'],check=True)
+subprocess.run([cxx,'-std=c++20',*flags,APP/'tests/lora_clock_selection_test.cpp','-o',out/'clock-selection'],check=True);subprocess.run([out/'clock-selection'],check=True)
 subprocess.run([cxx,'-std=c++20',*flags,'-Wno-misleading-indentation','-I'+str(APP/'tests/lora_fakes'),APP/'tests/lora_owner_test.cpp','-o',out/'owner'],check=True)
 for case in ['normal','dma','cancel','tx','capture','clock']:subprocess.run([out/'owner',case],check=True)
 subprocess.run([cc,'-std=c11',*flags,'-c',APP/'main/lora_core.c','-o',out/'core-wrapper.o'],check=True)
 subprocess.run([cxx,'-std=c++20',*flags,'-DPTOB_W12_TEST_REAL_PASSIVE=1','-Wno-misleading-indentation','-I'+str(APP/'tests/lora_fakes'),APP/'tests/lora_owner_test.cpp',*objects,out/'core-wrapper.o','-o',out/'owner-real'],check=True)
 subprocess.run([out/'owner-real','wire8'],check=True)
-paths=[APP/'main/w12_lora_radio.cpp',APP/'main/lora_policy.hpp',APP/'main/lora_core.c',APP/'tests/lora_owner_test.cpp',APP/'tests/lora_core_test.c',APP/'tests/lora_policy_test.cpp',Path(__file__)]
+native=(APP/'main/native_main.cpp').read_text();ui=native[native.index('[[gnu::noinline]] void ui()'):native.index('void stop_all()')];watch=native[native.index('[[gnu::noinline]] void clock_fault_progress()'):native.index('[[gnu::noinline]] bool r2_authority_update_needed()')]
+assert 'display_clock_selection.select(' not in ui and 'display_clock_selection.select(' in watch and 'display_lora_selected' in ui
+paths=[APP/'main/lora_clock_selection.hpp',APP/'tests/lora_clock_selection_test.cpp',APP/'main/w12_lora_radio.cpp',APP/'main/lora_policy.hpp',APP/'main/lora_core.c',APP/'tests/lora_owner_test.cpp',APP/'tests/lora_core_test.c',APP/'tests/lora_policy_test.cpp',Path(__file__)]
 (out/'receipt.json').write_text(json.dumps({'status':'PASS','hardware_access':False,'scope':'REAL_PASSIVE_SCHEDULE8_HMAC_HEADER_VALID_CONTINUOUS_RX_ORIGINAL_EXPIRY_OWNER_DMA_CANCEL_TX_BAN_ASAN_UBSAN','sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}},indent=2)+'\n')

@@ -84,6 +84,9 @@ The passive source has no original signed created/expires envelope, so its
 legacy RC9 wire1 server bridge is gated. RC9 client reception and valid legacy
 source-envelope behavior retain their original12s contract. A future passive
 bridge needs its own reviewed protocol; no source envelope or lease is synthesized.
+After LoRa supplies the local display, normal BLE returns after30 continuous
+seconds of fresh qualified lock in one admitted scope. This affects the display;
+authenticated relay and RC9 permission retain their own original checks.
 
 Local HOLD preserves a BLE-trained estimate while ordinary source permission
 expires independently. Temperature experiments never steer production HOLD.

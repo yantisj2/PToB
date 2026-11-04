@@ -834,11 +834,11 @@ void page_precision(const DisplayState& s){
  if(s.precision_live&&s.rms_ns!=UINT32_MAX){
   const auto divisor=s.rms_ns>=1000000?1000000:s.rms_ns>=10000?1000:1;
   std::snprintf(n,sizeof n,"%lu %s",(unsigned long)(s.rms_ns/divisor),divisor==1?"ns":divisor==1000?"us":"ms");
- }else if(lora&&s.lora_time_valid)std::snprintf(n,sizeof n,"FIT %u/4",unsigned(s.lora_link_samples));
+ }else if(lora&&s.lora_time_valid)std::snprintf(n,sizeof n,"TRAIN N%u",unsigned(s.lora_link_samples));
  else std::snprintf(n,sizeof n,lora?"WAIT RX":"-- ns");
  text(2,27,n,2);
  if(lora){
-  if(s.lora_time_valid)std::snprintf(n,sizeof n,"LORA FIT %u/16",unsigned(s.lora_link_samples));
+  if(s.lora_time_valid)std::snprintf(n,sizeof n,"LORA FIT N%u",unsigned(s.lora_link_samples));
   else std::snprintf(n,sizeof n,"LORA NO LIVE FIT");
   text(2,45,n);
   text(2,55,"RX ONLY");text(92,55,s.precision_fine?"80MHz":"20MHz");return;
@@ -858,7 +858,7 @@ void page_w12_lora(const DisplayState& s){
  if(s.lora_time_valid&&s.lora_link_rms_ns!=UINT32_MAX){
   const auto divisor=s.lora_link_rms_ns>=1000000?1000000:s.lora_link_rms_ns>=1000?1000:1;
   std::snprintf(n,sizeof n,"RMS %lu%s N %u",(unsigned long)(s.lora_link_rms_ns/divisor),divisor==1?"ns":divisor==1000?"us":"ms",unsigned(s.lora_link_samples));
- }else if(s.lora_time_valid)std::snprintf(n,sizeof n,"FIT %u/4 RX %lu",unsigned(s.lora_link_samples),(unsigned long)s.lora_accepted);
+ }else if(s.lora_time_valid)std::snprintf(n,sizeof n,"TRAIN N%u RX %lu",unsigned(s.lora_link_samples),(unsigned long)s.lora_accepted);
  else std::snprintf(n,sizeof n,"RMS WAIT RX");
  text(2,45,n);
  if(s.rc9_clients&&s.lora_client_hold_ms){std::snprintf(n,sizeof n,"RC9 %u HOLD %lus",unsigned(s.rc9_clients),(unsigned long)((s.lora_client_hold_ms+999)/1000));text(2,55,n);}

@@ -7,7 +7,11 @@ SF11/BW500/CR4/8, hardware HeaderValid retained through RxDone, fresh authentica
 META and an independent sparse clock model. AUTO/KEEP ON keep reception warm;
 KEEP OFF retains the existing owner/capture/DMA drain. BLE/fine calibration,
 GNSS routes, RC9 client and existing valid legacy source envelopes are unchanged.
-The new passive source cannot feed the legacy RC9 wire1 server without its
+Available snapshots retain the actual observed clock timestamp across a bounded
+publication delay; polling cannot renew the original leases. Selected LoRa
+returns to normal BLE after30s of continuous fresh qualified same-scope lock,
+observed at main-loop cadence independently of painting. This display-only
+dwell does not grant relay authority. The new passive source cannot feed the legacy RC9 wire1 server without its
 original signed created/expires envelope. That bridge is gated; no source grant,
 origin or12s lease is invented. Internal fit and engineering endpoint prior
 remain unqualified. Native images and host tests are offline preparation only.

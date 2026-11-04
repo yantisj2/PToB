@@ -25,7 +25,12 @@ int main(void){
   assert(w12_rc8_receive(wire,32,(local+2500000)*16,7,local+2500000,local+2500000,gen));
   w12_rc8_clock((local+2500000)*16,7,local+2500000);w12_rc8_snapshot(&v,local+2500000);
   assert(v.accepted==i+1&&v.root==1&&v.root_boot==22&&v.authority==0&&v.assurance==0);
-  if(i>=6){assert(v.state==2&&v.trained&&v.model_valid&&v.link_rms_ns<=1&&v.utc_us==base/1000+local+2500000);assert(v.age_ms==2500&&v.reference_age_ms==2500&&v.snapshot_age_ms>v.reference_age_ms);}
+  if(i>=6){assert(v.state==2&&v.trained&&v.model_valid&&v.link_rms_ns<=1&&v.utc_us==base/1000+local+2500000);assert(v.age_ms==2500&&v.reference_age_ms==2500&&v.snapshot_age_ms>v.reference_age_ms);
+   const uint64_t observed=local+2500000,utc=v.utc_us,until=v.until_us;
+   w12_rc8_snapshot(&v,observed+1);assert(v.state==2&&v.sampled_us==observed&&v.utc_us==utc&&v.until_us==until);
+   w12_rc8_snapshot(&v,observed+249999);assert(v.state==2&&v.sampled_us==observed&&v.utc_us==utc&&v.until_us==until);
+   w12_rc8_snapshot(&v,observed+250000);assert(v.state!=2&&!v.utc_us&&!v.until_us);
+  }
   assert(!w12_rc8_receive(wire,32,(local+2500000)*16,7,local+2500000,local+2500000,gen));
   wire[20]^=1;assert(!w12_rc8_receive(wire,32,(local+2500000)*16,7,local+2500000,local+2500000,gen));
  }

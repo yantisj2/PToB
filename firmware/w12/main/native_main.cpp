@@ -9,6 +9,7 @@
 #include "native_lora.hpp"
 #ifdef PTOB_W12_LORA_RX
 #include "w12_lora.hpp"
+#include "lora_clock_selection.hpp"
 #include "w12_lora_config.h"
 #endif
 #include "native_direct.hpp"
@@ -99,6 +100,9 @@ uint32_t ui_hold_ms=0,ui_hold_samples=0;
 uint32_t ui_rms_ns=UINT32_MAX;uint8_t ui_gps_lamps=0;
 v12::UpdateGate update_gate;
 w12::PowerOff power_off;
+#ifdef PTOB_W12_LORA_RX
+w12::LoRaClockSelection display_clock_selection;bool display_lora_selected=false;
+#endif
 v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;
@@ -550,11 +554,11 @@ void pps(const gnss_pps::Observation& edge){
   const auto rc9=v12::r2_rc9_status();
   state.lora_client_hold_ms=lv.rc9_hold_remaining_ms;
   const auto source=w12::rc9_source(ble_precision,state.lora_time_valid,lv.active&&lv.requested,rc9.client_until_us,micros(),mesh.requested&&!mesh.fault&&!update_gate.latched()&&lv.mode!=2&&!lv.fault);
-  const bool select_lora=source.display_rc8;
-  state.rc9_serving=source.serve_rc9;state.rc9_clients=rc9.clients;
+  state.rc9_serving=source.serve_rc9&&w12::rc9_original_envelope(lv);state.rc9_clients=rc9.clients;
 #else
-  const bool select_lora=!ble_precision;
+
 #endif
+  const bool select_lora=display_lora_selected&&(state.lora_time_valid||!ble_precision);
   state.precision_lora=select_lora&&lv.requested&&lv.active&&!lv.fault;
   if(state.precision_lora){state.precision_live=state.lora_time_valid;state.rms_ns=UINT32_MAX;
    state.r2_relative_lock=false;state.hold_1us_ms=0;
@@ -854,6 +858,10 @@ void stop_all(){
   const auto source_now=micros();w12_lora_control(w12::ble_locked(mesh,source_now),source_now,mesh.requested&&!mesh.fault&&!update_gate.latched());
 #endif
   w12_lora_view lora_time;w12_lora_snapshot(lora_time);
+  const auto selection_now=micros();uint64_t selection_utc=0;
+  // Observe every main turn, independently of the one-second repaint cadence.
+  // This display dwell never enters authenticated relay/admission decisions.
+  display_lora_selected=display_clock_selection.select(w12::ble_locked(mesh,selection_now),w12::lora_time(lora_time,selection_now,selection_utc),mesh.root_identity,mesh.root_boot,mesh.source_epoch,mesh.g1_clock_origin,selection_now);
   auto sync_until=w12::synchronized_until(mesh,lora_time,micros());
 #ifdef PTOB_RC9
   if(rc9_current)sync_until=std::max(sync_until,std::min(rc9.until_us,rc9.sampled_us+w12::SyncSnapshotMaxUs));

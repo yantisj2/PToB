@@ -29,6 +29,7 @@ def inspect(out,allow_development=False):
  for name,digest in r['sources'].items():
   if sha(out/'source'/name)!=digest:raise ValueError('Immutable source snapshot changed: '+name)
  if r['version']=='0.2.36':
+  if r.get('lora_snapshot_policy')!=('PRIOR_CLOCK_OBSERVATION_LABEL_FRESH250MS_ORIGINAL_LEASE_V1' if r['lora_rx'] else None) or r.get('clock_selection_policy')!=('LORA_TO_BLE_CONTINUOUS_AUTHENTICATED_LOCK30S_SCOPE_V1' if r['lora_rx'] else None):raise ValueError('LoRa causal snapshot/display dwell contract missing')
   if r.get('lora_contract')!=('PASSIVE_WIRE3_SCHEDULE8_LR2021_HEADER_VALID_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1' if r['lora_rx'] else None):raise ValueError('Passive LR2021 contract missing')
   if r.get('rc9_passive_bridge')!=('GATED_MISSING_ORIGINAL_SIGNED_ENVELOPE_KEEP_WIRE1_12S_V1' if r['rc9'] else None):raise ValueError('RC9 passive source-envelope gate missing')
  if r['version'] in ('0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36') and r.get('fallback_recovery_policy')!=('AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if r.get('rc9') else None):raise ValueError('RC9 AUTO recovery contract missing')

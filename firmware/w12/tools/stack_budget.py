@@ -125,8 +125,17 @@ def check(out):
    if len(matches)!=1 or matches[0][2]!='static':raise ValueError('Missing radio static frame: '+tail)
    return int(matches[0][1])
   root=rf('void {anonymous}::worker(void*)','w12_lora_radio.cpp')+rf('void {anonymous}::worker_step(bool)','w12_lora_radio.cpp')
-  paths={'radio_receive':root+rf('int {anonymous}::receive()','w12_lora_radio.cpp')+rf('w12_rc8_receive')+rf('rc8_receiver_process')+rf('rc8_receiver_process_origin'),
-         'radio_init':root+rf('int {anonymous}::start()','w12_lora_radio.cpp')+rf('virtual void {anonymous}::Hal::init()','w12_lora_radio.cpp')}
+  receive=root+rf('int {anonymous}::receive()','w12_lora_radio.cpp')+rf('w12_rc8_receive')
+  paths={'radio_init':root+rf('int {anonymous}::start()','w12_lora_radio.cpp')+rf('virtual void {anonymous}::Hal::init()','w12_lora_radio.cpp')}
+  if r.get('lora_contract')=='PASSIVE_WIRE3_SCHEDULE8_LR2021_HEADER_VALID_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1':
+   paths.update(radio_decode=receive+rf('lp_decode')+rf('r2_group_verify')+rf('r2_group_mac'),
+    radio_meta=receive+rf('lp_rx_meta')+rf('lp_context')+rf('r2_group_mac'),
+    radio_decode_context=receive+rf('lp_decode')+rf('lp_context')+rf('r2_group_mac'),
+    radio_follow=receive+rf('lp_rx_follow')+rf('hold_sparse_fit.constprop')+rf('hold_order.constprop')+rf('hold_slope.constprop'),
+    radio_phase=receive+rf('lp_rx_follow')+rf('hold_phase_fit'),
+    radio_discipline=root+rf('w12_rc8_clock')+rf('lp_rx_discipline')+rf('r2_hold_lora_project'),
+    radio_publish=root+rf('void {anonymous}::publish()','w12_lora_radio.cpp')+rf('w12_rc8_snapshot')+rf('lp_rx_estimate')+rf('r2_hold_lora_project'))
+  else:paths['radio_receive']=receive+rf('rc8_receiver_process')+rf('rc8_receiver_process_origin')
   result['radio_paths']={}
   for name,used in paths.items():
    if used+RESERVE_BYTES>8192:raise ValueError('Radio selected path exceeds8192byte stack: '+name)

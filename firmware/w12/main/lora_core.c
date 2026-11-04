@@ -70,8 +70,10 @@ void w12_rc8_snapshot(struct w12_lora_view* out,uint64_t now){
   out->age_ms=now>=r->last_us&&(now-r->last_us)/1000<=UINT32_MAX?(uint32_t)((now-r->last_us)/1000):UINT32_MAX;
   out->link_samples=r->fit_count;out->link_rms_ns=r->trained?r->rms_ns:UINT32_MAX;out->rate_ppb=r->display_rate_ppb;
   uint64_t ns;
-  if(enabled&&current_us==now&&lp_rx_estimate(r,current_tick,current_epoch,now,&ns)){
-   out->state=2;out->utc_us=ns/1000;out->until_us=r->physical_deadline_us<r->observed_deadline_us?r->physical_deadline_us:r->observed_deadline_us;
+  if(enabled&&now>=current_us&&now-current_us<250000&&lp_rx_estimate(r,current_tick,current_epoch,now,&ns)){
+   // The estimate belongs to the actual preceding clock observation. A later
+   // publication cannot relabel that old tick as now or renew either lease.
+   out->state=2;out->sampled_us=current_us;out->utc_us=ns/1000;out->until_us=r->physical_deadline_us<r->observed_deadline_us?r->physical_deadline_us:r->observed_deadline_us;
   }else if(!r->have_pair)out->state=3;
  }
  // assurance/authority remain zero: no independently bounded admission or relay.
