@@ -1,0 +1,10 @@
+{
+  "status": "DRAFT_FOR_AUTHOR_REVIEW",
+  "accessed_utc_date": "2026-11-04",
+  "selection": "Primary research sources only; paraphrases and citations, no imported figures or full-text copies.",
+  "sources": [
+    {"id":"longshot","title":"LongShoT: Long-Range Synchronization of Time","authors":"C. G. Ramirez, A. Sergeyev, A. Dyussenova, B. Iannucci","year":2019,"doi":"10.1145/3302506.3310408","url":"https://par.nsf.gov/servlets/purl/10107899","inspected":"NSF primary archived paper indexed abstract and bibliographic record; full open timed out","supports":"Hardware/MAC timestamping and oscillator compensation in LoRaWAN; earlier low-microsecond experimental synchronization","limit":"No direct benchmark comparison, reconstructed protocol or identical metric claim; avoid disputed worst-case number."},
+    {"id":"mueller","title":"Nanosecond Time Synchronization over a 2.4 GHz Long-Range Wireless Link","authors":"P. Mueller, D. Berger, L. Sarperi","year":2025,"doi":"10.3390/s25071961","url":"https://www.mdpi.com/1424-8220/25/7/1961","primary_archive":"https://digitalcollection.zhaw.ch/entities/publication/798301a0-2a12-4f31-b8fc-ff13f481240e","inspected":"Publisher full text sections 2.2, 3.1-3.4 and author institutional record","supports":"SX1280 two-way ranging engine, 2.4 GHz, OCXO/PLL; distinct external PPS comparison and TDEV methodology","limit":"TDEV, phase RMS and maximum error are different metrics; no ranking against this one-way SX1262 experiment."},
+    {"id":"rinaldi","title":"LoRa/LoRaWAN Time Synchronization: A Comprehensive Analysis, Performance Evaluation, and Compensation of Frame Timestamping","authors":"S. Rinaldi, E. Mondini, P. Ferrari, A. Flammini, E. Sisinni","year":2026,"doi":"10.3390/fi18020080","url":"https://www.mdpi.com/1999-5903/18/2/80","inspected":"Publisher indexed full text abstract, sections 1-5, conclusion and citation metadata","supports":"Sample-level preamble/SFD timestamping model, sampling and frequency offset sensitivities; symbol duration 2^SF/BW","limit":"Simulation of IQ/correlation architecture; not experimental validation of commodity HeaderValid timestamp accuracy."}
+  ]
+}

@@ -1,5 +1,29 @@
 # Manuscript history
 
+## 2026-11-04 — sparse LoRa timing retrospective for author review
+
+- Add the seven-page *Sparse One-Way LoRa Clock Transfer: Bandwidth
+  Experiments, Authenticated Two-Step Timing, and a Fixed-500-kHz Validation*
+  with matching LaTeX/PDF, original vector figure, edition manifest and
+  primary-source ledger. Publication and submission remain unapproved.
+- Describe the hopped narrow/high-bandwidth screen, common-channel
+  intermediate sweep and selected 922.4 MHz / 500 kHz / SF11 / CR4/8 design.
+  Preserve their PHY differences, small nonmonotonic populations and raw
+  endpoint bias rather than assert a universal bandwidth optimum.
+- Retain the complete 900-opportunity T096 .288 future window, 269.140 ns
+  RMS delivered-model phase and six populated interval-age bins after a
+  frozen four-pair prior. Keep independent GNSS-input witnessing distinct
+  from electrical-output or portable UTC qualification. Preserve the
+  incomplete .287 denominator and heterogeneous availability limits.
+- Select sanitized field-level datasets and license them CC BY 4.0 with
+  Jonathan Yantis credit. Public offline analysis reproduces statistics,
+  calibration median and airtime; it does not reconstruct private acquisition
+  or establish calibration uncertainty. No raw lab logs, credentials,
+  enrollment, images, physical identities or private history are imported.
+- Prepare this retrospective solely from existing records. No new captures,
+  firmware changes, hardware operations, push, publication or draft promotion
+  accompany the paper.
+
 ## 2026-11-03 — Starlink hybrid draft authorized for GitHub publication
 
 - Publish the approved seven-page Starlink hybrid paper, its unchanged reviewed

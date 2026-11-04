@@ -1,5 +1,20 @@
 # Research papers — drafts
 
+**Author-review draft, 4 November 2026 — publication approval pending:**
+[Sparse One-Way LoRa Clock Transfer](lora-sparse-timing/main.pdf)
+is a seven-page retrospective of the bandwidth and frequency-hopping
+experiments, authenticated wire3/schedule8 format, and selected fixed
+922.4 MHz / 500 kHz / SF11 / CR4/8 timing profile. The complete T096 validation
+retains all 900 declared future PPS observations with 269.140 ns RMS
+delivered-model phase after a frozen prior bench correction; every five-second
+physical-SYNC-age bin remains below 296 ns RMS. Narrow/high-bandwidth pair
+scatter, incomplete attempts and unknown transmission-offer coverage stay
+separate. This is calibrated GNSS-input/model agreement, without independent
+electrical-output, portable UTC or field-range qualification.
+[Source, selected data and reproduction](lora-sparse-timing/README.md)
+accompany the draft. No new hardware experiment was performed; the author
+must review it before public publication.
+
 **Approved public review draft, 3 November 2026 (UTC):**
 [Paired Clock Time Transfer from Starlink over Wi-Fi](starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf)
 compares two fresh locked-validation windows, retaining all 900 future PPS per

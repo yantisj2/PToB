@@ -1,0 +1,114 @@
+{
+  "status": "DRAFT_FOR_AUTHOR_REVIEW_NOT_PUBLICATION_APPROVED",
+  "credit": "Jonathan Yantis",
+  "dataset_license": "CC-BY-4.0",
+  "selection": "New field-level derivatives, selected expressly for this retrospective paper. Private inputs stay ignored and read-only. No raw log, enrollment, credential or image is copied.",
+  "private_source_locators": "Archive provenance only; not included and not required by the public aggregate verifier.",
+  "inputs": [
+    {
+      "locator": "artifacts/lora-enhanced-20261103/fixed288-future900-01/independent-heldout-complete-final01.json",
+      "sha256": "7d83165751655e8e9cc22a425da1a6738fffe9c0a8c97b414caebdd831e078ff"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/fixed288-future900-01/result-manifest01.json",
+      "sha256": "19576bea883f91916a8f00f32e0e19136d50c22a8ffd635408ff7697b8a0d29f"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/fixed287-heldout02/independent-heldout-incomplete-final.json",
+      "sha256": "817df8a5544fb3d4579478df7dfe79cd6ad3eff38568e7872d09473825e9805b"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/bw283-01/raw-bandwidth-characterization.json",
+      "sha256": "199b9d867c262d143bd56aee36133eb4b2d407cc242a836b35a96746e7febca7"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/sweep285-01/raw-bandwidth-characterization.json",
+      "sha256": "d4950e807799e65ea413e456c4f75102564c0ddb63b38592e82a4d2b47d4b38b"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/fixed500-calibration-prior01.json",
+      "sha256": "5b0dde18987de486d3f64d1eef31ebdba98495041b81af2579fee25fc47faa03"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/bw278-01/raw-bandwidth-characterization.json",
+      "sha256": "8400b4f2e0887bd4ff18029875901c0e1d4025e1fd0992c1b34c6560d3afec9e"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/bw279-01/raw-bandwidth-characterization.json",
+      "sha256": "1cf4d857dd2021ca2efcbf83ef2a8350a8f40ac7d73820d7be9ed4bb148c9d20"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/bw280-01/raw-bandwidth-characterization.json",
+      "sha256": "f07b4b88810b7c68810d66afac31eb5496e3347b228df8afce409a31dbb815ee"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/sweep284-02/raw-bandwidth-characterization.json",
+      "sha256": "4216d0f03e75daf9e85eecf3d6f9d2657427aee4696dc272286e5919ed6aae38"
+    },
+    {
+      "locator": "artifacts/lora-enhanced-20261103/capture03/summary.json",
+      "sha256": "cbade4b88dcbeff7fd837e54417314d35876e279269f1518a7475f9b39a578ba"
+    },
+    {
+      "locator": "artifacts/w12-wire8-20261103/long03701/summary.json",
+      "sha256": "022035cd46b807643f74e6a6151f859b848a9086bc9ba2fd0cdf4e988d495d3b"
+    }
+  ],
+  "source_snapshots": [
+    {
+      "path": "firmware/t096/protocol/lora_passive.c",
+      "measured_288_sha256": "846e654c7a374ac215380fde6c4ea83620054def425854dfac0ce1e10b4ef974",
+      "wire_reference_290_sha256": "846e654c7a374ac215380fde6c4ea83620054def425854dfac0ce1e10b4ef974",
+      "identical": true
+    },
+    {
+      "path": "firmware/t096/protocol/lora_passive.h",
+      "measured_288_sha256": "017c29c4b915a2aaa5abf6069b85990007e8068ea15d951e8a9e28f99bc66912",
+      "wire_reference_290_sha256": "017c29c4b915a2aaa5abf6069b85990007e8068ea15d951e8a9e28f99bc66912",
+      "identical": true
+    },
+    {
+      "path": "firmware/t096/protocol/lora_passive_schedule.h",
+      "measured_288_sha256": "60f4dd1755f1395d19ce35e2b602d17f52b42f5e0a1d32bad8c24283f33703b5",
+      "wire_reference_290_sha256": "ce8b4b213bf3958e91f079371c01dcb5df9f45de0ebc0e890e381d39076a026c",
+      "identical": false
+    },
+    {
+      "path": "firmware/t096/src/lora_passive_core.c",
+      "measured_288_sha256": "28949da9ec60bf123ece910a26d861b69690cf3a4bbfda63eba587d69cd1df2a",
+      "wire_reference_290_sha256": "9e4bd0bfc02c0cb1674d28de9da714471cbb6a2bf0325139fd0af7a63ea1fbbe",
+      "identical": false
+    },
+    {
+      "path": "firmware/t096/src/lora_hw.c",
+      "measured_288_sha256": "c91d6c80bb52b1febe5094e37b738abb4c69fd0caa2c63ad05c9a3e30226cb3f",
+      "wire_reference_290_sha256": "d37d9d944f02ddea58b9aaa7b14e526483831fdeafa9278a504e0f1602959a0c",
+      "identical": false
+    },
+    {
+      "path": "docs/t096/lora-protocol.md",
+      "measured_288_sha256": "1f9e5278bd180c9ab1ef74b031f65301935a79cade4cfa33c9de6b99c7fc209f",
+      "wire_reference_290_sha256": "50ca06f58ef65617bec1173ac9acdf7567455c83f734a5e56640ee5bf1dc779c",
+      "identical": false
+    }
+  ],
+  "measured_image_source_digest": "ee427d179f0f39890cd63e9686c5d956f109239ea8325315a1c179198ad9d82f",
+  "measured_version": "0.15.288",
+  "wire_reference_commit": "10aba213fb99eabe685ec4cd06c9d6131775faf2",
+  "redactions": [
+    "All silicon/emitter/root/parent identities",
+    "Physical boot tokens and group/context seeds",
+    "Enrollment and key material (never read or selected)",
+    "Raw console text and system usernames/absolute paths",
+    "USB ports, process/service state and installation controls",
+    "Counter-tick coordinates not needed for phase statistics"
+  ],
+  "preserved": [
+    "All 900 F288 phase observations without recentering, detrending, smoothing or exclusions",
+    "All 215 captured F287 opportunities and planned/uncaptured denominator",
+    "All selected pair phases, per-context pair and physical-offer counts",
+    "Four prior calibration phases and frozen constant",
+    "Unsuccessful empty-screen populations and historical method boundaries"
+  ],
+  "reproduction_limit": "Included CSVs reproduce manuscript statistics/plots and selection accounting, not physical capture, authenticated raw extraction, GNSS uncertainty, emitter offer coverage or exact native model execution."
+}

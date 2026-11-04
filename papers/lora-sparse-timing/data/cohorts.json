@@ -1,0 +1,221 @@
+{
+  "source_version": "0.15.288",
+  "receiver_version": "0.15.288",
+  "PHY": {
+    "frequency_hz": 922400000,
+    "bandwidth_hz": 500000,
+    "SF": 11,
+    "CR": "4/8",
+    "DISC": "NONE",
+    "META_seconds": 300,
+    "precision_seconds": 30,
+    "cap_percent": 2.5,
+    "nominal_guarded_airtime_percent": 2.196165333333333
+  },
+  "frozen_native_event_delay_ns": 102931911,
+  "observer_only_delay_ns": 0,
+  "calibration_retuned_on_validation": false,
+  "predeclared_sequence_window": [
+    28,
+    927
+  ],
+  "planned_PPS": 900,
+  "eligible_PPS": 900,
+  "mapped_PPS": 900,
+  "NO_MAP": 0,
+  "PPS_gaps": 0,
+  "clock_phase": {
+    "n": 900,
+    "mean_ns": -95.01777777777778,
+    "RMS_ns": 269.13979432423014,
+    "centered_SD_ns": 251.8091555028564,
+    "p95_absolute_ns": 521,
+    "p99_absolute_ns": 580,
+    "max_absolute_ns": 624
+  },
+  "interval_bins": {
+    "0..5": {
+      "PPS": 150,
+      "RMS_ns": 290.5802356206171,
+      "max_abs_ns": 624
+    },
+    "5..10": {
+      "PPS": 150,
+      "RMS_ns": 232.9611269432449,
+      "max_abs_ns": 495
+    },
+    "10..15": {
+      "PPS": 150,
+      "RMS_ns": 246.4044101336933,
+      "max_abs_ns": 509
+    },
+    "15..20": {
+      "PPS": 150,
+      "RMS_ns": 263.10473199849525,
+      "max_abs_ns": 574
+    },
+    "20..25": {
+      "PPS": 150,
+      "RMS_ns": 280.25798828936166,
+      "max_abs_ns": 579
+    },
+    "25..30": {
+      "PPS": 150,
+      "RMS_ns": 295.6786093040888,
+      "max_abs_ns": 612
+    }
+  },
+  "all_capture": {
+    "PPS": 927,
+    "eligible": 927,
+    "mapped": 927,
+    "NO_MAP": 0
+  },
+  "source_TX_offer_denominator": "UNKNOWN_NO_SOURCE_USB",
+  "prior": {
+    "event_delay_ns": 102931911,
+    "method": "Negative median of the first four newly observed authenticated fixed500 raw physical pairs bracketed by adjacent eligible GNSS PPS, rounded to integer ns",
+    "frozen_utc": "2026-11-04T00:56:59.717919+00:00",
+    "coordinate": "ModuloGNSSPPS bench phase calibration only; not portable UTC or a path/range calibration",
+    "pairs": 4,
+    "retuned_on_validation": false
+  },
+  "F287": {
+    "planned": 900,
+    "captured": 215,
+    "mapped": 206,
+    "no_map": 9,
+    "uncaptured": 685,
+    "metric_scope": "mapped only, incomplete attempted validation; do not pool with F288"
+  },
+  "B283": {
+    "PPS_total": 484,
+    "eligible": 484,
+    "map_available": 219,
+    "no_map": 265,
+    "sequence_gaps": 0,
+    "note": "mixed uncalibrated arm map, not delivered fixed-profile validation"
+  },
+  "B285": {
+    "PPS_total": 604,
+    "eligible": 604,
+    "map_available": 81,
+    "no_map": 523,
+    "sequence_gaps": 0,
+    "note": "two recovery streams kept separate; secondary pooled summaries are descriptive only"
+  },
+  "empty_screens": [
+    {
+      "run": "bw278-01",
+      "status": "COMPLETE_SINGLE_FINITE_BW_SCREEN",
+      "eligible_PPS": 244,
+      "no_map": 244,
+      "bracketed_pairs": 0
+    },
+    {
+      "run": "bw279-01",
+      "status": "INCOMPLETE_RETAINED_NO_RETRY",
+      "eligible_PPS": 55,
+      "no_map": 55,
+      "bracketed_pairs": 0
+    },
+    {
+      "run": "bw280-01",
+      "status": "INCOMPLETE_RETAINED_NO_RETRY",
+      "eligible_PPS": 44,
+      "no_map": 44,
+      "bracketed_pairs": 0
+    },
+    {
+      "run": "sweep284-02",
+      "status": "INCOMPLETE_RETAINED_NO_RETRY",
+      "eligible_PPS": 30,
+      "no_map": 30,
+      "bracketed_pairs": 0
+    }
+  ],
+  "historical_hopped": {
+    "status": "COMPLETE_FIXED_1200S_CAPTURE",
+    "elapsed_s": 1200.1271118749864,
+    "metric": "CAUSAL_FUTURE_PAIR_CONSISTENCY_AND_SAMPLED_AVAILABILITY",
+    "independent_clock_RMS_available": false,
+    "PPS_records": 0,
+    "population": {
+      "diag_rows": 942,
+      "sampled_delivered_available": 476,
+      "sampled_unavailable": 466,
+      "old_event_or_invalid_permission_rows_excluded": 102,
+      "new_accepted_pairs": 23,
+      "accepted_pairs_observed": 23,
+      "pair_interval_s": [
+        229.789114,
+        30.079170375,
+        29.4570135625,
+        29.72013475,
+        63.2476086875,
+        30.2442511875,
+        29.5800103125,
+        57.0710289375,
+        29.6571043125,
+        48.2826075,
+        124.8186888125,
+        30.3350673125,
+        29.8308610625,
+        29.602136125,
+        30.60767225,
+        29.2557353125,
+        29.9645095,
+        84.821105875,
+        29.501795875,
+        29.7461328125,
+        85.4357258125,
+        52.3220935625
+      ],
+      "pair_intervals_exceeding32510ms": 8
+    },
+    "frozen_comparisons": [
+      {
+        "age_s": 30,
+        "baseline": {
+          "samples": 9,
+          "rms_ns": 4496.4414077505035,
+          "mean_ns": 268.8888888888889,
+          "p99_abs_ns": 7357,
+          "max_abs_ns": 7357
+        },
+        "hold": {
+          "samples": 9,
+          "rms_ns": 5878.336452130351,
+          "mean_ns": 221.66666666666666,
+          "p99_abs_ns": 10045,
+          "max_abs_ns": 10045
+        },
+        "unknown": 3,
+        "censored": 2
+      }
+    ],
+    "limitations": [
+      "Future physical pair is noisy and is not independent PPS or continuous delivered clock ground truth.",
+      "Correlated overlapping models, unequal cohorts and missing endpoints retained.",
+      "Sample availability fractions are not a continuous timing guarantee."
+    ]
+  },
+  "heterogeneous_extension": {
+    "status": "COMPLETE_FIXED1800S_C1_WINDOW",
+    "planned_seconds": 1800,
+    "elapsed_s": 1800.0101428751368,
+    "snapshot_rows": 1800,
+    "missing_snapshots": 0,
+    "available_rows": 267,
+    "unavailable_or_untrained_rows": 1533,
+    "independent_PPS_records": 0,
+    "fit_quality": "INTERNAL_MODEL_RESIDUALS_ONLY_REPEATED_SNAPSHOT_POPULATION",
+    "internal_fit_rms_ns": {
+      "n": 267,
+      "min": 265,
+      "median": 1503,
+      "p95": 1512,
+      "max": 1512
+    }
+  }
+}

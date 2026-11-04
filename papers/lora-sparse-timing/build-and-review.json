@@ -1,0 +1,44 @@
+{
+  "status": "PASS_DRAFT_FOR_AUTHOR_REVIEW_NOT_PUBLICATION_APPROVED",
+  "date_utc": "2026-11-04",
+  "compiler": {
+    "name": "Tectonic",
+    "version": "0.17.0",
+    "release_platform": "aarch64-apple-darwin",
+    "official_archive_url": "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-aarch64-apple-darwin.tar.gz",
+    "archive_sha256": "a3f1cac7c5678f01661a92212f58480ae3b0634115d880dbc59e2953ded45667",
+    "binary_sha256": "b52b5a730e2b0b33087304f7720f649603953f270a6b1c88bb031e1ae01f7f9c",
+    "command": "tectonic -X compile papers/lora-sparse-timing/main.tex --outdir artifacts/lora-sparse-paper-tex --keep-logs"
+  },
+  "pdf": {
+    "pages": 7,
+    "page_size": "US Letter, 612 x 792 points",
+    "sha256": "5ce060888f141c1be3c06e8c20d3f4e9e569496b367c2580596e7f51c2143f32",
+    "bytes": 133880,
+    "metadata": "Title, Jonathan Yantis author, explicit author-review-only subject"
+  },
+  "checks": {
+    "selected_data_aggregate_recomputation": "PASS",
+    "frozen_four_pair_calibration_median": "PASS",
+    "no_validation_recentring_or_detrending": "PASS",
+    "all_900_future_opportunities_preserved": "PASS",
+    "incomplete_287_denominator_preserved": "PASS",
+    "bandwidth_contexts_and_physical_offer_counts_preserved": "PASS",
+    "six_physical_SYNC_age_bins_150_each": "PASS",
+    "accepted_pair_age_ge30_population_retained": "PASS",
+    "symbol_airtime_and_SF12_cap_comparison": "PASS",
+    "private_path_factory_identifier_key_marker_scan": "PASS",
+    "tex_overfull_underfull_or_undefined_warnings": 0,
+    "pdfinfo_actual_page_count": "PASS_7",
+    "all_page_visual_review": "PASS_7_OF_7",
+    "visual_review_method": "Poppler 1600px PNG renders, all seven pages individually inspected, then complete contact sheet inspected",
+    "figure": "All 900 observations, no smoothing or clipping; age-bin RMS bars with maximum caps, not confidence intervals"
+  },
+  "review_limits": [
+    "Author has not approved public publication",
+    "Statistical verification does not reconstruct physical acquisition or private raw extraction",
+    "GNSS input/model phase is not independently measured output or portable UTC accuracy"
+  ],
+  "hardware_operations": false,
+  "new_experiments": false
+}
