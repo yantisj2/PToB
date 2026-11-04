@@ -751,24 +751,26 @@ runtime build ID. Never select a transmitter from an unverified alias. The
 image retains the public dependency source and license in its ignored artifact;
 there is no private dependency or implicit download during compilation.
 
-The fixed RX modem is 915MHz, SF10/BW500/CR4/6, preamble 12, explicit header,
-CRC 2, private sync 0x12, matching RC8 wire3. The HAL refuses SetTx, TX test and
-automatic RX/TX commands. Actual RX_DONE capture precedes FIFO processing;
-authentication, replay, companion/context and original source deadlines remain
-those of the selected portable T096 policy. Chipset delay and total RF/UTC
-uncertainty remain unknown. RC8 link RMS describes fitted relative observations.
+The fixed RX modem is 922.4MHz, SF11/BW500/CR4/8, preamble 12, explicit header,
+CRC 2 and private sync 0x12, matching passive wire3/schedule8. The HAL refuses
+SetTx, TX test and automatic RX/TX commands. The first hardware HeaderValid
+capture precedes FIFO processing. Its sticky IRQ remains asserted until the
+completed packet is read; RxDone need not produce a second rising edge.
+Authentication, replay, context and original deadlines use the shared passive
+T096 core. The engineering99.328ms symbol-delay prior leaves chipset bias and
+total RF/UTC uncertainty unknown. Link RMS describes internal fit residuals.
 
-AUTO uses N30's 180 s accumulated lock-loss and180 s continuous lock-recovery
-policy. A fresh actual BLE precision lock takes display priority. KEEP ON/OFF
-can be selected by holding 1.5 s on the LoRa page; settings reset on reboot.
-Tap navigates Clock, Precision and LoRa. Precision's SYNC RMS is the live BLE
-causal metric; TRIM is software-clock steering, not N30's display-only REL
-residual trend. Version0.2.3 selects current LoRa LINK RMS on Clock and Precision
-when LoRa supplies time, with explicit fit warm-up and WAIT RX states. The LoRa
-page shows its own current link RMS. Expired fits remain unavailable. AUTO's
-one-second precision forecast uses the original model/replay deadlines while
-separately requiring coarse UTC permission to be live now; short coarse renewals
-do not restart the180s recovery countdown. GNSS indicators and the Clock-page relay control are preserved.
+AUTO and KEEP ON receive continuously, including while BLE is healthy. KEEP
+ON/OFF can be selected by holding 1.5 s on the LoRa page; settings reset on
+reboot. After LoRa supplies the display, BLE returns after30 continuous seconds
+of authenticated precision lock in the same source/clock scope. Observation
+runs at main-loop cadence, independently of the one-second repaint. This dwell
+does not grant BLE relay permission or change RC9 admission.
+Tap navigates Clock, Precision and LoRa. Precision shows the selected LoRa fit
+while LoRa supplies time; BLE SYNC RMS and TRIM remain BLE metrics. Passive
+training requires at least180s and7 physical pairs. Untrained or expired fit
+RMS is unknown. Physical pair age, committed clock-reference age and META age
+have distinct meanings. GNSS indicators and the Clock-page relay control are preserved.
 The existing GPS diagnostic page remains accessible by bound `ui page 14`.
 
 Fresh ticket-bound commands `lora auto`, `lora on`, `lora off`, and
@@ -790,7 +792,8 @@ python3 firmware/w12/tools/lora_tests.py --idf artifacts/esp-idf --out artifacts
 python3 firmware/w12/tools/status_budget_test.py --rc7-estimate --lora
 ```
 
-These host checks exercise actual policy/codec/HMAC, replay/expiry,180 s modes,
+These host checks exercise actual policy/codec/HMAC, replay/expiry,180 s training,
+30 s display-source return at actual observation/repaint cadences,
 300 s supervisor/reset boundaries, capture coexistence, owner cancellation, DMA
 failure retention and TX refusal. Native builds use the pinned real RadioLib;
 the owner fixture uses a synthetic RadioLib call boundary. These are separate
@@ -799,7 +802,10 @@ from actual RF interoperability and independently measured clock accuracy.
 ### Separate RC9 service and display cadence
 
 Add `--rc9` to an existing `--fine-clock --estimated-relay` LR2021 build to
-receive RC9 and serve current RC8 through the separate RC9 BLE service. The
+receive RC9 and serve a source with its original valid signed envelope through
+the separate RC9 BLE service. Passive schedule8 LoRa lacks that envelope and
+cannot enter the legacy12s RC9 server bridge. Existing BLE-driven service and
+the RC9 client keep their original gates. The
 flag is bound into the runtime build ID. Normal RC7 advertisements are drained
 before SID14 periodic/SID15 connectable RC9 advertisements start. Original
 source expiry remains unchanged. See [the RC9 contract](rc9.md).
