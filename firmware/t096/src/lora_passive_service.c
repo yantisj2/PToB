@@ -528,7 +528,7 @@ static bool utc_check(uint64_t now){
  k_spin_unlock(&lock,key);
  if(reason){utc_finish(UTC_EXPIRED,reason);return true;}return false;
 }
-#ifdef R2_LORA_PASSIVE_SLOW
+#if defined(R2_LORA_PASSIVE_SLOW) && !defined(R2_LORA_FIXED500_EXPERIMENT)
 static bool utc_plan(uint64_t now,struct lp_tx *t,uint64_t *target,bool *override){
  uint64_t due=utc_due();if(due==UINT64_MAX||now<due)return false;
  k_spinlock_key_t key=k_spin_lock(&lock);
