@@ -119,6 +119,11 @@ static void worker(void *a,void *b,void *c)
     }
     if(live && count) uart_irq_tx_enable(cdc); else uart_irq_tx_disable(cdc);
     k_spin_unlock(&lock,key);
+#ifdef R2_USB_CDC_RECOVERY
+    /* Idempotent readiness only. The pinned CDC owner retries an unstarted
+     * idle RX after resource/start failure; active transfers are untouched. */
+    if(live)uart_irq_rx_enable(cdc);
+#endif
     r2_health_console();
     k_sleep(K_MSEC(10));
   }

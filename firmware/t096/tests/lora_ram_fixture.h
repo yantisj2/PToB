@@ -2,6 +2,8 @@
  * Production owner with synthetic time/capture/storage/radio boundaries. */
 #include "lora_service.h"
 #include "lora_passive_core.h"
+#include "lora_fallback.h"
+#include "lora_progress.h"
 #include "lora_hw.h"
 #include "lora_watchdog.h"
 #include "capture.h"

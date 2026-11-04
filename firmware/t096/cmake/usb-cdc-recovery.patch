@@ -1,0 +1,168 @@
+--- a/subsys/usb/device/usb_transfer.c
++++ b/subsys/usb/device/usb_transfer.c
+@@ -49,7 +49,7 @@
+ static struct usb_transfer_data *usb_ep_get_transfer(uint8_t ep)
+ {
+ 	for (size_t i = 0; i < ARRAY_SIZE(ut_data); i++) {
+-		if (ut_data[i].ep == ep && ut_data[i].status != 0) {
++		if (ut_data[i].ep == ep && ut_data[i].status == -EBUSY) {
+ 			return &ut_data[i];
+ 		}
+ 	}
+@@ -150,6 +150,7 @@
+ 		LOG_DBG("Transfer done, ep 0x%02x, status %d, size %zu",
+ 			trans->ep, trans->status, trans->tsize);
+ 
++		trans->status = 0;
+ 		trans->cb = NULL;
+ 		k_sem_give(&trans->sem);
+ 
+@@ -203,15 +204,16 @@
+ 	struct usb_transfer_data *trans = NULL;
+ 	int key, ret = 0;
+ 
+-	/* Parallel transfer to same endpoint is not supported. */
+-	if (usb_transfer_is_busy(ep)) {
+-		return -EBUSY;
+-	}
+-
+ 	LOG_DBG("Transfer start, ep 0x%02x, data %p, dlen %zd",
+ 		ep, data, dlen);
+ 
+ 	key = irq_lock();
++
++	/* Check ownership inside the same IRQ exclusion as slot allocation. */
++	if (usb_transfer_is_busy(ep)) {
++		ret = -EBUSY;
++		goto done;
++	}
+ 
+ 	for (size_t i = 0; i < ARRAY_SIZE(ut_data); i++) {
+ 		if (!k_sem_take(&ut_data[i].sem, K_NO_WAIT)) {
+@@ -251,10 +253,19 @@
+ 
+ 	if (flags & USB_TRANS_WRITE) {
+ 		/* start writing first chunk */
+-		k_work_submit_to_queue(&USB_WORK_Q, &trans->work);
++		ret = k_work_submit_to_queue(&USB_WORK_Q, &trans->work);
++		if (ret >= 0) {
++			ret = 0;
++		}
+ 	} else {
+ 		/* ready to read, clear NAK */
+ 		ret = usb_dc_ep_read_continue(ep);
++	}
++	if (ret < 0) {
++		/* Rejected start owns no transfer/callback. Retire only this slot. */
++		trans->status = 0;
++		trans->cb = NULL;
++		k_sem_give(&trans->sem);
+ 	}
+ 
+ done:
+--- a/subsys/usb/device/class/cdc_acm.c
++++ b/subsys/usb/device/class/cdc_acm.c
+@@ -249,6 +249,8 @@
+ 				  K_NO_WAIT : K_MSEC(CONFIG_CDC_ACM_TX_DELAY_MS));
+ }
+ 
++static void cdc_acm_rearm_idle(struct cdc_acm_dev_data_t *dev_data);
++
+ static void tx_work_handler(struct k_work *work)
+ {
+ 	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
+@@ -260,12 +262,15 @@
+ 	uint8_t *data;
+ 	size_t len;
+ 
++	/* Readiness execution stays on USB_WORK_Q, never an IRQ-enable caller. */
++	cdc_acm_rearm_idle(dev_data);
++
+ 	if (usb_transfer_is_busy(ep)) {
+ 		LOG_DBG("Transfer is ongoing");
+ 		return;
+ 	}
+ 
+-	if (!dev_data->configured) {
++	if (!dev_data->configured || dev_data->suspended) {
+ 		return;
+ 	}
+ 
+@@ -291,8 +296,17 @@
+ 
+ 	LOG_DBG("Got %zd bytes from ringbuffer send to ep %x", len, ep);
+ 
+-	usb_transfer(ep, data, len, USB_TRANS_WRITE,
+-		     cdc_acm_write_cb, dev_data);
++	int ret = usb_transfer(ep, data, len, USB_TRANS_WRITE,
++			       cdc_acm_write_cb, dev_data);
++	if (ret < 0) {
++		/* The rejected API start did not consume the claimed bytes. */
++		ring_buf_get_finish(dev_data->tx_ringbuf, 0);
++		if (!usb_transfer_is_busy(ep)) {
++			dev_data->tx_ready = true;
++		}
++		LOG_WRN("TX start rejected %d", ret);
++		return;
++	}
+ 
+ 	ring_buf_get_finish(dev_data->tx_ringbuf, len);
+ }
+@@ -328,8 +342,11 @@
+ 
+ done:
+ 	if (dev_data->configured) {
+-		usb_transfer(ep, dev_data->rx_buf, sizeof(dev_data->rx_buf),
+-			     USB_TRANS_READ, cdc_acm_read_cb, dev_data);
++		int ret = usb_transfer(ep, dev_data->rx_buf, sizeof(dev_data->rx_buf),
++				       USB_TRANS_READ, cdc_acm_read_cb, dev_data);
++		if (ret < 0) {
++			LOG_WRN("RX start rejected %d", ret);
++		}
+ 	}
+ }
+ 
+@@ -580,11 +597,35 @@
+  *
+  * @param dev CDC ACM device struct.
+  */
++/* Bounded readiness check. Existing active transfers retain sole ownership;
++ * no cancel, endpoint reset, or buffer reuse is performed here. */
++static void cdc_acm_rearm_idle(struct cdc_acm_dev_data_t *dev_data)
++{
++	if (!dev_data->configured || dev_data->suspended) {
++		return;
++	}
++	struct usb_cfg_data *cfg = (void *)dev_data->common.dev->config;
++	uint8_t rx = cfg->endpoint[ACM_OUT_EP_IDX].ep_addr;
++	uint8_t tx = cfg->endpoint[ACM_IN_EP_IDX].ep_addr;
++	if (dev_data->rx_irq_ena && !dev_data->rx_paused &&
++	    ring_buf_space_get(dev_data->rx_ringbuf) >= sizeof(dev_data->rx_buf) &&
++	    !usb_transfer_is_busy(rx)) {
++		cdc_acm_read_cb(rx, 0, dev_data);
++	}
++	if (dev_data->tx_irq_ena && !usb_transfer_is_busy(tx)) {
++		dev_data->tx_ready = true;
++		if (dev_data->cb) {
++			k_work_submit_to_queue(&USB_WORK_Q, &dev_data->cb_work);
++		}
++	}
++}
++
+ static void cdc_acm_irq_tx_enable(const struct device *dev)
+ {
+ 	struct cdc_acm_dev_data_t * const dev_data = dev->data;
+ 
+ 	dev_data->tx_irq_ena = true;
++	k_work_schedule_for_queue(&USB_WORK_Q, &dev_data->tx_work, K_NO_WAIT);
+ 
+ 	if (dev_data->cb && dev_data->tx_ready) {
+ 		k_work_submit_to_queue(&USB_WORK_Q, &dev_data->cb_work);
+@@ -631,6 +672,7 @@
+ 	struct cdc_acm_dev_data_t * const dev_data = dev->data;
+ 
+ 	dev_data->rx_irq_ena = true;
++	k_work_schedule_for_queue(&USB_WORK_Q, &dev_data->tx_work, K_NO_WAIT);
+ 
+ 	if (dev_data->cb && dev_data->rx_ready) {
+ 		k_work_submit_to_queue(&USB_WORK_Q, &dev_data->cb_work);

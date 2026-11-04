@@ -116,6 +116,22 @@ def inspect(out,allow_development=False):
     # .197 adds one durable callback word per slot (24B with struct alignment).
     hot_allowance=(104 if tuple(map(int,r['version'].split('.'))) >= (0,15,197) else 80 if tuple(map(int,r['version'].split('.'))) >= (0,15,196) else 64) if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,194) else 0
     commands=(out/'target/compile_commands.json').read_text()
+    if tuple(map(int,r['version'].split('.')))>=(0,15,288):
+        usb=r.get('usb_cdc_recovery')
+        if dc or pc:
+            require(usb is None and '/r2_usb_cdc_recovery/' not in commands,'USB recovery leaked into DC/PC')
+        else:
+            require(usb=={'manifest_sha256':sha(out/'source/cmake/usb-cdc-recovery.json'),
+                'generator_sha256':sha(out/'source/tools/usb_cdc_recovery.py'),
+                'patch_sha256':sha(out/'source/cmake/usb-cdc-recovery.patch')},'USB recovery receipt')
+            pinned_usb=json.loads((out/'source/cmake/usb-cdc-recovery.json').read_text())
+            require(json.loads((out/'target/r2_usb_cdc_recovery/manifest.json').read_text())==pinned_usb,'USB generated manifest')
+            require(sha(out/'source/cmake/usb-cdc-recovery.patch')==pinned_usb['patch_sha256'],'USB patch hash')
+            for entry in pinned_usb['files']:
+                candidates=[c['file']for c in json.loads(commands)if c['file'].endswith('/'+entry['leaf'])]
+                require(len(candidates)==1 and candidates[0].endswith('/r2_usb_cdc_recovery/'+entry['leaf']),'Unique USB compiled owner: '+entry['leaf'])
+                require(sha(out/'target/r2_usb_cdc_recovery'/entry['leaf'])==entry['output_sha256'],'USB generated output hash')
+            require('R2_USB_CDC_RECOVERY=1' in commands,'Periodic console RX readiness integration')
     if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,202):
         require_tz_compile_mode(json.loads(commands))
     # TZ1 wire/cache allocation is208B versus the inspected .201 GM/RC image.
@@ -459,6 +475,11 @@ def inspect(out,allow_development=False):
             rx='CONTINUOUS_HEADER_VALID_CRC_CONFIRMED',event_delay_ns=event_delay,default_on=True),'Fixed500 receipt')
         private_sha=hashlib.sha256((private_sha+':fixed500:922400000_SF11_CR8_P30_M300').encode()).hexdigest()
         private_sha=hashlib.sha256((private_sha+':event-delay-ns:'+str(event_delay)).encode()).hexdigest()
+        if tuple(map(int,r['version'].split('.')))>=(0,15,288):
+            require(r.get('fixed500_runtime')==dict(ble_return_dwell_us=30000000,deferred_fault_ms=300000,
+                precharge_lead_us=4000000,meta_launch_late_us=3000000,operator_rearm=True,
+                source_gap='EXACT_AUTHENTICATED_SCOPE_FUTURE_PRECISION',normal_export_authority=False),'Fixed500 runtime policy binding')
+            require({'lp_tx_rearm','r2_lora_ble_observe','r2_lora_ble_shadow_allowed'}<=linked_names,'Fixed500 runtime integration')
     else:require('R2_LORA_FIXED500_EXPERIMENT=1' not in commands,'Unexpected fixed500 experiment')
     if r.get('lora_bw_experiment'):
         require(passive and not r.get('lora_tx_diagnostic') and 'R2_LORA_BW_EXPERIMENT=1' in commands,'Bandwidth experiment profile binding')

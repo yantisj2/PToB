@@ -149,8 +149,9 @@ schedule8: one922.4MHz/SF11/BW500/CR4/8 PHY, preamble12, explicit header/CRC,
 It rejects other lab modes and manual UTC jobs/cap overrides. Reservations
 use actual packet costs plus10ms each under90s/h accounting; nominal steady
 traffic reserves79.061952s/h. Strict META slots stay on their original grid;
-source turnover waits for the next scheduled META and missed slots do not
-create catch-up bursts. A scheduled META may proceed without its pair if
+hard source-context turnover waits for the next scheduled META and missed slots
+do not create catch-up bursts. A brief return of the exact same authenticated
+source scope can resume future precision slots without another META. A scheduled META may proceed without its pair if
 only META fits the remaining cap. Physical faults still inhibit the service.
 
 This is an experimental candidate, not the normal LoRa default or an RF
@@ -165,6 +166,14 @@ FOLLOW UTC before the receiver fit and delivered map; positive values advance
 TX UTC to RX HeaderValid time. Independent PPS never trains the live clock.
 Calibration is specific to its measured endpoint/path/configuration and does
 not qualify UTC accuracy or range.
+An available LoRa/HOLD watch remains selected through fleeting BLE returns;
+BLE needs30 continuous qualified seconds on the same admitted scope. Explicit
+transmitter OFF/ON can start a fresh initial META/stream/grid, retaining per-boot
+airtime debt and replay floors. It cannot bypass a pending physical transaction,
+fault or cap. Normal periodic META remains300s with no automatic catch-up.
+Declared faults and eligible TX no-progress request watchdog recovery after300s;
+the existing30s parent-watchdog period still bounds the subsequent physical reset.
+RX silence/source absence/cap refusal do not start that no-progress timer.
 Read the changelog and exact private deployment scope before hardware work.
 Run its actual owner/core/driver synthetic checks offline:
 

@@ -216,6 +216,9 @@ def main():
         receipt['fixed500_experiment'] = dict(frequency_hz=922400000,sf=11,bandwidth_hz=500000,
             coding_rate='4/8',preamble=12,explicit_header=True,crc=True,source_hold_us=5000000,
             rx='CONTINUOUS_HEADER_VALID_CRC_CONFIRMED',event_delay_ns=args.lora_fixed500_event_delay_ns,default_on=True)
+        receipt['fixed500_runtime'] = dict(ble_return_dwell_us=30000000,deferred_fault_ms=300000,
+            precharge_lead_us=4000000,meta_launch_late_us=3000000,operator_rearm=True,
+            source_gap='EXACT_AUTHENTICATED_SCOPE_FUTURE_PRECISION',normal_export_authority=False)
     receipt['gm7_controller'] = None if not args.gm7 else {
         'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
         'generator_sha256':sha(APP/'tools/gm7_controller_hooks.py')}
@@ -230,6 +233,10 @@ def main():
         'manifest_sha256':sha(APP/'cmake/scan-aux-context.json'),
         'generator_sha256':sha(APP/'tools/scan_aux_context.py'),
         'patch_sha256':sha(APP/'cmake/scan-aux-context.patch')}
+    receipt['usb_cdc_recovery'] = None if dc or pc else {
+        'manifest_sha256':sha(APP/'cmake/usb-cdc-recovery.json'),
+        'generator_sha256':sha(APP/'tools/usb_cdc_recovery.py'),
+        'patch_sha256':sha(APP/'cmake/usb-cdc-recovery.patch')}
     receipt['controller_prepare_capture'] = None if dc or pc else {
         'mode':'verbose' if args.controller_diagnostics else 'failure-only',
         'manifest_sha256':sha(APP/'cmake/controller-prepare-diag.json'),

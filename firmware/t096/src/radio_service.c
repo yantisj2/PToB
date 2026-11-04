@@ -915,6 +915,9 @@ static void precision_step(uint64_t now){
  struct rc_shadow_map shadow;r2_servo_map_t delivered;
  bool publish_shadow=r2_shadow_enabled()&&out.utc_valid&&scope.root_identity&&out.valid_until>sampled&&
   r2_radio_precision_map(&precision,&delivered)&&(delivered.delivery!=shadow_delivery||current.epoch!=shadow_epoch);
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ publish_shadow=publish_shadow&&r2_lora_ble_shadow_allowed();
+#endif
  if(publish_shadow){
   uint64_t remaining=out.valid_until-sampled;
   if(remaining>(UINT64_MAX-current.tick)/16)publish_shadow=false;
@@ -931,7 +934,11 @@ static void precision_step(uint64_t now){
 #ifdef R2_LORA
  /* Immutable exports originate here, where the real source and delivered
   * follower map are owned. Local GNSS is never consulted for a follower. */
- if(r2_lora_source_needed()){
+ if(r2_lora_source_needed()
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+    ||r2_lora_ble_needed()
+#endif
+   ){
  struct rc8_export lora={0};
  struct rc8_scope lscope={.emitter=in.roster.identity[service_self],.emitter_boot=1,.stream=1,
   .root=scope.root_identity,.root_boot=scope.boot,.parent=scope.follower?scope.root_identity:0,.parent_boot=scope.follower?scope.boot:0,.source_epoch=scope.source_epoch,.scale=RC8_UTC,
@@ -970,6 +977,10 @@ static void precision_step(uint64_t now){
     precision.origin_created_ns,precision.origin_expires_ns,offset,precision.accepted);
   }
  }
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ uint64_t ble_until=lvalid&&lora.until_tick>current.tick?sampled+(lora.until_tick-current.tick)/16:0;
+ r2_lora_ble_observe(lvalid?&lora.scope:NULL,ble_until,precision.rejected,sampled);
+#endif
  if(lvalid)r2_lora_source_publish(&lora);else r2_lora_source_withdraw();
  struct rc8_quality lquality={.known=RC8_Q_ROLE|RC8_Q_HOP|(scope.follower?RC8_Q_LOCK:0),
   .values=(scope.follower&&out.view.locked?RC8_Q_LOCK:0),.role=scope.gm?1:scope.follower?2:0,.hop=scope.follower?1:0};
@@ -988,7 +999,11 @@ static void precision_step(uint64_t now){
  refresh_anchor|=request_refresh;require_anchor|=request_anchor;
  if(!export_locked)(void)k_mutex_unlock(&pt_lock);
  /* Actual mailbox publication lies between paired lo and witness-map hi. */
- if(publish_shadow){r2_shadow_normal_map(&shadow);shadow_delivery=delivered.delivery;shadow_epoch=current.epoch;}
+ if(publish_shadow
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+    &&r2_lora_ble_shadow_allowed()
+#endif
+   ){r2_shadow_normal_map(&shadow);shadow_delivery=delivered.delivery;shadow_epoch=current.epoch;}
 #ifdef R2_GM7_NATIVE
  if(!export_locked)(void)k_mutex_lock(&pt_lock,K_FOREVER);
  pt_input.gm7_busy=false;

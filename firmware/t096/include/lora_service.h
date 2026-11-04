@@ -43,6 +43,12 @@ void r2_lora_tz_publish(struct r2_tz,uint64_t until_us,uint64_t root,uint64_t ro
 void r2_lora_view_named(struct r2_lora_view *,uint64_t *factory,char name[25]);
 void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t transmitter,const struct r2_group_config *);
 void r2_lora_control(bool profile_rc,bool allowed,enum rc8_selected normal_source);
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+/* Qualified BLE observation only; never a LoRa clock/authority input. */
+bool r2_lora_ble_needed(void);
+void r2_lora_ble_observe(const struct rc8_scope *,uint64_t until_us,uint32_t refused,uint64_t now_us);
+bool r2_lora_ble_shadow_allowed(void);
+#endif
 /* Computed by serialized BLE owner from original authenticated contact leases. */
 void r2_lora_mesh_contact(bool present);
 void r2_lora_request(bool on);

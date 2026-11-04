@@ -1,5 +1,32 @@
 # T096 changelog
 
+## 0.15.288 — stable LoRa fallback and bounded source recovery
+
+The fixed500 configuration preserves its trained LoRa watch through brief BLE
+returns. BLE needs30 continuous seconds of fresh qualified precision on the
+same authenticated scope before taking over an available LoRa/HOLD watch;
+expiry, refusal and scope changes restart the dwell. Clock choice, display and
+PPS shadow publication use that policy. LoRa gains no normal export authority.
+
+A brief source withdrawal still fences RF and closes its original maps. A fresh
+return of the exact same root/parent/boot/kind/epoch can resume future precision
+slots using its existing authenticated META context. Hard context changes wait
+for scheduled META. Explicit source OFF/ON starts a fresh META grid/stream while
+retaining seed, cursor/serial floors, cooldowns and all airtime debt. Startup
+skips unused hop derivation, prepares4s early and allows a3s META launch window;
+SYNC/FOLLOW deadlines, source grants and90s/h accounting remain unchanged.
+
+Declared faults and genuinely eligible TX no-progress request existing watchdog
+recovery after300s. Missing RX packets, absent upstream time and budget refusal
+are excluded. Urgent unsafe/DMA/stalled-owner handling and maintenance priority
+remain intact; the existing physical parent watchdog completes the reset.
+
+Generated hash-pinned USB units fix active endpoint lookup, allocation races and
+rejected-start ownership; CDC readiness retries run on the USB queue and never
+cancel/reset an active endpoint. SDK sources, buffer sizes and reply expiries
+remain unchanged. Source/native tests do not establish hardware causality or
+UTC/range qualification.
+
 ## 0.15.287 — frozen fixed500 receiver event calibration
 
 The fixed500 experiment accepts a build-receipted signed event correction,

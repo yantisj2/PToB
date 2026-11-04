@@ -10,6 +10,20 @@ static void rx(const struct lp_packet *p,uint64_t event,uint64_t completed){
 int main(int argc,char **argv){
  assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);
  assert(LP_SCHEDULE==8&&LP_CAP_US==90000000&&LP_DISC_BEATS==0);
+ if(mode==9){
+  struct lp_progress_watch w={0};uint32_t at=UINT32_MAX-100000;
+  assert(!lp_progress_poll(&w,at,true,false,false,0)); /* RX/source silence is not a fault. */
+  assert(!lp_progress_poll(&w,at,true,true,false,0));
+  assert(!lp_progress_poll(&w,at+299999,true,true,false,0));
+  assert(lp_progress_poll(&w,at+300000,true,true,false,0));
+  assert(!lp_progress_poll(&w,at+300001,false,true,false,0)); /* Maintenance wins. */
+  assert(!lp_progress_poll(&w,1000,true,false,true,5));
+  assert(!lp_progress_poll(&w,200000,true,false,true,6)); /* Real TX progress restarts the timer. */
+  assert(!lp_progress_poll(&w,499999,true,false,true,6));
+  assert(lp_progress_poll(&w,500000,true,false,true,6));
+  assert(!lp_progress_poll(&w,500001,true,false,false,6)); /* Source/cap loss disables TX timer. */
+  puts("PASS deferred300s declaredfault/eligibleTX timer, progress/source/maintenance and uptimewrap");return 0;
+ }
  if(mode==1){
   const uint64_t phases[]={0,1,49999,50000,14999999,15000000,29999999,45000000,59999999};
   for(unsigned phase=0;phase<sizeof phases/sizeof phases[0];phase++){
@@ -41,23 +55,53 @@ int main(int argc,char **argv){
   struct lp_tx capped;assert(lp_tx_start(&capped,17,1000000,1000000,1000));
   capped.durable.buckets[0]=LP_CAP_US-lp_duration(LP_META);
   assert(lp_tx_reserve(&capped,1000000,&r)&&r.control==LP_META&&!r.has_pair);
+  assert(!lp_tx_rearm(&capped,2000000,5000000)); /* Pending work cannot be rearmed. */
+  lp_tx_cancel(&capped,true);struct lp_checkpoint debt=capped.durable;
+  assert(lp_tx_rearm(&capped,2000000,5000000));
+  assert(capped.durable.minute==debt.minute&&capped.durable.seed==debt.seed&&
+   capped.durable.cursor==debt.cursor&&capped.durable.serial==debt.serial&&
+   !memcmp(capped.durable.buckets,debt.buckets,sizeof debt.buckets)&&
+   !memcmp(capped.durable.channel_end_ms,debt.channel_end_ms,sizeof debt.channel_end_ms));
+  assert(!lp_tx_reserve(&capped,5000000,&r)); /* Rearm does not mint cap credit. */
   puts("PASS strictMETA300 no offgrid retry/capoverride; skipped slots retain original phase");return 0;
  }
- if(mode==3){
+ if(mode==3||mode==5||mode==6||mode==7){
   init(true);uint64_t next=1337000,finish=now_us+340000000;unsigned publications=0;
+  bool withdrew=false,delayed=false,rearmed=false;uint64_t rearmed_at=0,old_charge=0;
+  uint32_t old_seed=0,old_serial=0,old_cursor=0;
   while(now_us<finish){
+   if(mode==5&&now_us>=120000000&&now_us<122000000){
+    if(!withdrew){r2_lora_source_withdraw();withdrew=true;}
+   }else
    if(now_us>=next){struct rc8_export m=source();m.scope.kind=RC8_SELECTED_BLE;m.scope.root=m.scope.parent=3;m.scope.root_boot=m.scope.parent_boot=44;
+    if(mode==6&&now_us>=200000000)m.scope.parent_boot=45; /* Same coarse root, different authenticated parent. */
     uint64_t room=1100000;m.from_tick=m.anchor_tick=next*16;m.until_tick=(next+room)*16;
     m.anchor_ns+=next*1000;m.created_ns=m.anchor_ns;m.expires_ns=m.anchor_ns+room*1000;m.mode=RC8_MAP_DELIVERED;m.map_generation=++publications;r2_lora_source_publish(&m);next+=1000000;}
    if(owner.tx_kind&&!have_event){uint32_t duration=r2_lora_hw_budget_us(lp_size(owner.tx_kind));
     if(now_us>=sent_at_us+duration-10000){queued=(struct r2_lora_hw_event){.tick=sent_at_us*16,.capture_epoch=7,.generation=sent_generation,.kind=R2_LORA_HW_TX_DONE,.end_local_us=sent_at_us+duration-10000};have_event=true;}}
+   if(mode==5&&!delayed&&owner.prepared_kind==LP_META){
+    now_us=role.tx.reservation.slot_us+1800000;next=now_us;delayed=true;
+   }
+   if(mode==7&&!rearmed&&now_us>=120000000&&!owner.tx_kind&&!role.tx.core.durable.pending){
+    old_charge=lp_charged(&role.tx.core.durable,now_us);old_seed=role.tx.core.durable.seed;
+    old_serial=role.tx.core.durable.serial;old_cursor=role.tx.core.durable.cursor;
+    r2_lora_request(false);while(!atomic_get(&closed))step();r2_lora_request(true);rearmed_at=now_us;rearmed=true;
+   }
    step();assert(!atomic_get(&faulted)&&!role.tx.core.durable.fh_disabled);
+   if(mode==7&&rearmed&&owner.sent[1]>=2){
+    assert(now_us-rearmed_at<20000000&&role.tx.core.durable.seed==old_seed&&role.tx.core.durable.serial>old_serial&&
+     role.tx.core.durable.cursor>=old_cursor&&lp_charged(&role.tx.core.durable,now_us)>=old_charge);break;
+   }
   }
   printf("OWNER META%u SYNC%u FOLLOW%u DISC%u\n",owner.sent[1],owner.sent[2],owner.sent[3],owner.sent[0]);
-  assert(owner.sent[1]==2&&owner.sent[2]>=10&&owner.sent[2]==owner.sent[3]&&!owner.sent[0]);
+  if(mode==7){assert(rearmed&&owner.sent[1]>=2);puts("PASS explicit OFF/ON freshMETA with seed/cursor/serial/debt retained");return 0;}
+  assert(owner.sent[1]==2&&owner.sent[2]==owner.sent[3]&&!owner.sent[0]);
+  if(mode==6)assert(role.tx.stream==2&&owner.sent[2]>=7);
+  else assert(owner.sent[2]>=10&&role.tx.stream==1);
+  if(mode==5)assert(withdrew&&delayed&&!owner.late);
   puts("PASS actual staged owner fixedPHY/noDISC/strictMETA300 and unchangedBLE grants plus explicitLABhold");return 0;
  }
- assert(mode==4);init(false);step();assert(owner.listening&&tuning_phy==R2_LORA_FHSS&&tuning_channel==50);
+ assert(mode==4||mode==8);init(false);step();assert(owner.listening&&tuning_phy==R2_LORA_FHSS&&tuning_channel==50);
  struct lp_packet m={.kind=LP_META,.schedule=LP_SCHEDULE,.serial=1,.time_valid=true,.has_pair=true,.delay_10ms=600,.utc_ns=UINT64_C(1000000000000),.tz={0,INT16_MIN},
   .scope={.emitter=1,.boot=2,.root=1,.root_boot=2,.epoch=1,.stream=1,.seed=17,.kind=1}};
  rx(&m,10000000,10700000);assert(role.rx.cached&&!role.rx.hint);
@@ -70,6 +114,27 @@ int main(int argc,char **argv){
   rx(&follow,event+2800000,event+3000000);assert(role.rx.accepted==i+1-(i>=2));
   assert(role.rx.last_tx_ns==follow.utc_ns+LP_FIXED_EVENT_DELAY_NS);
   assert(owner.listening&&tuning_phy==R2_LORA_FHSS&&tuning_channel==50);
+ }
+ if(mode==8){
+  assert(role.rx.trained&&role.rx.display_valid);witness_enabled=true;r2_lora_shadow_publish();unsigned initial=witness_published;
+  struct rc8_scope ble={.emitter=2,.emitter_boot=22,.stream=1,.root=3,.root_boot=44,.parent=3,.parent_boot=44,.source_epoch=5,.scale=RC8_UTC,.kind=RC8_SELECTED_BLE};
+  uint64_t first=now_us;
+  for(unsigned i=0;i<=30;i++){
+   now_us=first+(uint64_t)i*1000000;r2_lora_ble_observe(&ble,now_us+1100000,0,now_us);
+   r2_lora_control(false,true,RC8_SELECT_BLE);step();
+   assert(role.rx.display_valid&&role.rx.trained);
+   assert(((atomic_get(&flags)&NORMAL)!=0)==(i==30));
+   assert(r2_lora_ble_shadow_allowed()==(i==30));
+  }
+  r2_lora_ble_observe(NULL,0,0,now_us);r2_lora_control(false,true,RC8_SELECT_NONE);step();r2_lora_shadow_publish();
+  assert(!(atomic_get(&flags)&NORMAL)&&role.rx.display_valid&&published.choice==RC8_SELECT_LORA&&witness_published>initial&&witness.lora);
+  struct lp_ble_return guard={0};uint64_t at=1000000;
+  for(unsigned i=0;i<=30;i++){lp_ble_observe(&guard,&ble,at+1100000,0,at);at+=1000000;}
+  assert(lp_ble_stable(&guard,at-1000000));ble.parent_boot++;
+  lp_ble_observe(&guard,&ble,at+1100000,0,at);assert(!lp_ble_stable(&guard,at));
+  lp_ble_observe(&guard,&ble,at+1100000,1,at+1000);assert(guard.since_us==at+1000);
+  assert(!lp_ble_stable(&guard,at+1100000));
+  puts("PASS actual LoRa cache/clock/shadow retained across BLE blips;30s exact-scope/refusal/expiry dwell");return 0;
  }
  uint64_t accepted=role.rx.accepted;lp_rx_expire(&role.rx,role.rx.observed_deadline_us);
  assert(!lp_rx_sync(&role.rx,22,7000000000,7,440000000,440000000)&&role.rx.accepted==accepted);
