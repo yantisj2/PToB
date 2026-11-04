@@ -421,9 +421,10 @@ def inspect(out,allow_development=False):
     if passive:
         profile='RAM_30_120_300' if slow else 'RAM_LAB_4_12'
         if slow:
-            require(r.get('passive_schedule')==dict(id=7 if r.get('lora_bw_experiment') else 3,precision_us=30000000,discovery_us=120000000,
-                    metadata_us=300000000,rolling_hour_cap_us=108000000),'Enhanced passive schedule/cap binding')
-        require(r.get('secondary_lora_class')==(('RAM_BW_SWEEP_30' if slow else 'RAM_BW_AB_4_12') if r.get('lora_bw_experiment') else 'RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
+            fixed=r.get('lora_fixed500_experiment',False)
+            require(r.get('passive_schedule')==dict(id=8 if fixed else 7 if r.get('lora_bw_experiment') else 3,precision_us=30000000,discovery_us=0 if fixed else 120000000,
+                    metadata_us=300000000,rolling_hour_cap_us=90000000 if fixed else 108000000),'Enhanced passive schedule/cap binding')
+        require(r.get('secondary_lora_class')==('RAM_FIXED500_30_300' if r.get('lora_fixed500_experiment') else ('RAM_BW_SWEEP_30' if slow else 'RAM_BW_AB_4_12') if r.get('lora_bw_experiment') else 'RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
         require(r.get('runtime_state')=='RAM_ONLY' and r.get('passive_wire_version')==3,'RAM/wire cohort receipt')
         require(not ({'lp_store_load','lp_store_save','lp_store_prepare','lp_tx_restore','lp_checkpoint_carry'}&linked_names),'Persistence leaked into native LoRa owner')
         require(int(r['lora_backup_transmitter_factory'],16)==0,'Automatic backup emitter prohibited')
@@ -448,6 +449,13 @@ def inspect(out,allow_development=False):
         require(not slow and r['profile']=='GM' and json.loads((out/'device.json').read_text())['device_id']==transmitter and 'R2_LORA_TX_DIAGNOSTIC=1' in commands,'Diagnostic TX exact/profile binding')
         private_sha=hashlib.sha256((private_sha+':tx-diagnostic:1').encode()).hexdigest()
     else:require('R2_LORA_TX_DIAGNOSTIC=1' not in commands,'Unexpected diagnostic TX')
+    if r.get('lora_fixed500_experiment'):
+        require(slow and not r.get('lora_bw_experiment') and not r.get('lora_tx_diagnostic') and 'R2_LORA_FIXED500_EXPERIMENT=1' in commands,'Fixed500 experiment binding')
+        require(r.get('fixed500_experiment')==dict(frequency_hz=922400000,sf=11,bandwidth_hz=500000,
+            coding_rate='4/8',preamble=12,explicit_header=True,crc=True,source_hold_us=5000000,
+            rx='CONTINUOUS_HEADER_VALID_CRC_CONFIRMED',event_delay_ns=0,default_on=True),'Fixed500 receipt')
+        private_sha=hashlib.sha256((private_sha+':fixed500:922400000_SF11_CR8_P30_M300').encode()).hexdigest()
+    else:require('R2_LORA_FIXED500_EXPERIMENT=1' not in commands,'Unexpected fixed500 experiment')
     if r.get('lora_bw_experiment'):
         require(passive and not r.get('lora_tx_diagnostic') and 'R2_LORA_BW_EXPERIMENT=1' in commands,'Bandwidth experiment profile binding')
         expected_experiment=dict(schedule=7 if slow else 5,arm_us=600000000 if slow else 240000000,one_arm_per_boot=True,common_grid_phase_us=400000,

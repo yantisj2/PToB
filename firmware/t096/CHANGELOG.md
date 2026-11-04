@@ -1,5 +1,25 @@
 # T096 changelog
 
+## 0.15.286 — matched fixed500 laboratory candidate
+
+An explicit slow-image experiment selects authenticated schedule8, one
+922.4MHz/SF11/BW500/CR4/8 PHY for112B META and24B/32B precision pairs,
+preamble12, explicit header and CRC. Precision remains30s and META300s;
+there is no DISC, off-grid META recovery or manual cap override. Exact
+reservations include10ms per packet under a90s rolling-hour engineering cap.
+The fixed mode uses continuous RX and authenticates packet kind before
+dispatch; all classes retain HeaderValid capture pending CRC/RxDone.
+META observation expiry is conservatively backdated by its full RF duration.
+Lost pairs can reacquire within a live context without a new hint. Ordinary
+schedule3 and bandwidth-screen5/7 configurations retain their own policies.
+
+The selected-BLE LoRa experimental copy retains the separately authorized
+fixed5s source margin; upstream BLE maps, source leases and scheduler are
+unchanged. This raw candidate applies zero endpoint-delay correction. Its
+clock remains uncalibrated until a separately frozen prior calibration and
+held-out independent PPS validation; no UTC,30s holdover, RF or range
+qualification is implied by source/native checks.
+
 ## 0.15.278 — finite laboratory bandwidth characterization
 
 An explicit passive-fast build option adds one default-OFF, nonrenewable240s

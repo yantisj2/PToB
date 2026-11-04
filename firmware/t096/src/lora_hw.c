@@ -404,7 +404,9 @@ static int mask_irq(bool tx) {
    * no SyncWordValid IRQ (that event is GFSK-only). */
   uint16_t flags = tx ? 0x201 : 0x272;
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+#ifndef R2_LORA_FIXED500_EXPERIMENT
   if(!tx&&passive_phy==R2_LORA_DTS)flags=0x262; /* DIO rises at physical RxDone. */
+#endif
 #endif
   uint8_t a[] = {flags >> 8, flags, flags >> 8, flags, 0, 0, 0, 0};
   return command(0x08, a, sizeof(a));
@@ -740,25 +742,39 @@ int r2_lora_hw_idle(void) {
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
 int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
   atomic_clear(&prepared_budget);
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  if((phy!=R2_LORA_DTS&&phy!=R2_LORA_FHSS)||channel>=64)return -EINVAL;
+#else
   if((phy!=R2_LORA_DTS&&phy!=R2_LORA_FHSS
 #ifdef R2_LORA_BW_EXPERIMENT
       &&phy!=R2_LORA_FHSS_BW500&&phy!=R2_LORA_FHSS_BW62_5&&phy!=R2_LORA_FHSS_BW125&&phy!=R2_LORA_FHSS_BW250
 #endif
       )||channel>=64||(phy==R2_LORA_DTS&&channel))return -EINVAL;
+#endif
   if(!atomic_get(&running)||atomic_get(&fault))return -ECANCELED;
   if(atomic_get(&phase)!=1||atomic_get(&dma_inflight)||atomic_get(&latched))return -EBUSY;
   /* SX1262 SetRfFrequency units=32MHz/2^25; round nearest. The regional
    * 64-channel raster is902.4MHz+400kHz*i; rendezvous is915MHz. */
-  uint64_t hz=phy==R2_LORA_DTS?UINT64_C(915000000):UINT64_C(902400000)+400000*channel;
+  uint64_t hz=
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+    UINT64_C(922400000);
+#else
+    phy==R2_LORA_DTS?UINT64_C(915000000):UINT64_C(902400000)+400000*channel;
+#endif
   uint32_t word=(uint32_t)((hz*(UINT64_C(1)<<25)+16000000)/32000000);
   uint8_t frequency[]={(uint8_t)(word>>24),(uint8_t)(word>>16),(uint8_t)(word>>8),(uint8_t)word};
-  const uint8_t mod[]={phy==R2_LORA_DTS?12:7,
+  const uint8_t mod[]={
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+    11,6,4,0};
+#else
+    phy==R2_LORA_DTS?12:7,
 #ifdef R2_LORA_BW_EXPERIMENT
     phy==R2_LORA_FHSS?10:phy==R2_LORA_FHSS_BW62_5?3:phy==R2_LORA_FHSS_BW125?4:phy==R2_LORA_FHSS_BW250?5:6,
 #else
     phy==R2_LORA_DTS?6:10,
 #endif
     2,0};
+#endif
   int rc=command(0x86,frequency,sizeof frequency);
   if(!rc)rc=command(0x8b,mod,sizeof mod);
   if(rc)return rc==-ECANCELED?rc:fail(rc);
@@ -769,6 +785,9 @@ uint32_t r2_lora_hw_budget_us(size_t n) {
   if (!n || n > R2_LORA_HW_BYTES)
     return 0;
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  return n==24?273168:n==32?305936:n==112?797456:0;
+#endif
   if(passive_phy==R2_LORA_DTS)return n==28?454416:n==112?1142544:0;
   if(passive_phy==R2_LORA_FHSS)return n==24?231951:n==32?268814:0;
 #ifdef R2_LORA_BW_EXPERIMENT
@@ -846,12 +865,16 @@ static int prepare_tx(const uint8_t *bytes,size_t n,uint32_t gen) {
   uint8_t modulation;
   if(!rc)rc=reg_read(0x0889,&modulation);
   if(!rc){
-#ifdef R2_LORA_BW_EXPERIMENT
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+    modulation&=(uint8_t)~4u;
+#elif defined(R2_LORA_BW_EXPERIMENT)
     if(passive_phy!=R2_LORA_DTS&&passive_phy!=R2_LORA_FHSS_BW500)modulation|=4u;
 #else
     if(passive_phy==R2_LORA_FHSS)modulation|=4u;
 #endif
+#ifndef R2_LORA_FIXED500_EXPERIMENT
     else modulation&=(uint8_t)~4u;
+#endif
     rc=reg_write(0x0889,modulation);
   }
 #endif
@@ -1061,13 +1084,23 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
       struct r2_capture current;
       if (edge.tick && r2_capture_now(&current) && current.epoch==edge.epoch &&
           current.tick>=edge.tick &&
-          current.tick-edge.tick <= (uint64_t)DIAGNOSTIC_CUTOFF_US*R2_CAPTURE_HZ/1000000u) return 0;
+          current.tick-edge.tick <= (uint64_t)
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+          800000u
+#else
+          DIAGNOSTIC_CUTOFF_US
+#endif
+          *R2_CAPTURE_HZ/1000000u) return 0;
       const uint8_t standby[]={0};
       rc=command(0x80,standby,sizeof standby);
       if(!rc){count(&counters.crc_bad);rc=-EBADMSG;}
     } else if (state == 2 && (
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+                flags==0x12
+#else
                 (passive_phy==R2_LORA_DTS?flags==2:flags==0x12)
+#endif
 #else
                 flags==0x12
 #endif

@@ -64,6 +64,9 @@ bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){.tick=now_us*16
 bool r2_capture_now_at(struct r2_capture *c,uint64_t *us){*us=now_us;return r2_capture_now(c);}
 int r2_lora_hw_start(uint32_t g,bool rx){fake_tx_capture_live=false;(void)g;assert(!rx);if(cancel_on==1){cancel_on=0;r2_lora_source_withdraw();return -ECANCELED;}return 0;}
 uint32_t r2_lora_hw_budget_us(size_t n){
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ return n==24?273168:n==32?305936:n==112?797456:0;
+#endif
 #ifdef R2_LORA_BW_EXPERIMENT
  if(tuning_phy==R2_LORA_FHSS_BW62_5)return n==24?157968:n==32?182544:0;
  if(tuning_phy==R2_LORA_FHSS_BW125)return n==24?83984:n==32?96272:0;

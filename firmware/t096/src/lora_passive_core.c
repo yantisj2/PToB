@@ -5,8 +5,13 @@
 #include <string.h>
 
 uint32_t lp_duration(unsigned k){
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ switch(k){case LP_META:return 797456;case LP_SYNC:return 273168;
+ case LP_FOLLOW:return 305936;default:return 0;}
+#else
  switch(k){case LP_DISC:return 454416;case LP_META:return 1142544;
  case LP_SYNC:return 231951;case LP_FOLLOW:return 268814;default:return 0;}
+#endif
 }
 static bool add(uint64_t a,uint64_t b,uint64_t *out){if(a>UINT64_MAX-b)return false;*out=a+b;return true;}
 static bool commit(struct lp_tx *t,const struct lp_checkpoint *s){
@@ -77,11 +82,24 @@ bool lp_tx_restore(struct lp_tx *t,const struct lp_checkpoint *s,lp_save_fn save
  return true;
 }
 static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *out,bool force_meta,bool manual,bool override){
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(manual||override)return false; /*No off-grid/cap-override META path.*/
+#endif
  if(!t||!out||!t->ready||t->durable.pending||now/LP_MINUTE_US<t->durable.minute||(!manual&&now<t->durable.next_slot_us&&!lp_tx_has_deferred(t))||
  now/1000>UINT32_MAX-4000||t->durable.slot==UINT32_MAX||t->durable.serial==UINT32_MAX)return false;
  if(manual&&(t->save||t->durable.owed||now>UINT64_MAX-LP_FRAME_END_US-1000000||
     now+LP_FRAME_END_US+1000000>t->durable.next_slot_us))return false;
  /* No catch-up: skip missed slots on the original phase and META distribution. */
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ uint64_t slot=t->durable.next_slot_us,skipped=(now-slot)/LP_BEAT_US;
+ if(skipped>UINT32_MAX-t->durable.slot)return false;
+ uint32_t index=t->durable.slot+(uint32_t)skipped;slot+=skipped*LP_BEAT_US;
+ if(now-slot>50000)return false;
+ unsigned control=index%LP_META_BEATS?0:LP_META;
+ if(force_meta&&control!=LP_META)return false;
+ struct lp_checkpoint s=t->durable;
+ s.slot=index+1;s.owed=0;s.next_slot_us=slot+LP_BEAT_US;s.schedule=LP_SCHEDULE;
+#else
  uint64_t slot=manual?now:t->durable.next_slot_us;
 #ifdef R2_LORA_PASSIVE_SLOW
  if(!manual&&t->durable.owed)slot=now;
@@ -117,6 +135,7 @@ static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *
  (void)force_meta;
  s.slot=index+1;s.next_slot_us=slot+LP_BEAT_US;
 #endif
+ #endif /*fixed or ordinary schedule*/
  if(control==LP_META)++s.serial;
  /* Check old debt at the EARLIEST possible new RF, before aging any bucket
   * at the proposed completion. Otherwise a minute boundary inside the slot
@@ -140,16 +159,28 @@ static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *
 #else
  uint64_t follow_at=slot+LP_SYNC_OFFSET_US+450000;
 #endif
- bool pair=!s.fh_disabled&&s.cursor<=UINT32_MAX-3&&a!=b&&
+ bool pair=!s.fh_disabled&&s.cursor<=UINT32_MAX-3&&
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ true;
+ (void)a;(void)b;(void)follow_at;
+#else
+ a!=b&&
  (!s.channel_end_ms[a]||sync_at>=(uint64_t)s.channel_end_ms[a]*1000+20000000)&&
  (!s.channel_end_ms[b]||follow_at>=(uint64_t)s.channel_end_ms[b]*1000+20000000);
+#endif
  uint32_t pair_cost=lp_duration(LP_SYNC)+lp_duration(LP_FOLLOW);
  if(pair&&!override)pair=pair_cost<=LP_CAP_US-old-cost;
 #ifdef R2_LORA_PASSIVE_SLOW
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ /* A scheduled META is independently useful when pair headroom is absent.
+  * Physical faults still inhibit the entire service; no off-grid retry. */
+ if(!pair&&(s.fh_disabled||control!=LP_META))return false;
+#else
  /* Do not burn META-only retries while the owed precision cannot fit.
   * A genuine latched FH fault still permits separately due META only. */
  if(!pair&&(!s.fh_disabled||control!=LP_META))return false;
  if(s.fh_disabled&&!(s.owed&LP_OWED_META))return false;
+#endif
 #endif
  if(pair){cost+=pair_cost;s.pending=1;}
  advance(&s,(slot+LP_FRAME_END_US)/LP_MINUTE_US);
@@ -179,7 +210,13 @@ bool lp_tx_reserve_utc(struct lp_tx *t,uint64_t now,struct lp_reservation *out,b
 #endif
 }
 bool lp_tx_reserve(struct lp_tx *t,uint64_t now,struct lp_reservation *out){return lp_tx_reserve_control(t,now,out,false);}
-bool lp_tx_has_deferred(const struct lp_tx *t){return t&&t->durable.owed;}
+bool lp_tx_has_deferred(const struct lp_tx *t){
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ (void)t;return false;
+#else
+ return t&&t->durable.owed;
+#endif
+}
 void lp_tx_control_complete(struct lp_tx *t){
  if(t)t->unlaunched=false;
 #ifdef R2_LORA_PASSIVE_SLOW
@@ -324,12 +361,21 @@ bool lp_rx_hint(struct lp_rx *r,const struct lp_packet *p,uint64_t end,uint64_t 
  r->hint=true;r->hint_cursor=p->cursor;r->hint_us=at;return true;
 }
 bool lp_rx_sync(struct lp_rx *r,uint32_t cursor,uint64_t tick,uint64_t epoch,uint64_t event,uint64_t now){
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ /* Continuous fixed-channel RX reacquires a lost pair without a hint.
+  * Authentication precedes this call; the existing META lease is not renewed. */
+ if(!r||!r->cached||!epoch||event>UINT64_MAX-LP_HOLD_US||cursor<r->highest||
+    (uint64_t)cursor-r->highest>32||now<event||now-event>LP_SYNC_PROCESS_US||now>=r->observed_deadline_us){
+  if(r)pending_clear(r);return false;
+ }
+#else
  uint64_t window=r&&r->prediction?LP_PREDICT_HEADER_WINDOW_US:LP_HEADER_WINDOW_US;
  if(!r||!r->cached||!r->hint||!epoch||event>UINT64_MAX-LP_HOLD_US||cursor!=r->hint_cursor||cursor<r->highest||
  event+window<r->hint_us||event>r->hint_us+window||now<event||now-event>LP_SYNC_PROCESS_US||now>=r->observed_deadline_us){
   if(r)pending_clear(r);
   return false;
  }
+#endif
  r->pending=true;r->hint=false;
 #ifdef R2_LORA_PASSIVE_SLOW
  r->prediction=false;

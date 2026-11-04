@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #pragma once
 #include <stdint.h>
+#if defined(R2_LORA_FIXED500_EXPERIMENT) && (!defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_PASSIVE_FAST))
+#error "Fixed500 requires slow without another experiment"
+#endif
 #if defined(R2_LORA_TX_DIAGNOSTIC) && (!defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW))
 #error "Diagnostic TX requires explicit passive fast only"
 #endif
@@ -34,7 +37,12 @@ static inline uint32_t lp_bw_packet_budget_us(uint32_t cursor,unsigned bytes){
 }
 #endif
 #ifdef R2_LORA_PASSIVE_SLOW
-#ifdef R2_LORA_BW_EXPERIMENT
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+#define LP_SCHEDULE 8u
+/* Initial raw characterization. A separately frozen prior calibration may
+ * replace zero before held-out validation; never learn this from live PPS. */
+#define LP_FIXED_EVENT_DELAY_NS UINT64_C(0)
+#elif defined(R2_LORA_BW_EXPERIMENT)
 #define LP_SCHEDULE 7u
 #else
 #define LP_SCHEDULE LP_SLOW
@@ -45,6 +53,10 @@ static inline uint32_t lp_bw_packet_budget_us(uint32_t cursor,unsigned bytes){
 #define LP_META_BEATS 10u
 #define LP_DISC_BEATS 4u
 #define LP_DISC_PHASE 1u
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+#undef LP_DISC_BEATS
+#define LP_DISC_BEATS 0u
+#endif
 #define LP_SYNC_OFFSET_US UINT64_C(7000000)
 #define LP_MAX_DELAY_10MS 700u
 #define LP_FRAME_END_US UINT64_C(15000000)
@@ -64,7 +76,11 @@ static inline uint32_t lp_bw_packet_budget_us(uint32_t cursor,unsigned bytes){
 #define LP_HOLD_US UINT64_C(120000000)
 #define LP_LEASE_US UINT64_C(420000000)
 #define LP_CAP_US UINT64_C(108000000)
-#ifdef R2_LORA_BW_EXPERIMENT
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+#undef LP_CAP_US
+#define LP_CAP_US UINT64_C(90000000)
+#define LP_PROFILE_NAME "RAM_FIXED500_30_300"
+#elif defined(R2_LORA_BW_EXPERIMENT)
 #define LP_PROFILE_NAME "RAM_BW_SWEEP_30"
 #else
 #define LP_PROFILE_NAME "RAM_30_120_300"

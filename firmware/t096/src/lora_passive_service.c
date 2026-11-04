@@ -55,7 +55,10 @@
 #else
 #define DIAGNOSTIC_JSON "false"
 #endif
-#ifdef R2_LORA_BW_EXPERIMENT
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+#define BW_EXPERIMENT_JSON "\"fixed500_experiment\":true,\"frequency_hz\":922400000,\"precision_sf\":11,\"coding_rate_denominator\":8,\"event_delay_ns\":0,"
+#define SOURCE_GRID_PHASE_NS UINT64_C(400000000)
+#elif defined(R2_LORA_BW_EXPERIMENT)
 #ifdef R2_LORA_PASSIVE_SLOW
 #define BW_EXPERIMENT_JSON "\"bw_experiment\":true,\"bw_rule\":\"FWD_REV_CURSOR_DIV2\",\"precision_sf\":7,\"common_grid_phase_us\":400000,\"bw_hz\":[41667,62500,125000,250000,500000],\"arm_phy\":[2,4,5,6,3],\"precision_channels\":[16,48],"
 #else
@@ -111,7 +114,7 @@ static struct {
  struct lp_rx rx;
 } role;
 static uint32_t map_version;
-#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
 #define LAB_SOURCE_HOLD_US UINT64_C(5000000)
 static struct {uint64_t original_until_tick,original_expires_ns;} lab_source;
 /* Experimental LoRa permission only. The BLE owner and its original source
@@ -339,7 +342,7 @@ void r2_lora_source_publish(const struct rc8_export *input){
  struct rc8_export m=*input;m.scope.emitter=factory;m.scope.emitter_boot=physical_boot;m.scope.stream=1;
  if(!m.valid||!m.authenticated||m.scope.scale!=RC8_UTC||
  (m.scope.kind!=RC8_OWN_GM&&m.scope.kind!=RC8_SELECTED_BLE)||rc8_scope_validate(&m.scope)){r2_lora_source_withdraw();return;}
-#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
  uint64_t original_until=m.until_tick,original_expires=m.expires_ns;
  if(!lab_hold_source(&m)){r2_lora_source_withdraw();return;}
 #endif
@@ -364,7 +367,7 @@ void r2_lora_source_publish(const struct rc8_export *input){
    * Invalidating a concurrent projection here only adds avoidable retries.
    * Real shortening and a newly pinned physical edge still fence readers. */
   if(shortened||was_pinned!=role.tx.pinned)++map_version;
-#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
   if(m.scope.kind==RC8_SELECTED_BLE){
    if(original_until<lab_source.original_until_tick)lab_source.original_until_tick=original_until;
    if(original_expires<lab_source.original_expires_ns)lab_source.original_expires_ns=original_expires;
@@ -408,7 +411,7 @@ void r2_lora_source_publish(const struct rc8_export *input){
  }
  if(!role.tx.pinned)role.tx.maps[1]=*last;
  *last=m;
-#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
  lab_source.original_until_tick=m.scope.kind==RC8_SELECTED_BLE?original_until:0;
  lab_source.original_expires_ns=m.scope.kind==RC8_SELECTED_BLE?original_expires:0;
 #endif
@@ -481,7 +484,7 @@ static enum source_result __attribute__((noinline)) source_now(uint64_t *phase_n
 #endif
 }
 int r2_lora_utc_request(uint64_t token,uint32_t delay_ms,bool override){
-#if !defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_TX_DIAGNOSTIC) || defined(R2_LORA_BW_EXPERIMENT)
+#if !defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_TX_DIAGNOSTIC) || defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT)
  (void)token;(void)delay_ms;(void)override;return -ENOTSUP;
 #else
  if(!token||delay_ms>10000)return -EINVAL;
@@ -604,6 +607,9 @@ static unsigned precision_phy(uint32_t cursor){
 #endif
 }
 static int tune(unsigned phy,unsigned channel,bool receive){
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ phy=R2_LORA_FHSS;channel=50;
+#endif
  if(owner.listening){int rc=r2_lora_hw_idle();if(rc)return rc;owner.listening=false;}
  int rc=r2_lora_hw_passive_configure(phy,channel);
  if(!rc){owner.phy=(uint8_t)phy;owner.channel=(uint8_t)channel;}
@@ -982,7 +988,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  uint64_t index=(uint64_t)t->durable.slot+skipped;
  if(!role.tx.context_ready&&index%LP_META_BEATS)skipped+=LP_META_BEATS-index%LP_META_BEATS;
  target+=skipped*LP_BEAT_US;
-#ifdef R2_LORA_PASSIVE_SLOW
+#if defined(R2_LORA_PASSIVE_SLOW) && !defined(R2_LORA_FIXED500_EXPERIMENT)
  target=t->durable.next_slot_us;
  if(owner.stage!=3&&(retry_at_us||lp_tx_has_deferred(t)||now>target+LP_LAUNCH_LATE_US)){
   if(!retry_at_us||now>retry_at_us+LP_LAUNCH_LATE_US)retry_at_us=now+PRECHARGE_LEAD_US;
@@ -990,7 +996,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  }
 #endif
  bool job_owned=owner.stage==3&&utc_running_token,over_cap=false;
-#ifdef R2_LORA_PASSIVE_SLOW
+#if defined(R2_LORA_PASSIVE_SLOW) && !defined(R2_LORA_FIXED500_EXPERIMENT)
  if(!owner.stage)job_owned=utc_plan(now,t,&target,&over_cap);
 #endif
 #ifdef R2_LORA_BW_EXPERIMENT
@@ -1167,8 +1173,12 @@ static int __attribute__((noinline)) receive_event(const struct r2_lora_hw_event
  audit_kind=p.kind;
 #endif
  inc(&owner.received[p.kind-1]);owner.rssi=h->rssi_half_dbm;owner.snr=h->snr_quarter_db;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(p.kind==LP_META){
+#else
  if(owner.phy==R2_LORA_DTS){
   if(p.kind!=LP_META&&p.kind!=LP_DISC)return 0;
+#endif
   uint32_t duration=lp_duration(p.kind)-10000;if(event<duration)return 0;
   uint64_t start=event-duration;
   if(p.kind==LP_META){
@@ -1182,8 +1192,10 @@ static int __attribute__((noinline)) receive_event(const struct r2_lora_hw_event
   if(p.kind==LP_META)r->observed_deadline_us=start+LP_LEASE_US;
   /* The processing bound uses captured RxDone. The observational lease is
    * shortened back to the original RF-start interval; no authority lease. */
+#ifndef R2_LORA_FIXED500_EXPERIMENT
   if(!lp_rx_hint(r,&p,event,now))inc(&owner.bad);
   owner.next_control_us=start+LP_BEAT_US;
+#endif
  }else if(p.kind==LP_SYNC){
   if(lp_rx_sync(r,p.cursor,h->tick,h->capture_epoch,event,now)){
    owner.listening=false;return tune(precision_phy(p.cursor),lp_channel(r->order,p.cursor+1),true);
@@ -1328,6 +1340,11 @@ static int __attribute__((noinline)) process_event(uint64_t now){
 
 static int receive_step(uint64_t now){
  struct lp_rx *r=&role.rx;lp_rx_expire(r,now);
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ /* All packet classes share one continuously armed physical channel. */
+ if(!owner.listening)return tune(R2_LORA_FHSS,50,true);
+ return 0;
+#else
 #ifdef R2_LORA_PASSIVE_SLOW
  /* A predicted FH hop must not steal DTS while the prior predicted control
   * can still finish and be processed. Fresh authenticated control clears
@@ -1353,6 +1370,7 @@ static int receive_step(uint64_t now){
  }
  if(owner.phy!=R2_LORA_DTS&&!r->pending&&!r->hint)return tune(R2_LORA_DTS,0,true);
  return 0;
+#endif
 }
 static bool fenced(void){k_spinlock_key_t key=k_spin_lock(&lock);bool value=stop_deadline!=0;k_spin_unlock(&lock,key);return value;}
 static void __attribute__((noinline)) service_step(void){
@@ -1453,7 +1471,7 @@ static int worker_priority(uint64_t now){
 }
 static void worker(void *a,void *b,void *c){(void)a;(void)b;(void)c;for(;;){service_step();k_thread_priority_set(&worker_thread,worker_priority(mono()));k_sleep(K_MSEC(2));}}
 void r2_lora_init(uint64_t f,uint64_t boot,uint64_t tx,const struct r2_group_config *g){
-#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
  memset(&lab_source,0,sizeof lab_source);
 #endif
  atomic_set(&observer_ready,0);map_version=0;memset(source_reads,0,sizeof source_reads);memset(sync_map,0,sizeof sync_map);
@@ -1588,11 +1606,11 @@ int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
 
 int r2_lora_json(char *out,size_t capacity,int result){
  struct lp_diagnostics d;struct r2_lora_view v;struct lp_audit audit[4]={0};uint64_t until;uint32_t reads[4],sync_stats[4],due[2][4]={{0}};
-#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
  uint64_t original_until,original_expires,held_until;
 #endif
  k_spinlock_key_t key=k_spin_lock(&lock);
-#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
  original_until=lab_source.original_until_tick;original_expires=lab_source.original_expires_ns;held_until=transmitter?role.tx.maps[0].until_tick:0;
 #endif
  d=diagnostics;v=published;memcpy(reads,source_reads,sizeof reads);memcpy(sync_stats,sync_map,sizeof sync_stats);
@@ -1643,7 +1661,7 @@ until=lab_until;
  "\"refused\":%u,\"late\":%u,\"missing_map\":%u,\"bad\":%u,\"sent\":[%u,%u,%u,%u],\"received\":[%u,%u,%u,%u],"
  "\"at_us\":%llu,\"tx_admission_us\":[%u,%d,%u,%u],\"tx_attempt\":[%u,%u,%u,%u,%u,%d,%d,%u,%u,%u,%u,%u],"
  "\"tx_source_max_us\":[%u,%u],\"tx_reject\":[%u,%u,%llu,%llu,%llu,%u,%u,%u,%u,%u,%u,%u,%u],\"no_rf_refunds\":%u,\"store_timing\":[%u,%u,%u,%u,%u],\"audit\":[[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u],[%llu,%llu,%llu,%llu,%u,%u,%u,%u]],"
-#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
  "\"lab_source_hold\":[%llu,%llu,%llu,%llu],"
 #endif
 #ifdef R2_LORA_BW_EXPERIMENT
@@ -1666,7 +1684,7 @@ until=lab_until;
 #define AUDIT_ARGS(i) (unsigned long long)audit[i].tick,(unsigned long long)audit[i].epoch,(unsigned long long)audit[i].start_us,(unsigned long long)audit[i].end_us,audit[i].cursor,audit[i].phy,audit[i].channel,audit[i].valid
  AUDIT_ARGS(0),AUDIT_ARGS(1),AUDIT_ARGS(2),AUDIT_ARGS(3),
 #undef AUDIT_ARGS
-#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)
+#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
  (unsigned long long)LAB_SOURCE_HOLD_US,(unsigned long long)original_until,(unsigned long long)original_expires,(unsigned long long)held_until,
 #endif
 #ifdef R2_LORA_BW_EXPERIMENT

@@ -142,6 +142,31 @@ hash and preserves a private build snapshot.
 
 ## Optional LoRa configuration
 
+The separately authorized `--lora-fixed500-experiment` requires
+`--lora-passive-slow` and matched normal GM/RC images. It selects experimental
+schedule8: one922.4MHz/SF11/BW500/CR4/8 PHY, preamble12, explicit header/CRC,
+30s SYNC/FOLLOW,300s META and no DISC. It boots requested ON; RX is continuous.
+It rejects other lab modes and manual UTC jobs/cap overrides. Reservations
+use actual packet costs plus10ms each under90s/h accounting; nominal steady
+traffic reserves79.061952s/h. Strict META slots stay on their original grid;
+source turnover waits for the next scheduled META and missed slots do not
+create catch-up bursts. A scheduled META may proceed without its pair if
+only META fits the remaining cap. Physical faults still inhibit the service.
+
+This is an experimental candidate, not the normal LoRa default or an RF
+authorization. All packets use HeaderValid capture confirmed by CRC/RxDone;
+META conservatively backdates its context observation lease by full airtime.
+The lab selected-BLE LoRa copy adds a fixed5s margin to original expiry;
+duplicate publications cannot renew it and upstream BLE leases are unchanged.
+Raw candidate endpoint delay is zero; independent PPS never trains its clock.
+Read the changelog and exact private deployment scope before hardware work.
+Run its actual owner/core/driver synthetic checks offline:
+
+```sh
+python3 firmware/t096/tools/lora_fixed500_tests.py \
+  --deps artifacts/deps --out artifacts/fixed500-check-01
+```
+
 Select `--lora-passive-slow` plus one exact `--lora-transmitter-factory` for the
 [current passive wire3 design](lora-protocol.md). Use the same designated binding
 on all devices. It identifies privately verified hardware, never selects a
