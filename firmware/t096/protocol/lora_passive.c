@@ -105,7 +105,7 @@ int lp_hop_order(uint8_t out[64],uint32_t seed){
  }
  return 0;
 }
-unsigned lp_channel(const uint8_t order[64],uint32_t cursor){
+unsigned lp_channel(const uint8_t *order,uint32_t cursor){
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  (void)order;(void)cursor;return 50u; /*922.4MHz, all packet classes.*/
 #elif defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_BW_EXPERIMENT)

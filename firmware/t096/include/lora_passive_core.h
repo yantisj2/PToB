@@ -15,7 +15,7 @@ struct lp_checkpoint {
 typedef bool (*lp_save_fn)(void *,const struct lp_checkpoint *);
 struct lp_tx {
  struct lp_checkpoint durable;
- uint8_t order[64];
+ uint8_t order[LP_ORDER_BYTES];
  lp_save_fn save;void *storage;
  uint64_t slot_us,sync_end_us;
  bool ready,pair,unlaunched,manual;uint8_t reserved_control;
@@ -24,6 +24,9 @@ struct lp_reservation {uint32_t cursor,serial;uint8_t control;bool has_pair;uint
 /* A physical boot starts clean. Repeated service/profile transitions must
  * retain this object rather than calling start again. NULL save means RAM. */
 bool lp_tx_start(struct lp_tx *,uint32_t seed,uint64_t now_us,uint64_t first_slot_us,uint32_t boot_ms);
+/* Explicit operator rearm after quiescent retirement only. Reset the fixed
+ * grid while preserving all debt, seed, cursor/serial floors and cooldowns. */
+bool lp_tx_rearm(struct lp_tx *,uint64_t now_us,uint64_t first_slot_us);
 #define LP_RETIRED_BOOTS 8u
 struct lp_replay {
  uint64_t boot,meta_ns,retired[LP_RETIRED_BOOTS];
@@ -83,11 +86,14 @@ struct lp_pair {uint64_t tick,tx_ns;};
 struct lp_rx {
  struct lp_scope scope;
  struct lp_pair fit[LP_FIT_CAPACITY];
- uint8_t context[16],order[64];
+ uint8_t context[16],order[LP_ORDER_BYTES];
  uint64_t meta_deadline_us,observed_deadline_us,tz_deadline_us,physical_deadline_us;
  uint64_t pending_tick,pending_epoch,pending_us,pending_deadline_us,last_us,last_tx_ns,last_tick;
  uint64_t hint_us,last_epoch,last_meta_ns;
  uint32_t serial,highest,pending_cursor,hint_cursor,accepted,rejected,missing;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ uint32_t meta_cursor; /* Fresh authenticated META floor; not a physical pair. */
+#endif
  uint32_t rms_ns;int32_t rate_ppb;
  /* Existing16 physical pairs fund sparse180/300s HOLD fits. No BLE samples,
   * GNSS witness, additional history or timing authority enters these fits. */

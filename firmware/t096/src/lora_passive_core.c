@@ -22,8 +22,21 @@ bool lp_tx_start(struct lp_tx *t,uint32_t seed,uint64_t now,uint64_t first,uint3
  if(!t||!seed||first<now||now/1000>UINT32_MAX||boot_ms>now/1000+1)return false;
  memset(t,0,sizeof *t);t->durable.seed=seed;t->durable.schedule=LP_SCHEDULE;
  t->durable.minute=now/LP_MINUTE_US;t->durable.next_slot_us=first;
+#ifndef R2_LORA_FIXED500_EXPERIMENT
  if(lp_hop_order(t->order,seed))return false;
+#endif
  t->ready=true;return true;
+}
+bool lp_tx_rearm(struct lp_tx *t,uint64_t now,uint64_t first){
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(!t||!t->ready||first<now||t->durable.pending||t->unlaunched||t->durable.fh_disabled||
+    t->durable.cursor>UINT32_MAX-2||t->durable.serial==UINT32_MAX)return false;
+ t->durable.next_slot_us=first;t->durable.slot=0;t->durable.owed=0;
+ t->slot_us=t->sync_end_us=0;t->pair=t->unlaunched=t->manual=false;t->reserved_control=0;
+ return true;
+#else
+ (void)t;(void)now;(void)first;return false;
+#endif
 }
 bool lp_replay_admit(const struct lp_replay *r,const struct lp_packet *p){
  if(!r||!p||p->kind!=LP_META||!p->scope.boot||!p->serial)return false;
@@ -76,7 +89,9 @@ bool lp_tx_restore(struct lp_tx *t,const struct lp_checkpoint *s,lp_save_fn save
  if(!save||!trusted||!checkpoint_valid(s))return false;
  t->durable=*s;t->save=save;t->storage=storage;
  if(t->durable.schedule!=LP_SCHEDULE){t->durable.schedule=LP_SCHEDULE;t->durable.owed=0;}
+#ifndef R2_LORA_FIXED500_EXPERIMENT
  if(lp_hop_order(t->order,s->seed))return false;
+#endif
  t->ready=true;
  if(s->pending){struct lp_checkpoint fault=*s;fault.fh_disabled=1;fault.pending=0;return commit(t,&fault);}
  return true;
@@ -338,8 +353,14 @@ bool lp_rx_meta(struct lp_rx *r,const struct lp_packet *p,const struct r2_group_
   false
 #endif
  );r->last_tick=r->last_tx_ns=r->last_epoch=0;r->highest=p->cursor;r->scope=p->scope;memcpy(r->context,context,16);
-  if(lp_hop_order(r->order,p->scope.seed))return false;}
+#ifndef R2_LORA_FIXED500_EXPERIMENT
+  if(lp_hop_order(r->order,p->scope.seed))return false;
+#endif
+ }
  r->cached=true;r->serial=p->serial;r->bounded=bounded;r->last_meta_ns=p->utc_ns;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ r->meta_cursor=p->cursor;
+#endif
  if(!add(event,LP_LEASE_US,&r->observed_deadline_us))return false;
  r->meta_deadline_us=r->tz_deadline_us=0;
  if(bounded){
@@ -365,7 +386,8 @@ bool lp_rx_sync(struct lp_rx *r,uint32_t cursor,uint64_t tick,uint64_t epoch,uin
  /* Continuous fixed-channel RX reacquires a lost pair without a hint.
   * Authentication precedes this call; the existing META lease is not renewed. */
  if(!r||!r->cached||!epoch||event>UINT64_MAX-LP_HOLD_US||cursor<r->highest||
-    (uint64_t)cursor-r->highest>32||now<event||now-event>LP_SYNC_PROCESS_US||now>=r->observed_deadline_us){
+    ((uint64_t)cursor-r->highest>32&&(cursor<r->meta_cursor||(uint64_t)cursor-r->meta_cursor>32))||
+    now<event||now-event>LP_SYNC_PROCESS_US||now>=r->observed_deadline_us){
   if(r)pending_clear(r);
   return false;
  }

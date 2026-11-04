@@ -33,4 +33,4 @@ int lp_encode(uint8_t *,size_t,const struct lp_packet *,const uint8_t context[16
 int lp_decode(struct lp_packet *,const uint8_t *,size_t,const uint8_t context[16],const struct r2_group_config *);
 /* Public SHA256 Fisher-Yates permutation; never derived from a PSK/mesh/boot. */
 int lp_hop_order(uint8_t out[64],uint32_t seed);
-unsigned lp_channel(const uint8_t order[64],uint32_t cursor);
+unsigned lp_channel(const uint8_t *order,uint32_t cursor);
