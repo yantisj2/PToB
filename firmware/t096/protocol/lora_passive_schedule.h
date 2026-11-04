@@ -157,6 +157,14 @@ static inline uint32_t lp_bw_packet_budget_us(uint32_t cursor,unsigned bytes){
 #endif
 #endif
 #endif
+/* Fixed500 META retains HeaderValid until CRC/RxDone. Its full physical
+ * packet airtime must not consume the original post-packet worker allowance.
+ * This is a processing limit only; the captured event and leases stay fixed. */
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+#define LP_META_PROCESS_US (LP_CONTROL_PROCESS_US+UINT64_C(787456))
+#else
+#define LP_META_PROCESS_US LP_CONTROL_PROCESS_US
+#endif
 /* Maximum normal SYNC-to-SYNC interval from two independent control/SYNC
  * start pads; holdover lifetime is deliberately not the cadence gate. */
 #define LP_CADENCE_BOUND_US (LP_BEAT_US+2*LP_LAUNCH_PAD_US+UINT64_C(10000))

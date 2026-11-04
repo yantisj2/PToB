@@ -328,7 +328,7 @@ static void withdraw(struct lp_rx *r,bool keep_display){
 }
 bool lp_rx_meta(struct lp_rx *r,const struct lp_packet *p,const struct r2_group_config *g,const struct lp_age *a,uint64_t event,uint64_t now){
  if(!r||!p||p->kind!=LP_META||!p->serial||event>UINT64_MAX-LP_LEASE_US||
- now<event||now-event>LP_CONTROL_PROCESS_US||p->schedule!=LP_SCHEDULE)return false;
+ now<event||now-event>LP_META_PROCESS_US||p->schedule!=LP_SCHEDULE)return false;
  uint8_t context[16];if(lp_context(context,&p->scope,p->schedule,g))return false;
  bool same=r->cached&&memcmp(context,r->context,16)==0;
  /* Within one physical boot the public seed/cursor cannot roll back.

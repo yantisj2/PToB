@@ -1275,8 +1275,9 @@ static int __attribute__((noinline)) receive_event(const struct r2_lora_hw_event
    lp_replay_commit(floor,&p);
   }
   if(p.kind==LP_META)r->observed_deadline_us=start+LP_LEASE_US;
-  /* The processing bound uses captured RxDone. The observational lease is
-   * shortened back to the original RF-start interval; no authority lease. */
+  /* Fixed500 retains HeaderValid through CRC/RxDone. The core includes the
+   * full META airtime in its processing allowance. This observation lease
+   * still backdates the original capture; processing cannot renew authority. */
 #ifndef R2_LORA_FIXED500_EXPERIMENT
   if(!lp_rx_hint(r,&p,event,now))inc(&owner.bad);
   owner.next_control_us=start+LP_BEAT_US;

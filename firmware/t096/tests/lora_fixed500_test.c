@@ -101,6 +101,32 @@ int main(int argc,char **argv){
   if(mode==5)assert(withdrew&&delayed&&!owner.late);
   puts("PASS actual staged owner fixedPHY/noDISC/strictMETA300 and unchangedBLE grants plus explicitLABhold");return 0;
  }
+ if(mode==10){
+  init(false);step();
+  struct lp_packet m={.kind=LP_META,.schedule=LP_SCHEDULE,.serial=4,.cursor=40,
+   .time_valid=true,.has_pair=true,.delay_10ms=600,.utc_ns=UINT64_C(1000000000000),.tz={0,INT16_MIN},
+   .scope={.emitter=1,.boot=2,.root=3,.root_boot=44,.parent=3,.parent_boot=44,
+    .epoch=5,.stream=1,.seed=17,.kind=2}};
+  rx(&m,10000000,10700000);assert(role.rx.cached);
+  role.rx.highest=58;role.rx.accepted=53;replay[0].cursor=60;
+  m.scope.root=1;m.scope.root_boot=2;m.scope.parent=m.scope.parent_boot=0;
+  m.scope.epoch=1;m.scope.stream=3;m.scope.kind=1;
+  m.serial=8;m.cursor=106;m.utc_ns+=UINT64_C(900000000000);
+  uint64_t header=1000000000;rx(&m,header,header+1025444);
+  assert(role.rx.scope.kind==1&&role.rx.scope.epoch==1&&role.rx.scope.root_boot==2&&role.rx.scope.stream==3);
+  assert(role.rx.serial==8&&role.rx.highest==106&&replay[0].serial==8);
+  assert(role.rx.observed_deadline_us==header-787456+LP_LEASE_US);
+  assert(!role.rx.bounded&&!role.rx.meta_deadline_us&&!role.rx.tz_deadline_us);
+  uint64_t deadline=role.rx.observed_deadline_us;rx(&m,header+2000000,header+2700000);
+  assert(role.rx.observed_deadline_us==deadline&&role.rx.accepted==53); /* Duplicate cannot renew. */
+  uint64_t event=header+5000000;
+  struct lp_packet sync={.kind=LP_SYNC,.schedule=LP_SCHEDULE,.cursor=106};rx(&sync,event,event+200000);
+  assert(role.rx.pending);
+  struct lp_packet follow={.kind=LP_FOLLOW,.schedule=LP_SCHEDULE,.cursor=106,.utc_ns=m.utc_ns+UINT64_C(5000000000)};
+  rx(&follow,event+2800000,event+3000000);
+  assert(role.rx.accepted==54&&!role.rx.trained&&role.rx.fit_count==1&&owner.listening);
+  puts("PASS actual HeaderValid META processing1.025444s/newrootepoch/cached replay and backdated lease; freshpair resumes");return 0;
+ }
  assert(mode==4||mode==8);init(false);step();assert(owner.listening&&tuning_phy==R2_LORA_FHSS&&tuning_channel==50);
  struct lp_packet m={.kind=LP_META,.schedule=LP_SCHEDULE,.serial=1,.time_valid=true,.has_pair=true,.delay_10ms=600,.utc_ns=UINT64_C(1000000000000),.tz={0,INT16_MIN},
   .scope={.emitter=1,.boot=2,.root=1,.root_boot=2,.epoch=1,.stream=1,.seed=17,.kind=1}};

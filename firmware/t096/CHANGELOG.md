@@ -1,5 +1,15 @@
 # T096 changelog
 
+## 0.15.289 — fixed500 META processing after HeaderValid
+
+Fixed500 META allows its787,456us full packet airtime in addition to the
+original1s processing budget. A valid packet processed1.025444s after its
+HeaderValid capture could previously fail before context admission, leaving
+receivers on an expired context through a source change. Other variants keep
+their existing processing limits. The original capture, backdated420s META
+observation lease, authentication, replay floors and precision timing stay
+unchanged. This changes receiver admission only; it adds no RF or source lease.
+
 ## 0.15.288 — stable LoRa fallback and bounded source recovery
 
 The fixed500 configuration preserves its trained LoRa watch through brief BLE

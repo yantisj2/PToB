@@ -66,6 +66,13 @@ carries a scheduling hint within an already learned context.
 | Per-boot rolling-hour engineering cap | 108 s | 1080 s |
 | Boot request | ON | OFF; explicit 15-minute session |
 
+The separately selected fixed500 schedule8 uses HeaderValid for META as well
+as precision packets. Its META processing limit is1,787,456us: full112B
+packet airtime787,456us plus the original1s worker allowance. Authentication
+and replay checks still precede admission, and its420s observation lease stays
+backdated from the original capture. The table's other variants retain their
+existing limits.
+
 Both variants use normal GM/RC images; DC/PC reject them. The short 4 s
 bootstrap guard is independent of cadence. A fresh boot chooses its first grid
 opportunity 200 ms after a source second, at least 2 s ahead for slow or 300 ms

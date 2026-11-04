@@ -157,6 +157,8 @@ only META fits the remaining cap. Physical faults still inhibit the service.
 This is an experimental candidate, not the normal LoRa default or an RF
 authorization. All packets use HeaderValid capture confirmed by CRC/RxDone;
 META conservatively backdates its context observation lease by full airtime.
+META processing allows its787,456us full RF airtime plus the original1s worker
+budget from HeaderValid; this does not move the capture or extend that lease.
 The lab selected-BLE LoRa copy adds a fixed5s margin to original expiry;
 duplicate publications cannot renew it and upstream BLE leases are unchanged.
 The endpoint correction defaults to zero. For a separately authorized calibrated
