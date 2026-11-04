@@ -206,7 +206,7 @@ static void utc_finish(unsigned state,unsigned reason){
  utc_retry_us=0;utc_running_token=0;k_spin_unlock(&lock,key);
 }
 #ifdef R2_LORA_PASSIVE_SLOW
-static uint64_t utc_due(void){
+static uint64_t __attribute__((unused)) utc_due(void){
  k_spinlock_key_t key=k_spin_lock(&lock);uint64_t due=UINT64_MAX;
  if(utc_job.state==UTC_PENDING){due=utc_job.due_us;if(utc_retry_us>due)due=utc_retry_us;}
  k_spin_unlock(&lock,key);return due;

@@ -366,7 +366,8 @@ bool lp_rx_sync(struct lp_rx *r,uint32_t cursor,uint64_t tick,uint64_t epoch,uin
   * Authentication precedes this call; the existing META lease is not renewed. */
  if(!r||!r->cached||!epoch||event>UINT64_MAX-LP_HOLD_US||cursor<r->highest||
     (uint64_t)cursor-r->highest>32||now<event||now-event>LP_SYNC_PROCESS_US||now>=r->observed_deadline_us){
-  if(r)pending_clear(r);return false;
+  if(r)pending_clear(r);
+  return false;
  }
 #else
  uint64_t window=r&&r->prediction?LP_PREDICT_HEADER_WINDOW_US:LP_HEADER_WINDOW_US;
