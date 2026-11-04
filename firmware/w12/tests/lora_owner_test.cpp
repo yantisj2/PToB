@@ -7,6 +7,7 @@
 #include <array>
 #include <cassert>
 #include <cstring>
+extern uint32_t test_irq;
 namespace fake {uint64_t us=1000000;std::array<int,50> gpio{};unsigned starts=0,ends=0,inputs=0,fine_reads=0,lora_reads=0;bool dma_fail=false,capture=false,cancel=false,capture_fail=false,clock_ok=true;spi_transaction_t* pending=nullptr;uint32_t gen=0;}
 int64_t esp_timer_get_time(){return int64_t(fake::us);}
 void vTaskDelay(TickType_t t){fake::us+=uint64_t(t)*1000;}
@@ -16,7 +17,7 @@ unsigned uxTaskGetStackHighWaterMark(TaskHandle_t){return 6144;}
 BaseType_t xTaskCreatePinnedToCore(void(*)(void*),const char*,uint32_t s,void*,unsigned p,TaskHandle_t* o,int c){assert(s==8192&&p==1&&c==1);*o=(void*)1;return pdPASS;}
 esp_err_t gpio_config(const gpio_config_t* c){assert(!(c->pin_bit_mask&((1ULL<<39)|(1ULL<<41)|(1ULL<<48)|(1ULL<<16))));return 0;}
 esp_err_t gpio_set_level(gpio_num_t p,int v){assert(p==3||p==4||p==8||p==12);fake::gpio[p]=v;return 0;}
-int gpio_get_level(gpio_num_t p){assert(p==14||p==13||p==12||p==8);return fake::gpio[p];}
+int gpio_get_level(gpio_num_t p){assert(p==14||p==13||p==12||p==8);return p==14?test_irq!=0:fake::gpio[p];}
 int gpio_set_direction(gpio_num_t p,int){assert(p==14||p==13||p==12||p==8);return 0;}
 esp_err_t spi_bus_initialize(int h,const spi_bus_config_t* c,int){assert(h==2&&c->sclk_io_num==9&&c->mosi_io_num==10&&c->miso_io_num==11);return 0;}
 esp_err_t spi_bus_add_device(int,const spi_device_interface_config_t*,spi_device_handle_t* o){*o=(void*)1;return 0;}
@@ -37,6 +38,8 @@ extern "C" void w12_rc8_snapshot(w12_lora_view* o,uint64_t n){*o={};o->sampled_u
 extern "C" void w12_test_packet(uint8_t*,unsigned,uint32_t,uint64_t);
 #endif
 #include "../main/w12_lora_radio.cpp"
+unsigned wired_edges=0;
+void irq(uint32_t flags){const bool high=gpio_get_level(14);test_irq|=flags;if(!high&&gpio_get_level(14)){++wired_edges;on_edge(fake::us*20);}}
 void step(bool locked,uint64_t advance=2000){fake::us+=advance;w12_lora_control(locked,fake::us,true);worker_step(true);}
 int main(int argc,char** argv){
  assert(argc==2&&configured_receiver());const auto mode=argv[1];
@@ -51,8 +54,8 @@ int main(int argc,char** argv){
   constexpr uint64_t base=1700000000000000000;
   auto packet=[&](unsigned kind,uint32_t cursor,uint64_t ns){
    w12_test_packet(test_packet,kind,cursor,ns);test_size=kind==2?112:kind==3?24:32;
-   on_edge(fake::us*20);test_irq=RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID;step(false);
-   fake::us+=kind==2?700000:100000;on_edge(fake::us*20);test_irq=RADIOLIB_LR2021_IRQ_RX_DONE;step(false);
+   irq(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID);step(false);assert(gpio_get_level(14)==1);
+   fake::us+=kind==2?700000:100000;const auto edges=wired_edges;irq(RADIOLIB_LR2021_IRQ_RX_DONE);assert(wired_edges==edges);step(false);
   };
   packet(2,0,base+fake::us*1000);
   for(unsigned i=0;i<9;++i){
@@ -63,7 +66,7 @@ int main(int argc,char** argv){
   assert(view.state==2&&view.trained&&view.model_valid&&view.accepted==9&&view.link_samples==9&&view.link_rms_ns<=1);
   assert(view.root==1&&view.emitter==1&&view.root_boot==22&&view.capture_epoch==1&&view.utc_us>0);
   assert(view.authority==0&&view.assurance==0&&view.created_ns==0&&view.expires_ns==0);
-  assert(!hardware.invalid_capture&&!hardware.crc_bad&&!hardware.spi_error&&!capture_drops);return 0;
+  assert(wired_edges==19&&!hardware.invalid_capture&&!hardware.crc_bad&&!hardware.spi_error&&!capture_drops);return 0;
  }
 #endif
  if(!std::strcmp(mode,"clock")){
@@ -73,11 +76,14 @@ int main(int argc,char** argv){
   // Keep the independent counter alive through six minutes of RF silence.
   for(unsigned i=0;i<3600;++i)step(false,100000);
   assert(fake::lora_reads>=before_reads+3600&&!fake::fine_reads&&owned.enabled);
-  on_edge(fake::us*20);test_irq=RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID;step(false);assert(fake::inputs==0&&header_pending);
-  const auto frozen=header_capture;fake::us+=200000;on_edge(fake::us*20);test_irq=RADIOLIB_LR2021_IRQ_RX_DONE;step(false);assert(fake::inputs==1&&header_capture==frozen&&!header_pending&&fake::lora_reads>0&&!fake::fine_reads);
-  on_edge(fake::us*20);test_irq=RADIOLIB_LR2021_IRQ_RX_DONE;step(false);assert(fake::inputs==1&&hardware.invalid_capture==1);
-  on_edge(fake::us*20);test_irq=RADIOLIB_LR2021_IRQ_CRC_ERROR;step(false);assert(hardware.crc_bad==1&&fake::inputs==1);
-  test_size=17;on_edge(fake::us*20);test_irq=RADIOLIB_LR2021_IRQ_RX_DONE;step(false);assert(hardware.malformed==1);
+  irq(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID);step(false);assert(fake::inputs==0&&header_pending&&gpio_get_level(14)==1);
+  const auto frozen=header_capture;fake::us+=200000;const auto edges=wired_edges;irq(RADIOLIB_LR2021_IRQ_RX_DONE);assert(wired_edges==edges);step(false);assert(fake::inputs==1&&header_capture==frozen&&!header_pending&&fake::lora_reads>0&&!fake::fine_reads);
+  irq(RADIOLIB_LR2021_IRQ_RX_DONE);step(false);assert(fake::inputs==1&&hardware.invalid_capture==1);
+  irq(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID);step(false);on_edge(fake::us*20+1);step(false);assert(hardware.invalid_capture==2&&!header_pending&&fake::inputs==1);
+  irq(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID);step(false);step(false,1000001);assert(hardware.invalid_capture==3&&!header_pending&&fake::inputs==1);
+  irq(RADIOLIB_LR2021_IRQ_CRC_ERROR);step(false);assert(hardware.crc_bad==1&&fake::inputs==1);
+  irq(RADIOLIB_LR2021_IRQ_LORA_HDR_CRC_ERROR);step(false);assert(hardware.crc_bad==2&&fake::inputs==1);
+  test_size=17;irq(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID|RADIOLIB_LR2021_IRQ_RX_DONE);step(false);assert(hardware.malformed==1&&!failed);
   for(unsigned i=0;i<1801;i++)step(true,100000);
   assert(owned.enabled&&!owner.drained()&&fake::capture);assert(w12_lora_mode(w12::LoRaMode::KeepOff));step(true);assert(!owned.enabled&&owner.drained()&&!fake::capture&&fake::gpio[4]==0);
  }else if(!std::strcmp(mode,"dma")){

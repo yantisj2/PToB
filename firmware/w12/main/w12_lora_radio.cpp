@@ -157,21 +157,27 @@ W12_STACK_FRAME int start(){
 W12_STACK_FRAME int receive(){
  uint64_t edge;uint32_t gen,serial;bool have;
  portENTER_CRITICAL(&mux);have=latched;edge=raw_capture;gen=raw_generation;serial=raw_serial;portEXIT_CRITICAL(&mux);
- if(!have){if(header_pending&&now()>=header_until){inc(hardware.invalid_capture);return rearm();}return 0;}
+ if(!have&&!header_pending)return 0;
+ if(header_pending&&now()>=header_until){inc(hardware.invalid_capture);return rearm();}
  hardware.stage=5;const uint32_t flags=radio.getIrqFlags();if(!hal.ready)return -EIO;
  if(flags&(RADIOLIB_LR2021_IRQ_CRC_ERROR|RADIOLIB_LR2021_IRQ_LORA_HDR_CRC_ERROR)){inc(hardware.crc_bad);return rearm();}
- if(flags&RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID){
-  if(header_pending){inc(hardware.invalid_capture);return rearm();}
+ if(have&&header_pending){inc(hardware.invalid_capture);return rearm();}
+ if((flags&RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID)&&!header_pending){
+  if(!have){inc(hardware.invalid_capture);return rearm();}
   header_capture=edge;header_generation=gen;header_serial=serial;header_until=now()+1000000;header_pending=true;
  }
  if(!(flags&RADIOLIB_LR2021_IRQ_RX_DONE)){
   if(!(flags&RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID))return -EIO;
-  const int rc=checked(radio.clearIrqFlags(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID));if(rc)return rc;
-  portENTER_CRITICAL(&mux);latched=gpio_get_level(Irq)!=0;portEXIT_CRITICAL(&mux);return 0;
+  // RadioLib requires the sticky valid-header flag when it reads the FIFO.
+  // Keep it asserted and poll completion; only the first edge is a timestamp.
+  portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);return 0;
  }
  inc(hardware.rx_done);const size_t size=radio.getPacketLength();if(!hal.ready)return -EIO;
  if(size!=112&&size!=24&&size!=32){inc(hardware.malformed);return rearm();}
- uint8_t wire[128];int rc=checked(radio.readData(wire,size));if(rc)return rc;
+ if(!header_pending){inc(hardware.invalid_capture);return rearm();}
+ uint8_t wire[128];int rc=checked(radio.readData(wire,size));
+ if(rc==RADIOLIB_ERR_CRC_MISMATCH||rc==RADIOLIB_ERR_LORA_HEADER_DAMAGED){inc(hardware.crc_bad);return rearm();}
+ if(rc)return rc;
  uint64_t tick=0;const uint64_t before=now();const bool readable=local(tick);const uint64_t after=now();
  edge=header_capture;gen=header_generation;serial=header_serial;
  if(!readable||!header_pending||tick<edge||tick-edge>20000000||gen!=core_generation||serial!=active_serial||after<before)inc(hardware.invalid_capture);

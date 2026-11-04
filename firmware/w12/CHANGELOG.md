@@ -1,5 +1,16 @@
 # W12 changelog
 
+## 0.2.37 — 2026-11-03
+
+Preserve LR2021 HeaderValid IRQ through FIFO completion as required by the
+pinned RadioLib payload reader. Poll RxDone while that sticky IRQ is high,
+retaining only the first physical capture. CRC/header rejection drops the packet
+and rearms reception; other transport/radio errors remain faults. The actual
+RadioLib header-valid precondition and real-HMAC owner regression cover this
+repair. Host discovery validation now recognizes the explicit new image
+contract without skipping holdover or calibration checks. No PHY, timing model,
+source-selection or RC9 wire change.
+
 ## 0.2.36 — 2026-11-03
 
 Prepare the LR2021 receiver for passive wire3/schedule8: fixed922.4MHz,

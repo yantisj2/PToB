@@ -4,6 +4,7 @@
 #include <cstddef>
 using RadioLibTime_t=uint32_t;
 constexpr uint32_t RADIOLIB_NC=0xffffffff;constexpr int RADIOLIB_ERR_NONE=0;
+constexpr int RADIOLIB_ERR_CRC_MISMATCH=-7,RADIOLIB_ERR_LORA_HEADER_DAMAGED=-24;
 constexpr uint32_t RADIOLIB_LR2021_IRQ_ALL=0xffffffff,RADIOLIB_LR2021_IRQ_CRC_ERROR=1u<<22,RADIOLIB_LR2021_IRQ_LORA_HDR_CRC_ERROR=1u<<9,RADIOLIB_LR2021_IRQ_RX_DONE=1u<<18,RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID=1u<<6;
 constexpr uint8_t RADIOLIB_LR2021_DIO_FUNCTION_RF_SWITCH=0x10,RADIOLIB_LR2021_DIO_SLEEP_PULL_UP=1,RADIOLIB_LR2021_DIO_SLEEP_PULL_AUTO=0;
 constexpr uint16_t RADIOLIB_LR2021_CMD_SET_DIO_FUNCTION=0x112,RADIOLIB_LR2021_CMD_SET_DIO_RF_SWITCH_CONFIG=0x113;
@@ -26,6 +27,6 @@ class LR2021 {Module* mod;public:unsigned irqDioNum=0;enum {MODE_RX=2};
  int begin(float f,float bw,int sf,int cr,int sync,int,int pre,float){test_freq=f;test_bw=bw;test_sf=sf;test_cr=cr;test_sync=sync;test_preamble=pre;test_irq_dio=irqDioNum;mod->hal->init();mod->hal->digitalWrite(12,1);return mod->SPIwriteStream(0x100,nullptr,0);}
  int setCRC(int){return 0;}int explicitHeader(){return 0;}int standby(){return 0;}
  int clearIrqFlags(uint32_t flags){test_irq&=~flags;return 0;}int startReceive(uint32_t timeout,uint32_t flags,uint32_t mask){if(timeout!=RADIOLIB_LR2021_RX_TIMEOUT_INF||flags!=RADIOLIB_IRQ_RX_DEFAULT_FLAGS||mask!=flags)return -1;test_irq_mask=mask;return mod->SPIwriteStream(0x20c,nullptr,0);}
- uint32_t getIrqFlags(){return test_irq;}size_t getPacketLength(){return test_size;}int readData(uint8_t* p,size_t n){for(size_t i=0;i<n;i++)p[i]=test_packet[i];return 0;}
+ uint32_t getIrqFlags(){return test_irq;}size_t getPacketLength(){return test_size;}int readData(uint8_t* p,size_t n){if(!(test_irq&RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID))return RADIOLIB_ERR_LORA_HEADER_DAMAGED;for(size_t i=0;i<n;i++)p[i]=test_packet[i];test_irq=0;return 0;}
  float getRSSI(){return -70;}float getSNR(){return 6;}
 };
