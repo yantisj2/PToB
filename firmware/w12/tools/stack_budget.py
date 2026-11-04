@@ -41,6 +41,7 @@ def measure(config,usage,gnss_usage=None,fast_map_usage=None):
  configured=int(configs[0]);frames={}
  lines=[line.split('\t') for line in usage.splitlines() if line.strip()]
  optional={'rc9_diagnostics':'void {anonymous}::rc9_status_frame(uint64_t, uint64_t)'} if '::rc9_status_frame(' in usage else {}
+ optional.update({'lora_diagnostics':'void {anonymous}::lora_status_frame(uint64_t, uint64_t)'} if '::lora_status_frame(' in usage else {})
  declarations={**DECLARATIONS,**optional,**(PPS_DECLARATIONS if gnss_usage is not None else {}),**(FAST_MAP_DECLARATIONS if fast_map_usage is not None else {})}
  if gnss_usage is not None:lines.extend(line.split('\t') for line in gnss_usage.splitlines() if line.strip())
  if fast_map_usage is not None:lines.extend(line.split('\t') for line in fast_map_usage.splitlines() if line.strip())
@@ -50,7 +51,7 @@ def measure(config,usage,gnss_usage=None,fast_map_usage=None):
   _,size,kind=matches[0]
   if kind!='static' or not re.fullmatch(r'[1-9]\d*',size):raise ValueError('Unbounded main-task frame: '+name)
   frames[name]=int(size)
- paths={name:{'frames':list(keys),'static_bytes':sum(frames[key] for key in keys)} for name,keys in {**PATHS,**({'rc9_diagnostics':('main','input','command','rc9_diagnostics')} if optional else {})}.items()}
+ paths={name:{'frames':list(keys),'static_bytes':sum(frames[key] for key in keys)} for name,keys in {**PATHS,**{name:('main','input','command',name) for name in optional}}.items()}
  if gnss_usage is not None:
   for name,keys in {'production_pps_snapshot':('main','production_pps_observe'),
                     'production_pps_callback':('main','gnss_poll','pps_callback','production_pps_score')}.items():

@@ -5,7 +5,13 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-Current version **0.2.35** preserves exact receive/estimator history while
+Current version **0.2.36** adds passive wire3/schedule8 LR2021 reception; the
+new source cannot feed the legacy RC9 server without an original signed source
+envelope. RC9 client behavior and wire1's12s contract remain unchanged. The
+shared passive codec/core and selected headers enter the immutable source and
+runtime manifests; normal builds need only this public repository.
+
+The existing storage policy preserves exact receive/estimator history while
 reducing fixed storage. GNSS profiles reserve the full 8192-byte host stack
 statically and check creation. Application watchdogs have a five-second minimum;
 fault/no-time restart intervals remain 120/300 seconds. All main-component

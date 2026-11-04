@@ -1,7 +1,15 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #pragma once
 #include <cstdint>
+#include "lora_view.h"
 namespace w12 {
+// RC9 wire1 still requires an original signed source envelope and its12s
+// physical hold. Passive schedule8 observations supply neither a substitute
+// source grant nor permission to invent created/expires or renew by polling.
+inline bool rc9_original_envelope(const w12_lora_view& l){
+ return l.edge_us&&l.until_us>l.edge_us&&l.until_us-l.edge_us<=12000000&&
+  l.event_ns&&l.created_ns<=l.event_ns&&l.event_ns<l.expires_ns;
+}
 struct Rc9SourceDecision {
  bool client_hold=false,select_rc8=false,display_rc8=false,admit_rc9=false,serve_rc9=false,allow_rc7=false;
 };

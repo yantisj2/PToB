@@ -9,3 +9,4 @@ void w12_lora_control(bool ble_locked,uint64_t sampled_us,bool allowed,
 bool w12_lora_mode(w12::LoRaMode);
 bool w12_lora_cycle();
 void w12_lora_snapshot(w12_lora_view&);
+void w12_lora_diagnostics(v12::ConsoleFrame&);

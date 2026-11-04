@@ -215,6 +215,23 @@ void pps(const gnss_pps::Observation& edge){
  v12::frame_submit_rc9(response);
 }
 #endif
+#ifdef PTOB_W12_LORA_RX
+[[gnu::noinline]] void lora_status_frame(uint64_t nonce,uint64_t begin){
+ const auto next=ticket.issue(begin);v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);
+ const auto mesh=v12::r2_status();
+ response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " fault=%u rc7_flags=%" PRIu32 " ble_lock=%u service_until=%" PRIu64 " corrected_until=%" PRIu64 " anchor_until=%" PRIu64 " forecast_ms=%" PRIu32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.fault),mesh.rc7_server_flags,unsigned(w12::ble_locked(mesh,micros())),mesh.service_until_us,mesh.g1_corrected_until_us,mesh.g1_anchor_deadline_us,mesh.g1_relative_quality.hold_ms(mesh.g1_relative_quality.evaluated20,mesh.g1_clock_model,UINT64_MAX));
+ response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready));
+ w12_lora_diagnostics(response);
+#ifdef R2_TZ_WIRE
+ response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND tz_id=%u tz_offset=%d tz_until=%" PRIu64 " tz_rx=%u tz_conflicts=%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),unsigned(mesh.tz.id),int(mesh.tz.offset_min),mesh.tz_until_us,unsigned(mesh.tz_received),unsigned(mesh.tz_conflicts));
+#else
+ response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline());
+#endif
+ response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
+ v12::frame_submit_rc9(response);
+}
+#endif
+
 [[gnu::noinline]] void status(uint64_t nonce,uint64_t begin){
   const uint64_t next=ticket.issue(begin);
   v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);const auto s=v12::transport_status();
@@ -650,6 +667,9 @@ void stop_all(){
     const bool ok=v12::r2_set_relay_only(!std::strcmp(action,"upstream relay"));
     last_command={nonce,admitted,ok,"UPSTREAM_MODE",ok?"AUTOMATIC_PARENT_ORIGINAL_2S_REBIND":"MODE_RESOURCE_OR_PENDING"};
   }
+#ifdef PTOB_W12_LORA_RX
+  else if(!std::strcmp(action,"lora diag")){last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};lora_status_frame(nonce,admitted);return;}
+#endif
 #ifdef PTOB_RC9
   else if(!std::strcmp(action,"rc9 diag")){
    last_command={nonce,admitted,true,"RC9_DIAG","READ_ONLY_CRC_SNAPSHOT"};rc9_status_frame(nonce,admitted);return;

@@ -26,7 +26,7 @@ instructions. [Image provenance](../../docs/images/README.md).*
 | Holdover | BLE-only causal rate consensus and continuous entry/return. Local HOLD estimates do not extend authenticated source or relay permission. |
 | Shadow diagnostics | **48** offset frozen clocks plus long probes; sampled P99 sub-1 µs duration. Temperature learning stays shadow-only. |
 | Time zone | Front clock follows fresh GM time-zone/DST metadata, then falls back to UTC. LoRa/RC9 and timing diagnostics retain UTC. |
-| Optional LoRa | Explicit LR2021 passive RC8 receiver; independent clock and separate RC9 functional UTC service with unknown bounds. Disabled by default. |
+| Optional LoRa | Explicit LR2021 passive wire3/schedule8 receiver at922.4MHz, SF11/BW500/CR4/8. Independent clock with unknown bounds. Disabled by default. |
 | Optional GNSS | Explicit L76K indicator/PPS-shadow profile with verified RX39/PPS41 wiring. Disabled by default; it does not train the normal BLE clock or make W12 a GM. |
 | Host interface | Diagnostic console; no T096-compatible USB timing stream. Wi-Fi and PTS are disabled. |
 
@@ -74,6 +74,16 @@ accuracy. **P99 hold seconds** describes the supported duration at a sampled
 absolute-error threshold of **1 µs**, with populations, failures and coverage
 limits. `>=` is a lower bound; `--` means insufficient or stale evidence.
 Witness gaps remain unmeasured, and overlapping trials are correlated.
+
+LoRa AUTO/KEEP ON receive continuously to retain fresh authenticated metadata
+and a separate trained timing model. LoRa fit RMS describes internal consistency,
+not calibrated UTC error. The LR2021 hardware HeaderValid event uses W12's
+independent LoRa counter extension; BLE calibration and GNSS resources stay separate.
+The engineering99.328ms symbol-delay prior leaves the LR2021 endpoint unknown.
+The passive source has no original signed created/expires envelope, so its
+legacy RC9 wire1 server bridge is gated. RC9 client reception and valid legacy
+source-envelope behavior retain their original12s contract. A future passive
+bridge needs its own reviewed protocol; no source envelope or lease is synthesized.
 
 Local HOLD preserves a BLE-trained estimate while ordinary source permission
 expires independently. Temperature experiments never steer production HOLD.

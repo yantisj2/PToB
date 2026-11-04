@@ -15,8 +15,14 @@ uint8_t rc9_server_flags(){
 w12::Rc9SourceDecision rc9_server_source(uint64_t now){
  w12_lora_view l;w12_lora_snapshot(l);now=micros();uint64_t utc=0;
  const bool permit=full_listening()&&!closing&&!fault&&!stop_pending&&l.mode!=uint8_t(w12::LoRaMode::KeepOff)&&!l.fault;
- return w12::rc9_source(relay_parent_locked(now),w12::lora_time(l,now,utc),l.active&&l.requested,
+ auto source=w12::rc9_source(relay_parent_locked(now),w12::lora_time(l,now,utc),l.active&&l.requested,
    rc9_server_demand_until(),now,permit);
+ if(!w12::rc9_original_envelope(l)){
+  source.admit_rc9=source.serve_rc9=false;
+  source.select_rc8=source.client_hold; // Existing children can withdraw/drain.
+  source.allow_rc7=relay_parent_locked(now)&&!source.select_rc8;
+ }
+ return source;
 }
 bool rc9_server_selected(uint64_t now){return rc9_server_source(now).select_rc8;}
 bool rc9_cap_update(uint64_t now){
@@ -58,7 +64,7 @@ bool rc9_make_time(uint64_t now,uint8_t wire[190]){
  if(rc9_publication==UINT32_MAX){fault=true;return false;}
  w12_lora_view l;w12_lora_snapshot(l);now=micros();uint64_t utc=0;rc9::Time p;
  p.sender=provision.identity;p.sender_boot=boot_id;p.publication=rc9_publication+1;p.sampled_us=now;
- p.valid=w12::lora_time(l,now,utc);
+ p.valid=w12::lora_time(l,now,utc)&&w12::rc9_original_envelope(l);
  if(p.valid){
   p.edge_us=l.edge_us;p.until_us=l.until_us;p.event_ns=l.event_ns;p.root=l.root;p.root_boot=l.root_boot;
   p.emitter=l.emitter;p.emitter_boot=l.emitter_boot;p.stream=l.stream;p.created_ns=l.created_ns;p.expires_ns=l.expires_ns;

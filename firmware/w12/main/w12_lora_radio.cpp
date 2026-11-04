@@ -35,7 +35,8 @@ uint64_t rc9_client_until=0,rc9_source_until=0;
 uint64_t rc9_hold_observed_until=0;
 uint32_t cancel_serial=0,active_serial=0,core_generation=0;
 uint64_t raw_capture=0;uint32_t raw_generation=0,raw_serial=0;
-uint64_t capture_epoch=0;
+uint64_t capture_epoch=0,header_capture=0,header_until=0;
+uint32_t header_generation=0,header_serial=0;bool header_pending=false;
 bool ble_lock_observed=false;
 uint8_t requested_mode=0;bool mode_pending=false,cycle_pending=false,ble_locked=false,allowed=false;
 bool resources=false,capture_active=false,inflight=false,latched=false,failed=false;
@@ -120,15 +121,16 @@ int capture_start(){
 void capture_stop(){
  portENTER_CRITICAL(&mux);capture_active=false;portEXIT_CRITICAL(&mux);
  if(w12_fine_lora_stop())edge_enabled=false;else fault(-EIO);
+ header_pending=false;
  portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);
 }
 int checked(int16_t rc){if(cancelled())return -ECANCELED;return rc==RADIOLIB_ERR_NONE&&hal.ready?0:(hal.ready?int(rc):-EIO);}
 int rearm(){
  hardware.stage=7;int rc=checked(radio.standby());if(rc)return rc;
  rc=checked(radio.clearIrqFlags(RADIOLIB_LR2021_IRQ_ALL));if(rc)return rc;
- portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);
+ header_pending=false;portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);
  if(gpio_get_level(Irq))return -EIO;
- return checked(radio.startReceive());
+ return checked(radio.startReceive(RADIOLIB_LR2021_RX_TIMEOUT_INF,RADIOLIB_IRQ_RX_DEFAULT_FLAGS,RADIOLIB_IRQ_RX_DEFAULT_FLAGS));
 }
 W12_STACK_FRAME int start(){
  hardware.stage=1;hal.init();if(cancelled())return -ECANCELED;if(!hal.ready)return -EIO;
@@ -138,8 +140,8 @@ W12_STACK_FRAME int start(){
  // GC1109 rail settling, with cancellation observed on every10ms interval.
  for(unsigned i=0;i<10;++i){if(cancelled())return -ECANCELED;vTaskDelay(pdMS_TO_TICKS(10));}
  module.spiConfig.timeout=30;radio.irqDioNum=w12::lora_board::IrqDio;
- // Same T096 RC8 wire3 modem; XTAL0V, explicit header, CRC2, private sync0x12.
- int rc=checked(radio.begin(915.0f,500.0f,10,6,0x12,10,12,0.0f));
+ // Same passive wire3/schedule8 PHY; W12 XTAL0V, explicit header, CRC2, private sync0x12.
+ int rc=checked(radio.begin(922.4f,500.0f,11,8,0x12,10,12,0.0f));
  // RadioLib's table convenience API discards status. Check every DIO command.
  for(const uint8_t dio:w12::lora_board::SwitchDios){
   const uint8_t function[]={dio,uint8_t(RADIOLIB_LR2021_DIO_FUNCTION_RF_SWITCH|(dio==5?RADIOLIB_LR2021_DIO_SLEEP_PULL_UP:RADIOLIB_LR2021_DIO_SLEEP_PULL_AUTO))};
@@ -155,15 +157,24 @@ W12_STACK_FRAME int start(){
 W12_STACK_FRAME int receive(){
  uint64_t edge;uint32_t gen,serial;bool have;
  portENTER_CRITICAL(&mux);have=latched;edge=raw_capture;gen=raw_generation;serial=raw_serial;portEXIT_CRITICAL(&mux);
- if(!have)return 0;
+ if(!have){if(header_pending&&now()>=header_until){inc(hardware.invalid_capture);return rearm();}return 0;}
  hardware.stage=5;const uint32_t flags=radio.getIrqFlags();if(!hal.ready)return -EIO;
  if(flags&(RADIOLIB_LR2021_IRQ_CRC_ERROR|RADIOLIB_LR2021_IRQ_LORA_HDR_CRC_ERROR)){inc(hardware.crc_bad);return rearm();}
- if(!(flags&RADIOLIB_LR2021_IRQ_RX_DONE))return -EIO;
+ if(flags&RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID){
+  if(header_pending){inc(hardware.invalid_capture);return rearm();}
+  header_capture=edge;header_generation=gen;header_serial=serial;header_until=now()+1000000;header_pending=true;
+ }
+ if(!(flags&RADIOLIB_LR2021_IRQ_RX_DONE)){
+  if(!(flags&RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID))return -EIO;
+  const int rc=checked(radio.clearIrqFlags(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID));if(rc)return rc;
+  portENTER_CRITICAL(&mux);latched=gpio_get_level(Irq)!=0;portEXIT_CRITICAL(&mux);return 0;
+ }
  inc(hardware.rx_done);const size_t size=radio.getPacketLength();if(!hal.ready)return -EIO;
- if(size!=80&&size!=128){inc(hardware.malformed);return rearm();}
+ if(size!=112&&size!=24&&size!=32){inc(hardware.malformed);return rearm();}
  uint8_t wire[128];int rc=checked(radio.readData(wire,size));if(rc)return rc;
  uint64_t tick=0;const uint64_t before=now();const bool readable=local(tick);const uint64_t after=now();
- if(!readable||tick<edge||tick-edge>5000000||gen!=core_generation||serial!=active_serial||after<before)inc(hardware.invalid_capture);
+ edge=header_capture;gen=header_generation;serial=header_serial;
+ if(!readable||!header_pending||tick<edge||tick-edge>20000000||gen!=core_generation||serial!=active_serial||after<before)inc(hardware.invalid_capture);
  else{
   const uint64_t age=(tick-edge+19)/20,mid=before+(after-before)/2;
   if(age>mid||edge>UINT64_MAX/4)inc(hardware.invalid_capture);
@@ -207,7 +218,7 @@ W12_STACK_FRAME void worker_step(bool configured){
   if(owned.enabled&&!want){reset_radio();owned.enabled=false;}
   // Extend CH1's independent counter even during packet silence/wraps. A lost
   // counter cannot fall back to BLE coordinates or invent a capture timestamp.
-  if(owned.enabled){uint64_t tick=0;const int rc=local(tick)?receive():-EIO;if(rc){if(rc!=-ECANCELED)fault(rc);reset_radio();owned.enabled=false;}}
+  if(owned.enabled){uint64_t tick=0;const bool readable=local(tick)&&tick<=UINT64_MAX/4;if(readable)w12_rc8_clock(tick*4/5,capture_epoch,now());const int rc=readable?receive():-EIO;if(rc){if(rc!=-ECANCELED)fault(rc);reset_radio();owned.enabled=false;}}
   if(!owned.enabled){
    if(capture_active||edge_enabled)capture_stop();
    if(core_generation){(void)w12_rc8_switch(false);portENTER_CRITICAL(&mux);core_generation=0;portEXIT_CRITICAL(&mux);}

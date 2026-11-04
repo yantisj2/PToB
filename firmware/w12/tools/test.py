@@ -21,10 +21,10 @@ AREAS = {
     'host': ['host_task_tests'],
     'watchdog': ['sync_watchdog_tests'],
     'display': ['shadow_holdover_tests', 'display_timing_tests', 'dual_display_tests'],
-    'console': ['rc9_console_tests'],
+    'console': ['rc9_console_tests', 'lora_console_tests'],
     'core': ['g1_host_tests', 'fine_tests', 'shadow_holdover_tests', 'host_task_tests', 'sync_watchdog_tests', 'power_tests'],
 }
-FULL = AREAS['core'] + ['rc7_permission_e2e', 'lora_tests', 'rc9_tests', 'rc9_native_tests', 'rc9_console_tests', 'display_timing_tests', 'dual_display_tests', 'time_zone_tests']
+FULL = AREAS['core'] + ['rc7_permission_e2e', 'lora_tests', 'rc9_tests', 'rc9_native_tests', 'rc9_console_tests', 'lora_console_tests', 'display_timing_tests', 'dual_display_tests', 'time_zone_tests']
 
 
 def select(paths):
@@ -33,6 +33,8 @@ def select(paths):
         p = Path(name)
         if p.suffix == '.md':
             continue
+        if name.startswith('firmware/t096/') and p.name in ('lora_passive.c','lora_passive.h','lora_passive_schedule.h','group_auth.h','time_zone.h','lora_passive_core.h','lora_passive_core.c','holdover.h','rc_boundary.h','precision_servo.h'):
+            return FULL
         if name.startswith(('registry/', 'protocol/', 'tools/')):
             return FULL
         if not name.startswith('firmware/w12/'):
@@ -133,7 +135,7 @@ def main():
                 args += ['--objects', out / 'g1_host_tests']
                 if suite == 'time_zone_tests':
                     shutil.copyfile(out / 'g1_host_tests/precision-priority/gm7_codec.o', out / 'g1_host_tests/gm7_codec.o')
-            if suite in ('rc7_permission_e2e', 'rc9_console_tests', 'rc9_native_tests'):
+            if suite in ('rc7_permission_e2e', 'rc9_console_tests', 'lora_console_tests', 'rc9_native_tests'):
                 args += ['--tz']
             run(suite, args)
         result['status'] = 'PASS'

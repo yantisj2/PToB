@@ -1,5 +1,17 @@
 # W12 changelog
 
+## 0.2.36 — 2026-11-03
+
+Prepare the LR2021 receiver for passive wire3/schedule8: fixed922.4MHz,
+SF11/BW500/CR4/8, hardware HeaderValid retained through RxDone, fresh authenticated
+META and an independent sparse clock model. AUTO/KEEP ON keep reception warm;
+KEEP OFF retains the existing owner/capture/DMA drain. BLE/fine calibration,
+GNSS routes, RC9 client and existing valid legacy source envelopes are unchanged.
+The new passive source cannot feed the legacy RC9 wire1 server without its
+original signed created/expires envelope. That bridge is gated; no source grant,
+origin or12s lease is invented. Internal fit and engineering endpoint prior
+remain unqualified. Native images and host tests are offline preparation only.
+
 ## 0.2.35 — focused offline iteration and profile stack evidence
 
 - Reduce the repeated G1 lifecycle matrix from 251 executions to 54, retaining
