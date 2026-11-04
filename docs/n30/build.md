@@ -28,10 +28,12 @@ and fine-clock owner. AUTO starts LoRa RX immediately while parked, without
 changing explicit KEEP ON/KEEP OFF choices. BLE and RC9 time and cached BLE
 pixels become ineligible; missing LoRa time cannot arm the no-time restart
 timer. Actual fault/maintenance fences remain. BLE RX ON uses the existing
-fresh client-admission API and ordinary 180 s AUTO recovery; old timing authority
+fresh client-admission API and the30s continuous qualified BLE clock-selection
+dwell; old timing authority
 cannot resume. Menu LoRa OFF/ON requests explicit volatile
-KEEP OFF/KEEP ON; the original 180 s AUTO acquisition/recovery behavior remains
-available through `lora auto` and is restored at boot. No LoRa TX mode exists.
+KEEP OFF/KEEP ON. AUTO and KEEP ON receive continuously, including while BLE
+is selected; `lora auto` restores AUTO, which is also selected at boot. No LoRa
+TX mode exists.
 
 Run input, shutdown and display ownership checks offline:
 
@@ -290,115 +292,68 @@ maximum routine UTC-slot render-start lateness, excluding forced navigation;
 I2C transfer and panel scanout still add latency. No physical PPS output or
 independently measured display-edge/UTC accuracy is established.
 
-## Version 0.2.3 passive LoRa receiver
+## Passive LoRa wire3 / schedule8 receiver
 
-Add `--lora-transmitter-factory "$VERIFIED_T096_LORA_FACTORY"` to either build
-command only with the exact existing T096 transmitter identity in the shared
-registry. The default all-zero value disables LoRa hardware. This identity is a
-private build input, not a label inferred from a board alias. The generated
-`n30_lora_config.h` and its hash bind the sole transmitter and shared enrollment
-into the runtime build ID. It adds no NVS enrollment or mode writes.
+Add `--lora-transmitter-factory "$VERIFIED_T096_LORA_FACTORY"` only with the
+exact independently verified T096 transmitter identity in the shared registry.
+The default zero disables LoRa hardware. Keep this private source binding and
+shared trust enrollment separate from authenticated runtime mesh discovery.
+The generated configuration and hash bind them into the runtime build ID.
+There are no NVS enrollment or mode writes.
 
-The fixed candidate Heltec V3 route uses SPI2 SCK9/MOSI10/MISO11/NSS8,
-reset12, BUSY13, DIO1 14, DIO2 RF switch and DIO3 1.8V TCXO. Modem settings match
-the T096 parent:915MHz, SF10, BW500kHz, CR4/6, preamble12, explicit header,
-CRC, private sync0x1424. See the [selected public-source and board references](../../firmware/n30/imports/2026-10-20-lora.json).
-These published routes are candidate wiring, not evidence of actual reception.
-No user pin or transmit override exists.
+The Heltec V3 route uses SPI2 SCK9/MOSI10/MISO11/NSS8, reset12, BUSY13, DIO1 14,
+DIO2 RF switch and DIO3 1.8V TCXO. All packet classes use 922.4 MHz, SF11,
+BW500 kHz, CR4/8, preamble 12, explicit header and CRC, with sync word 0x1424.
+Match the T096 passive wire version 3 **schedule 8**: META 112 bytes every 300 s;
+SYNC 24 bytes followed by FOLLOW 32 bytes every 30 s; no DISC packets. Sizes include
+MAC16. Older schedule 3/5/7 packets are rejected. There is no TX, ACK or ranging.
+[Board/source references](../../firmware/n30/imports/2026-10-20-lora.json).
 
-A separate low-priority core1 radio worker owns SPI and the actual MCPWM DIO1
-capture. An asynchronous software-capture bracket relates its80MHz counter to
-the existing20MHz timing counter, then converts to the RC8 policy's16MHz scale.
-The ISR only freezes/wakes; ISR arrival time is never substituted for the edge.
-This shares a pure CounterMap helper, with no GNSS driver or input. BLE remains
-on core0 and the display keeps its existing cadence. Captured enclosure is a
-software mapping diagnostic; RF/board latency and physical bias remain unknown.
+A low-priority core1 worker owns SPI and MCPWM0 hardware DIO1 capture.
+HeaderValid freezes the precision edge; the subsequent RxDone freezes the
+payload without replacing that timestamp. Software brackets map the 80 MHz
+capture counter to the independent 20 MHz XTAL reference and explicitly convert
+it to the shared core's 16 MHz coordinate, retaining capture epochs and enclosure
+uncertainty. ISR arrival time is never used as a physical timestamp. BLE remains
+on core0 and keeps its existing model and fine calibration.
 
-AUTO waits180s without live BLE relative lock before RX, then requires180s
-continuous BLE lock before stopping. Main-page upstream reception mode and RF
-help/blank gestures remain unchanged. Third-page1.5s hold selects the opposite
-AUTO radio state. FromKEEP_ON a hold selectsKEEP_OFF; fromKEEP_OFF it restoresAUTO. Overrides are volatile. BLE regains display preference only while its settled relative lock is valid.
-A marginal or pending BLE model cannot replace available LoRa time. LoRa is display fallback
-only, with no BLE clock writes, precision training, downstream authority or TX.
+The N30 model adds an **unverified 99.328 ms engineering symbol delay** to the
+transmitter event before fitting: `(12 + 4.25 + 8) * 2^11 / 500000` seconds.
+This model does not establish the transmitter BUSY-to-RF delay, N30 board/capture
+pipeline bias or calibrated UTC/output accuracy. Do not reuse another board's
+bench calibration. Internal fit RMS is relative consistency only. This no-GNSS
+target supplies no independent event-age interval; source freshness and absolute
+uncertainty remain UNKNOWN, with no downstream timing authority.
 
-Ticket/nonce/boot/factory-bound `lora on`, `lora off`, `lora auto` control this
-RX-only mode. `lora diag` returns an alternate ten-row CRC snapshot containing
-full original identities/context/event/envelope, diagnostic companion quality,
-logical RX/replay/fit counters, physical IRQ/CRC/SPI/capture counters, generation,
-stop acknowledgement and policy state. Select `n30_ui_revision=3` and
-`n30_frame_kind="LORA"` in the parser manifest for that response. Normal status
-keeps its original ten rows/8704bytes/1.5s response bound. Maintenance consumes
-queued gestures and inhibits mode changes; an OFF acknowledgement requires SPI
-retirement, capture release and reset assertion. A stalled DMA retains its
-buffers and refuses both acknowledgement and reuse. No durable fault journal
-is claimed; current software fault/context information is volatile.
+Fresh authenticated META admits the complete context and cursor floor without
+inventing a physical pair. Real matching SYNC/FOLLOW observations train the
+independent map; META, boot, stream, replay, counter incarnation, pending-pair
+and original expiry fences remain. Continuous AUTO/KEEP ON reception keeps the
+context and fit warm while BLE is selected. KEEP OFF is honored. Once LoRa
+supplies the actual displayed clock, BLE must remain fresh, authorized and
+settled for 30 continuous seconds in unchanged admitted scope before taking over.
+Loss, expiry, refusal, snapshot gaps and context changes reset that dwell.
+LoRa never trains the BLE model, grants relay/GM/USB authority or transmits.
 
-In addition to the ordinary host suite, test the actual T096 portable codec,
-HMAC interoperability, replay/context/expiry rules and fit oracle with:
+Ticket/nonce/boot/factory-bound `lora on`, `lora off`, `lora auto` and `lora diag`
+retain the ten-row CRC framing and original response bounds. Diagnostics report
+the schedule, PHY, engineering model, physical capture enclosure and unknown
+bounds. OFF acknowledgement requires SPI retirement, capture release and reset
+assertion; stalled DMA retains its buffers and refuses acknowledgement/reuse.
 
 ```sh
 python3 firmware/n30/tools/lora_tests.py --idf "$IDF_PATH" \
   --out artifacts/n30-lora-tests
 ```
 
-This uses the public pinned SDK's TinyCrypt sources, synthetic enrollment and
-no device. The ordinary suite includes production SX1262-owner peripheral
-fakes, exact180s boundaries, cancellation during startup, partial capture setup,
-DMA retention, worker stalls, three-page gestures and strict diagnostic framing.
-Finite hardware tests must separately demonstrate the actual modem/capture,
-BLE coexistence, LoRa original/followup reception, AUTO timing and physical
-buttons. Checksums, link RMS and relative dual-clock values do not establish
-UTC accuracy or end-to-end delay bounds. W12/T096 sources remain unchanged.
-
-Version0.2.1 coalesces a forced page/wake redraw with a modeled UTC edge when
-starting the50ms whole-frame work budget would cross it. Navigation can wait
-less than50ms; routine4/8Hz cadence is unchanged. Transfers that occupy a later
-slot drop that missed slot instead of issuing a catch-up burst. This corrects
-the first0.2.0 canary's27ms render-start process failure on the third page;
-actual display-edge and independent UTC accuracy remain unqualified.
-
-Version0.2.2 uses the pinned SDK's finite queued SPI transfer/result APIs. The
-first0.2.1 LoRa-start canary rejected an invalid finite polling-start timeout;
-its SDK early log damaged that CRC response, which the parser refused. The
-failed observation is retained separately from subsequent receiver tests. DMA
-buffers/descriptors still remain owned until actual completion; timeout never
-permits reuse or a drained acknowledgement.
-
-Version0.2.3 keeps the analog dashboard/saver and `LOR` source while RC8 time is
-available and BLE lacks a live settled relative lock. Even a valid BLE following
-clock or pending upstream change cannot hide that LOR clock or its modeled PPS
-lamp. Actual BLE lock restores BLE preference. This is presentation selection;
-radio180s dwell, source expiry, independent raw clocks/comparison, timing models
-and W12/T096 behavior remain unchanged.
-
-Version0.2.4 preserves normal4Hz saver refresh, sets both saver modes to half
-normal OLED contrast, and enters a header-only saver after900seconds of actual
-saver residence. Its two routine frame edges are0/250ms within each modeled
-second; the other750ms have no routine rendering or I2C. GPIO edges wake the
-blocked display worker; model notifications still rephase wakes and source
-expiry/grace deadlines remain bounded. Unused20ms legacy indicator calculations
-pause in minimal mode. The live20MHz XTAL GPTimer's SDK lock prevents chip light
-sleep, preserving the BLE/LoRa timebase; task blocking is not chip light sleep.
-Host tests cover exact residence/PPS boundaries, late initial lock, wake/reset,
-all positions, cached-clock loss and unchanged normal cadence. Physical power,
-long-duration operation and display-edge accuracy require separate observations.
-
-
-Version0.2.5 gives both saver layouts one latched session, independent of the
-successfully transferred pixel cache. BLE/LOR source switches and a precision
-lock dip with valid following time keep the original15minute residence and30s
-movement clocks. Only500ms of continuous total timing loss (neither live following
-BLE nor available LoRa), or user wake/navigation, exits that session. Raw local
-HOLD and stale snapshots do not renew it. Resetting the cache after an I2C failure
-does not reset residence. The ordinary page0 precision-quality grace and the PPS
-lock gate remain unchanged. During a brief total outage, cached saver pixels
-stay bounded by500ms; without a cache, its own layout shows WAIT/NO TIME. Minimal
-mode retains its0/250ms cadence and also arms the shared loss deadline.
-Production-pipeline regressions cover both layouts, all pages/positions, repeated
-source changes, partial lock loss, cache resets, exact499999/500000us loss and
-recovery boundaries, and a15minute transition during an outage. This does not
-extend radio source validity or independently qualify physical display timing.
-
+This offline suite links the actual shared codec/core and W12 HMAC with synthetic
+credentials. It checks namespace rejection, META admission/replay floors, real
+pair matching/expiry, counter wraps, CRC loss and the actual SX1262 owner using
+peripheral fakes. The ordinary suite checks continuous RX, 30 s actual-clock
+selection, scope/loss resets, cancellation, partial capture setup, DMA retention,
+worker stalls and strict diagnostic framing. Native builds and both portrait
+previews remain software preparation; physical reception/coexistence, RF endpoint
+delay, independent UTC/output accuracy and availability require separate tests.
 
 ## Version 0.2.6 field parent recovery
 

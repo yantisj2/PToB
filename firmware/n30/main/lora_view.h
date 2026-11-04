@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 // Immutable worker snapshot. Unknown bounds/boots stay unknown; polling cannot
-// renew an original event, companion, source envelope or functional12s hold.
+// renew an original event, META context or physical120s timing lease.
 struct n30_lora_view {
  uint64_t sampled_us,utc_us,until_us,edge_us,edge_tick,capture_epoch;
  uint64_t emitter,emitter_boot,root,root_boot,parent,parent_boot,stream;

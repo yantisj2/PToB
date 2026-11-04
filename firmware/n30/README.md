@@ -26,7 +26,7 @@ These values are not specifications or independent output accuracy.
 | Display | **64 × 128** portrait monochrome OLED with clockwise/counterclockwise mount selection, digital/analog clock and moving savers. |
 | BLE receiver | Authenticated **G1/RC7**. **BLE100** is standard; **BLE50** is client-only. Optional BLE100 relay uses estimated TX timing with unknown RF/UTC bounds. |
 | Fine clock | Optional continuous **80 MHz counter**, **12.5 ns ticks**, delivered on a **50 ns grid**. Requires N30-specific capture routing and calibration; unconfigured builds retain the **20 MHz** backend. |
-| LoRa | Passive **RC8 wire 3**, fixed **915 MHz** receive profile with an independently configured T096 transmitter. Separate **20 MHz XTAL** counter maps DIO1 captures. |
+| LoRa | Passive **wire 3 / schedule 8**, fixed **922.4 MHz**, SF11/BW500 kHz/CR4/8 receive profile matching an independently configured T096 transmitter. Separate **20 MHz XTAL** counter maps hardware HeaderValid captures. |
 | Functional fallback | Distinct **RC9** direct-client UTC reception with unknown transport/precision bounds; it cannot relay further or train the BLE fitter. |
 | Time zone | BLE clock and savers follow fresh GM time-zone/DST metadata, then fall back to UTC. LoRa/RC9 and timing diagnostics remain UTC. |
 | Power and console | GPIO0 page/menu controls and bounded deep-sleep request. UART diagnostic console, not a T096 USB timing source. |
@@ -55,14 +55,17 @@ These values are not specifications or independent output accuracy.
 
 ## How the timing inputs work
 
-Settled BLE lock has display priority. Fresh direct LoRa supplies the **LOR**
-fallback, ahead of RC9. Each input keeps its own clock: LoRa and RC9 never train
+Settled BLE lock has display priority at startup. Fresh direct LoRa supplies
+the **LOR** fallback, ahead of RC9. Once LoRa is selected, BLE must remain fresh,
+authorized and locked for **30 continuous seconds** in the same admitted scope
+before it takes over. Brief returns, permission loss and context changes reset
+that dwell. The selected input supplies the displayed clock as well as its label. Each input keeps its own clock: LoRa and RC9 never train
 the BLE model or grant downstream timing authority. The dual-radio page compares
 clocks only when root, boot and source scope match.
 
-LoRa **AUTO** starts after **3 accumulated minutes** without live BLE lock and
-stops after **3 continuous minutes** of recovery. Overrides reset to AUTO at
-boot. Bounded passive discovery and fresh admission allow normal BLE to return
+LoRa **AUTO** and **KEEP ON** listen continuously, including during healthy BLE,
+so the authenticated 300-second metadata context and independent timing fit stay
+warm for fallback. **KEEP OFF** stops reception. Overrides reset to AUTO at boot. Bounded passive discovery and fresh admission allow normal BLE to return
 during an RC9 lease; root hints or failed admission never renew fallback expiry.
 
 After direct-GM loss, a trained local estimate may remain labeled **HOLD**
@@ -91,13 +94,14 @@ continued 2.0 s hold opens the menu.
 | --- | --- |
 | UPSTR AUTO / UPSTR RLY | Select the opposite upstream parent policy: automatic or relay-only reception. N30 remains RC-only; it has no GM mode. |
 | POWER OFF | Request bounded shutdown. |
-| BLE RX OFF / ON | Park BLE reception, or request a fresh authenticated client activation. AUTO starts independent LoRa RX immediately; manual LoRa ON/OFF choices remain unchanged. |
+| BLE RX OFF / ON | Park BLE reception, or request a fresh authenticated client activation. Continuous AUTO reception remains available; manual LoRa ON/OFF choices remain unchanged. |
 | LoRa RX OFF / ON | Set a volatile KEEP OFF / KEEP ON override. The row is omitted without an enrolled transmitter. AUTO remains available through the bound `lora auto` console command and is restored at boot. |
 | EXIT | Return to the invoking page. |
 
 While BLE is parked, only fresh LoRa can supply time. BLE/RC9 clocks and cached
 BLE pixels are withdrawn; missing LoRa time does not trigger a no-time restart.
-BLE ON restores ordinary AUTO recovery with its continuous three-minute dwell.
+BLE ON requires fresh admission; a selected LoRa clock retains the 30-second
+continuous BLE recovery dwell.
 Actual faults and maintenance retain their existing fences.
 
 Rows describe the requested next action. **REQUESTED** means the owner accepted
@@ -118,7 +122,9 @@ and settled-lock duration. Relative drift is diagnostic and does not steer time.
 
 **Causal RMS is internal prediction quality.** It differs from downstream
 relative PPS error, counter resolution and calibrated RF/UTC accuracy. The
-sub-100 ns downstream goal remains open; calibration constants do not transfer
+sub-100 ns downstream goal remains open. LoRa uses an **unverified 99.328 ms
+engineering symbol-delay model**, with unknown board/RF endpoint bias; internal
+fit RMS does not measure UTC accuracy. Calibration constants do not transfer
 between boards without independent checks.
 
 The [timing research draft](../../papers/ptob-esp32s3-timing-preprint.pdf) and

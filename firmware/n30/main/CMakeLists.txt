@@ -28,7 +28,7 @@ if(V12_R2_PROFILE)
   endif()
 endif()
 idf_component_register(SRCS "native_main.cpp" "${w12}/main/fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp" "lora_core.c" "lora_diagnostics.cpp"
-  "${w12}/../t096/protocol/lora_rc8.c" "${w12}/../t096/src/lora_rc8_policy.c"
+  "${w12}/../t096/protocol/lora_passive.c" "${w12}/../t096/src/lora_passive_core.c"
   "${w12}/main/native_direct.cpp" "${w12}/main/native_credentials.cpp" "${w12}/main/native_diagnostic_tx.cpp" "${w12}/main/periodic_rx.cpp" "${w12}/main/periodic_tx.cpp" "${w12}/main/s3_clock_reference.c" "${w12}/main/direct_auth.cpp" "${control_source}" ${r2_sources}
   "${w12}/main/shared/public_codec.c" "${w12}/main/shared/p256_canonical.c" "${w12}/main/public_observer.cpp"
   "gnss_absent.cpp" "n30_power.cpp" "display.cpp" "ui_render.cpp" "ui_model.cpp" "timing_diagnostics.cpp" "relative_rate.cpp" "fine_capture.cpp" "window_diagnostics.cpp"
@@ -141,3 +141,7 @@ configure_file("${PTOB_FINE_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/fine_capture_c
 
 # Current coarse TZ wire; other derived targets retain their selected profile.
 target_compile_definitions(${COMPONENT_LIB} PRIVATE R2_TZ_WIRE=1)
+
+# Passive fixed500 namespace; the N30 pipeline has no measured bias prior.
+# Engineering symbol model: (12 + 4.25 + 8) * 2^11 / 500k = 99.328ms.
+target_compile_definitions(${COMPONENT_LIB} PRIVATE R2_LORA_PASSIVE_SLOW=1 R2_LORA_FIXED500_EXPERIMENT=1 R2_LORA_FIXED500_EVENT_DELAY_NS=99328000)

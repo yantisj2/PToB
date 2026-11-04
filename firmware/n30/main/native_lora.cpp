@@ -32,6 +32,7 @@ TaskHandle_t task=nullptr;
 uint64_t ble_at=0,request_at=0,last_map=0,map_pending=0,map_before=0,map_after=0,stop_at=0;
 uint32_t cancel_serial=0,active_serial=0,core_generation=0,map_serial=0,map_expected=0,map_capture=0;
 uint32_t raw_capture=0,raw_generation=0,raw_serial=0;
+uint32_t header_capture=0,header_generation=0,header_serial=0;uint64_t header_until=0;bool header_pending=false;
 uint64_t capture_epoch=0;
 uint8_t requested_mode=0;bool mode_pending=false,cycle_pending=false,ble_locked=false,allowed=false,ble_parked=false;
 bool ble_lock_observed=false; // Worker-owned actual fresh policy input.
@@ -115,7 +116,7 @@ void capture_stop(){
  if(map_enabled){if(mcpwm_capture_channel_disable(map_channel)!=ESP_OK)fault(-EIO);else map_enabled=false;}
  if(timer_started){if(mcpwm_capture_timer_stop(cap_timer)!=ESP_OK)fault(-EIO);else timer_started=false;}
  if(timer_enabled){if(mcpwm_capture_timer_disable(cap_timer)!=ESP_OK)fault(-EIO);else timer_enabled=false;}
- mapping.reset();map_pending=0;portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);
+ mapping.reset();map_pending=0;header_pending=false;portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);
 }
 void map_step(){
  uint64_t tick;if(!local(tick))return;
@@ -146,12 +147,12 @@ int resources_start(){
  portENTER_CRITICAL(&mux);resources=true;portEXIT_CRITICAL(&mux);return 0;
 }
 int rearm(){
- hardware.stage=7;const uint8_t standby[]={0},packet[]={0,12,0,128,1,0},mask[]={2,0x62,2,0x62,0,0,0,0},clear[]={0xff,0xff},single[]={0,0,0};
+ hardware.stage=7;const uint8_t standby[]={0},packet[]={0,12,0,128,1,0},mask[]={2,0x72,2,0x72,0,0,0,0},clear[]={0xff,0xff},continuous[]={0xff,0xff,0xff};
  int rc=command(0x80,standby,sizeof standby);if(!rc)rc=command(0x8c,packet,sizeof packet);if(!rc)rc=command(0x08,mask,sizeof mask);if(!rc)rc=command(0x02,clear,sizeof clear);
  if(rc)return rc;
- portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);
+ header_pending=false;portENTER_CRITICAL(&mux);latched=false;portEXIT_CRITICAL(&mux);
  if(gpio_get_level(Irq))return -EIO;
- return command(0x82,single,sizeof single);
+ return command(0x82,continuous,sizeof continuous);
 }
 int start(){
  hardware.stage=1;int rc=resources_start();if(rc)return rc;
@@ -159,8 +160,8 @@ int start(){
  if(permit)rc=gpio_set_level(Reset,1)==ESP_OK?0:-EIO;else rc=-ECANCELED;portEXIT_CRITICAL(&mux);
  if(rc)return rc;
  vTaskDelay(pdMS_TO_TICKS(10));
- // Same wire3 modem as the T096 parent. V3 DIO3 TCXO1.8V, DIO2 RF switch.
- const uint8_t standby[]={0},tcxo[]={2,0,1,64},cal[]={0x7f},image[]={0xe1,0xe9},regulator[]={1},type[]={1},switching[]={1},bases[]={0,0},freq[]={0x39,0x30,0,0},mod[]={10,6,2,0},fallback[]={0x20};
+ // Same passive schedule8 fixed PHY as T096. RX-only, V3 TCXO1.8V/RF switch.
+ const uint8_t standby[]={0},tcxo[]={2,0,1,64},cal[]={0x7f},image[]={0xe1,0xe9},regulator[]={1},type[]={1},switching[]={1},bases[]={0,0},freq[]={0x39,0xa6,0x66,0x66},mod[]={11,6,4,0},fallback[]={0x20};
  #define CMD(op,args) do{rc=command(op,args,sizeof args);if(rc)return rc;}while(0)
  CMD(0x80,standby);CMD(0x97,tcxo);CMD(0x89,cal);CMD(0x98,image);CMD(0x96,regulator);CMD(0x8a,type);CMD(0x9d,switching);CMD(0x8f,bases);CMD(0x86,freq);CMD(0x8b,mod);CMD(0x93,fallback);
  #undef CMD
@@ -178,21 +179,33 @@ int start(){
 }
 int receive(){
  uint32_t raw,gen,serial;bool have;portENTER_CRITICAL(&mux);have=latched;raw=raw_capture;gen=raw_generation;serial=raw_serial;portEXIT_CRITICAL(&mux);
- if(!have)return 0;
+ if(!have){if(header_pending&&now()>=header_until){inc(hardware.invalid_capture);return rearm();}return 0;}
  hardware.stage=5;const uint8_t dummy[]={0,0,0};int rc=command(0x12,dummy,sizeof dummy);if(rc)return rc;
  if(!status_ok(rx[1]))return -EIO;
  const uint16_t flags=(uint16_t(rx[2])<<8)|rx[3];
  if(flags&0x260){inc(hardware.crc_bad);return rearm();}
- if(!(flags&2))return -EIO;
+ if(flags&0x10){
+  // HeaderValid is the physical timing event; preserve it across FIFO completion.
+  // A duplicate header without an intervening RX completion is ambiguous.
+  if(header_pending){inc(hardware.invalid_capture);return rearm();}
+  header_capture=raw;header_generation=gen;header_serial=serial;header_until=now()+UINT64_C(1000000);header_pending=true;
+ }
+ if(!(flags&2)){
+  if(!(flags&0x10))return -EIO;
+  const uint8_t clear_header[]={0,0x10};rc=command(0x02,clear_header,sizeof clear_header);
+  if(rc)return rc;
+  portENTER_CRITICAL(&mux);latched=gpio_get_level(Irq)!=0;portEXIT_CRITICAL(&mux);return 0;
+ }
  inc(hardware.rx_done);rc=command(0x13,dummy,sizeof dummy);if(rc)return rc;
  if(!status_ok(rx[1]))return -EIO;
  const unsigned size=rx[2],offset=rx[3];
- if((size!=80&&size!=128)||size>256-offset){inc(hardware.malformed);return rearm();}
+ if((size!=112&&size!=24&&size!=32)||size>256-offset){inc(hardware.malformed);return rearm();}
  std::memset(tx,0,size+3);tx[0]=0x1e;tx[1]=offset;rc=transfer(size+3);if(rc)return rc;if(!status_ok(rx[2]))return -EIO;
  // Freeze original bytes and captured edge before IRQ/FIFO reuse.
  uint8_t wire[128];std::memcpy(wire,rx+3,size);
  uint64_t tick;const uint64_t before=now();const bool readable=local(tick);const uint64_t after=now();
- const auto edge=readable?mapping.convert(raw,tick):ptob_gnss::CounterMap::Edge{};
+ const auto edge=readable&&header_pending?mapping.convert(header_capture,tick):ptob_gnss::CounterMap::Edge{};
+ gen=header_generation;serial=header_serial;
  if(!edge.valid||gen!=core_generation||serial!=active_serial||tick<edge.tick||tick-edge.tick>UINT64_C(8000000)*20||after<before){inc(hardware.invalid_capture);}
  else{
   const uint64_t age=(tick-edge.tick+19)/20,mid=before+(after-before)/2;
@@ -205,7 +218,11 @@ int receive(){
  return rearm();
 }
 void publish(){
- n30_lora_view view;n30_rc8_snapshot(&view,now());
+ n30_lora_view view;uint64_t current=0;
+ // Commit/estimate at an actual XTAL counter read, never a fabricated edge.
+ const bool readable=local(current);const uint64_t sampled=now();
+ if(readable&&current<=UINT64_MAX/4)n30_rc8_clock(current*4/5,capture_epoch,sampled);
+ n30_rc8_snapshot(&view,sampled);
  // Worker-owned protocol state and hardware counters are merged outside the
  // short cross-core publication lock. Unknown uncertainty remains unknown.
  view.requested=false;view.active=owned.enabled;view.fault=failed;view.mode=uint8_t(policy.mode());view.transition_remaining_ms=policy.remaining_ms(now());view.ble_locked=ble_lock_observed;

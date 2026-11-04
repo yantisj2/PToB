@@ -15,9 +15,11 @@ Any future linked binary redistribution requires its own dependency review.
 The previews are original ordinary interface documentation under MIT and are
 synthetic renderings, not evidence datasets or accuracy observations.
 
-N30 also compiles selected T096 RC8 wire3 codec, receiver policy and inline
-precision helpers directly. Their MIT/Apache-2.0 per-file notices are preserved;
-see [the selected-source manifest](imports/2026-10-20-lora.json). T096's Zephyr
+N30 also compiles the selected T096 passive wire3/schedule8 codec, receiver
+core and inline timing helpers directly. Their MIT/Apache-2.0 per-file notices
+are preserved. The [historical RC8 selection](imports/2026-10-20-lora.json) remains
+a separate record; the [passive schedule8 selection](imports/2026-11-03-passive.json) records the
+current shared inputs, and native receipts close the complete source set. T096's Zephyr
 hardware driver is a modem reference only; N30 owns its ESP-IDF RX-only driver.
 The existing CounterMap helper is used solely to relate hardware counter rates;
 no GNSS driver, input or authority is enabled. No RadioLib dependency is added.

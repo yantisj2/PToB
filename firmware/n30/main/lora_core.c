@@ -1,45 +1,73 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Jonathan Yantis.
-// Shares T096's actual wire3 codec/policy. This receiver owns no BLE API/map.
+// Passive wire3/schedule8 receiver. No BLE model, transmitter or clock authority.
 #include "lora_core.h"
-#include "lora_rc8_policy.h"
+#include "lora_passive_core.h"
 #include <string.h>
-static struct rc8_receiver receiver;
+static struct lp_rx receiver;
+static struct lp_replay replay;
 static struct r2_group_config group;
-static uint32_t metadata;
-bool n30_rc8_init(uint64_t factory,uint64_t transmitter,uint64_t id,uint32_t epoch,const uint8_t key[32]){
- if(!key)return false;
- group=(struct r2_group_config){.id=id,.epoch=epoch};memcpy(group.psk,key,32);metadata=0;
- const struct rc8_enrollment enrollment={.factory=factory,.transmitter_factory=transmitter,.enrolled=r2_group_valid(&group)};
- return factory!=transmitter&&rc8_receiver_init(&receiver,&enrollment);
+static uint64_t transmitter,current_tick,current_epoch,current_us,meta_us;
+static uint32_t generation,metadata,rejected,replayed;
+static bool enabled,time_valid;
+static void inc(uint32_t *n){if(*n<UINT32_MAX)++*n;}
+bool n30_rc8_init(uint64_t factory,uint64_t source,uint64_t id,uint32_t epoch,const uint8_t key[32]){
+ if(!key||!factory||!source||factory==source)return false;
+ group=(struct r2_group_config){.id=id,.epoch=epoch};memcpy(group.psk,key,32);
+ if(!r2_group_valid(&group))return false;
+ lp_rx_clear(&receiver);memset(&replay,0,sizeof replay);transmitter=source;
+ generation=metadata=rejected=replayed=0;current_tick=current_epoch=current_us=meta_us=0;enabled=time_valid=false;return true;
 }
-uint32_t n30_rc8_switch(bool on){rc8_receiver_switch(&receiver,on);return receiver.generation;}
-bool n30_rc8_receive(const uint8_t* wire,size_t size,uint64_t tick,uint64_t epoch,uint64_t local,uint64_t now,uint32_t generation){
- const struct rc8_event event={.tick=tick,.capture_epoch=epoch,.local_us=local,.generation=generation,.kind=RC8_EVENT_RX_DONE};
- if(!rc8_receiver_freeze(&receiver,wire,size,event))return false;
- const bool result=rc8_receiver_process(&receiver,&group,now);
- if(size==RC8_META_BYTES&&receiver.metadata_known&&receiver.diagnostic_us==local&&metadata<UINT32_MAX)metadata++;
- return result;
+uint32_t n30_rc8_switch(bool on){
+ if(generation==UINT32_MAX){enabled=false;return 0;}
+ ++generation;enabled=on;lp_rx_clear(&receiver);time_valid=false;current_tick=current_epoch=current_us=meta_us=0;return generation;
+}
+void n30_rc8_clock(uint64_t tick,uint64_t epoch,uint64_t now){
+ if(!enabled)return;
+ lp_rx_expire(&receiver,now);
+ if(!tick||!epoch||(current_epoch==epoch&&(tick<current_tick||now<current_us))){lp_rx_clear(&receiver);time_valid=false;return;}
+ current_tick=tick;current_epoch=epoch;current_us=now;
+ (void)lp_rx_discipline(&receiver,tick,epoch,now);
+}
+bool n30_rc8_receive(const uint8_t* wire,size_t size,uint64_t tick,uint64_t epoch,uint64_t local,uint64_t now,uint32_t gen){
+ if(!enabled||gen!=generation||!wire||!epoch||!tick||now<local){inc(&rejected);return false;}
+ lp_rx_expire(&receiver,now);struct lp_packet packet;
+ if(lp_decode(&packet,wire,size,receiver.cached?receiver.context:NULL,&group)||packet.kind==LP_DISC){inc(&rejected);return false;}
+ if(packet.kind==LP_META){
+  if(packet.scope.emitter!=transmitter||!lp_replay_admit(&replay,&packet)){inc(&replayed);return false;}
+  // No independent UTC age/source-error interval exists on this no-GNSS target.
+  // Authenticated observation leases are not calibrated age/accuracy bounds.
+  if(!lp_rx_meta(&receiver,&packet,&group,NULL,local,now)){inc(&rejected);return false;}
+  lp_replay_commit(&replay,&packet);time_valid=packet.time_valid;meta_us=local;inc(&metadata);return false;
+ }
+ if(!receiver.cached||!time_valid){inc(&rejected);return false;}
+ if(packet.kind==LP_SYNC){
+  const bool ok=lp_rx_sync(&receiver,packet.cursor,tick,epoch,local,now);
+  if(!ok)inc(&rejected);
+  return false;
+ }
+ const bool ok=lp_rx_follow(&receiver,&packet,NULL,epoch,now);
+ if(!ok)inc(&rejected);
+ return ok;
 }
 void n30_rc8_snapshot(struct n30_lora_view* out,uint64_t now){
  if(!out)return;
- memset(out,0,sizeof *out);const struct rc8_receiver* r=&receiver;
- out->sampled_us=now;out->generation=r->generation;out->state=rc8_receiver_state(r,now);out->assurance=rc8_receiver_assurance(r,now);out->authority=rc8_receiver_authority(r,now);
- out->emitter=r->scope.emitter;out->emitter_boot=r->scope.emitter_boot;out->root=r->scope.root;out->root_boot=r->scope.root_boot;out->parent=r->scope.parent;out->parent_boot=r->scope.parent_boot;out->stream=r->scope.stream;out->source_epoch=r->scope.source_epoch;out->kind=r->scope.kind;out->scale=r->scope.scale;
- memcpy(out->context,r->context,16);out->sequence=r->highest_sequence;out->accepted=r->accepted;out->rejected=r->rejected;out->replayed=r->replayed;out->overflow=r->overflow;out->unmatched=r->unmatched;out->metadata=metadata;out->metadata_misses=r->metadata_misses;
- out->metadata_known=r->metadata_known&&now>=r->diagnostic_us&&now<r->metadata_until_us;out->time_valid=r->time_valid;
- out->metadata_us=r->diagnostic_us;out->snapshot_age_ms=r->snapshot_age_ms;out->diagnostic_sequence=r->diagnostic_sequence;out->events=r->diagnostic_events;
- const struct rc8_quality* q=&r->quality;out->quality_known=q->known;out->quality_values=q->values;out->role=q->role;out->hop=q->hop;out->parent_class=q->parent_class;out->parent_accuracy=q->parent_accuracy;out->parent_bound_ns=q->parent_bound_ns;out->correction_age_ms=q->correction_age_ms;out->map_life_ms=q->map_life_ms;out->rate_ppb=q->rate_ppb;out->residual_ns=q->residual_ns;out->losses=q->losses;out->recoveries=q->recoveries;
- out->parent_quality=out->metadata_known&&(q->known&(RC8_Q_PARENT_CLASS|RC8_Q_PARENT_ACCURACY))==(RC8_Q_PARENT_CLASS|RC8_Q_PARENT_ACCURACY)&&out->snapshot_age_ms<10000&&(now-r->diagnostic_us)/1000<10000-out->snapshot_age_ms;
+ lp_rx_expire(&receiver,now);memset(out,0,sizeof *out);const struct lp_rx* r=&receiver;
+ out->sampled_us=now;out->generation=generation;out->state=enabled?1:0;
+ out->emitter=r->scope.emitter;out->emitter_boot=r->scope.boot;out->root=r->scope.root;out->root_boot=r->scope.root_boot;out->parent=r->scope.parent;out->parent_boot=r->scope.parent_boot;out->stream=r->scope.stream;out->source_epoch=r->scope.epoch;out->kind=r->scope.kind;out->scale=1;
+ memcpy(out->context,r->context,16);out->sequence=r->highest;out->corrected_sequence=r->highest;out->accepted=r->accepted;out->rejected=rejected;out->replayed=replayed;out->unmatched=r->missing;out->metadata=metadata;
+ out->metadata_known=r->cached&&now<r->observed_deadline_us;out->time_valid=time_valid&&out->metadata_known;
+ out->metadata_us=meta_us;out->diagnostic_sequence=r->serial;out->snapshot_age_ms=meta_us&&now>=meta_us?(uint32_t)((now-meta_us)/1000):UINT32_MAX;
+ out->parent_bound_ns=out->residual_ns=out->correction_age_ms=out->map_life_ms=UINT32_MAX;
  out->age_ms=UINT32_MAX;out->link_rms_ns=UINT32_MAX;
- if(r->sample.valid){
-  const uint64_t age=now>=r->sample.rx.local_us?now-r->sample.rx.local_us:UINT64_MAX;
-  out->edge_us=r->sample.rx.local_us;out->edge_tick=r->sample.rx.tick;out->capture_epoch=r->sample.rx.capture_epoch;
-  out->corrected_sequence=r->sample.tx.sequence;out->created_ns=r->sample.tx.created_ns;out->expires_ns=r->sample.tx.expires_ns;out->event_ns=r->sample.tx.event_ns;out->map_generation=r->sample.tx.map_generation;out->map_age_us=r->sample.tx.map_age_us;
-  out->age_ms=age/1000>UINT32_MAX?UINT32_MAX:(uint32_t)(age/1000);
-  if(out->state==RC8_AVAILABLE){
-   out->link_samples=r->fit.n;out->link_rms_ns=r->fit.n>=4?r->fit.rms_ns:UINT32_MAX;
-   if(r->scope.scale==RC8_UTC&&age<RC8_HOLD_US&&r->sample.tx.event_ns<=UINT64_MAX-age*1000&&r->sample.rx.local_us<=UINT64_MAX-RC8_HOLD_US){out->utc_us=r->sample.tx.event_ns/1000+age;out->until_us=r->sample.rx.local_us+RC8_HOLD_US;}
-  }
+ if(r->last_tick){
+  out->edge_us=r->last_us;out->edge_tick=r->last_tick;out->capture_epoch=r->last_epoch;out->event_ns=r->last_tx_ns;
+  out->age_ms=now>=r->last_us&&(now-r->last_us)/1000<=UINT32_MAX?(uint32_t)((now-r->last_us)/1000):UINT32_MAX;
+  out->link_samples=r->fit_count;out->link_rms_ns=r->trained?r->rms_ns:UINT32_MAX;out->rate_ppb=r->rate_ppb;
+  uint64_t ns;
+  if(enabled&&current_us==now&&lp_rx_estimate(r,current_tick,current_epoch,now,&ns)){
+   out->state=2;out->utc_us=ns/1000;out->until_us=r->physical_deadline_us<r->observed_deadline_us?r->physical_deadline_us:r->observed_deadline_us;
+  }else if(!r->have_pair)out->state=3;
  }
+ // assurance/authority remain zero: no independently bounded admission or relay.
 }

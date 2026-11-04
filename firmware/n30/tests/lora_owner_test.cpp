@@ -19,7 +19,7 @@ std::vector<uint8_t> ops;spi_transaction_t* pending=nullptr;
 CaptureCallback physical=nullptr,software=nullptr;
 bool capture_timer=false,timer_running=false,physical_enabled=false,software_enabled=false;
 bool dma_fail=false,cancel=false,cancelled=false;int fail_enable=0;
-uint16_t irq=0;unsigned packet_size=80;std::array<uint8_t,128> packet{};
+uint16_t irq=0;unsigned packet_size=112;std::array<uint8_t,128> packet{};
 uint32_t capture(){return uint32_t(us*80)+raw_offset;}
 }
 int64_t esp_timer_get_time(){return int64_t(fake::us);}
@@ -42,7 +42,10 @@ esp_err_t spi_device_get_trans_result(spi_device_handle_t,spi_transaction_t** co
  std::memset(rx,0,n);if(n>1)rx[1]=0x24;
  if(tx[0]==0x0d)fake::regs[(unsigned(tx[1])<<8)|tx[2]]=tx[3];
  if(tx[0]==0x1d){rx[3]=0x24;rx[4]=fake::regs[(unsigned(tx[1])<<8)|tx[2]];}
- if(tx[0]==0x02){fake::irq=0;fake::gpio[14]=0;}
+ if(tx[0]==0x02){fake::irq&=~uint16_t((unsigned(tx[1])<<8)|tx[2]);fake::gpio[14]=fake::irq!=0;}
+ if(tx[0]==0x86)assert(n==5&&tx[1]==0x39&&tx[2]==0xa6&&tx[3]==0x66&&tx[4]==0x66);
+ if(tx[0]==0x8b)assert(n==5&&tx[1]==11&&tx[2]==6&&tx[3]==4&&tx[4]==0);
+ if(tx[0]==0x82)assert(n==4&&tx[1]==255&&tx[2]==255&&tx[3]==255);
  if(tx[0]==0x12){rx[2]=uint8_t(fake::irq>>8);rx[3]=uint8_t(fake::irq);}
  if(tx[0]==0x13){rx[2]=uint8_t(fake::packet_size);rx[3]=0;}
  if(tx[0]==0x1e){rx[2]=0x24;std::memcpy(rx+3,fake::packet.data(),n-3);}
@@ -71,7 +74,8 @@ extern "C" bool clock_reference_read(uint64_t* out){++fake::fine_reference_reads
 #ifndef PTOB_N30_TEST_REAL_RC8
 extern "C" bool n30_rc8_init(uint64_t f,uint64_t t,uint64_t,uint32_t,const uint8_t*){return f==2&&t==1;}
 extern "C" uint32_t n30_rc8_switch(bool){return ++fake::core_gen;}
-extern "C" bool n30_rc8_receive(const uint8_t*,size_t n,uint64_t tick,uint64_t epoch,uint64_t local,uint64_t now,uint32_t gen){assert((n==80||n==128)&&epoch&&gen&&tick<=fake::us*16&&local<=now);fake::core_inputs++;return false;}
+extern "C" bool n30_rc8_receive(const uint8_t*,size_t n,uint64_t tick,uint64_t epoch,uint64_t local,uint64_t now,uint32_t gen){assert((n==112||n==24||n==32)&&epoch&&gen&&tick<=fake::us*16&&local<=now);fake::core_inputs++;return false;}
+extern "C" void n30_rc8_clock(uint64_t,uint64_t,uint64_t){}
 extern "C" void n30_rc8_snapshot(n30_lora_view* out,uint64_t now){*out={};out->sampled_us=now;out->generation=fake::core_gen;}
 #endif
 #ifndef N30_LORA_OWNER_SOURCE
@@ -80,8 +84,8 @@ extern "C" void n30_rc8_snapshot(n30_lora_view* out,uint64_t now){*out={};out->s
 #include N30_LORA_OWNER_SOURCE
 namespace {
 void cold(){
- fake::us=1000000;fake::gpio={};fake::regs={};fake::writes=fake::bus=fake::starts=fake::ends=fake::core_inputs=fake::high_after_cancel=0;fake::ops.clear();fake::pending=nullptr;fake::physical=fake::software=nullptr;fake::capture_timer=fake::timer_running=fake::physical_enabled=fake::software_enabled=false;fake::dma_fail=fake::cancel=fake::cancelled=false;fake::fail_enable=0;fake::irq=0;fake::core_gen=0;fake::packet_size=80;
- owner={};basic={};owned={};published={};hardware={};policy={};mapping={};spi=cap_timer=edge_channel=map_channel=nullptr;task=nullptr;ble_at=request_at=last_map=map_pending=map_before=map_after=stop_at=0;cancel_serial=active_serial=core_generation=map_serial=map_expected=map_capture=raw_capture=raw_generation=raw_serial=0;capture_epoch=0;requested_mode=0;mode_pending=cycle_pending=ble_locked=ble_lock_observed=allowed=ble_parked=false;resources=capture_active=inflight=latched=failed=timer_enabled=timer_started=map_enabled=edge_enabled=emergency=false;capture_drops=capture_invalid=0;
+ fake::us=1000000;fake::gpio={};fake::regs={};fake::writes=fake::bus=fake::starts=fake::ends=fake::core_inputs=fake::high_after_cancel=0;fake::ops.clear();fake::pending=nullptr;fake::physical=fake::software=nullptr;fake::capture_timer=fake::timer_running=fake::physical_enabled=fake::software_enabled=false;fake::dma_fail=fake::cancel=fake::cancelled=false;fake::fail_enable=0;fake::irq=0;fake::core_gen=0;fake::packet_size=112;
+ owner={};basic={};owned={};published={};hardware={};policy={};mapping={};spi=cap_timer=edge_channel=map_channel=nullptr;task=nullptr;ble_at=request_at=last_map=map_pending=map_before=map_after=stop_at=0;cancel_serial=active_serial=core_generation=map_serial=map_expected=map_capture=raw_capture=raw_generation=raw_serial=0;capture_epoch=0;header_capture=header_generation=header_serial=0;header_until=0;header_pending=false;requested_mode=0;mode_pending=cycle_pending=ble_locked=ble_lock_observed=allowed=ble_parked=false;resources=capture_active=inflight=latched=failed=timer_enabled=timer_started=map_enabled=edge_enabled=emergency=false;capture_drops=capture_invalid=0;
  assert(configured_receiver());
 }
 void step(bool locked,uint64_t advance=2000){fake::us+=advance;n30_lora_control(locked,fake::us,true);worker_step(true);}
@@ -97,11 +101,8 @@ int main(){
  n30_lora_control(false,fake::us,true,true);worker_step(true);assert(policy.mode()==n30::LoRaMode::KeepOff&&!owner.requested);
  assert(n30_lora_mode(n30::LoRaMode::KeepOn));worker_step(true);assert(owner.requested&&owned.enabled);
  n30_lora_control(false,fake::us,false,true);worker_step(true);assert(!owner.requested&&!owned.enabled&&owner.drained());
- cold();n30_lora_control(false,fake::us,true,true);worker_step(true);assert(owner.requested);
- step(true,0);for(unsigned i=0;i<1799;i++)step(true,100000);assert(owner.requested);step(true,100000);assert(!owner.requested&&owner.drained()&&!failed);
- cold();step(false,0);assert(!published.ble_locked);assert(!owner.requested&&fake::writes==0&&owner.drained());step(false,n30::BleAcquireUs-1);assert(!owner.requested&&fake::bus==0);step(false,1);assert(owned.enabled&&owner.requested&&fake::bus==1);
- for(unsigned i=0;i<1800;i++)step(true,100000);assert(owner.requested);step(true,100000);assert(published.ble_locked);assert(!owner.requested&&!owned.enabled&&owner.drained()&&!fake::physical_enabled&&!fake::capture_timer);
- cold();force_on();assert(owned.enabled);step(true);step(true);fake::irq=2;fake::gpio[14]=1;mcpwm_capture_event_data_t e{fake::capture()};on_edge(edge_channel,&e,nullptr);step(true);assert(fake::core_inputs==1&&hardware.rx_done==1&&hardware.rssi_dbm==-70);
+ cold();step(true,0);assert(owner.requested&&owned.enabled&&fake::bus==1);for(unsigned i=0;i<1800;i++)step(true,100000);assert(owner.requested&&owned.enabled);
+ cold();force_on();assert(owned.enabled);step(true);step(true);fake::irq=0x10;fake::gpio[14]=1;mcpwm_capture_event_data_t header{fake::capture()};on_edge(edge_channel,&header,nullptr);step(true);assert(header_pending&&fake::core_inputs==0);fake::us+=300000;fake::irq=2;fake::gpio[14]=1;mcpwm_capture_event_data_t e{fake::capture()};on_edge(edge_channel,&e,nullptr);step(true);assert(fake::core_inputs==1&&hardware.rx_done==1&&hardware.rssi_dbm==-70&&!header_pending);
  assert(fake::lora_reference_reads>0&&fake::fine_reference_reads==0);
  fake::irq=0x42;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);assert(fake::core_inputs==1&&hardware.crc_bad==1&&!failed);
  fake::packet_size=17;fake::irq=2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);assert(hardware.malformed==1&&fake::core_inputs==1);

@@ -1,5 +1,22 @@
 # N30 changelog
 
+## 0.2.39 — 2026-11-03
+
+- Receive the T096 passive wire3/schedule8 fixed922.4MHz SF11/BW500/CR4/8
+  profile, with fresh authenticated META context, real SYNC/FOLLOW pairs and
+  preserved replay/boot/stream/counter/expiry fences; reject older namespaces.
+- Capture hardware HeaderValid separately from RxDone. The independent20MHz
+  XTAL map explicitly supplies the shared16MHz coordinate. Use a declared
+  unverified99.328ms engineering symbol model; board/RF bias and UTC bounds
+  remain unknown. No TC02 calibration is transferred.
+- Keep passive AUTO/KEEP ON RX and its independent fit warm during BLE operation.
+  After LoRa selection, require30continuous seconds of fresh qualified BLE in
+  unchanged scope before replacing the actual displayed clock. Manual OFF,
+  independent BLE fitting and receiver-only/no-export authority are preserved.
+- Offline host/native/portrait preparation and separately scoped hardware
+  observations must be recorded independently; this revision has no automatic
+  precision or hardware qualification.
+
 ## 0.2.38 — single-button watch menu
 
 - Open the menu from any page at exactly 2000 ms; every earlier release is short,

@@ -7,8 +7,8 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.38'
-T096_LORA_FILES=['protocol/lora_rc8.c','protocol/lora_rc8.h','protocol/group_auth.h','include/lora_rc8_policy.h','include/precision_servo.h','src/lora_rc8_policy.c']
+VERSION='0.2.39'
+T096_LORA_FILES=['protocol/lora_passive.c','protocol/lora_passive.h','protocol/lora_passive_schedule.h','protocol/group_auth.h','protocol/time_zone.h','include/lora_passive_core.h','include/holdover.h','include/rc_boundary.h','include/precision_servo.h','src/lora_passive_core.c']
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
 def dump(p,v):p.write_text(json.dumps(v,indent=2,sort_keys=True)+'\n')
@@ -171,7 +171,7 @@ def verify_sdk(sdk,lock):
   if sha(sdk/name)!=pin[hashkey]:raise ValueError('SDK controller/private ABI mismatch')
  return status
 
-def validate_configuration(config,compiled,lora_rx=True,rc9=False):
+def validate_configuration(config,compiled,lora_rx=True,rc9=False,fixed500=False):
  for flag in ('CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y','CONFIG_ESP_CONSOLE_UART_DEFAULT=y','CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200'):
   if config.splitlines().count(flag)!=1:raise ValueError('Wrong N30 flash/console configuration: '+flag)
  if 'CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y' in config:raise ValueError('N30 USB bridge must use UART console')
@@ -179,6 +179,7 @@ def validate_configuration(config,compiled,lora_rx=True,rc9=False):
   if '/firmware/' not in row['file']:continue
   for flag in ('-DPTOB_N30=1','-DPTOB_GNSS_DISABLED=1','-DPTOB_N30_LORA_RX_ONLY=1' if lora_rx else '-DV12_LORA_FORCED_OFF=1','-DW12_GNSS_VERIFIED_INPUTS=0'):
    if flag not in row['command'].split():raise ValueError('N30 capability compile flag missing: '+flag)
+  if fixed500 and any(flag not in row['command'].split() for flag in ('-DR2_LORA_PASSIVE_SLOW=1','-DR2_LORA_FIXED500_EXPERIMENT=1','-DR2_LORA_FIXED500_EVENT_DELAY_NS=99328000')):raise ValueError('N30 fixed500 schedule8 compile contract missing')
   if rc9 and '-DPTOB_RC9=1' not in row['command'].split():raise ValueError('RC9 client compile flag missing')
   if row['file'].endswith('/gnss_pps.cpp'):raise ValueError('Physical GNSS driver forbidden')
 
@@ -188,7 +189,7 @@ def main():
  p=argparse.ArgumentParser(description=__doc__)
  for name in ['idf','out','enrollment','device-config']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--profile',choices=['RC'],required=True);p.add_argument('--listening-percent',type=int,choices=[50,100],default=100)
- p.add_argument('--lora-transmitter-factory',default='0000000000000000',help='Exact configured T096 RC8 transmitter factory; zero disables hardware. RX only, fixed915MHz wire3')
+ p.add_argument('--lora-transmitter-factory',default='0000000000000000',help='Exact configured T096 passive transmitter factory; zero disables hardware. RX only, schedule8 fixed922.4MHz')
  p.add_argument('--fine-shadow-profile',type=Path,help='Ignored exact-factory fixed GPIO4/5 profile; candidate backend is explicit and phase evidence must be distinct from legacy. Absent means CURRENT-only/no driven pads')
  p.add_argument('--commissioning',action='store_true',help='Clean-source candidate for separately authorized exact-device first installation; no hardware access');p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--development',action='store_true');a=p.parse_args()
  os.umask(0o077);sdk=a.idf.resolve();out=a.out.resolve()
@@ -218,7 +219,7 @@ def main():
  lora_header=inputs/'n30_lora_config.h';lora_header.write_text(lora_config_header(d,e,tx_factory))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* source:'+source_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' fine:'+sha(fine_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'artifact_class':'PTOB_N30_RC','n30_ui_revision':5,'version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'button_power_contract':'MENU_HOLD2000_IDLE5000_DRAIN2_UI_STOP_RELEASE40_GPIO0_WAKE_V1','time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'no_time_sync_watchdog_us':300000000,'startup_policy':'GM_IMMEDIATE_SPLASH1500MS_SUB1US_V1','ble_lock_policy':'CURRENT_PERMISSION_REPLAY_FORECAST_V1','source_recovery_policy':'ACCUMULATED_LOCK_LOSS_V1','physical_fit_policy':'CAPTURE_FROZEN_DENSE64_1S_ACCEL_V1','timing_diagnostics':'RUNTIME_RING16_CURSOR_V1','packet_window_diagnostics':'FIXED128_CALLBACK64_CONTINUOUS_MCPWM1_LATE128_V1_DEFAULT_OFF','fine_capture_profile':fp,'fine_capture':'RAW_MCPWM1_CURRENT_SW128_RING32_V1','commissioning_candidate':a.commissioning,'hardware_validation':'NOT_PERFORMED','deployment_authorized':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'lora_transmitter_factory':tx_factory,'rc9_contract':'RC9_FUNCTIONAL_SNAPSHOT_V1_DIRECT_CLIENT_UNKNOWN_BOUNDS','pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','clock_handoff_policy':'N30_TRAINED_ACTUATOR_30S_FRESH_PAIR_V1','fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1','lora_contract':'RC8_WIRE3_PASSIVE_RX_SX1262_915_V3','enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
+ r={'schema':1,'artifact_class':'PTOB_N30_RC','n30_ui_revision':5,'version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'source_sha256':source_hash,'sources':sources,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'button_power_contract':'MENU_HOLD2000_IDLE5000_DRAIN2_UI_STOP_RELEASE40_GPIO0_WAKE_V1','time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'no_time_sync_watchdog_us':300000000,'startup_policy':'GM_IMMEDIATE_SPLASH1500MS_SUB1US_V1','ble_lock_policy':'CURRENT_PERMISSION_REPLAY_FORECAST_V1','source_recovery_policy':'ACCUMULATED_LOCK_LOSS_V1','physical_fit_policy':'CAPTURE_FROZEN_DENSE64_1S_ACCEL_V1','timing_diagnostics':'RUNTIME_RING16_CURSOR_V1','packet_window_diagnostics':'FIXED128_CALLBACK64_CONTINUOUS_MCPWM1_LATE128_V1_DEFAULT_OFF','fine_capture_profile':fp,'fine_capture':'RAW_MCPWM1_CURRENT_SW128_RING32_V1','commissioning_candidate':a.commissioning,'hardware_validation':'NOT_PERFORMED','deployment_authorized':False,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'lora_transmitter_factory':tx_factory,'rc9_contract':'RC9_FUNCTIONAL_SNAPSHOT_V1_DIRECT_CLIENT_UNKNOWN_BOUNDS','pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','clock_handoff_policy':'N30_TRAINED_ACTUATOR_30S_FRESH_PAIR_V1','fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1','lora_contract':'PASSIVE_WIRE3_SCHEDULE8_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1','lora_event_delay_ns':99328000,'lora_calibration':'ENGINEERING_SYMBOL_MODEL_UNCALIBRATED_ENDPOINT_UNKNOWN','clock_selection_policy':'LORA_TO_BLE_CONTINUOUS_AUTHENTICATED_LOCK30S_SCOPE_V1','enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d)}
  r['clock_backend']=clock_backend(fp)
  dump(out/'receipt.json',r)
  env=os.environ.copy()
@@ -236,7 +237,7 @@ def main():
   config=(target/'sdkconfig').read_text()
   for k in ['CONFIG_BT_NIMBLE_NVS_PERSIST=y','CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE=y']:
    if k in config:raise ValueError('Forbidden storage/radio configuration')
-  validate_configuration(config,json.loads((target/'compile_commands.json').read_text()),rc9=True)
+  validate_configuration(config,json.loads((target/'compile_commands.json').read_text()),rc9=True,fixed500=True)
   shared_path_builder().validate_gm_successor_compilation(r,json.loads((target/'compile_commands.json').read_text()))
   compiler=next(x for x in json.loads((target/'compile_commands.json').read_text()) if x['file'].endswith('/native_main.cpp'))
   toolchain_version=subprocess.check_output([compiler['command'].split()[0],'-dumpfullversion'],text=True).strip()

@@ -32,7 +32,7 @@ int main(){
   live.service_until_us=at+500000;live.g1_corrected_until_us=at+700000;live.g1_anchor_deadline_us=at+6000000;
   live.g1_clock_model={at*20,int64_t(at*1000),0,0,0};live.g1_relative_quality.evaluated20=live.g1_relative_quality.original20=at*20;
   assert(n30::ble_locked(live,at));auto_radio.update(n30::ble_locked(live,at),at);
-  assert(auto_radio.requested()==(dt<n30::BleRecoverUs));
+  assert(auto_radio.requested());
  }
  auto valid=s;s.service_until_us=now+1;assert(n30::synchronized_until(s,l,now)==now+1);
  assert(n30::synchronized_until(s,l,now+1)==0);s=valid;

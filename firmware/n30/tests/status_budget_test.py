@@ -44,7 +44,7 @@ for relay in (False,True):
    cases.append(dict(estimated_relay=relay,max_numeric_widths=wide,TX_filtered_mode=tx,body_bytes=body,end_max_bytes=actual_end,whole_bytes=body+actual_end))
 print(json.dumps(dict(status='PASS',rows=10,whole_capacity=8704,original_response_us=1500000,cases=cases)))
 
-w.TEXT.update(mode='KEEP_OFF',context='f'*32,timestamp='HARDWARE_DIO1_MAPPED',physical_bias='UNKNOWN',durable_fault_journal='UNAVAILABLE',TX='FORBIDDEN',source_freshness='UNKNOWN',uncertainty='UNKNOWN',bound='UNKNOWN')
+w.TEXT.update(mode='KEEP_OFF',context='f'*32,timestamp='HARDWARE_HEADER_VALID_MAPPED',physical_bias='UNKNOWN',durable_fault_journal='UNAVAILABLE',TX='FORBIDDEN',source_freshness='UNKNOWN',uncertainty='UNKNOWN',bound='UNKNOWN')
 w.BOOL.update('metadata_known BLE_update time_valid parent_quality_current requested active fault off_ack SPI_retired capture_released reset_asserted RX_ONLY'.split())
 diag=(APP/'main/lora_diagnostics.cpp').read_text();fs=formats(pp(src[src.index('[[gnu::noinline]] void lora_status_frame('):src.index('void status(')],False),'response.format')+formats(pp(re.sub(r'^#include.*$', '', diag, flags=re.M),False),'f.format')+formats(ui[ui.index('void n30_display_status('):],'f.format');assert len(fs)==10
 for wide in (False,True):

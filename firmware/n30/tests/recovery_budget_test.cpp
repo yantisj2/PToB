@@ -32,6 +32,6 @@ int main(int argc,char** argv){
    if(p.requested()){on_at=dt;break;}
   }
   std::printf("INTERMITTENT_GM lora_auto_on_us=%llu\n",(unsigned long long)on_at);std::fflush(stdout);
-  assert(on_at&&on_at<=240000000);
+  assert(on_at==0&&p.requested());
  }
 }

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "status": "SELECTED_PUBLIC_SOURCE_LINKAGE_NOT_HARDWARE_QUALIFICATION",
+  "author": "Jonathan Yantis",
+  "source_repository": "PToB",
+  "source_commit": "daa5f09d602440b286b1b415bb453787830d2cfc",
+  "selection": "Direct compilation of passive wire3 schedule8 codec/core and required inline headers; no private source/history imported",
+  "scope": "RX only; authenticated local META context and physical SYNC/FOLLOW; no BLE fit or exported timing authority",
+  "calibration": "N30 engineering symbol model +99328000ns; TX_BUSY_START-to-RF and N30 pipeline unknown; no other board prior transferred",
+  "selected_paths_sha256": {
+    "firmware/t096/protocol/lora_passive.c": "846e654c7a374ac215380fde6c4ea83620054def425854dfac0ce1e10b4ef974",
+    "firmware/t096/protocol/lora_passive.h": "017c29c4b915a2aaa5abf6069b85990007e8068ea15d951e8a9e28f99bc66912",
+    "firmware/t096/protocol/lora_passive_schedule.h": "60f4dd1755f1395d19ce35e2b602d17f52b42f5e0a1d32bad8c24283f33703b5",
+    "firmware/t096/protocol/group_auth.h": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87",
+    "firmware/t096/protocol/time_zone.h": "d0f07202ba8a786431bb0dae96f780987022f53284cd90399c3b37fb4cda9d10",
+    "firmware/t096/include/lora_passive_core.h": "f24c9736da6ffea26b548167572cf3c60fce5caa760dda9014188d66333cb457",
+    "firmware/t096/include/holdover.h": "147ad50552bb036d72f1dab0ccf2e2678ce8a58b9f4446ba36a7126a0017cf55",
+    "firmware/t096/include/rc_boundary.h": "98b2985a653508fef361fc137c1e0127b055508cc7aca1f96e39e1d3a0dc9ff7",
+    "firmware/t096/include/precision_servo.h": "6fd701595f0b202bb49de06718ac841edcc633891b436a64db100ed5649eccc2",
+    "firmware/t096/src/lora_passive_core.c": "28949da9ec60bf123ece910a26d861b69690cf3a4bbfda63eba587d69cd1df2a"
+  },
+  "license": "Preserved MIT/Apache-2.0 per-file notices; see firmware/n30/NOTICE.md"
+}

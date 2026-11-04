@@ -13,12 +13,37 @@ inline bool ble_time(const Model& m,uint64_t now,uint64_t& utc){
  const auto& b=m.ble;if(!current(m,now)||!b.valid||now<b.at_us||now>=b.until_us||now-b.at_us>UINT64_MAX-b.utc_us)return false;
  utc=b.utc_us+now-b.at_us;return true;
 }
+// A selected LoRa clock survives short BLE returns. The dwell consumes fresh,
+// authorized settled BLE snapshots in one admitted scope, never RF activity.
+class ClockSelection {
+ uint64_t since_=0,last_=0,root_=0,boot_=0,origin_=0;uint32_t epoch_=0;
+ bool active_=false,lora_selected_=false;
+ public:
+ void select(Model& m,const n30_lora_view& l,uint64_t now,bool authorized_quality=true){
+  m.lora=l;uint64_t ignored;
+  const bool qualified=authorized_quality&&!m.mode_pending&&m.locked&&m.state==State::Follow&&
+   (m.source==Source::Ble||m.source==Source::Rc1||m.source==Source::Rc2)&&
+   m.ble.valid&&m.ble.following&&m.ble.root&&m.ble.boot&&m.ble.epoch&&m.precision.valid&&m.precision.scope&&
+   analog_time(m,now,ignored);
+  const bool same=active_&&now>=last_&&now-last_<SnapshotMaxUs&&
+   root_==m.ble.root&&boot_==m.ble.boot&&epoch_==m.ble.epoch&&origin_==m.precision.scope;
+  if(!qualified)active_=false;
+  else if(!same){since_=now;active_=true;root_=m.ble.root;boot_=m.ble.boot;epoch_=m.ble.epoch;origin_=m.precision.scope;}
+  last_=now;
+  if(qualified&&(!lora_selected_||(now>=since_&&now-since_>=UINT64_C(30000000)))){lora_selected_=false;return;}
+  if(!lora_time(l,now,ignored))return;
+  lora_selected_=true;apply(m,l);
+ }
+ static void apply(Model& m,const n30_lora_view& l){
+  m.utc_at_us=l.sampled_us;m.utc_us=l.utc_us;m.until_us=l.until_us;
+  m.valid=m.locked=true;m.state=State::Follow;m.source=Source::LoRa;m.hz=0;m.serving=false;m.delivery=UINT16_MAX;m.rms_ns=l.link_samples>=4?l.link_rms_ns:UINT32_MAX;
+ }
+};
+// Stateless helper retained for synthetic fixtures and diagnostic compositions.
 inline void select_lora(Model& m,const n30_lora_view& l,uint64_t now){
  m.lora=l;uint64_t ignored;
- if(!m.mode_pending&&analog_time(m,now,ignored))return; // Settled live BLE lock wins; marginal FOLLOW cannot displace LoRa.
- if(!lora_time(l,now,ignored))return;
- m.utc_at_us=l.sampled_us;m.utc_us=l.utc_us;m.until_us=l.until_us;
- m.valid=m.locked=true;m.state=State::Follow;m.source=Source::LoRa;m.hz=0;m.serving=false;m.delivery=UINT16_MAX;m.rms_ns=l.link_samples>=4?l.link_rms_ns:UINT32_MAX;
+ if(!m.mode_pending&&analog_time(m,now,ignored))return;
+ if(lora_time(l,now,ignored))ClockSelection::apply(m,l);
 }
 class DualComparison {
  uint8_t context_[16]{};uint64_t at_=0,epoch_=0;uint32_t sequence_=0,generation_=0;int64_t delta_=0;
@@ -35,7 +60,7 @@ class DualComparison {
   const bool same=seen_&&generation_==l.generation&&epoch_==l.capture_epoch&&!std::memcmp(context_,l.context,16)&&now>=at_;
   if(same&&sequence_==l.corrected_sequence){m.drift_valid=drift_valid_;m.drift_ppb=drift_;return;}
   drift_valid_=false;
-  if(same&&l.corrected_sequence>sequence_&&now-at_>=1000000&&now-at_<12000000){
+  if(same&&l.corrected_sequence>sequence_&&now-at_>=1000000&&now-at_<120000000){
    const long double rate=(static_cast<long double>(delta)-delta_)*1000000/(now-at_);
    if(rate>=INT32_MIN&&rate<=INT32_MAX){drift_=int32_t(rate);drift_valid_=true;}
   }
