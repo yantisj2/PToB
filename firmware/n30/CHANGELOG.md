@@ -1,5 +1,12 @@
 # N30 changelog
 
+## 0.2.40 — 2026-11-03
+
+Keep the Precision page root label tied to its independent BLE model when
+LoRa supplies the displayed clock. The selected clock header continues to name
+the LoRa emitter. Timing models, wire format, calibration and permissions are
+unchanged.
+
 ## 0.2.39 — 2026-11-03
 
 - Receive the T096 passive wire3/schedule8 fixed922.4MHz SF11/BW500/CR4/8

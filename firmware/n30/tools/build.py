@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.39'
+VERSION='0.2.40'
 T096_LORA_FILES=['protocol/lora_passive.c','protocol/lora_passive.h','protocol/lora_passive_schedule.h','protocol/group_auth.h','protocol/time_zone.h','include/lora_passive_core.h','include/holdover.h','include/rc_boundary.h','include/precision_servo.h','src/lora_passive_core.c']
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()

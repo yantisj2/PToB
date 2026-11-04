@@ -196,8 +196,6 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  if(m.source==n30::Source::LoRa){
   const auto* name=ptob_registry_name(lora.emitter);
   if(name)std::snprintf(m.parent,sizeof m.parent,"%s",name);else std::snprintf(m.parent,sizeof m.parent,"%04X",unsigned(lora.emitter&65535));
-  const auto* root_name=ptob_registry_name(lora.root);
-  if(root_name)std::snprintf(m.root,sizeof m.root,"%s",root_name);else std::snprintf(m.root,sizeof m.root,"%04X",unsigned(lora.root&65535));
  }
  const auto radio=v12::r2_activity();
  // Producer counters retain their actual meaning. RDY has no equivalent
