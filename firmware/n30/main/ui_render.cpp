@@ -152,10 +152,10 @@ void precision_page(uint8_t* f,const Model& m,uint64_t now){
   std::snprintf(out,sizeof out,"RATE %s ppb",value_text);small_text(f,4,85,out);
   if(live)signed_count(value_text,sizeof value_text,l.phase_ns);
   std::snprintf(out,sizeof out,"PHCOR %s ns",value_text);small_text(f,4,93,out);
-  if(fresh&&l.age_ms!=UINT32_MAX)std::snprintf(out,sizeof out,"PAIR %us N%u",unsigned(std::min(l.age_ms/1000,9999u)),unsigned(l.link_samples));else std::snprintf(out,sizeof out,"PAIR -- N0");
+  if(fresh&&l.age_ms!=UINT32_MAX)std::snprintf(out,sizeof out,"PAIR %us N%u",unsigned(std::min<uint32_t>(l.age_ms/1000,9999)),unsigned(l.link_samples));else std::snprintf(out,sizeof out,"PAIR -- N0");
   small_text(f,4,101,out);
   const char* status=!fresh?"STALE":l.fault?"FAULT":!l.requested?"OFF":!l.metadata_known?"META":available?l.age_ms<35000?"TRACK":"HOLD":l.trained?"NO MAP":l.state==3?"EXPIRED":"TRAIN";
-  if(fresh&&l.model_valid&&l.reference_age_ms!=UINT32_MAX)std::snprintf(out,sizeof out,"REF%us %s",unsigned(std::min(l.reference_age_ms/1000,999u)),status);else std::snprintf(out,sizeof out,"REF-- %s",status);
+  if(fresh&&l.model_valid&&l.reference_age_ms!=UINT32_MAX)std::snprintf(out,sizeof out,"REF%us %s",unsigned(std::min<uint32_t>(l.reference_age_ms/1000,999)),status);else std::snprintf(out,sizeof out,"REF-- %s",status);
   small_text(f,4,110,out);small_text(f,4,119,"UTC/RF UNKNOWN");return;
  }
  fill(f,4,81,56,1);text(f,5,86,"REL");
