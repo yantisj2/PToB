@@ -19,9 +19,15 @@ void line(uint8_t* f,int x,int y,int xx,int yy){int dx=std::abs(xx-x),sx=x<xx?1:
 void circle(uint8_t* f,int cx,int cy,int r){int x=r,y=0,e=1-r;while(x>=y){for(int a:{-1,1})for(int b:{-1,1}){pixel(f,cx+a*x,cy+b*y);pixel(f,cx+a*y,cy+b*x);}y++;if(e<0)e+=2*y+1;else{x--;e+=2*(y-x)+1;}}}
 void header(uint8_t* f,const Model& m,bool fresh,int top=0){char s[12];if(fresh&&m.valid)std::snprintf(s,sizeof s,"%.4s>%.5s",m.unit,m.parent);else std::snprintf(s,sizeof s,"%.10s",m.unit);box(f,1,top,62,11);center(f,top+2,s);}
 const char* state(const Model& m,bool fresh){if(!fresh)return "STALE";switch(m.state){case State::Off:return "OFF";case State::Search:return "SEARCH";case State::Join:return "JOIN";case State::Acquire:return "ACQUIRE";case State::Follow:return m.source==Source::Rc9?"RC9 UTC":m.locked?"LOCK EST":"SYNCING";case State::Hold:return "HOLD";case State::Fault:return "FAULT";}return "WAIT";}
+const char* clock_strip_source(const Model& m,bool fresh,bool valid){
+ if(!fresh)return "--";
+ if(valid&&m.state==State::Hold)return "HOLD";
+ switch(m.source){case Source::Ble:return "BLE";case Source::Rc1:return "RC1";case Source::Rc2:return "RC2";case Source::LoRa:return "LOR";case Source::Rc9:return "RC9";case Source::None:return "--";}
+ return "--";
+}
 void number(uint8_t* f,int x,int y,unsigned n){static const uint8_t mask[]={0x3f,6,0x5b,0x4f,0x66,0x6d,0x7d,7,0x7f,0x6f};const auto b=mask[n%10];if(b&1)fill(f,x+1,y,4,1);if(b&2)fill(f,x+5,y+1,1,5);if(b&4)fill(f,x+5,y+7,1,5);if(b&8)fill(f,x+1,y+12,4,1);if(b&16)fill(f,x,y+7,1,5);if(b&32)fill(f,x,y+1,1,5);if(b&64)fill(f,x+1,y+6,4,1);}
 void digital(uint8_t* f,int y,bool valid,uint64_t utc){unsigned s=unsigned(utc/1000000%86400),v[]={s/3600/10,s/3600%10,s/60%60/10,s/60%10,s%60/10,s%10};int x=7;for(unsigned i=0;i<6;i++){if(valid)number(f,x,y,v[i]);else fill(f,x+1,y+6,4,1);x+=7;if(i==1||i==3){pixel(f,x,y+4);pixel(f,x,y+8);x+=4;}}}
-void dial(uint8_t* f,int cy,uint64_t utc,uint16_t hz){constexpr double pi=3.141592653589793;circle(f,32,cy,21);for(unsigned i=0;i<60;i++){const double a=i*pi/30;const int r=i%5==0?17:20;line(f,32+int(std::lround(std::sin(a)*r)),cy-int(std::lround(std::cos(a)*r)),32+int(std::lround(std::sin(a)*20)),cy-int(std::lround(std::cos(a)*20)));}const double sec=double(utc%60000000)/1000000,minute=double(utc/1000000%3600)/60,hour=double(utc/1000000%43200)/3600;for(auto h:{std::pair<double,int>{hour*pi/6,10},{minute*pi/30,15},{sec*pi/30,18}})line(f,32,cy,32+int(std::lround(std::sin(h.first)*h.second)),cy-int(std::lround(std::cos(h.first)*h.second)));fill(f,31,cy-1,3,3);char s[10];if(hz)std::snprintf(s,sizeof s,"%uHz",unsigned(hz));else std::snprintf(s,sizeof s,"--Hz");fill(f,18,cy+9,28,9,false);center(f,cy+10,s);}
+void dial(uint8_t* f,int cy,uint64_t utc,uint16_t hz,bool lora){constexpr double pi=3.141592653589793;circle(f,32,cy,21);for(unsigned i=0;i<60;i++){const double a=i*pi/30;const int r=i%5==0?17:20;line(f,32+int(std::lround(std::sin(a)*r)),cy-int(std::lround(std::cos(a)*r)),32+int(std::lround(std::sin(a)*20)),cy-int(std::lround(std::cos(a)*20)));}const double sec=double(utc%60000000)/1000000,minute=double(utc/1000000%3600)/60,hour=double(utc/1000000%43200)/3600;for(auto h:{std::pair<double,int>{hour*pi/6,10},{minute*pi/30,15},{sec*pi/30,18}})line(f,32,cy,32+int(std::lround(std::sin(h.first)*h.second)),cy-int(std::lround(std::cos(h.first)*h.second)));fill(f,31,cy-1,3,3);char s[10];if(lora)std::snprintf(s,sizeof s,"30s");else if(hz)std::snprintf(s,sizeof s,"%uHz",unsigned(hz));else std::snprintf(s,sizeof s,"--Hz");fill(f,18,cy+9,28,9,false);center(f,cy+10,s);}
 void rms(char* out,size_t n,uint32_t v){if(v==UINT32_MAX)std::snprintf(out,n,"-- ns");else if(v<1000)std::snprintf(out,n,"%u ns",unsigned(v));else if(v<1000000)std::snprintf(out,n,"%u.%02u us",unsigned(v/1000),unsigned(v%1000/10));else std::snprintf(out,n,">999 us");}
 void clock_text(uint8_t* f,int y,bool valid,uint64_t utc){char out[12]="--:--:--";if(valid){const unsigned t=unsigned(utc/1000000%86400);std::snprintf(out,sizeof out,"%02u:%02u:%02u",t/3600,t/60%60,t%60);}center(f,y,out);}
 void signed_count(char* out,size_t size,int64_t value){
@@ -99,16 +105,28 @@ void menu_page(uint8_t* f,const Model& m,const View& v,uint64_t now){
  else if(!current(m,now))result="STALE";
  else if(menu.item==unsigned(MenuItem::Power))result="HOLD: OFF";
  else if(menu.item==unsigned(MenuItem::Parent))result=m.mode_pending?"SWITCHING":!m.ble_requested?"BLE IS OFF":m.relay_only?"UPSTR RLY":"UPSTR AUTO";
- else if(menu.item==unsigned(MenuItem::Ble))result=m.state==State::Fault?"BLE FAULT":m.ble_requested?"BLE RX ON":"BLE RX OFF";
+ else if(menu.item==unsigned(MenuItem::Ble))result=m.ble_fault||m.state==State::Fault?"BLE FAULT":m.ble_requested?"BLE RX ON":"BLE RX OFF";
  else if(menu.item==unsigned(MenuItem::LoRa))result=m.lora.fault?"LORA FAULT":m.lora.active?"RX ACTIVE":m.lora.requested?"RX WAIT":"RX OFF";
  center(f,102,result);
  center(f,113,"TAP NEXT");small_text(f,10,123,"HOLD SELECT");
+}
+// Shared watch progress keeps all information and avoids duplicate formatting.
+[[gnu::noinline]] void watch_progress(uint8_t* f,const n30_lora_view& l,int y,int step){
+ char out[24];
+ for(unsigned line=0;line<3;line++){
+  const char* label=out;
+  if(line==0)std::snprintf(out,sizeof out,"N%u SPAN%us",unsigned(std::min<uint32_t>(l.watch_pairs,9999)),unsigned(std::min<uint32_t>(l.watch_span_ms/1000,9999)));
+  else if(line==1)std::snprintf(out,sizeof out,"PAIR AGE %us",unsigned(std::min<uint32_t>(l.watch_age_ms/1000,99999)));
+  else if(l.watch_prediction_n)std::snprintf(out,sizeof out,"RMS AGE %us",unsigned(std::min<uint32_t>(l.watch_error_age_ms/1000,99999)));
+  else label="ERROR UNKNOWN";
+  small_text(f,(64-int(std::strlen(label))*4+1)/2,y+int(line)*step,label);
+ }
 }
 void precision_page(uint8_t* f,const Model& m,uint64_t now){
  const auto& p=m.precision;const auto& l=m.lora;
  const bool lor=m.source==Source::LoRa||(m.source==Source::None&&l.requested);
  const bool fresh=current(m,now)&&now>=l.sampled_us&&now-l.sampled_us<SnapshotMaxUs;
- uint64_t lora_utc=0;const bool available=fresh&&lora_time(l,now,lora_utc);
+ uint64_t lora_utc=0,watch_utc=0;const bool available=fresh&&lora_time(l,now,lora_utc),watching=fresh&&lora_watch_time(l,now,watch_utc);
  const bool live=lor?fresh&&l.trained&&l.model_valid&&available:precision_current(m,now);
  uint64_t functional_utc=0;const bool rc9=m.source==Source::Rc9&&saver_time(m,now,functional_utc);
  const bool locked=live&&p.locked&&p.lock_age_valid&&now>=p.lock_since_us;
@@ -124,38 +142,61 @@ void precision_page(uint8_t* f,const Model& m,uint64_t now){
  const char* path=lor?"TX":!live?"BLE":p.source==Source::Rc1?"RC1":p.source==Source::Rc2?"RC2":"BLE";
  std::snprintf(out,sizeof out,"%s %.10s",path,lor&&fresh?m.parent:root);
  small_text(f,(64-int(std::strlen(out))*4+1)/2,25,out);
- if(lor){std::snprintf(out,sizeof out,"ROOT %.9s",fresh&&l.metadata_known?m.root:"----");small_text(f,(64-int(std::strlen(out))*4+1)/2,32,out);}
+ if(lor){std::snprintf(out,sizeof out,"ROOT %.9s",fresh&&(l.metadata_cached||l.metadata_known)?m.root:"----");small_text(f,(64-int(std::strlen(out))*4+1)/2,32,out);}
  else fill(f,4,34,56,1);
- if(lor&&fresh&&l.capture_bound_ns)std::snprintf(out,sizeof out,"20M50ns E%uus",unsigned((uint64_t(l.capture_bound_ns)+999)/1000));else std::snprintf(out,sizeof out,"20M50ns E--");
+ if(lor&&fresh&&l.capture_bound_ns){
+  const auto enclosure=unsigned((uint64_t(l.capture_bound_ns)+999)/1000);
+  if(enclosure<=999)std::snprintf(out,sizeof out,"80M12.5nsE%uu",enclosure);else std::snprintf(out,sizeof out,"80M12.5nsE>999u");
+ }else std::snprintf(out,sizeof out,"80M12.5nsE--");
  const char* resolution=lor?out:rc9?"UTC / UNKNOWN":p.counter_hz==80000000?"80MHz / 12.5ns":p.counter_hz==20000000?"20MHz / 50ns":"COUNTER --";
  small_text(f,(64-int(std::strlen(resolution))*4+1)/2,38,resolution);
- fill(f,4,46,56,1);center(f,49,lor?"FIT RMS":"BLE RMS");
- unsigned value=lor?l.link_rms_ns:p.rms_ns;const char* unit="ns";int dot=0;
- const bool known=live&&value!=UINT32_MAX;
+ if(lor&&fresh&&l.requested&&l.active&&!l.fault&&!available&&!watching){
+  fill(f,4,46,56,1);center(f,50,"LORA SYNC");
+  center(f,64,!l.metadata_known?"WAIT META":!l.time_valid?"WAIT SOURCE":l.state==3?"PAIR GAP":l.trained?"WAIT MAP":l.link_samples?"RECEIVING":"WAIT PAIR");
+  const auto span=std::min<uint32_t>((l.model_kind&&!l.model_valid?l.model_span_ms:l.fit_span_ms),180000);
+  box(f,7,78,50,4);if(l.metadata_known&&l.link_samples&&l.state!=3)fill(f,8,79,int(span)*48/180000,2);
+  std::snprintf(out,sizeof out,"PAIRS N%u",unsigned(l.metadata_known?(l.model_kind&&!l.model_valid?std::min<uint32_t>(l.model_samples,999):l.link_samples):0));small_text(f,4,89,out);
+  std::snprintf(out,sizeof out,"SPAN %us/180s",unsigned(l.metadata_known?span/1000:0));small_text(f,4,99,out);
+  if(l.metadata_known&&l.edge_tick&&l.age_ms!=UINT32_MAX)std::snprintf(out,sizeof out,"PAIR %us AGO",unsigned(std::min<uint32_t>(l.age_ms/1000,9999)));
+  else std::snprintf(out,sizeof out,"WAIT FIRST PAIR");
+  small_text(f,4,109,out);small_text(f,4,119,"UTC/RF UNKNOWN");return;
+ }
+ fill(f,4,46,56,1);center(f,49,lor?(watching||l.model_kind)?"PRED RMS":"FIT RMS":"BLE RMS");
+ unsigned value=lor?watching?l.watch_prediction_n?l.watch_rms_ns:UINT32_MAX:l.model_kind?l.prediction_recent_rms_ns:l.link_rms_ns:p.rms_ns;const char* unit="ns";int dot=0;
+ const bool known=(live||watching)&&value!=UINT32_MAX;
  const unsigned scale=value>=1000000000?1000000000:value>=1000000?1000000:value>=1000?1000:1;
  unit=scale==1000000000?"s":scale==1000000?"ms":scale==1000?"us":"ns";
  if(scale>1&&value/scale<10){value=unsigned(uint64_t(value)*100/scale);dot=1;}
  else if(scale>1&&value/scale<100){value=unsigned(uint64_t(value)*10/scale);dot=2;}
  else value/=scale;
  value=std::min(value,999u);
- for(unsigned i=0;i<3;i++){
+ const bool awaiting=lor&&(live||watching)&&!known;
+ if(awaiting){center(f,59,"NEXT PAIR");small_text(f,14,73,"MEASURING");}
+ for(unsigned i=0;!awaiting&&i<3;i++){
   const int x=7+int(i)*13;
   if(known)precision_digit(f,x,57,value/(i==0?100:i==1?10:1)%10);
   else fill(f,x+2,66,6,2);
  }
  if(known&&dot)fill(f,dot==1?18:31,76,2,2);
- text(f,47,70,known?unit:"ns");
+ if(!awaiting)text(f,47,70,known?unit:"ns");
  if(lor){
   fill(f,4,81,56,1);
+  if(watching){
+   watch_progress(f,l,85,8);
+   small_text(f,4,110,l.watch_state==3?"HOLD / AGED":l.watch_state==4?"META STALE":available?"TRACK / REL":"ACQ / EST");small_text(f,4,119,"UTC/RF UNKNOWN");return;
+  }
   char value_text[12]="--";
   if(live)signed_count(value_text,sizeof value_text,l.rate_ppb);
   std::snprintf(out,sizeof out,"RATE %s ppb",value_text);small_text(f,4,85,out);
-  if(live)signed_count(value_text,sizeof value_text,l.phase_ns);
-  std::snprintf(out,sizeof out,"PHCOR %s ns",value_text);small_text(f,4,93,out);
+  if(l.model_kind){rms(value_text,sizeof value_text,live?l.link_rms_ns:UINT32_MAX);std::snprintf(out,sizeof out,"RAW %s",value_text);}
+  else{if(live)signed_count(value_text,sizeof value_text,l.phase_ns);std::snprintf(out,sizeof out,"PHCOR %s ns",value_text);}
+  small_text(f,4,93,out);
   if(fresh&&l.age_ms!=UINT32_MAX)std::snprintf(out,sizeof out,"PAIR %us N%u",unsigned(std::min<uint32_t>(l.age_ms/1000,9999)),unsigned(l.link_samples));else std::snprintf(out,sizeof out,"PAIR -- N0");
   small_text(f,4,101,out);
-  const char* status=!fresh?"STALE":l.fault?"FAULT":!l.requested?"OFF":!l.metadata_known?"META":available?l.age_ms<35000?"TRACK":"HOLD":l.trained?"NO MAP":l.state==3?"EXPIRED":"TRAIN";
-  if(fresh&&l.model_valid&&l.reference_age_ms!=UINT32_MAX)std::snprintf(out,sizeof out,"REF%us %s",unsigned(std::min<uint32_t>(l.reference_age_ms/1000,999)),status);else std::snprintf(out,sizeof out,"REF-- %s",status);
+  const char* status=!fresh?"STALE":l.fault?"FAULT":!l.requested?"OFF":!l.metadata_known?"META":available?l.hold_active?"TEST":l.age_ms<35000?"TRACK":"HOLD":l.trained?"NO MAP":l.state==3?"EXPIRED":"TRAIN";
+  if(fresh&&l.metadata_known&&!l.trained&&l.link_samples&&l.state!=3)std::snprintf(out,sizeof out,"SPAN %us/180s",unsigned(std::min<uint32_t>((l.model_kind&&!l.model_valid?l.model_span_ms:l.fit_span_ms)/1000,999)));
+  else if(fresh&&l.model_valid&&l.reference_age_ms!=UINT32_MAX){if(l.model_kind)std::snprintf(out,sizeof out,"P%u W8 %s",unsigned(std::min<uint32_t>(l.prediction_n,9999)),status);else std::snprintf(out,sizeof out,"REF%us %s",unsigned(std::min<uint32_t>(l.reference_age_ms/1000,999)),status);}
+  else std::snprintf(out,sizeof out,"%s",status);
   small_text(f,4,110,out);small_text(f,4,119,"UTC/RF UNKNOWN");return;
  }
  fill(f,4,81,56,1);text(f,5,86,"REL");
@@ -173,15 +214,24 @@ void lora_page(uint8_t* f,const Model& m,uint64_t now){
  const auto& l=m.lora;const bool fresh=current(m,now)&&now>=l.sampled_us&&now-l.sampled_us<SnapshotMaxUs;
  box(f,1,0,62,11);center(f,2,"LORA S8");char out[24];
  center(f,15,l.requested?"RX ON":"RX OFF");
- if(l.mode==1)center(f,25,"KEEP ON");else if(l.mode==2)center(f,25,"KEEP OFF");else{std::snprintf(out,sizeof out,"AUTO %us",unsigned((l.transition_remaining_ms+999)/1000));center(f,25,out);}
- center(f,37,!fresh?"STALE":l.fault?"RADIO FAIL":!l.requested?"DISABLED":!l.active?"STARTING":l.state==2?"MATCH TIME":l.state==3?"EXPIRED":"WAIT RADIO");
- uint64_t utc=0;const bool valid=lora_time(l,now,utc);clock_text(f,48,valid,utc);
- if(valid&&l.link_samples>=4){rms(out,sizeof out,l.link_rms_ns);center(f,60,out);std::snprintf(out,sizeof out,"LINK FIT%u",unsigned(l.link_samples));center(f,70,out);}
+ if(l.mode==1)center(f,25,"KEEP ON");else if(l.mode==2)center(f,25,"KEEP OFF");else center(f,25,"AUTO RX");
+ const bool training=fresh&&l.requested&&l.active&&!l.fault&&l.metadata_known&&l.link_samples&&!l.trained&&l.state!=3;
+ const char* summary=!fresh?"STALE":l.fault?"RADIO FAIL":!l.requested?"DISABLED":!l.active?"STARTING":l.state==2?"MATCH TIME":l.state==3?"EXPIRED":!l.metadata_known?"WAIT META":l.trained?"WAIT MAP":"WAIT PAIR";
+ if(fresh&&l.watch_valid&&l.watch_pairs){
+  summary=l.watch_state==3?"HOLD / EST":l.watch_state==4?"META STALE":l.state==2?"TRACK EST":nullptr;
+  if(!summary){std::snprintf(out,sizeof out,"ACQ N%u",unsigned(l.watch_pairs));summary=out;}
+ }else if(training){std::snprintf(out,sizeof out,"TRAIN N%u",unsigned(l.link_samples));summary=out;}
+ center(f,37,summary);
+ uint64_t utc=0,watch_utc=0;const bool delivered=lora_time(l,now,utc),watching=lora_watch_time(l,now,watch_utc),valid=delivered||watching;if(!delivered)utc=watch_utc;clock_text(f,48,valid,utc);
+ if(watching){rms(out,sizeof out,l.watch_prediction_n?l.watch_rms_ns:UINT32_MAX);center(f,60,out);center(f,70,l.watch_state==3?"RMS AGED":l.watch_state==4?"META STALE":"PRED RMS");}
+ else if(valid&&l.link_samples>=4){rms(out,sizeof out,l.link_rms_ns);center(f,60,out);std::snprintf(out,sizeof out,"LINK FIT%u",unsigned(l.link_samples));center(f,70,out);}
+ else if(training){std::snprintf(out,sizeof out,"SPAN %us",unsigned(std::min<uint32_t>((l.model_kind&&!l.model_valid?l.model_span_ms:l.fit_span_ms)/1000,999)));center(f,60,out);center(f,70,"OF 180s");}
  else{center(f,60,valid?"COLLECTING":"NO TIMING");center(f,70,"LINK RMS");}
  if(l.root)std::snprintf(out,sizeof out,"R%04X",unsigned(l.root&65535));else std::snprintf(out,sizeof out,"R----");text(f,2,81,out);
  if(l.parent)std::snprintf(out,sizeof out,"P%04X",unsigned(l.parent&65535));else std::snprintf(out,sizeof out,"P----");text(f,33,81,out);
  if(l.parent_quality)std::snprintf(out,sizeof out,"C%u A%u",unsigned(l.parent_class),unsigned(l.parent_accuracy));else std::snprintf(out,sizeof out,"%s META %s",l.kind==2?"BLE":l.kind==1?"GM":"--",l.metadata_known?"OK":"?");center(f,91,out);
- if(l.age_ms==UINT32_MAX)center(f,101,"AGE --");else if(l.age_ms>=120000)center(f,101,"AGE >120s");else{std::snprintf(out,sizeof out,"AGE %u.%us",unsigned(l.age_ms/1000),unsigned(l.age_ms%1000/100));center(f,101,out);}
+ if(watching){std::snprintf(out,sizeof out,"AGE%us N%u",unsigned(std::min<uint32_t>(l.watch_age_ms/1000,99999)),unsigned(std::min<uint32_t>(l.watch_pairs,9999)));center(f,101,out);}
+ else if(!fresh||!l.metadata_known||!l.edge_tick||l.age_ms==UINT32_MAX)center(f,101,"PAIR --");else if(l.age_ms>=120000)center(f,101,"PAIR >120s");else{std::snprintf(out,sizeof out,"PAIR %u.%us",unsigned(l.age_ms/1000),unsigned(l.age_ms%1000/100));center(f,101,out);}
  uint64_t ble;center(f,111,m.source==Source::LoRa&&valid?"LORA SELECT":ble_time(m,now,ble)&&m.ble.following?"BLE SELECT":"NO CLOCK");center(f,121,"MENU 2.0S");
 }
 void help(uint8_t* f,const View& v){box(f,1,0,62,11);center(f,2,v.page==PrecisionPage?"PRECISION":v.page?"RF KEY":"CLOCK KEY");if(v.page==PrecisionPage){const char* names[]={"ROOT / HOP","TICK SIZE","NOT ERROR","RMS CAUSAL","REL PPB","TREND EST","LOCK HELD","LOSS RESET"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}else if(v.page){const char* names[]={"HEL SCAN","SRC GROUP","PRE PA RX","ACK JOIN","CMT MODEL","SRV TX API","RDY N/A","ERR REJECT"};for(unsigned i=0;i<8;i++)text(f,2,15+int(i)*10,names[i]);center(f,99,"DOT RX");center(f,109,"FILL TX");}else{const char* names[]={"RC ONLY","GPS ABSENT","LOCK EST","RELATIVE","RMS IS NOT","UTC ERROR","HOLD LOCAL","4S OFF"};for(unsigned i=0;i<8;i++)center(f,16+int(i)*11,names[i]);}center(f,120,"PRESS BACK");}
@@ -210,23 +260,48 @@ void render(uint8_t f[FrameBytes],const Model& m,const View& v,uint64_t now){
   if(pps_on(m,now))fill(f,56,top+3,3,5);
   if(v.minimal)return;
   box(f,1,top+13,62,49);
-  if(saver_time(m,now,utc))dial(f,top+37,local,m.hz);else{center(f,top+28,"WAIT");center(f,top+42,"NO TIME");}
+  if(saver_time(m,now,utc))dial(f,top+37,local,m.hz,m.source==Source::LoRa);else{center(f,top+28,"SYNCING");center(f,top+42,"SOURCE WAIT");}
   header(f,m,fresh,top+64);return;
  }
  header(f,m,fresh);
  if(v.page==0){
-  box(f,1,12,62,28);text(f,5,15,zone);text(f,33,15,source_label(m,now));if(pps_on(m,now))fill(f,56,16,3,5);digital(f,24,valid,local);
-  box(f,1,42,62,49);if(locked)dial(f,66,local,m.hz);else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"NO TIME");}
-  box(f,1,93,62,35);center(f,96,m.source==Source::LoRa?"LINK RMS":"SYNC RMS");char s[16];rms(s,sizeof s,valid&&m.state==State::Follow?m.rms_ns:UINT32_MAX);center(f,107,s);
+  const auto& l=m.lora;
+  const bool acquiring=m.source==Source::LoRa&&!locked&&fresh&&l.requested&&l.active&&!l.fault&&now>=l.sampled_us&&now-l.sampled_us<SnapshotMaxUs;
+  // Match the T096 hierarchy: digital time always owns its original panel.
+  // An independent observer cannot replace the selected clock's time or state.
+  box(f,1,12,62,28);text(f,5,15,zone);text(f,33,15,clock_strip_source(m,fresh,valid));if(pps_on(m,now))fill(f,56,16,3,5);digital(f,24,valid,local);
+  box(f,1,42,62,49);
+  if(locked)dial(f,66,local,m.hz,m.source==Source::LoRa);
+  else if(acquiring){
+   if(l.watch_valid){
+    center(f,47,l.watch_age_ms>=35000?"HOLD / EST":!l.metadata_known?"META STALE":"ACQ / EST");
+    watch_progress(f,l,60,12);
+   }else{
+   const bool training=l.metadata_known&&l.time_valid&&l.link_samples&&!l.trained&&l.state!=3;
+   center(f,47,"LORA SYNC");char progress[20];
+   center(f,60,!l.metadata_known?"WAIT META":!l.time_valid?"SRC WAIT":l.state==3?"PAIR GAP":l.trained?"WAIT MAP":training?"TRAINING":"WAIT PAIR");
+   if(training){std::snprintf(progress,sizeof progress,"N%u %us/180s",unsigned(l.model_kind?std::min<uint32_t>(l.model_samples,999):l.link_samples),unsigned(std::min<uint32_t>((l.model_kind?l.model_span_ms:l.fit_span_ms)/1000,180)));small_text(f,(64-int(std::strlen(progress))*4+1)/2,74,progress);}
+   else{std::snprintf(progress,sizeof progress,"%u PAIRS",unsigned(l.metadata_known?l.link_samples:0));center(f,73,progress);}
+   if(training){box(f,7,84,50,3);fill(f,8,85,int(std::min<uint32_t>((l.model_kind&&!l.model_valid?l.model_span_ms:l.fit_span_ms),180000))*48/180000,1);}
+   }
+  }else{center(f,54,state(m,fresh));center(f,70,valid?"REL CLOCK":"SYNCING");}
+  box(f,1,93,62,35);center(f,96,m.source==Source::LoRa?m.lora.hold_active?"HOLD TEST":m.lora.watch_valid||m.lora.model_kind?"PRED RMS":"LINK RMS":"SYNC RMS");char s[16];
+  if(valid&&m.source==Source::LoRa&&m.rms_ns==UINT32_MAX)std::snprintf(s,sizeof s,"NEXT PAIR");
+  else{rms(s,sizeof s,valid?m.rms_ns:UINT32_MAX);}
+  center(f,107,s);
   if(locked&&m.source!=Source::LoRa){box(f,3,106,6,8);box(f,4,103,4,5);}fill(f,4,117,56,1);text(f,5,120,"RC");if(fresh&&m.mode_pending)text(f,23,120,">");else if(fresh&&m.relay_only)text(f,23,120,"R");if(fresh&&m.serving)fill(f,20,121,3,3);
   const auto bars=rf_bars(m,now);
   for(unsigned i=0;i<4;i++){int x=35+int(i)*6,h=2+int(i)*2;const bool on=i<bars;if(on)fill(f,x,127-h,4,h);else{if(i)fill(f,x,127-h,4,1);fill(f,x,126,4,1);}}
  }else{
-  box(f,1,12,62,48);text(f,4,15,m.serving&&fresh?"BLE RX+TX":"BLE RX");text(f,4,39,!fresh||m.lora.fault?"LORA FAIL":m.lora.active?"LORA RX":m.lora.requested?"LORA START":"LORA OFF");
+  box(f,1,12,62,48);text(f,4,15,!fresh?"BLE STALE":m.ble_fault?"BLE FAULT":!m.ble_requested?"BLE OFF":m.serving?"BLE RX+TX":"BLE RX");text(f,4,39,!fresh||m.lora.fault?"LORA FAIL":m.lora.active?"LORA RX":m.lora.requested?"LORA START":"LORA OFF");
   for(unsigned row=0;row<2;row++)for(unsigned i=0;i<8;i++){int x=4+int(i)*7,y=25+int(row)*24;box(f,x,y,6,7);if(fresh&&(row?m.lora_lamps[i]:m.lamps[i])==1)fill(f,x+2,y+2,2,3);else if(fresh&&(row?m.lora_lamps[i]:m.lamps[i])==2)fill(f,x+1,y+1,4,5);}
-  uint64_t ble=0,lora=0;const bool bv=ble_time(m,now,ble),lv=lora_time(m.lora,now,lora);
+  uint64_t ble=0,lora=0,watch_utc=0;const bool bv=ble_time(m,now,ble),lv=lora_time(m.lora,now,lora),wv=lora_watch_time(m.lora,now,watch_utc);if(!lv)lora=watch_utc;
   text(f,3,65,"BLE");text(f,30,65,bv?(m.ble.following?"TRACK":"HOLD"):"WAIT");clock_text(f,77,bv,ble);
-  text(f,3,89,"LORA");text(f,36,89,lv?"EST":m.lora.requested?"WAIT":"OFF");clock_text(f,100,lv,lora);fill(f,3,110,58,1);
+  text(f,3,89,"LORA");text(f,30,89,lv?"EST":wv?m.lora.watch_state==3?"HOLD":"ACQ":!fresh||m.lora.fault?"FAIL":!m.lora.requested?"OFF":!m.lora.active?"START":!m.lora.metadata_known?"META":m.lora.state==3?"GAP":!m.lora.time_valid?"SRC?":m.lora.link_samples?"TRAIN":"PAIR");
+  if(lv||wv)clock_text(f,100,true,lora);
+  else if(fresh&&m.lora.active&&!m.lora.fault&&m.lora.metadata_known&&m.lora.time_valid&&m.lora.state!=3&&m.lora.link_samples){char progress[20];std::snprintf(progress,sizeof progress,"%us/180s N%u",unsigned(std::min<uint32_t>(m.lora.fit_span_ms/1000,999)),unsigned(m.lora.link_samples));small_text(f,(64-int(std::strlen(progress))*4)/2,102,progress);}
+  else{center(f,100,!fresh?"STALE":m.lora.fault?"RX FAULT":!m.lora.active?"RX OFF":!m.lora.metadata_known?"WAIT META":m.lora.state==3?"PAIR GAP":!m.lora.time_valid?"SRC WAIT":"WAIT PAIR");}
+  fill(f,3,110,58,1);
   char value[12],out[16];if(m.delta_valid&&bv&&lv)signed_count(value,sizeof value,m.delta_ns);else std::snprintf(value,sizeof value,"--");std::snprintf(out,sizeof out,"DNS %s",value);center(f,113,out);
   if(m.drift_valid&&bv&&lv)signed_count(value,sizeof value,m.drift_ppb);else std::snprintf(value,sizeof value,"--");std::snprintf(out,sizeof out,"PPB %s",value);center(f,121,out);
  }

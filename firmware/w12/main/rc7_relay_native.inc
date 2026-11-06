@@ -366,6 +366,14 @@ void relay_input(const rc7_path& parent,const rc5_origin& origin,const uint8_t* 
   }else inc(relay_queue_diagnostic.input_refused);
 }
 bool relay_cap_update(uint64_t now){
+#ifdef PTOB_N30
+  static n30::AdvDataRetry capacity_retry;
+#elif defined(PTOB_W12_BLE_RECOVERY)
+  static w12::AdvDataRetry capacity_retry;
+#endif
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+  if(!capacity_retry.ready(now))return false;
+#endif
   if(relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
   relay_pause_cap();
   auto c=relay_map.capability(provision.identity,boot_id,relay_challenge,relay_pa);
@@ -380,7 +388,14 @@ bool relay_cap_update(uint64_t now){
   uint8_t wire[23+RC_DYNAMIC_CAPABILITY_BYTES]={2,1,6,17,7};std::memcpy(wire+5,rc_service.value,16);wire[21]=RC_DYNAMIC_CAPABILITY_BYTES+1;wire[22]=255;
   if(rc7_control_encode(relay_cap,&c,&provision.group)||rc7_capability_encode(wire+23,&c,&provision.group)){fault=true;return false;}
   relay_cap_path=c.path;auto* mb=ble_hs_mbuf_from_flat(wire,sizeof wire);
-  if(!mb){fault=true;return false;}if(!relay_api(ble_gap_ext_adv_set_data(1,mb),R2Api::AdvData))return false;
+  if(!mb){fault=true;return false;}
+  const int cap_result=ble_gap_ext_adv_set_data(1,mb);
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+  if(capacity_retry.defer(cap_result,micros())){note(cap_result,R2Api::AdvData);inc(setup_retries);return false;}
+  if(cap_result){error(cap_result,R2Api::AdvData,61);return false;}
+#else
+  if(!relay_api(cap_result,R2Api::AdvData))return false;
+#endif
   relay_cap_at=now;relay_cap_dirty=false;return true;
 }
 bool relay_configure(){

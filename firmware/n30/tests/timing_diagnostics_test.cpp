@@ -27,7 +27,7 @@ v12::periodic_rx::Stamp stamp(unsigned n){
 }
 adv_rx::BleAnchor anchor{20000000,20000004,{3200,40}};
 int main(){
- n30_timing_init();assert(v12::n30_probe::capture_sink&&v12::n30_probe::pair_sink);
+ n30_timing_init();assert(v12::n30_probe::capture_sink&&v12::n30_probe::pair_sink&&v12::n30_probe::fine_sink);
  v12::n30_probe::pair_sink({});assert(relative_pairs==1&&window_pairs==1&&!recorder.snapshot(fake_now).active);
  auto s=stamp(1);v12::n30_probe::capture_sink(s,anchor,-72);assert(recorder.snapshot(fake_now).seen==0&&window_captures==1);
  for(auto ms:{0u,999u,600001u})assert(!n30_timing_start(1,fake_now,ms,1));
@@ -62,5 +62,18 @@ int main(){
  n30_timing_stop();assert(!recorder.snapshot(fake_now).active);assert(recorder.read(0,out,4,fake_now)==3);
  assert(n30_timing_start(4,fake_now,1000,1));--fake_now;v12::n30_probe::capture_sink(stamp(1),anchor,-60);
  assert(!recorder.snapshot(fake_now).active&&recorder.snapshot(fake_now).seen==0);
+ ++fake_now;assert(n30_timing_start(5,fake_now,1000,1));s=stamp(1);v12::n30_probe::capture_sink(s,anchor,-60);
+ auto delivered=s;delivered.tick20-=1000;delivered.available20=delivered.tick20+200;
+ v12::n30_probe::Pair p{111,55,delivered.tick20,delivered.available20,123456789,123456700,2,3,s.epoch,1,s.event,s.channel,true,100000000,200000000};
+ for(unsigned field=0;field<4;field++){
+  auto wrong=delivered;if(field==0)++wrong.epoch;if(field==1)++wrong.sequence;if(field==2)++wrong.event;if(field==3)++wrong.channel;
+  v12::n30_probe::fine_sink(wrong);v12::n30_probe::pair_sink(p);assert(!recorder.snapshot(fake_now).matched);
+ }
+ v12::n30_probe::fine_sink(delivered);assert(!recorder.snapshot(fake_now).matched&&recorder.read(0,out,4,fake_now)==0);
+ v12::n30_probe::pair_sink(p);assert(recorder.snapshot(fake_now).matched==1&&recorder.read(0,out,4,fake_now)==1);
+ assert(out[0].capture.tick20==s.tick20&&out[0].capture.sequence==s.sequence&&out[0].pair.local20==delivered.tick20&&out[0].pair.remote_ns==123456789);
+ v12::n30_probe::fine_sink(s);assert(recorder.read(0,out,4,fake_now)==1&&out[0].pair.local20==delivered.tick20); // matched row immutable
+ frame={};n30_timing_frame(frame,0,fake_now);assert(std::strstr(frame.bytes,"delivered20=")&&std::strstr(frame.bytes,"delivered=POST_FINE_EXACT_STAMP_V1"));
+ n30_timing_stop();
  std::printf("PASS timing adapter: default OFF, finite bounds, exact expiry, no extension,16-row overwrite, nonconsuming cursor, decimation, missing pairs, backward clock; recorder_bytes=%zu sample_bytes=%zu\n",sizeof(n30::timing::Recorder),sizeof(n30::timing::Sample));
 }

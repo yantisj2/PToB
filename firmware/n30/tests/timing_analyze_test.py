@@ -48,6 +48,8 @@ f=importlib.util.module_from_spec(spec);spec.loader.exec_module(f)
 raw=f.timing_frame();frames,errors=a.decode(raw,f.tm);assert len(frames)==1 and not errors
 report=a.analyze(frames);assert report['causal_innovation']['n']==1 and report['causal_innovation']['rms_ns']==50
 assert report['assumptions']['centered_descriptor_bins'] is False and not report['shadow']
+fine,errors=a.decode(f.timing_frame((1,'delivered20','19999000')),f.tm);assert not errors
+fine_report=a.analyze(fine,centered=True);assert fine_report['fine_stamped_records']==1 and not fine_report['shadow'] and fine_report['causal_innovation']['n']==1
 assert a.analyze(frames+frames)['unique_records_received']==1
 other,_=a.decode(f.timing_frame((1,'predicted_ns','999999900')),f.tm)
 conflict=a.analyze(frames+other+frames)

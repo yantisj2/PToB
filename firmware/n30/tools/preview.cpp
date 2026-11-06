@@ -52,6 +52,24 @@ int main(int argc,char** argv){
   for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);
   std::fclose(f);
  }
+ // Current-context acquisition fixtures, including inherited stale fields.
+ const char* sync_names[]={"clock-lora-wait-meta","clock-lora-wait-pair","clock-lora-training","clock-lora-gap","precision-lora-training","saver-lora-cst","clock-lora-cst"};
+ for(unsigned i=0;i<7;i++){
+  n30::Model p;p.sampled_us=p.utc_at_us=1000000;p.until_us=1250000;p.utc_us=fixture_utc;
+  p.tz={2,-360};p.tz_until_us=UINT64_MAX;std::snprintf(p.unit,sizeof p.unit,"%s",argv[2]);
+  std::snprintf(p.parent,sizeof p.parent,"TC-03");std::snprintf(p.root,sizeof p.root,"TC-01");
+  p.lora.sampled_us=p.sampled_us;p.lora.requested=p.lora.active=true;
+  p.lora.metadata_known=i!=0;p.lora.time_valid=true;p.lora.state=i==3?3:1;
+  p.lora.link_samples=i<2?0:4;p.lora.fit_span_ms=i<2?0:90000;
+  p.lora.age_ms=i==0?760000:i==1?UINT32_MAX:i==3?125000:14000;
+  p.lora.edge_tick=i<2?0:12345;p.lora.root=1;p.lora.kind=2;
+  n30::View v;v.page=i==4?n30::PrecisionPage:0;v.saver=i==5;v.saver_position=1;
+  if(i>=5){p.valid=p.locked=true;p.state=n30::State::Follow;p.source=n30::Source::LoRa;p.lora.trained=p.lora.model_valid=true;p.lora.state=2;p.rms_ns=675;}
+  n30::render(frame,p,v,p.sampled_us);char path[1024];std::snprintf(path,sizeof path,"%s/%s.pgm",argv[1],sync_names[i]);
+  auto f=std::fopen(path,"wb");if(!f)return 3;std::fprintf(f,"P5\n64 128\n255\n");
+  for(unsigned y=0;y<128;y++)for(unsigned x=0;x<64;x++)std::fputc(frame[y*8+x/8]&(0x80>>(x%8))?255:0,f);std::fclose(f);
+  for(bool cw:{false,true}){uint8_t native[n30::FrameBytes];n30::rotate(native,frame,cw);std::snprintf(path,sizeof path,"%s/%s-%s.bin",argv[1],sync_names[i],cw?"cw":"ccw");f=std::fopen(path,"wb");if(!f)return 3;std::fwrite(native,1,sizeof native,f);std::fclose(f);}
+ }
  // New page fixtures exercise the actual renderer, not a graphic mockup.
  const char* precision_names[]={"precision-lock","precision-acquire","precision-stale","precision-legacy-rc1","precision-microseconds","precision-long-lock","precision-long-root-rc2","precision-rc1","precision-fault","precision-root-unknown","precision-rc2-pps-off","precision-lora-ble-quality","precision-lora-train","precision-lora-stale","precision-lora-expired","precision-lora-hold","precision-lora-no-meta"};
  for(unsigned i=0;i<17;++i){

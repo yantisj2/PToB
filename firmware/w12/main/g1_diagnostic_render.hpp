@@ -92,7 +92,7 @@ inline int g1_render_link(char* out,unsigned capacity,const Report& r){
     "CONNECT_REQUEST","CONNECT_ACK","ACL_DESCRIPTOR","CANCEL_ACK","SYNC_REQUEST","SYNC_CREATE_ACK",
     "SYNC_ESTABLISHED","SYNC_CANCEL_ACK","SYNC_TERMINATE_ACK","SYNC_LOST","PERMISSION_PHASE",
     "SYNC_CLEANUP_QUEUED","SYNC_CANCEL_BEGIN","SYNC_TERMINATE_BEGIN","CORRECTED_PHASE",
-    "HOST_RESET","HOST_RESYNC","CLIENT_REARM","REARM_REFUSED","SYNC_CACHE_CHECK","SYNC_DRAIN_EXPIRED"};
+    "HOST_RESET","HOST_RESYNC","CLIENT_REARM","REARM_REFUSED","SYNC_CACHE_CHECK","SYNC_DRAIN_EXPIRED","ACQUISITION_REBIND"};
   const unsigned event=r.bytes[0];const char* name=event<sizeof(events)/sizeof(events[0])?events[event]:"INVALID";
   if(event==1&&!g1_diag_le(r.bytes+1,4)&&(r.bytes[7]&32))name="CONNECT_DRAIN_ACK";
   const char* result=(event==6||event==8)?"window_detail_us":event==9?"mtu_status_packed":(event==10||event==21||event==25)?"phase_us":"rc";
@@ -156,8 +156,18 @@ inline int g1_render_recovery(char* out,unsigned capacity,const R2Status& s){
   const auto& r=s.g1_recovery;
   return std::snprintf(out,capacity,"W12_G1_RECOVERY stage=%u reset=%" PRIu32 " sync=%" PRIu32 " rearm=%" PRIu32 " refused=%" PRIu32
     " reason=%" PRId32 " reset_us=%" PRIu64 " sync_us=%" PRIu64 " quiet_until_us=%" PRIu64
-    " old_generation=%" PRIu32 " old_stop_us=%" PRIu64 " old_deadline_us=%" PRIu64 " old_completed_us=%" PRIu64 " original_failure=RETAINED\n",
-    unsigned(r.stage),r.resets,r.syncs,r.rearms,r.refused,r.reason,r.reset_at,r.sync_at,r.quiet_until,r.old_generation,r.old_stop_requested,r.old_stop_deadline,r.old_completed);
+    " old_generation=%" PRIu32 " old_stop_us=%" PRIu64 " old_deadline_us=%" PRIu64 " old_completed_us=%" PRIu64 " original_failure=RETAINED"
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+    " ble_rebind=%" PRIu32
+#endif
+    "\n",
+    unsigned(r.stage),r.resets,r.syncs,r.rearms,r.refused,r.reason,r.reset_at,r.sync_at,r.quiet_until,r.old_generation,r.old_stop_requested,r.old_stop_deadline,r.old_completed
+#ifdef PTOB_N30
+    ,s.n30_ble_recoveries
+#elif defined(PTOB_W12_BLE_RECOVERY)
+    ,s.w12_ble_recoveries
+#endif
+    );
 }
 inline int g1_render_clock(char* out,unsigned capacity,const R2Status& s,uint64_t now){
   const auto& p=s.g1_clock_model;
@@ -220,10 +230,18 @@ inline int g1_render_live(char* out,unsigned capacity,const R2Status& s,const Lo
     " perm_us=%" PRIu64 " refresh=%u candidate=%016" PRIx64 " rssi=%d attempts=%" PRIu32 " JOIN_ok=%" PRIu32 " ACL_desc=%" PRIu32 " ready=%" PRIu32 " drain_ACK=%" PRIu32
     " preCONNECT_loss=%" PRIu32 " disconnect=0x%03" PRIx32 " margin_us=%" PRIu32 " quiet_fault=%" PRIu32
     " GR3=%" PRIu32 "/%" PRIu32 " servo=%" PRIu32 "/%" PRIu32 " refusal=0x%04" PRIx32
-    " corrected=%" PRIu32 " rate_ppb=%d freq=%u TX_getter_dbm=%d/%d/%d/%d rearm=%" PRIu32 " queue_peak=%" PRIu32 " dropped=%" PRIu32 " expired=%" PRIu32 " HCI_pending=0x%04x/%" PRIu64 " HCI_drop=%" PRIu32 " precision=UNQUALIFIED\n",
+    " corrected=%" PRIu32 " rate_ppb=%d freq=%u TX_getter_dbm=%d/%d/%d/%d rearm=%" PRIu32 " queue_peak=%" PRIu32 " dropped=%" PRIu32 " expired=%" PRIu32 " HCI_pending=0x%04x/%" PRIu64 " HCI_drop=%" PRIu32
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+    " admission=%u/%" PRIu32 "/%" PRIu32 "/%" PRIu32
+#endif
+    " precision=UNQUALIFIED\n",
     now,state,s.root_identity,s.joined_peer,s.service_until_us>now?s.service_until_us-now:0,unsigned(s.g1_refresh_needed),d.last_candidate,int(d.last_rssi),s.join_attempts,s.join_accepts,d.descriptor_seen,d.connect_ok,d.connect_drain,
     s.g1_pending_disconnects,uint32_t(s.g1_last_disconnect_reason),d.close_min_margin_us,s.g1_quiet_faults,
     s.g1_relay_authenticated,s.g1_relay_refused,s.discipline_accepted,s.discipline_refused,s.discipline_last_refusal,
-    s.g1_corrected_accepted,int(s.g1_clock_model.rate),unsigned(s.g1_frequency_trained),int(d.default_tx_dbm),int(d.scan_tx_dbm),int(d.init_tx_dbm),int(d.conn_tx_dbm),s.g1_recovery.rearms,log.peak,log.dropped,log.expired,unsigned(hci.pending_opcode),hci.pending_at_us&&now>=hci.pending_at_us?now-hci.pending_at_us:0,hci.dropped);
+    s.g1_corrected_accepted,int(s.g1_clock_model.rate),unsigned(s.g1_frequency_trained),int(d.default_tx_dbm),int(d.scan_tx_dbm),int(d.init_tx_dbm),int(d.conn_tx_dbm),s.g1_recovery.rearms,log.peak,log.dropped,log.expired,unsigned(hci.pending_opcode),hci.pending_at_us&&now>=hci.pending_at_us?now-hci.pending_at_us:0,hci.dropped
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+    ,unsigned(s.g1_admission_policy.last),s.g1_admission_policy.no_source,s.g1_admission_policy.foreign_root,s.g1_admission_policy.unusable
+#endif
+    );
 }
 }

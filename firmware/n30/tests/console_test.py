@@ -106,6 +106,12 @@ for fault in [(0,'count','2'),(0,'queued','17'),(1,'n','0'),(1,'coarse',str(2**2
  except RuntimeError:pass
  else:raise AssertionError('Invalid timing schema admitted: '+str(fault))
 print('PASS timing CRC schema: complete scope, cursor/order, descriptor bounds, original envelope, command limits and observational contract')
+fine_frames=c.Parser(nonce,tm).feed(timing_frame((1,'delivered20','19999000')));assert len(fine_frames)==1
+assert fine_frames[0]['rows']['N30_TIMING_SAMPLE0']['local20']=='20000000' and fine_frames[0]['rows']['N30_TIMING_SAMPLE0']['delivered20']=='19999000'
+for value in ('-1',str(2**64),'0','21250201'):
+ try:c.Parser(nonce,tm).feed(timing_frame((1,'delivered20',value)))
+ except RuntimeError:pass
+ else:raise AssertionError('Invalid fine-delivered coordinate accepted')
 
 # The configured profile must be disclosed in normal, LoRa and timing frames.
 # Recompute both CRCs so refusal proves provenance checks, not damaged bytes.
@@ -172,3 +178,23 @@ for change in [('N30_RC9_CONTRACT','precision','FINE'),('N30_RC9_CONTRACT','rela
  except RuntimeError:pass
  else:raise AssertionError('Invalid RC9 claim accepted '+str(change))
 print('PASS RC9 ten-row nonce/CRC parser, revision and independent functional-only claims')
+
+# .053 extension: original ten rows/CRC, strict versioned22-value vector;
+# retain raw and expanded observations, including maximum-width diagnostics.
+watch_values=['0','5','7','4',str(2**64-1),str(2**64-1)]+[str(2**32-1)]*14+[str(-(2**31)),str(2**31-1)]
+vector='/'.join(watch_values)
+def watch_frame(vector,version='1'):
+ raw=lora_frame();marker=b'N30_LORA_QUALITY '
+ # Intentional fixture extension must rebuild both original CRC envelopes.
+ lines=raw.decode().splitlines();qi=next(i for i,line in enumerate(lines) if line.startswith('N30_LORA_QUALITY '));ci=next(i for i,line in enumerate(lines) if line.startswith('N30_LORA_CONTEXT '));lines[qi]+=f' watch_v{version}={vector} model_fast_accel_micro_ppb_s={-(2**63)} model_slow_accel_micro_ppb_s={2**63-1}';lines[ci]+=' metadata_cached=1'
+ body=('\n'.join(lines[:next(i for i,line in enumerate(lines) if line.startswith('W12_V12_END '))])+'\n').encode()
+ end=next(line for line in lines if line.startswith('W12_V12_END ')).split(' end_crc32=')[0];import re
+ end=re.sub(r' crc32=[0-9a-f]{8}',f' crc32={zlib.crc32(body):08x}',end).encode()
+ return body+end+f' end_crc32={zlib.crc32(end,zlib.crc32(body)):08x}\n'.encode()
+result=c.Parser(nonce,lm).feed(watch_frame(vector));assert len(result)==1
+q=result[0]['rows']['N30_LORA_QUALITY'];assert q['watch_v1_raw']==vector and q['watch_wire_encoding']=='FIXED22_V1' and q['watch_rate_ppb']==str(2**31-1) and q['watch_sampled_us']==str(2**64-1) and q['watch_last_ns']==str(-(2**31))
+for value,version in [(vector,'2'),(vector,'0'),('/'.join(watch_values[:-1]),'1'),(vector+'/0','1'),(vector.replace('/5/','/6/',1),'1'),('x/'+vector.split('/',1)[1],'1'),(vector.replace('/'+str(2**64-1)+'/', '/'+str(2**64)+'/',1),'1')]:
+ try:c.Parser(nonce,lm).feed(watch_frame(value,version))
+ except RuntimeError:pass
+ else:raise AssertionError('Malformed/unknown/range-overflow watch vector accepted')
+print('PASS watch fixed22 version/count/types/ranges, maximum-width signed64/uint64/uint32, raw+expanded retention and original CRC frame')

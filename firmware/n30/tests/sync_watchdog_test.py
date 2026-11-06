@@ -13,7 +13,8 @@ f=a.out/'fakes';(f/'freertos').mkdir(parents=True)
 (f/'freertos/FreeRTOS.h').write_text((APP/'tests/lora_fakes/freertos/FreeRTOS.h').read_text()+'\nusing StackType_t=uint8_t;struct StaticTask_t{unsigned unused;};using TaskHandle_t=void*;\n')
 (f/'freertos/task.h').write_text('#pragma once\n#include "FreeRTOS.h"\nvoid vTaskDelay(unsigned);TaskHandle_t xTaskCreateStaticPinnedToCore(void(*)(void*),const char*,unsigned,void*,unsigned,StackType_t*,StaticTask_t*,int);\n')
 flags=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DESP_PLATFORM=1','-I'+str(f),'-I'+str(APP.parent/'w12/main')]
-for n30 in (False,True):
- exe=a.out/('n30-supervisor' if n30 else 'w12-supervisor')
- subprocess.run([*flags,*(['-DPTOB_N30=1'] if n30 else []),APP/'tests/sync_watchdog_runtime_test.cpp','-o',exe],check=True,timeout=30)
+for mode in ('w12','w12-sync','n30'):
+ n30=mode=='n30'
+ exe=a.out/(mode+'-supervisor')
+ subprocess.run([*flags,*(['-DPTOB_N30=1','-DV12_NO_TIME_SYNC_US=720000000'] if n30 else ['-DPTOB_W12_SYNC_WATCHDOG=1'] if mode=='w12-sync' else []),APP/'tests/sync_watchdog_runtime_test.cpp','-o',exe],check=True,timeout=30)
  subprocess.run([exe],check=True,timeout=10)

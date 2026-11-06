@@ -100,6 +100,7 @@ uint32_t ui_hold_ms=0,ui_hold_samples=0;
 uint32_t ui_rms_ns=UINT32_MAX;uint8_t ui_gps_lamps=0;
 v12::UpdateGate update_gate;
 w12::PowerOff power_off;
+ptob::SourceAbsencePolicy no_time_retention;
 #ifdef PTOB_W12_LORA_RX
 w12::LoRaClockSelection display_clock_selection;bool display_lora_selected=false;
 #endif
@@ -222,8 +223,24 @@ void pps(const gnss_pps::Observation& edge){
 #ifdef PTOB_W12_LORA_RX
 [[gnu::noinline]] void lora_status_frame(uint64_t nonce,uint64_t begin){
  const auto next=ticket.issue(begin);v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);
- const auto mesh=v12::r2_status();
- response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " fault=%u rc7_flags=%" PRIu32 " ble_lock=%u service_until=%" PRIu64 " corrected_until=%" PRIu64 " anchor_until=%" PRIu64 " forecast_ms=%" PRIu32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.fault),mesh.rc7_server_flags,unsigned(w12::ble_locked(mesh,micros())),mesh.service_until_us,mesh.g1_corrected_until_us,mesh.g1_anchor_deadline_us,mesh.g1_relative_quality.hold_ms(mesh.g1_relative_quality.evaluated20,mesh.g1_clock_model,UINT64_MAX));
+ const auto mesh=v12::r2_status();const auto source_now=micros();const auto refusal=w12::ble_lock_refusal(mesh,source_now);
+ const auto selection=display_clock_selection.view(source_now);v12::G1ParentEvent parent{},next_parent{};uint32_t parent_cursor=0;
+ for(unsigned n=0;n<8&&v12::r2_parent_next(parent_cursor,next_parent);++n){parent=next_parent;parent_cursor=parent.sequence;}
+ response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " fault=%u rc7_flags=%" PRIu32 " ble_lock=%u service_until=%" PRIu64 " corrected_until=%" PRIu64 " anchor_until=%" PRIu64 " forecast_ms=%" PRIu32 " dual_schema=2 ble_refusal=%" PRIu32 " ble_why=%s observed_us=%" PRIu64 " qualify_since_us=%" PRIu64 " remaining_us=%" PRIu32 " permission_pause_us=%" PRIu64 " max_observer_gap_us=%" PRIu64 " qualifying=%u lora_selected=%u display_lora=%u losses=%" PRIu32 " resets=%" PRIu32 " first_loss_us=%" PRIu64 " first_reason=%u first_refusal=%" PRIu32 " first_root=%016" PRIx64 " first_boot=%016" PRIx64 " first_epoch=%" PRIu32 " parent_seq=%" PRIu32 " parent_at_us=%" PRIu64 " parent_reason=%u parent_why=%s parent_peer=%016" PRIx64 " parent_root=%016" PRIx64 " parent_boot=%016" PRIx64 " parent_epoch=%" PRIu32 " parent_train=%" PRIu32 " parent_depth=%u parent_ring=8 parent_view=RING8 permission_gap_limit_us=1500000 observer_limit_us=250000 authority=UNCHANGED",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.fault),mesh.rc7_server_flags,unsigned(refusal==0),mesh.service_until_us,mesh.g1_corrected_until_us,mesh.g1_anchor_deadline_us,mesh.g1_relative_quality.hold_ms(mesh.g1_relative_quality.evaluated20,mesh.g1_clock_model,UINT64_MAX),refusal,w12::ble_lock_reason(refusal),selection.observed,selection.since,selection.remaining,selection.pause,selection.max_gap,unsigned(selection.qualified),unsigned(selection.lora),unsigned(display_lora_selected),selection.losses,selection.resets,selection.first_loss,unsigned(selection.first_reason),selection.first_refusal,selection.first_root,selection.first_boot,selection.first_epoch,parent.sequence,parent.at,unsigned(parent.reason),parent.sequence?v12::g1_parent_reason(parent.reason):"NONE",parent.to.peer,parent.to.root,parent.to.boot,parent.to.source,parent.to.train,unsigned(parent.to.depth));
+ const auto wd=v12::fault_watchdog_status();const auto absence=no_time_retention.view();
+ response.format(" wd_sampled_us=%" PRIu64 " wd_main_at_us=%" PRIu64 " wd_host_at_us=%" PRIu64 " wd_host_expected=%u wd_sync_expected=%u wd_sync_until_us=%" PRIu64 " wd_last_sync_us=%" PRIu64 " wd_fault_since_us=%" PRIu64 " wd_fault_elapsed_us=%" PRIu64 " wd_no_time_since_us=%" PRIu64 " wd_no_time_elapsed_us=%" PRIu64 " wd_no_time_limit_us=720000000 wd_minimum_us=5000000 wd_stall_us=5000000 wd_mask=%" PRIu32 " wd_first_mask=%" PRIu32 " wd_previous_mask=%" PRIu32 " wd_restarts=%" PRIu32 " wd_previous_boot=%016" PRIx64 " wd_previous_elapsed_us=%" PRIu64 " wd_previous_api=%u wd_previous_rc=%" PRId32 " absence_learned=%u absence_rx_healthy=%u absence_expected=%u ble_recoveries=%" PRIu32 "",wd.sampled_us,wd.main_at_us,wd.host_at_us,unsigned(wd.host_expected),unsigned(wd.sync_expected),wd.sync_until_us,wd.last_sync_us,wd.fault_since_us,wd.fault_elapsed_us,wd.no_time_since_us,wd.no_time_elapsed_us,wd.mask,wd.first_mask,wd.previous_mask,wd.restarts,wd.previous_boot,wd.previous_elapsed_us,unsigned(wd.previous_api),wd.previous_rc,unsigned(absence.learned),unsigned(absence.healthy_rx),unsigned(absence.expected),mesh.w12_ble_recoveries);
+ response.format(" ble_root=%016" PRIx64 " ble_boot=%016" PRIx64 " ble_epoch=%" PRIu32 " ble_publication=%" PRIu32 " ble_origin=%" PRIu64 " ble_quality_scope=%" PRIu32,mesh.root_identity,mesh.root_boot,mesh.source_epoch,mesh.publication,mesh.g1_clock_origin,mesh.g1_relative_quality.scope_generation);
+ uint32_t returned=0,read_lost=0;parent_cursor=0;const auto oldest=parent.sequence>8?parent.sequence-7:1;uint32_t expected=oldest;
+ for(;returned<8&&v12::r2_parent_next(parent_cursor,next_parent)&&next_parent.sequence<=parent.sequence;++returned){
+  if(next_parent.sequence>expected)read_lost+=next_parent.sequence-expected;
+  expected=next_parent.sequence==UINT32_MAX?UINT32_MAX:next_parent.sequence+1;parent_cursor=next_parent.sequence;
+  const auto& a=next_parent.from;const auto& b=next_parent.to;
+  response.format(" parent%u=%" PRIu32 "/%" PRIu64 "/%u/%016" PRIx64 "/%016" PRIx64 "/%016" PRIx64 "/%" PRIu32 "/%" PRIu32 "/%u/%016" PRIx64 "/%016" PRIx64 "/%016" PRIx64 "/%" PRIu32 "/%" PRIu32 "/%u",unsigned(returned),next_parent.sequence,next_parent.at,unsigned(next_parent.reason),a.peer,a.root,a.boot,a.source,a.train,unsigned(a.depth),b.peer,b.root,b.boot,b.source,b.train,unsigned(b.depth));
+ }
+ if(parent.sequence>parent_cursor)read_lost+=parent.sequence-(parent_cursor?parent_cursor:oldest-1);
+ const auto count=returned;
+ for(;returned<8;++returned)response.format(" parent%u=0/0/0/0000000000000000/0000000000000000/0000000000000000/0/0/0/0000000000000000/0000000000000000/0000000000000000/0/0/0",unsigned(returned));
+ response.format(" parent_returned=%" PRIu32 " parent_overwritten=%" PRIu32 " parent_read_lost=%" PRIu32 " parent_encoding=SEQ_AT_REASON_FROM6_TO6_V1\n",count,parent.sequence>8?parent.sequence-8:0,read_lost);
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready));
  w12_lora_diagnostics(response);
 #ifdef R2_TZ_WIRE
@@ -833,6 +850,7 @@ void stop_all(){
 
 }
 [[gnu::noinline]] void clock_fault_progress(){
+  static_assert(V12_NO_TIME_SYNC_US==ptob::NoTimeRestartUs);
   const auto rx=v12::transport_status();const auto tx=v12::diagnostic_tx_status();
   const auto direct=v12::direct_status();const auto lora=v12::lora_status();
   uint32_t mask=0;uint8_t api=0;int32_t rc=0;uint64_t parent=0;bool relay=false,applied=true;
@@ -861,14 +879,14 @@ void stop_all(){
   const auto selection_now=micros();uint64_t selection_utc=0;
   // Observe every main turn, independently of the one-second repaint cadence.
   // This display dwell never enters authenticated relay/admission decisions.
-  display_lora_selected=display_clock_selection.select(w12::ble_locked(mesh,selection_now),w12::lora_time(lora_time,selection_now,selection_utc),mesh.root_identity,mesh.root_boot,mesh.source_epoch,mesh.g1_clock_origin,selection_now);
+  display_lora_selected=display_clock_selection.select(w12::ble_locked(mesh,selection_now),w12::lora_time(lora_time,selection_now,selection_utc),mesh.root_identity,mesh.root_boot,mesh.source_epoch,mesh.g1_clock_origin,selection_now,w12::ble_permission_gap(mesh,selection_now),mesh.g1_relative_quality.scope_generation,mesh.publication,w12::ble_lock_refusal(mesh,selection_now));
   auto sync_until=w12::synchronized_until(mesh,lora_time,micros());
 #ifdef PTOB_RC9
   if(rc9_current)sync_until=std::max(sync_until,std::min(rc9.until_us,rc9.sampled_us+w12::SyncSnapshotMaxUs));
 #endif
-  v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),sync_until);
+  v12::fault_watchdog_sync_progress(no_time_retention.observe(mesh.requested&&!update_gate.latched(),w12::ble_boot_learned(mesh)||lora_time.metadata||lora_time.metadata_known,w12::healthy_lora_receiver(lora_time,selection_now)),sync_until);
 #else
-  v12::fault_watchdog_sync_progress(mesh.requested&&!update_gate.latched(),w12::synchronized_until(mesh,micros()));
+  v12::fault_watchdog_sync_progress(no_time_retention.observe(mesh.requested&&!update_gate.latched(),w12::ble_boot_learned(mesh),false),w12::synchronized_until(mesh,micros()));
 #endif
 #endif
   if(mesh.fault||mesh.client.deadline_exceeded||mesh.rx_capture.fault)mask|=v12::FaultR2;

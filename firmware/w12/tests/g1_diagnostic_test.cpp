@@ -40,6 +40,8 @@ int main(){
   assert(v12::g1_render_recovery(line,sizeof line,s)>0&&std::strlen(line)<sizeof line-1);
   assert(v12::g1_render_summary(line,sizeof line,s,UINT64_MAX,2)>0&&std::strlen(line)<sizeof line-1);
   v12::G1HciStatus hci;hci.pending_opcode=UINT16_MAX;hci.pending_at_us=1;hci.dropped=UINT32_MAX;
+  s.g1_admission_policy.last=v12::G1AdmissionReply::Unusable;
+  s.g1_admission_policy.no_source=s.g1_admission_policy.foreign_root=s.g1_admission_policy.unusable=UINT32_MAX;
   const int live=v12::g1_render_live(line,sizeof line,s,log,UINT64_MAX,hci);assert(live>0&&unsigned(live)<sizeof line&&std::strstr(line,"precision=UNQUALIFIED"));
   s.g1_admission_policy.no_source=s.g1_admission_policy.foreign_root=s.g1_admission_policy.unusable=UINT32_MAX;
   s.g1_admission_policy.starts[0]=s.g1_admission_policy.starts[1]=s.g1_admission_policy.retry_at=UINT64_MAX;

@@ -2,12 +2,18 @@
 """Build W12 RC with public ESP-IDF and ignored local inputs; never opens USB.
 Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 """
-import argparse,shlex,hashlib,json,os,re,shutil,subprocess,sys,time
+import argparse,shlex,hashlib,importlib.util,json,os,re,shutil,subprocess,sys,time
 from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.37'
+VERSION='0.2.39'
+def check_receiver_state_gate(path):
+ # Loading the gate must not put N30 tools ahead of this builder's modules:
+ # the later inspect_build import belongs to W12 and has a different API.
+ spec=importlib.util.spec_from_file_location('w12_receiver_state_gate',APP.parent/'n30/tools/receiver_state_tests.py')
+ module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+ return module.validate_receipt(path)
 GNSS_PROFILE='meshnology_w12_l76k_rx39_pps41'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def git(p,*args):return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
@@ -25,6 +31,11 @@ def validate_gm_successor_compilation(receipt,compiled):
   if len(rows)!=1 or '-DPTOB_GM_SUCCESSOR=1' not in rows[0]['command'].split():raise ValueError('GM successor consumer/codec not compiled: '+suffix)
   if suffix.endswith('gm7_codec.c') and '-Os' not in rows[0]['command'].split():raise ValueError('Size-bounded GM control codec required')
   if receipt.get('time_zone_contract') and '-DR2_TZ_WIRE=1' not in rows[0]['command'].split():raise ValueError('Current coarse TZ wire not compiled: '+suffix)
+def validate_ble_recovery_compilation(receipt,compiled):
+ if receipt.get('ble_acquisition_recovery')!='W12_NEARBY_NO_CORRECTED_PROGRESS15S_BOUNDED_REBIND_V1' or receipt.get('ble_startup_policy')!='W12_USABLE_GM_TRIAL_SHARED_COOLDOWN_V1' or receipt.get('ble_bootstrap_policy')!='W12_COARSE_JOIN200MS_FULL_RTT_GUARD_V1' or receipt.get('ble_bootstrap_uncertainty_limit_us')!=200000:raise ValueError('W12 bounded BLE acquisition policies missing')
+ for suffix in ('/native_g1.cpp','/native_main.cpp','/legacy/display.cpp'):
+  rows=[r for r in compiled if r['file'].endswith(suffix)]
+  if len(rows)!=1 or '-DPTOB_W12_BLE_RECOVERY=1' not in rows[0]['command'].split():raise ValueError('W12 recovery owner/status layout not compiled: '+suffix)
 def validate_inputs(enrollment,device):
  if set(enrollment)!={'group_id','key_epoch','psk'}:raise ValueError('Expected shared group enrollment schema')
  group=enrollment['group_id'];epoch=enrollment['key_epoch'];key=bytes.fromhex(enrollment['psk'])
@@ -70,7 +81,7 @@ def validate_size_compilation(receipt,compiled,config):
   if flag not in config.splitlines():raise ValueError('SDK optimization/assertion policy changed: '+flag)
 
 def validate_watchdog_config(receipt,config):
- if receipt.get('watchdog_policy')!='ALL_MIN5S_STALL5S_FAULT120S_NOTIME300S_V2':raise ValueError('Watchdog minimum policy missing')
+ if receipt.get('watchdog_policy') not in ('ALL_MIN5S_STALL5S_FAULT120S_NOTIME300S_V2','ALL_MIN5S_STALL5S_FAULT120S_NOTIME720S_RETAIN_V3'):raise ValueError('Watchdog minimum policy missing')
  for name,scale in [('CONFIG_ESP_INT_WDT_TIMEOUT_MS',1000),('CONFIG_ESP_TASK_WDT_TIMEOUT_S',1000000),('CONFIG_BOOTLOADER_WDT_TIME_MS',1000)]:
   values=re.findall(r'^'+name+r'=([0-9]+)$',config,re.MULTILINE)
   if len(values)!=1 or int(values[0])*scale<5000000:raise ValueError('Watchdog timeout below five seconds: '+name)
@@ -156,7 +167,8 @@ def validate_dual_compilation(r,compiled):
   if flag not in tokens:raise ValueError('Missing compiled runtime feature: '+flag)
  if r.get('rc9'):
   if '-DPTOB_RC9=1' not in tokens or not r['lora_rx'] or not r['estimated_relay']:raise ValueError('RC9 compile/profile mismatch')
- if r.get('no_time_sync_watchdog_us')!=300000000:raise ValueError('Watchdog metadata differs')
+ if r.get('no_time_sync_watchdog_us')!=(720000000 if r['version']=='0.2.39' else 300000000):raise ValueError('Watchdog metadata differs')
+ if r['version']=='0.2.39' and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
  if r['lora_rx'] and not r['fine_clock']:raise ValueError('LoRa requires fine counter')
 
 def main():
@@ -165,8 +177,11 @@ def main():
  p=argparse.ArgumentParser(description=__doc__)
  for name in ['idf','out','enrollment','device-config']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--profile',choices=['RC'],required=True);p.add_argument('--listening-percent',type=int,choices=[50,100],default=100)
+ p.add_argument('--state-machine-receipt',type=Path,help='Passing source-bound coupled receiver receipt; required outside development')
  p.add_argument('--rc9',action='store_true');p.add_argument('--fine-clock',action='store_true',help='Experimental fixed W12 GPIO16 80MHz fine receiver, BLE100 only; physical validation separate');p.add_argument('--gnss-fast-map-diagnostic',action='store_true');p.add_argument('--estimated-relay',action='store_true');p.add_argument('--registry',type=Path,default=REPO/'registry/example.json');p.add_argument('--radiolib',type=Path);p.add_argument('--lora-transmitter-factory',default='0000000000000000');p.add_argument('--development',action='store_true');p.add_argument('--generator',choices=['Unix Makefiles','Ninja'],default='Ninja' if shutil.which('ninja') else 'Unix Makefiles');p.add_argument('--compiler-cache',type=Path);a=p.parse_args()
  os.umask(0o077);sdk=a.idf.resolve();out=a.out.resolve()
+ if not a.development and not a.state_machine_receipt:p.error('Candidate build requires --state-machine-receipt from firmware/n30/tools/receiver_state_tests.py')
+ if a.state_machine_receipt:check_receiver_state_gate(a.state_machine_receipt)
  if out.exists() or REPO/'artifacts' not in out.parents:p.error('Fresh output directory below ignored artifacts/ required')
  if a.estimated_relay and a.listening_percent!=100:p.error('Estimated relay requires BLE100')
  if a.fine_clock and (a.listening_percent!=100 or a.gnss_fast_map_diagnostic):p.error('Fine clock requires BLE100 and ordinary GNSS mapping')
@@ -198,7 +213,12 @@ def main():
  (inputs/'w12_fine_config.h').write_text(fine_header(d,a.fine_clock))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* runtime_source:'+runtime_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'stack_evidence_contract':'W12_PROFILE_STACK_V1','artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'runtime_sources':runtime,'runtime_source_sha256':runtime_hash,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','button_power_contract':'OFF_MAIN_HOLD4_DRAIN2_RELEASE40_GPIO0_WAKE_V1','shadow_holdover_contract':'BLE_THERMAL_SHADOW_120S_RATE_ANCHOR_V3','holdover_servo_contract':'BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3','holdover_rate_contract':'CAUSAL_CHANNEL16_32_MEDIAN_DELTA5_V1','holdover_horizon_contract':'SAMPLED_PREFIX_Q99_1US_WITNESS_V2','holdover_temperature_policy':'SHADOW_ONLY','holdover_test_contract':'FINITE_LOCAL_OUTPUT_120S_BLE_WITNESS_V1','host_task_allocation_policy':'GNSS_STATIC_CHECKED_CONFIGURED_STACK_V1' if 'gnss_profile' in d else 'SDK_DYNAMIC_V1','application_optimization':'W12_MAIN_OS_SDK_DEBUG_V1','build_generator':a.generator,'compiler_cache':'LOCAL_512M' if a.compiler_cache else 'DISABLED','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':300000000,'watchdog_policy':'ALL_MIN5S_STALL5S_FAULT120S_NOTIME300S_V2','watchdog_minimum_us':5000000,'watchdog_worker_stall_us':5000000,'clock_selection_policy':'LORA_TO_BLE_CONTINUOUS_AUTHENTICATED_LOCK30S_SCOPE_V1' if a.radiolib else None,'lora_snapshot_policy':'PRIOR_CLOCK_OBSERVATION_LABEL_FRESH250MS_ORIGINAL_LEASE_V1' if a.radiolib else None,'lora_contract':'PASSIVE_WIRE3_SCHEDULE8_LR2021_HEADER_VALID_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1' if a.radiolib else None,'lora_event_delay_ns':99328000 if a.radiolib else None,'lora_calibration':'ENGINEERING_SYMBOL_MODEL_UNCALIBRATED_LR2021_ENDPOINT_UNKNOWN' if a.radiolib else None,'rc9_passive_bridge':'GATED_MISSING_ORIGINAL_SIGNED_ENVELOPE_KEEP_WIRE1_12S_V1' if a.rc9 else None,'lora_rx':bool(a.radiolib),'rc9':a.rc9,'pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','rc9_server_recovery_policy':'QUALIFIED_BLE_DISPLAY_DRAIN_ORIGINAL_CHILD_LEASE_V1' if a.rc9 else None,'fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if a.rc9 else None,'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d),'phase_offsets':phase_offsets(),'bluetooth_clock_map':'FINE_RAW_CURRENT_BRACKET' if a.fine_clock else 'GPTIMER_DRIVER_BRACKET','programmed_clock_projection':'MEAN4_VALIDATED_NO_TRIMMING' if a.estimated_relay else None}
+ r={'schema':1,'stack_evidence_contract':'W12_PROFILE_STACK_V1','ble_acquisition_recovery':'W12_NEARBY_NO_CORRECTED_PROGRESS15S_BOUNDED_REBIND_V1','ble_startup_policy':'W12_USABLE_GM_TRIAL_SHARED_COOLDOWN_V1','ble_bootstrap_policy':'W12_COARSE_JOIN200MS_FULL_RTT_GUARD_V1','ble_bootstrap_uncertainty_limit_us':200000,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'runtime_sources':runtime,'runtime_source_sha256':runtime_hash,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','button_power_contract':'OFF_MAIN_HOLD4_DRAIN2_RELEASE40_GPIO0_WAKE_V1','shadow_holdover_contract':'BLE_THERMAL_SHADOW_120S_RATE_ANCHOR_V3','holdover_servo_contract':'BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3','holdover_rate_contract':'CAUSAL_CHANNEL16_32_MEDIAN_DELTA5_V1','holdover_horizon_contract':'SAMPLED_PREFIX_Q99_1US_WITNESS_V2','holdover_temperature_policy':'SHADOW_ONLY','holdover_test_contract':'FINITE_LOCAL_OUTPUT_120S_BLE_WITNESS_V1','host_task_allocation_policy':'GNSS_STATIC_CHECKED_CONFIGURED_STACK_V1' if 'gnss_profile' in d else 'SDK_DYNAMIC_V1','application_optimization':'W12_MAIN_OS_SDK_DEBUG_V1','build_generator':a.generator,'compiler_cache':'LOCAL_512M' if a.compiler_cache else 'DISABLED','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':720000000,'no_time_retention_policy':'HEALTHY_RX_OR_LEARNED_BOOT_CACHE_NO_ABSENCE_RESET_V2','watchdog_diagnostics':'INPUTS_TIMERS_RTC_BLE_REBINDS_CRC_V1','watchdog_policy':'ALL_MIN5S_STALL5S_FAULT120S_NOTIME720S_RETAIN_V3','watchdog_minimum_us':5000000,'watchdog_worker_stall_us':5000000,'clock_selection_policy':'MAIN_QUALIFIED30S_PAUSE_PERMISSION1500MS_LORA_RETURN_V4' if a.radiolib else None,'lora_snapshot_policy':'PRIOR_CLOCK_OBSERVATION_LABEL_FRESH250MS_ORIGINAL_LEASE_V1' if a.radiolib else None,'lora_contract':'PASSIVE_WIRE3_SCHEDULE8_LR2021_HEADER_VALID_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1' if a.radiolib else None,'lora_event_delay_ns':99328000 if a.radiolib else None,'lora_calibration':'ENGINEERING_SYMBOL_MODEL_UNCALIBRATED_LR2021_ENDPOINT_UNKNOWN' if a.radiolib else None,'rc9_passive_bridge':'GATED_MISSING_ORIGINAL_SIGNED_ENVELOPE_KEEP_WIRE1_12S_V1' if a.rc9 else None,'lora_rx':bool(a.radiolib),'rc9':a.rc9,'pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','rc9_server_recovery_policy':'QUALIFIED_BLE_DISPLAY_DRAIN_ORIGINAL_CHILD_LEASE_V1' if a.rc9 else None,'fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if a.rc9 else None,'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d),'phase_offsets':phase_offsets(),'bluetooth_clock_map':'FINE_RAW_CURRENT_BRACKET' if a.fine_clock else 'GPTIMER_DRIVER_BRACKET','programmed_clock_projection':'MEAN4_VALIDATED_NO_TRIMMING' if a.estimated_relay else None}
+ r['receiver_state_gate']={'receipt':str(a.state_machine_receipt.resolve()),'sha256':sha(a.state_machine_receipt),'status':'PASS_SOURCE_BOUND_OFFLINE'} if a.state_machine_receipt else None
+ r['direct_parent_gap_policy']='SAME_DIRECT_PHYSICAL_TRAIN_STALL15S_NO_TIME_V2'
+ r['relay_cap_retry']='PAUSED_CAP_DATA207_100MS_3_ATTEMPTS_ORIGINAL_FENCES_V1'
+ r['source_renewal_policy']='AUTH_GR3_MATCHED_ORIGINAL_MIN_BOTH_GRANTS_V1'
+ r['dual_state_diagnostics']='MAIN_ELIGIBILITY_DWELL_FIRST_LOSS_PARENT8_LORA_CRC_V2'
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)
@@ -228,6 +248,7 @@ def main():
    if k in config:raise ValueError('Forbidden storage/radio configuration')
   validate_fine_compilation(r,d,json.loads((target/'compile_commands.json').read_text()))
   validate_gm_successor_compilation(r,json.loads((target/'compile_commands.json').read_text()))
+  validate_ble_recovery_compilation(r,json.loads((target/'compile_commands.json').read_text()))
   validate_map_compilation(r,d,json.loads((target/'compile_commands.json').read_text()),config)
   validate_size_compilation(r,json.loads((target/'compile_commands.json').read_text()),config)
   compiler=next(x for x in json.loads((target/'compile_commands.json').read_text()) if x['file'].endswith('/native_main.cpp'))
@@ -242,6 +263,7 @@ def main():
   if re.search(r'\b(esp_wifi_init|esp_wifi_start|nvs_flash_init|nvs_set_blob|nvs_set_u32)\b',symbols):raise ValueError('Unexpected WiFi activation or NVS write dependency')
   validate_dual_compilation(r,json.loads((target/'compile_commands.json').read_text()))
   validate_gm_successor_compilation(r,json.loads((target/'compile_commands.json').read_text()))
+  validate_ble_recovery_compilation(r,json.loads((target/'compile_commands.json').read_text()))
   identity=json.loads((target/'v12_build_identity.json').read_text());r.update(runtime_identity=identity,application='target/ptob_w12.bin',application_sha256=sha(image),application_bytes=image.stat().st_size,artifacts={str(q.relative_to(out)):sha(q) for q in out.rglob('*') if q.is_file() and (q.suffix in ['.bin','.elf','.map','.su'] or q.name in ['sdkconfig','compile_commands.json','v12_build_identity.json','r2-enrollment.h','ptob_device.h','ptob_registry.h','enrollment.json','device.json','registry.json','registry_generator.py','w12_fine_config.h','w12_lora_config.h'])},status='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN')
   from stack_budget import check as check_main_stack
   r['main_stack_budget']=check_main_stack(out)

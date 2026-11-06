@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "scope": "DERIVED_RECEIVER_LOCAL_COARSE_ACQUISITION_EXTENSION_NO_WIRE_CHANGE",
+  "base_contract_sha256": "c80f7a7609eeef2273f68e15240bda50cf89f862702babe903bd148b418f3d89",
+  "base_time_zone_contract_sha256": "0b59149f20822152c2f9348f932cf3e9645df5e3cf6dff2cce23820635197532",
+  "base_source_files": {
+    "main/r2/r2-g1/group_join.c": "faeedb95492239b3cbb8df2118446ba86f5a830742c3ad721277445411b2cb7c",
+    "main/r2/r2-g1/group_join.h": "1067bb13ccb269a7e9bd831fc37d34b6aea54692003c4042b6fbdc8fa1205efd"
+  },
+  "source_files": {
+    "main/r2/r2-g1/group_join.c": "15fd4b1140d98265e219144aa97a973fc70f143add7742827e1ab82da3660ac0",
+    "main/r2/r2-g1/group_join.h": "f461bf6b123cf4ac32bda6212f8cbb1ff997ca248a8edfa000cd7839b4692aef"
+  },
+  "legacy_uncertainty_limit_us": 100000,
+  "maximum_receiver_local_uncertainty_us": 200000,
+  "exchange_TTL_us": 250000,
+  "permission_guard": "FULL_CAUSAL_RTT_PLUS_SOURCE_BOUND_PLUS_DRIFT",
+  "precision_authority": "UNCHANGED_PHYSICAL_CORRECTIONS_REQUIRED"
+}

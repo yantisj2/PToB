@@ -33,7 +33,8 @@ int main(){
  m.precision.valid=m.precision.locked=m.serving=true;m.locked=false;select_rc9(m,s,now);
  assert(!m.precision.valid&&!m.precision.locked&&!m.serving);
  auto ble=m;ble.source=Source::Ble;ble.locked=true;select_rc9(ble,s,now);assert(ble.source==Source::Ble);
- auto lor=m;lor.source=Source::LoRa;select_rc9(lor,s,now);assert(lor.source==Source::LoRa);
+ auto lor=m;lor.source=Source::LoRa;lor.locked=true;select_rc9(lor,s,now);assert(lor.source==Source::LoRa);
+ lor.locked=false;lor.state=State::Hold;select_rc9(lor,s,now);assert(lor.source==Source::Rc9&&!lor.locked);
  for(auto state:{State::Off,State::Fault}){auto bad=m;bad.state=state;bad.source=Source::None;select_rc9(bad,s,now);assert(bad.state==state&&bad.source==Source::None);}
  // All pages retain the one saver session and unchanged500ms total-loss exit.
  for(unsigned page=0;page<PageCount;page++){

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdio>
 #include "freertos/task.h"
+#include "source_absence_policy.hpp"
 #include "esp_system.h"
 namespace fake {uint64_t us=0;unsigned restarts=0;int reset=ESP_RST_POWERON;struct Yield{};struct Restart{};}
 int64_t esp_timer_get_time(){return int64_t(fake::us);}
@@ -16,7 +17,8 @@ TaskHandle_t xTaskCreateStaticPinnedToCore(void(*)(void*),const char*,unsigned b
 #include "../../w12/main/fault_watchdog.cpp"
 namespace {
 const uint8_t factory[6]={2,0,0,0,0,1};
-constexpr uint64_t D=300000000;
+constexpr uint64_t D=720000000;
+static_assert(V12_NO_TIME_SYNC_US==D);
 void cold(){
  v12::input={};v12::model={};v12::view={};v12::intent={};fake::us=0;fake::restarts=0;fake::reset=ESP_RST_POWERON;
 #ifdef PTOB_W12_SYNC_WATCHDOG
@@ -63,7 +65,7 @@ int main(){
  cold();tick(0,true,0);tick(D-1,true,0);v12::fault_watchdog_sync_progress(true,D);
  tick(D,true,0);assert(!fake::restarts);tick(2*D-1,true,0);assert(!fake::restarts);
  tick(2*D,true,0);assert(fake::restarts==1);
- // Explicit OFF/maintenance cancels the interval and rearming requires300s.
+ // Explicit OFF/maintenance cancels the interval and rearming requires720s.
  cold();tick(0,true,0);tick(D-1,false,0);tick(2*D,false,0);assert(!fake::restarts);
  tick(2*D+1,true,0);tick(3*D,true,0);assert(!fake::restarts);tick(3*D+1,true,0);assert(fake::restarts==1);
  cold();tick(100,true,0);tick(99,true,0);tick(D+100,true,0);assert(!fake::restarts);
@@ -71,8 +73,25 @@ int main(){
 #else
  cold();tick(0,true,0);tick(10*D,true,0);assert(!fake::restarts&&v12::fault_watchdog_status().mask==0);
 #endif
+#ifdef PTOB_W12_SYNC_WATCHDOG
+ cold();ptob::SourceAbsencePolicy healthy;
+ for(uint64_t at=0;at<=2*D;at+=100000000)tick(at,healthy.observe(true,false,true),0);
+ assert(!fake::restarts&&v12::fault_watchdog_status().no_time_elapsed_us==0);
+ cold();ptob::SourceAbsencePolicy learned;
+ assert(!learned.observe(true,true,false));
+ for(uint64_t at=0;at<=2*D;at+=100000000)tick(at,learned.observe(true,false,false),0);
+ assert(!fake::restarts&&learned.view().learned&&!learned.view().expected);
+ // Unknown/absent reception still restarts after the full720s. This does not
+ // disable actual driver faults, even with healthy reception/learned data.
+ cold();ptob::SourceAbsencePolicy absent;tick(0,absent.observe(true,false,false),0);
+ tick(D-1,absent.observe(true,false,false),0);assert(!fake::restarts);
+ assert(v12::fault_watchdog_status().sync_expected&&v12::fault_watchdog_status().no_time_elapsed_us==D-1);
+ tick(D,absent.observe(true,false,false),0);assert(fake::restarts==1);
+ cold();tick(0,false,0,v12::FaultR2);tick(120000000,false,0,v12::FaultR2);
+ assert(fake::restarts==1&&v12::intent.mask==v12::FaultR2);
+#endif
  // Original actual-fault supervision is still120s, independently of no time.
  cold();tick(0,true,0,v12::FaultR2);tick(119999999,true,0,v12::FaultR2);assert(!fake::restarts);
  tick(120000000,true,0,v12::FaultR2);assert(fake::restarts==1&&v12::intent.first_mask==v12::FaultR2&&v12::intent.elapsed==120000000);
- std::puts("PASS actual supervisor/reset/RTC: W12 full300s no-time, recovery/OFF/rollback/overflow and unchanged120s fault/legacy shared default");
+ std::puts("PASS actual supervisor/reset/RTC: W12 full720s no-time, recovery/OFF/rollback/overflow and unchanged120s fault/legacy shared default");
 }

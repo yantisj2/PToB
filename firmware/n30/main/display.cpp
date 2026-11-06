@@ -6,6 +6,7 @@
 #include "status_adapter.hpp"
 #include "display_phase.hpp"
 #include "dual_time.hpp"
+#include "display_time_zone.hpp"
 #include "sync_watchdog.hpp"
 #include "rc9_time.hpp"
 #include "fine_backend_api.hpp"
@@ -22,9 +23,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <cstring>
+#include <cinttypes>
 namespace {
 i2c_master_bus_handle_t bus=nullptr;i2c_master_dev_handle_t oled=nullptr;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
+n30::ClockSelection clock_selection;
 n30::Model published; n30::Activity activity,lora_activity;n30::DualComparison comparison;n30::LockTimer precision_lock; int requested_page=-1;
 n30::ActionMailbox upstream_toggle,lora_toggle,ble_toggle;
 int action_result=0;
@@ -180,6 +183,10 @@ bool display_init(){
  if(xTaskCreatePinnedToCore(worker,"n30_ui",4096,nullptr,1,&ui_task,1)==pdPASS)return true;
  esp_timer_delete(frame_timer);frame_timer=nullptr;return false;
 }
+[[gnu::noinline]] void n30_display_observe_source(const v12::R2Status& s,uint64_t now,uint32_t refusal){
+ clock_selection.observe(refusal==0,s.root_identity,s.root_boot,s.source_epoch,s.g1_clock_origin,
+  s.publication,s.g1_relative_quality.scope_generation,now,refusal);
+}
 void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t now,bool ble_parked){
  auto m=n30::model(s,d,now,ptob_registry_name(s.root_identity),ble_parked);
  m.lora_supported=n30_lora_configured();
@@ -190,7 +197,9 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  n30::relative_rate(m,rate.root,rate.boot,rate.source_epoch,rate.ppb,rate.valid,rate.sampled_us,now);
  precision_lock.update(m,now);
  n30_lora_view lora;n30_lora_snapshot(lora);now=now_us();m.sampled_us=now;
- static n30::ClockSelection clock_selection;clock_selection.select(m,lora,now,n30::ble_locked(s,now));comparison.update(m,now);
+ static n30::DisplayTimeZone display_zone;
+ display_zone.update(m,s.tz_received,s.joined_peer,s.joined_boot,lora,now);
+ clock_selection.select(m,lora,now,n30::ble_locked(s,now));comparison.update(m,now);
  const auto rc9=v12::r2_rc9_status();now=now_us();m.sampled_us=now;
  n30::select_rc9(m,rc9,now,ptob_registry_name(rc9.server),ptob_registry_name(rc9.root));
  if(m.source==n30::Source::LoRa||(m.source==n30::Source::None&&lora.requested)){
@@ -204,10 +213,28 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  // packet/event in this backend and remains dark. TX is controller/API only.
  const uint32_t counts[]={s.g1_adv_callbacks,s.g1_group_records,s.pa_reports,s.join_accepts,s.g1_corrected_accepted,radio.tx,0,s.rejected+s.drops+s.api_errors};
  activity.update(m,counts,s.root_identity,s.root_boot,now,s.requested&&!s.fault,radio.tx_armed);
- n30::Model events;const uint32_t lora_counts[]={lora.metadata,lora.sequence,lora.rx_done,0,lora.accepted,0,lora.map_accepted,lora.rejected+lora.crc_bad+lora.spi_error+lora.capture_overflow};
+ n30::Model events;const uint32_t lora_counts[]={lora.metadata,lora.sequence,lora.rx_done,0,lora.accepted,0,0,lora.rejected+lora.crc_bad+lora.spi_error+lora.capture_overflow};
  lora_activity.update(events,lora_counts,lora.root,lora.root_boot,now,lora.active&&!lora.fault,false);std::memcpy(m.lora_lamps,events.lamps,sizeof m.lora_lamps);
  portENTER_CRITICAL(&mux);published=m;const bool wake=minimal_wait;portEXIT_CRITICAL(&mux);
  if(wake&&ui_task)xTaskNotifyGive(ui_task); // Rephase/withdraw a lost source promptly.
+}
+[[gnu::noinline]] void n30_display_dual_frame(v12::ConsoleFrame& f,uint32_t after,uint32_t parent_after,uint64_t now){
+ const auto s=clock_selection.view(now);const auto& first=s.first_problem;
+ f.format("N30_DUAL_STATE schema=3 sampled_us=%" PRIu64 " observed_us=%" PRIu64 " since_us=%" PRIu64 " max_gap_us=%" PRIu64 " root=%016" PRIx64 " boot=%016" PRIx64 " epoch=%" PRIu32 " publication=%" PRIu32 " origin=%016" PRIx64 " quality_scope=%" PRIu32 " refusal=%" PRIu32 " why=%s qualified=%u presentation=%u lora_latched=%u main_observer=%u permission_gap_us=%" PRIu64 " remaining_us=%" PRIu32 " first_problem_us=%" PRIu64 " first_reason=%u first_refusal=%" PRIu32 " first_root=%016" PRIx64 " first_boot=%016" PRIx64 " first_epoch=%" PRIu32 " first_publication=%" PRIu32 "\n",
+  now,s.observed,s.since,s.max_gap,s.root,s.boot,s.epoch,s.publication,s.origin,s.quality_scope,s.refusal,n30::ble_lock_reason(s.refusal),unsigned(s.qualified),unsigned(s.presentation),unsigned(s.lora),unsigned(s.external),s.permission_gap,s.remaining_us,first.at,unsigned(first.reason),first.refusal,first.root,first.boot,first.epoch,first.publication);
+ uint32_t cursor=after;
+ for(unsigned i=0;i<2;++i){n30::ClockSelection::Event e;
+  if(!clock_selection.next(cursor,e)){f.format("N30_DUAL_EVENT%u valid=0\n",i);continue;}
+  cursor=e.sequence;
+  f.format("N30_DUAL_EVENT%u valid=1 seq=%" PRIu32 " at_us=%" PRIu64 " reason=%u refusal=%" PRIu32 " qualified=%u lora_latched=%u root=%016" PRIx64 " boot=%016" PRIx64 " epoch=%" PRIu32 " publication=%" PRIu32 " origin=%016" PRIx64 " quality_scope=%" PRIu32 " since_us=%" PRIu64 "\n",i,e.sequence,e.at,unsigned(e.reason),e.refusal,unsigned(e.qualified),unsigned(e.lora),e.root,e.boot,e.epoch,e.publication,e.origin,e.quality_scope,e.since);
+ }
+ uint32_t parent_cursor=parent_after,parent_lost=0;
+ for(unsigned i=0;i<2;++i){v12::G1ParentEvent e;
+  if(!v12::r2_parent_next(parent_cursor,e)){f.format("N30_PARENT_EVENT%u valid=0\n",i);continue;}
+  parent_lost+=e.sequence-parent_cursor-1;parent_cursor=e.sequence;
+  f.format("N30_PARENT_EVENT%u valid=1 seq=%" PRIu32 " at_us=%" PRIu64 " reason=%u why=%s decision=%u poor=%u score=%d best=%d from_peer=%016" PRIx64 " from_boot=%016" PRIx64 " from_root=%016" PRIx64 " from_epoch=%" PRIu32 " from_train=%" PRIu32 " from_depth=%u to_peer=%016" PRIx64 " to_boot=%016" PRIx64 " to_root=%016" PRIx64 " to_root_boot=%016" PRIx64 " to_epoch=%" PRIu32 " to_train=%" PRIu32 " to_depth=%u\n",i,e.sequence,e.at,unsigned(e.reason),v12::g1_parent_reason(e.reason),unsigned(e.decision),unsigned(e.poor),int(e.current_score),int(e.best_score),e.from.peer,e.from.boot,e.from.root,e.from.source,e.from.train,unsigned(e.from.depth),e.to.peer,e.to.boot,e.to.root,e.to.root_boot,e.to.source,e.to.train,unsigned(e.to.depth));
+ }
+ f.format("N30_DUAL_CONTRACT schema=3 observer=MAIN_OWNER authority=UNCHANGED source_records=8 parent_records=8 batch=2 nonconsuming=1 after=%" PRIu32 " next=%" PRIu32 " sequence=%" PRIu32 " overwritten=%" PRIu32 " losses=%" PRIu32 " scope_changes=%" PRIu32 " observation_gaps=%" PRIu32 " backwards=%" PRIu32 " parent_after=%" PRIu32 " parent_next=%" PRIu32 " parent_lost=%" PRIu32 " dwell_us=30000000 permission_gap_us=1500000 gap_credit=PAUSED output_permission=UNCHANGED first_problem=RETAINED_FOR_BOOT\n",after,cursor,s.sequence,s.overwritten,s.losses,s.scopes,s.gaps,s.backs,parent_after,parent_cursor,parent_lost);
 }
 void n30_display_status(v12::ConsoleFrame& f){Stats s;n30::Model m;portENTER_CRITICAL(&mux);s=stats;m=published;portEXIT_CRITICAL(&mux);
  f.format("N30_UI profile=RC GPS=ABSENT page=%u ready=%u help=%u saver=%u blank=%u frames=%lu errors=%lu max_frame_us=%lu model_us=%llu rotation=%s display=64x128 hardware=UNVALIDATED path=%s upstream=%s phase_us=%lu m=%u\n",unsigned(s.page),unsigned(s.ready),unsigned(s.help),unsigned(s.saver),unsigned(s.blank),(unsigned long)s.frames,(unsigned long)s.errors,(unsigned long)s.max_us,(unsigned long long)s.sampled,PTOB_N30_ROTATE_CW?"CW":"CCW",n30::source_label(m,now_us()),m.mode_pending?"PENDING":m.relay_only?"RELAY":"AUTO",(unsigned long)s.max_phase_us,unsigned(s.minimal));

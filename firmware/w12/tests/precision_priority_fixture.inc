@@ -15,6 +15,17 @@ struct Rc7PermissionInspect {
  static void allow_lock(G1CorrectedClock& c){c.quality_[c.quality_second_%16].peak=100;}
  static void physical_update(G1CorrectedClock& c){++c.accepted_;}
  static void expire(G1CorrectedClock& c,uint64_t now){c.until_=now;}
+#ifdef PTOB_N30
+ // Synthetic physical-model producer for coupled consumer/state tests. Wire
+ // authentication and association are tested separately with actual packets.
+ static void stream(G1CorrectedClock& c,const G1Anchor& a,uint64_t now,uint64_t until){
+  c.scope_=a;c.until_=until;c.clock_={now*20,int64_t(now*1000),0,0,INT64_C(1700000000000000000)};
+  c.last_original_=now*20;c.phase_fit_tick_=now*20;c.frequency_trained_=true;c.rate_guard_=100;
+  c.acceleration_at_=now*20;c.acceleration_rate_=0;c.acceleration_ready_=true;
+  c.quality_second_=now/1000000;auto& b=c.quality_[c.quality_second_%16];b={};
+  b.second=uint16_t(c.quality_second_);b.count=16;b.squares=160000;b.peak=100;++c.accepted_;
+ }
+#endif
 };
 }
 bool priority_inject=false,priority_delay=false,priority_empty_before_write=false;

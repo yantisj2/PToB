@@ -15,6 +15,28 @@ static CounterMap trained(uint64_t& last,uint64_t& available){
  return map;
 }
 int main(){
+ // Asymmetric software calls can move a single midpoint by several us.
+ // Known locked physical counters provide an independent synthetic oracle.
+ n30::LoRaCounterMap intersection;CounterMap single;
+ uint64_t final=0;
+ for(unsigned i=0;i<8;i++){
+  const uint64_t physical=1000000+uint64_t(i)*5000000;
+  const uint64_t lead=i%2?396:4,trail=i%2?4:396;
+  CounterMap::Anchor a{physical-lead,physical+trail,physical+1000,capture(physical)};
+  assert(intersection.observe(a)&&intersection.release(a.available));
+  assert(single.observe(a)&&single.release(a.available));final=physical;
+ }
+ const auto sharp=intersection.convert(capture(final+10000),final+11000);
+ const auto noisy=single.convert(capture(final+10000),final+11000);
+ assert(sharp.valid&&noisy.valid&&sharp.tick==final+10000);
+ assert(noisy.tick!=sharp.tick&&sharp.bracket_ns<500&&noisy.bracket_ns>9000);
+ assert(!intersection.convert(capture(final+10000),final+9999).valid);
+ assert(!intersection.convert(capture(final+20000000),final+40001001).valid);
+ // A later anchor cannot change an earlier event, including across wrap.
+ assert(intersection.observe({final+5000000-4,final+5000000+396,final+5001000,capture(final+5000000)}));
+ assert(intersection.release(final+5001000));
+ const auto prior=intersection.convert(capture(final+10000),final+5010000);
+ assert(prior.valid&&prior.tick==sharp.tick&&prior.bracket_ns==sharp.bracket_ns);
  uint64_t last,available;auto map=trained(last,available);
  const uint64_t next=last+5000000,edge=next+100000,consumed=edge+1000;
  const auto before=map.convert(capture(edge),consumed);assert(before.valid&&before.tick==edge&&before.anchor_available==available);

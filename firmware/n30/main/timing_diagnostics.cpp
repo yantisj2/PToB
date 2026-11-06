@@ -30,8 +30,13 @@ void pair(const v12::n30_probe::Pair& value){
  recorder.pair(value,now);enabled.store(recorder.snapshot(now).active,std::memory_order_relaxed);
  portEXIT_CRITICAL(&mux);
 }
+void fine(const v12::periodic_rx::Stamp& stamp){
+ if(!enabled.load(std::memory_order_relaxed))return;
+ portENTER_CRITICAL(&mux);const auto now=now_us();recorder.fine(stamp,now);
+ enabled.store(recorder.snapshot(now).active,std::memory_order_relaxed);portEXIT_CRITICAL(&mux);
 }
-void n30_timing_init(){v12::n30_probe::capture_sink=capture;v12::n30_probe::pair_sink=pair;}
+}
+void n30_timing_init(){v12::n30_probe::capture_sink=capture;v12::n30_probe::pair_sink=pair;v12::n30_probe::fine_sink=fine;}
 bool n30_timing_start(uint64_t id,uint64_t now,uint32_t duration,uint32_t every){
  portENTER_CRITICAL(&mux);const auto current=now_us();const bool ok=recorder.start(id,now,duration,every,current);
  enabled.store(recorder.snapshot(current).active,std::memory_order_relaxed);portEXIT_CRITICAL(&mux);return ok;
@@ -47,8 +52,8 @@ void n30_timing_frame(v12::ConsoleFrame& f,uint32_t after,uint64_t){
  for(unsigned i=0;i<4;++i){
   if(i>=count){f.format("N30_TIMING_SAMPLE%u valid=0\n",i);continue;}
   const auto& r=batch[i];const auto& c=r.capture;const auto& a=r.anchor;const auto& p=r.pair;
-  f.format("N30_TIMING_SAMPLE%u valid=1 n=%" PRIu32 " received_us=%" PRIu64 " local20=%" PRIu64 " available20=%" PRIu64 " epoch=%" PRIu32 " seq=%" PRIu32 " coarse=%" PRIu32 " fine=%u raw_metadata=%u associated=%u before20=%" PRIu64 " after20=%" PRIu64 " bt_slot=%" PRIu32 " bt_hus=%" PRIu32 " refine20=%d refined=%u phy=%u extra_us=%u enclosure_ns=%" PRIu32 " rssi=%d matched=%u root=%016" PRIx64 " boot=%016" PRIx64 " source=%" PRIu32 " train=%" PRIu32 " publication=%" PRIu32 " event=%u channel=%u remote_ns=%" PRIu64 " predicted_ns=%" PRId64 " causal=%u corrected20=%" PRIu64 " created_ns=%" PRIu64 " expires_ns=%" PRIu64 "\n",
-   i,r.number,r.received_us,c.tick20,c.available20,c.epoch,c.sequence,c.coarse,unsigned(c.fine),unsigned(c.raw_metadata),unsigned(c.association_observed),a.before,a.after,a.time.half_slots,a.time.half_us,int(c.refinement_ticks),unsigned(c.refinement_applied),unsigned(c.phy),unsigned(c.radio_extra_us),c.map_enclosure_ns,int(r.rssi),unsigned(r.matched),p.root,p.boot,p.source,p.train,p.publication,unsigned(c.event),unsigned(c.channel),p.remote_ns,p.predicted_ns,unsigned(p.causal),p.available20,p.created_ns,p.expires_ns);
+  f.format("N30_TIMING_SAMPLE%u valid=1 n=%" PRIu32 " received_us=%" PRIu64 " local20=%" PRIu64 " delivered20=%" PRIu64 " available20=%" PRIu64 " epoch=%" PRIu32 " seq=%" PRIu32 " coarse=%" PRIu32 " fine=%u raw_metadata=%u associated=%u before20=%" PRIu64 " after20=%" PRIu64 " bt_slot=%" PRIu32 " bt_hus=%" PRIu32 " refine20=%d refined=%u phy=%u extra_us=%u enclosure_ns=%" PRIu32 " rssi=%d matched=%u root=%016" PRIx64 " boot=%016" PRIx64 " source=%" PRIu32 " train=%" PRIu32 " publication=%" PRIu32 " event=%u channel=%u remote_ns=%" PRIu64 " predicted_ns=%" PRId64 " causal=%u corrected20=%" PRIu64 " created_ns=%" PRIu64 " expires_ns=%" PRIu64 "\n",
+   i,r.number,r.received_us,c.tick20,p.local20,c.available20,c.epoch,c.sequence,c.coarse,unsigned(c.fine),unsigned(c.raw_metadata),unsigned(c.association_observed),a.before,a.after,a.time.half_slots,a.time.half_us,int(c.refinement_ticks),unsigned(c.refinement_applied),unsigned(c.phy),unsigned(c.radio_extra_us),c.map_enclosure_ns,int(r.rssi),unsigned(r.matched),p.root,p.boot,p.source,p.train,p.publication,unsigned(c.event),unsigned(c.channel),p.remote_ns,p.predicted_ns,unsigned(p.causal),p.available20,p.created_ns,p.expires_ns);
  }
- f.format("N30_TIMING_CONTRACT observer=WORKER_ONLY cursor=NONCONSUMING records=16 batch=4 max_ms=600000 timestamp=DESCRIPTOR_500NS_TO_TIMER_50NS RF_bias=UNKNOWN UTC_bound=UNKNOWN clock_update=NONE\n");
+ f.format("N30_TIMING_CONTRACT observer=WORKER_ONLY cursor=NONCONSUMING records=16 batch=4 max_ms=600000 timestamp=DESCRIPTOR_500NS_TO_TIMER_50NS RF_bias=UNKNOWN UTC_bound=UNKNOWN clock_update=NONE delivered=POST_FINE_EXACT_STAMP_V1\n");
 }

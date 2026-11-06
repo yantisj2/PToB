@@ -6,11 +6,22 @@
 #include "native_r2.hpp"
 #include "w12_lora.hpp"
 #include "sync_watchdog.hpp"
+#include "lora_clock_selection.hpp"
+#include "fault_watchdog.hpp"
+ptob::SourceAbsencePolicy no_time_retention;
+w12::LoRaClockSelection display_clock_selection;bool display_lora_selected=false;
 uint64_t micros(){return fake_now;}
 #include "display_second_deadline.hpp"
 namespace v12 {
+FaultWatchdogStatus fault_watchdog_status(){return {};}
 R2Status r2_status(){R2Status s;s.group_id=17;s.key_epoch=9;s.client_identity=0x020000000005;return s;}
 Rc9Status r2_rc9_status(){return {};}
+bool r2_parent_next(uint32_t after,G1ParentEvent& out){
+ constexpr uint32_t first=UINT32_MAX-7;if(after==UINT32_MAX)return false;const auto seq=after<first?first:after+1;
+ out={};out.sequence=seq;out.at=UINT64_MAX;out.reason=v12::G1ParentReason::PermissionGap;
+ out.from.peer=1;out.from.root=2;out.from.boot=3;out.from.source=UINT32_MAX;out.from.train=UINT32_MAX;out.from.depth=2;
+ out.to=out.from;out.to.peer=4;return true;
+}
 }
 void w12_lora_snapshot(w12_lora_view& l){l={};l.link_rms_ns=UINT32_MAX;l.active=true;l.accepted=10;l.meta_seed=7;l.meta_cursor=106;l.meta_utc_ns=1700000000000000000;}
 static const char factory_text[]="02:00:00:00:00:05";

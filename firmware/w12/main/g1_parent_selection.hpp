@@ -256,7 +256,14 @@ class G1ParentSelection {
     int best_points=INT16_MIN,current_points=INT16_MIN,gm_points=INT16_MIN;
     const bool trial_failed=needs_alternative();
     const bool retained=parent_&&accepts(parent_,parent_relay_)&&!(force_relay_&&!parent_relay_)&&!quality_.view.poor&&!cold_poor_&&!trial_failed;
-    const bool gm_dwell=trial_&&!trial_relay_&&!target_&&!force_relay_&&now>=trial_since_&&now-trial_since_<LockDwellUs;
+    const bool gm_dwell=trial_&&!trial_relay_&&!target_&&!force_relay_&&now>=trial_since_&&now-trial_since_<LockDwellUs
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+      // A locator/failed first exchange has no clock to train. Reserving its
+      // minute before a usable authenticated binding starves fresh alternatives
+      // at startup and after loss, even while the attempted peer is cooling.
+      &&trial_bound_
+#endif
+      ;
     const Candidate* trial_gm=nullptr;bool trial_gm_seen=false;
     if(parent_){current_points=G1ParentHistory::score(history_.find(parent_,parent_relay_,now),parent_relay_,bound_rssi_,now,history_);
       selection_.current_score=int16_t(current_points);}

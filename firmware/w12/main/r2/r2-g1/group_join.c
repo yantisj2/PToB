@@ -174,13 +174,14 @@ int r2_group_join_receive(struct r2_join_exchange *s,
   s->last_sequence = r->sequence;
   return 0;
 }
-bool r2_group_join_time(struct r2_join_time *out,
+bool r2_group_join_time_limit(struct r2_join_time *out,
                         const struct r2_join_record *r, uint64_t sent,
-                        uint64_t received, uint32_t bound) {
+                        uint64_t received, uint32_t bound,
+                        uint32_t maximum_uncertainty) {
   if (!out || !valid(r) ||
       (r->kind != R2_JOIN_ACCEPT && r->kind != R2_JOIN_PROOF) ||
       !r->source_flags || received < sent || received > INT64_MAX / 4 ||
-      !bound || bound > 50000)
+      !bound || bound > 50000 || !maximum_uncertainty || maximum_uncertainty > 200000)
     return false;
   if(r->source_bound_us>bound)bound=r->source_bound_us;
   uint64_t round = received - sent;
@@ -193,13 +194,18 @@ bool r2_group_join_time(struct r2_join_time *out,
    * uncertainty. Permission still subtracts the FULL round trip plus the
    * independent source bound; no source lifetime is renewed by transit. */
   uint64_t uncertainty = (round + 1) / 2 + bound + margin;
-  if (round >= R2_GROUP_JOIN_TTL_US || uncertainty >= 100000 ||
+  if (round >= R2_GROUP_JOIN_TTL_US || uncertainty >= maximum_uncertainty ||
       r->remaining_us <= guard)
     return false;
   *out = (struct r2_join_time){.utc_us = r->utc_us + round / 2,
                                .until = received + r->remaining_us - guard,
                                .uncertainty_us = (uint32_t)uncertainty};
   return true;
+}
+bool r2_group_join_time(struct r2_join_time *out,
+                        const struct r2_join_record *r, uint64_t sent,
+                        uint64_t received, uint32_t bound) {
+  return r2_group_join_time_limit(out,r,sent,received,bound,100000);
 }
 uint64_t r2_group_anchor_deadline(uint64_t at,uint32_t uncertainty_us){
  if(uncertainty_us>=249800)return at;

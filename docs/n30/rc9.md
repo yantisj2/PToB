@@ -14,8 +14,10 @@ the Precision page identifies RC9 UTC with unknown precision. Original RC8
 boots may be absent and stay unknown. Upstream link RMS is exposed only as
 an RC8 diagnostic, not RC9 delivery accuracy.
 
-A fresh authenticated RC9 snapshot resets the no-time watchdog until its
-original deadline. Polling, metadata and lease renewal cannot extend the
+A fresh authenticated RC9 snapshot interrupts an armed no-time interval until
+its original deadline. Learned boot information or fresh healthy LoRa reception
+can leave the destructive absence timer disarmed, as described in the
+[target guide](../../firmware/n30/README.md). Polling, metadata and lease renewal cannot extend the
 source hold. Withdrawal, expiry, fault, OFF and maintenance remove time.
 The screensaver retains its existing500ms total-loss exit and15-minute minimal
 transition.

@@ -12,7 +12,11 @@
 namespace v12 {
 namespace {
 struct Line {uint16_t length=0;uint64_t deadline=0;char bytes[1536]{};};
-Ring<Line,ConsoleLines> lines;
+// Reserve controller allocation headroom. Priority CRC response buffers and
+// every per-record expiry/drop counter remain unchanged. Ordinary observers
+// have eight fixed slots; a full queue refuses/counts the new record.
+constexpr unsigned ObserverLineSlots=8;
+Ring<Line,ObserverLineSlots> lines;
 Ring<ConsoleFrame,2> frames;
 portMUX_TYPE log_mux=portMUX_INITIALIZER_UNLOCKED;
 LogStatus stats;

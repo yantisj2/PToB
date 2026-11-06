@@ -12,7 +12,9 @@ struct Pair {
 };
 using CaptureSink=void(*)(const periodic_rx::Stamp&,const adv_rx::BleAnchor&,int8_t);
 using PairSink=void(*)(const Pair&);
+using FineSink=void(*)(const periodic_rx::Stamp&);
 inline CaptureSink capture_sink=nullptr;
 inline PairSink pair_sink=nullptr;
+inline FineSink fine_sink=nullptr;
 inline int8_t packet_rssi=127; // Set by this same host callback before match.
 }

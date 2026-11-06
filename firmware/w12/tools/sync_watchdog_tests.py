@@ -13,7 +13,7 @@ f=a.out/'fakes';(f/'freertos').mkdir(parents=True)
 (f/'freertos/FreeRTOS.h').write_text((APP.parent/'n30/tests/lora_fakes/freertos/FreeRTOS.h').read_text()+'\nusing StackType_t=uint8_t;struct StaticTask_t{unsigned unused;};using TaskHandle_t=void*;\n')
 (f/'freertos/task.h').write_text('#pragma once\n#include "FreeRTOS.h"\nvoid vTaskDelay(unsigned);TaskHandle_t xTaskCreateStaticPinnedToCore(void(*)(void*),const char*,unsigned,void*,unsigned,StackType_t*,StaticTask_t*,int);\n')
 flags=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DESP_PLATFORM=1','-I'+str(f),'-I'+str(APP/'main'),'-I'+str(APP/'main/r2/r2-g1'),'-I'+str(APP/'main/r2/rc7/include')]
-for name,define,source in [('legacy-shared',[],APP.parent/'n30/tests/sync_watchdog_runtime_test.cpp'),('w12-sync',['-DPTOB_W12_SYNC_WATCHDOG=1'],APP/'tests/sync_watchdog_runtime_test.cpp'),('n30-sync',['-DPTOB_N30=1'],APP.parent/'n30/tests/sync_watchdog_runtime_test.cpp')]:
+for name,define,source in [('legacy-shared',[],APP.parent/'n30/tests/sync_watchdog_runtime_test.cpp'),('w12-sync',['-DPTOB_W12_SYNC_WATCHDOG=1','-DV12_NO_TIME_SYNC_US=720000000ULL'],APP/'tests/sync_watchdog_runtime_test.cpp'),('n30-sync',['-DPTOB_N30=1','-DV12_NO_TIME_SYNC_US=720000000ULL'],APP.parent/'n30/tests/sync_watchdog_runtime_test.cpp')]:
  exe=a.out/name
  subprocess.run([*flags,*define,source,'-o',exe],check=True,timeout=30)
  subprocess.run([exe],check=True,timeout=10)
@@ -37,4 +37,4 @@ for name,value in [('ESP_INT_WDT_TIMEOUT_MS','4999'),('ESP_TASK_WDT_TIMEOUT_S','
  else:raise AssertionError('Fast SDK watchdog accepted: '+name)
 import hashlib,json
 paths=[APP/'sdkconfig.defaults',APP/'tools/build.py',APP/'main/fault_watchdog.cpp',APP/'main/fault_watchdog.hpp',APP/'main/fault_watchdog_model.hpp',APP/'main/sync_watchdog.hpp',APP/'tests/sync_watchdog_runtime_test.cpp',APP/'tests/sync_watchdog_adapter_test.cpp',Path(__file__)]
-(a.out/'receipt.json').write_text(json.dumps({'status':'PASS','scope':'ACTUAL_300S_SUPERVISOR_RESET_RTC_AND_CURRENT_TIME_ADAPTER_ASAN_UBSAN','hardware_access':False,'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}},indent=2)+'\n')
+(a.out/'receipt.json').write_text(json.dumps({'status':'PASS','scope':'ACTUAL_720S_RETAINED_ABSENCE_SUPERVISOR_RESET_RTC_AND_CURRENT_TIME_ADAPTER_ASAN_UBSAN','hardware_access':False,'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}},indent=2)+'\n')

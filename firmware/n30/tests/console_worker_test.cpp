@@ -33,6 +33,10 @@ void make(v12::ConsoleFrame& f,unsigned rows){
 }
 int main(int argc,char** argv){
  static v12::ConsoleFrame f;
+ clear();assert(v12::capture_begin(7,1000));
+ for(unsigned i=0;i<v12::ObserverLineSlots;i++)assert(v12::logf("queue %u\n",i)>0);
+ assert(v12::logf("overflow\n")==0&&v12::stats.dropped==1);
+ run(100);assert(v12::stats.dropped==1&&v12::stats.expired==0);
  // Every public entry must reject ISR calls without reading a format/snapshot
  // or touching capture/queue state. An invalid pointer catches accidental
  // formatting; native disassembly separately verifies the small stack gate.

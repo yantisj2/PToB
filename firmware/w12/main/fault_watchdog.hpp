@@ -6,10 +6,13 @@ enum ClockFault:uint32_t {
   FaultInit=64,FaultMainStalled=65536,FaultHostStalled=131072,FaultTest=262144,FaultNoTimeSync=524288
 };
 struct FaultWatchdogStatus {
+  uint64_t sampled_us=0,main_at_us=0,host_at_us=0,sync_until_us=0,last_sync_us=0;
+  uint64_t fault_since_us=0,fault_elapsed_us=0,no_time_since_us=0,no_time_elapsed_us=0;
   uint64_t since_us=0,elapsed_us=0,previous_boot=0,previous_elapsed_us=0,parent=0;
   uint32_t mask=0,first_mask=0,previous_mask=0,restarts=0;
   uint8_t previous_api=0;int32_t previous_rc=0;
   bool enabled=false,parent_relay=false,parent_pending=false,test=false;
+  bool host_expected=false,sync_expected=false;
 };
 bool fault_watchdog_start(const uint8_t factory[6],uint64_t boot);
 void fault_watchdog_fatal();

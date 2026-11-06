@@ -1,13 +1,53 @@
-# Build and onboard N30 RC offline
+# Build and onboard N30 RC
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-Read [the target README](../../firmware/n30/README.md) for capabilities and
-unverified hardware assumptions. These commands build or inspect files; they do
+Read [the target README](../../firmware/n30/README.md) for capabilities, board
+profiles and limits. These commands build or inspect files; they do
 not connect, flash, start a serial reader or operate a device.
+
+Main-cadence source selection and retained CRC state/parent diagnostics are
+defined in the [dual-timing state-machine guide](dual-timing-state-machines.md).
+Run its model suite and the production native-owner regressions before
+installation; source/observer sequences are distinct from hardware qualification.
+
+BLE acquisition recovery uses
+`N30_NEARBY_NO_CORRECTED_PROGRESS15S_BOUNDED_REBIND_V1`. A recent eligible
+locator or authenticated current-parent PA can schedule a BLE-only rebind after
+15s without a newly matched physical correction. The worker waits for existing
+bounded admission/create work, drains the exact old owners within the original
+2s deadline, and requires fresh authentication. Successful physical progress
+resets the timer; LoRa time cannot mask it. Explicit OFF, actual faults, missing
+eligible parents, RC9's independently admitted fallback and operator selection
+constraints retain their own policies. Failed drains remain faults. Capture
+records retain the recovery count without expanding the ordinary status frame.
+
+`N30_GM_TRIAL_AFTER_USABLE_ADMISSION_V1` starts the GM fitting trial only after
+a usable authenticated binding. An attempted or authenticated no-time first
+peer cannot suppress fresh alternatives for60s. Once bound, the original
+fitting trial and qualification remain in force.
+
+`N30_COARSE_JOIN200MS_FULL_RTT_GUARD_V1` permits a coarse direct-JOIN bootstrap
+with less than200000us uncertainty. This receiver-local ceiling avoids rejecting
+valid delayed exchanges that exceed the legacy100ms coarse budget. The250ms
+exchange TTL, authenticated current-exchange checks, full causal RTT/source-bound
+expiry subtraction and replay enclosure remain mandatory. The actual computed
+uncertainty is retained; no JOIN grants precision lock or corrects the physical
+fit. The shared legacy API retains its100ms ceiling for other targets. The build
+receipt records `ble_bootstrap_uncertainty_limit_us=200000`.
+The current `N30_USABLE_GM_TRIAL_SHARED_COOLDOWN_V2` also mirrors the original
+five-second unusable-admission cooldown into selection. A stronger cooling
+candidate cannot suppress fresh weaker alternatives during that interval.
+
+`MAIN_QUALIFIED30S_PAUSE_PERMISSION1500MS_LORA_RETURN_V5` requires30s of
+same-scope qualified BLE time; permission-only gaps below1.5s pause that dwell.
+Longer gaps or hard fences restart qualification. It retains the BLE
+return dwell while qualified LoRa is live. Expired/unqualified LoRa HOLD yields
+to already authorized settled BLE immediately; cached observer time cannot
+outrank that recovered primary clock. Source/quality gates are unchanged.
 
 GPIO0 uses one watch-menu gesture on every page: release before **2000 ms**
 for a short press; hold **2000 ms** to open the menu. Release the opening hold,
@@ -28,12 +68,35 @@ and fine-clock owner. AUTO starts LoRa RX immediately while parked, without
 changing explicit KEEP ON/KEEP OFF choices. BLE and RC9 time and cached BLE
 pixels become ineligible; missing LoRa time cannot arm the no-time restart
 timer. Actual fault/maintenance fences remain. BLE RX ON uses the existing
-fresh client-admission API and the30s continuous qualified BLE clock-selection
+fresh client-admission API and the30s qualified BLE clock-selection
 dwell; old timing authority
 cannot resume. Menu LoRa OFF/ON requests explicit volatile
 KEEP OFF/KEEP ON. AUTO and KEEP ON receive continuously, including while BLE
 is selected; `lora auto` restores AUTO, which is also selected at boot. No LoRa
 TX mode exists.
+
+LoRa AUTO is continuous independent reception; a BLE-owner fault does not
+withdraw it. Explicit all-OFF, maintenance, power-off and actual LoRa faults
+retain their drains. BLE fault supervision is unchanged. N30 reserves eight
+ordinary observer-line slots (overflow/expiry counted), with the original
+priority CRC frame buffers and response deadlines.
+
+A screensaver wake click consumes the complete gesture and keeps its page.
+LoRa dials show `30s`; BLE dials retain their received correction rate. Learned
+authenticated BLE/LoRa timezone offsets remain in display-only RAM for the boot
+session, including across source expiry. New metadata updates the preference;
+reboot starts at UTC until metadata is learned. Timing permissions still expire.
+
+The finite engineering `lora hold60` console request stops steering the
+delivered LoRa model for60s while independent RF observations continue. It
+requires the ordinary fresh exact-identity/ticket guard, a trained reference at
+most10s old, and an original physical/META grant that outlasts the interval.
+Diagnostics disclose actual admission, immutable T0 grant, completion/abort and
+separate actual60s errors. An accepted request is not proof that the worker
+started it. New RF pairs cannot renew the held grant; context/capture/OFF/fault
+and source expiry still withdraw output. This is an actual model-delivery HOLD
+test, distinct from analytic frozen60s statistics and calibrated physical
+output/UTC accuracy. It never runs at boot or from normal AUTO policy.
 
 Run input, shutdown and display ownership checks offline:
 
@@ -108,10 +171,10 @@ record source/fixture hashes and synthetic scope. The tests cover both8192-pixel
 rotations, bounds, unavailable/fault/expired states, input/wake/idle behavior,
 activity scope reset, no-GPS inputs and shared-map collision rejection.
 
-## Onboard the arriving clocks
+## Onboard an identified clock
 
-Do this only after the hardware arrival process supplies each verified factory
-MAC. Do not substitute advertised BLE addresses or select a unit by alias.
+Do this only after independently verifying the exact device's factory MAC.
+Do not substitute advertised BLE addresses or select a unit by alias.
 Keep the existing shared map in an ignored owner-only local path. If creating a
 new group, first follow [group setup](../GETTING_STARTED.md); do not replace an
 existing deployment registry with the synthetic example.
@@ -309,6 +372,28 @@ SYNC 24 bytes followed by FOLLOW 32 bytes every 30 s; no DISC packets. Sizes inc
 MAC16. Older schedule 3/5/7 packets are rejected. There is no TX, ACK or ranging.
 [Board/source references](../../firmware/n30/imports/2026-10-20-lora.json).
 
+The receiver selects SX1262 boosted gain (`0x08ac = 0x96`) and checks its
+readback after each reset before enabling RX. This board has no T096-style
+external PA/LNA controls. DIO2 owns its antenna switch; DIO3 supplies the1.8V
+TCXO. Boost uses additional receive current; its sensitivity improvement and
+antenna performance require physical verification.
+
+For a reception check, compare changes in RXdone/CRCbad, RSSI/SNR, META count,
+accepted pairs and capture/map refusals separately. AUTO and KEEP ON already
+listen continuously; BLE lock does not turn LoRa off. A cold receiver must
+receive authenticated META before timing pairs can be admitted: missing the
+first META can add another300s wait. The unqualified local observer shows
+estimated digital UTC from its first accepted pair and actual prior-prediction
+error from pair two. Original precision qualification still needs at least180s
+of fresh physical training. Retained same-context META descriptions can support
+an explicitly unqualified observer after a missed refresh; they never renew
+live grants. Time availability alone therefore does not measure RF coverage. The current
+500kHz bandwidth trades sensitivity for airtime; a narrower PHY requires matched
+transmitter/receiver, timing and airtime changes. Check both ends' correctly
+seated863–928MHz LoRa antennas, pigtails, orientation and placement separately.
+Compare the actual BLE parent/path with the LoRa emitter: a nearby BLE relay
+and the single designated LoRa transmitter are different RF paths.
+
 A low-priority core1 worker owns SPI and MCPWM0 hardware DIO1 capture.
 HeaderValid freezes the precision edge; the subsequent RxDone freezes the
 payload without replacing that timestamp. Software brackets map the 80 MHz
@@ -336,8 +421,9 @@ independent map; META, boot, stream, replay, counter incarnation, pending-pair
 and original expiry fences remain. Continuous AUTO/KEEP ON reception keeps the
 context and fit warm while BLE is selected. KEEP OFF is honored. Once LoRa
 supplies the actual displayed clock, BLE must remain fresh, authorized and
-settled for 30 continuous seconds in unchanged admitted scope before taking over.
-Loss, expiry, refusal, snapshot gaps and context changes reset that dwell.
+settled for30s of qualified time in unchanged admitted scope before taking over.
+Permission-only gaps below1.5s pause qualification; longer gaps, quality loss,
+snapshot gaps, hard fences and context changes restart it.
 LoRa never trains the BLE model, grants relay/GM/USB authority or transmits.
 
 Ticket/nonce/boot/factory-bound `lora on`, `lora off`, `lora auto` and `lora diag`
@@ -404,7 +490,7 @@ the reported LoRa non-acquisition. Keep that uncertainty separate from the
 reproduced and fixed BLE admission starvation.
 
 
-## Version 0.2.7 returning source and no-time watchdog
+## Returning source and no-time supervision
 
 When the old source/replay scope expires, the BLE owner correctly withdraws its
 binding. The selector previously kept the failed precision trial but lost the
@@ -416,30 +502,34 @@ performs a new MAC/challenge/causal-time exchange; no old clock, source permissi
 PA handle or locator is revived. Same-boot GM recovery works with either a changed
 source epoch/publication or the same source scope. W12's default policy is unchanged.
 
-The existing100ms supervisor also owns a separate300000000us continuous no-time
-timer on N30. It runs while reception is requested and update maintenance is not
-latched. Fresh authenticated BLE FOLLOW UTC or available LoRa time cancels the
-interval; the next loss starts a new full five minutes. Relative precision lock
-is not required. The inputs retain their original source/anchor deadlines and
-250ms snapshot freshness. Local HOLD, membership, discovery, packet counters and
-repeated polls cannot count as sync. LoRa RX ON without an accepted timing pair
-cannot count either. Explicit OFF and maintenance cancel the timer immediately.
-No chip sleep/timebase behavior or display/saver cadence changes.
+The existing100ms supervisor owns a separate720000000us (12minute) continuous
+no-time timer on N30. Explicit OFF and maintenance cancel it. Fresh authenticated
+BLE FOLLOW UTC or available qualified LoRa time cancels an armed interval using
+the original source/anchor deadlines and250ms snapshot freshness. Local human
+HOLD, membership and repeated polls do not count as fresh synchronization.
 
-At the full300s boundary the existing supervisor records factory/build-bound RTC
-restart evidence and calls the supported MCU restart. Its no-time mask is524288
-(`0x80000`); existing faults/stalled workers still use their separate120s timer.
-No new task, NVS write, or blocking logger is added. The restart restores only the
-existing explicit-parent intent, never old timing or automatic-parent caches.
-Volatile LoRa overrides still return to AUTO at boot. Without any source the
-unit may therefore reboot once per five-minute acquisition interval.
+Healthy active LoRa acquisition with a fresh worker snapshot suppresses the
+absence timer while awaiting first META, including missed300s META periods.
+Once authenticated boot META/TZ or observer information is learned, ordinary
+RF absence retains that useful boot state instead of restarting it away. These
+exceptions do not create source permission, UTC freshness, precision lock or
+output authority. A stale/faulted worker is not healthy acquisition.
 
-The ordinary N30 host suite compiles the actual supervisor at synthetic FreeRTOS,
-clock and restart boundaries. It covers exact299999999/300000000us, recovery just
-before/at expiry, a fresh interval after recovery or OFF/maintenance, RTC reason,
-monotonic regression, the platform clock's upper range, and preserved W12/120s
-fault behavior. Its adapter test covers BLE/LoRa switching, expiry, stale/held
-inputs and no polling renewal. The production-native integration cases
+If an armed interval reaches720s, the supervisor records factory/build-bound RTC
+restart evidence and uses the supported MCU restart. Its no-time mask remains
+524288 (`0x80000`); actual faults and stalled workers retain their separate120s
+timer. No task, NVS write or blocking logger is added. The restart restores only
+the existing explicit-parent intent; volatile radio choices return to defaults.
+The legacy shared supervisor default remains300s. Current W12 native builds
+select the same720s retained-absence policy; see the [W12 guide](../w12/build.md).
+
+The ordinary host suite compiles the actual supervisor at synthetic FreeRTOS,
+clock and restart boundaries. It covers719999999/720000000us, recovery at the
+boundary, OFF/maintenance, RTC reason, monotonic/upper-range guards, healthy
+first-META acquisition and retained state through long source absence. It also
+checks the legacy300s default and unchanged120s actual-fault path. The adapter
+keeps cached/held information separate from fresh synchronization.
+The production-native integration cases
 `n30-source-return` and `n30-source-return-same-epoch` fail on the prior selector
 and pass after the fix, performing a new signed exchange against the same GM
 boot. Run all N30 scheduling cases with:
@@ -450,7 +540,7 @@ python3 firmware/w12/tools/precision_priority_tests.py --n30 \
 ```
 
 Use the shared-codec preparation command above first. These are offline software
-regressions. Physical five-minute watchdog timing, GNSS loss/return in the field,
+regressions. Physical twelve-minute no-time boundary timing, GNSS loss/return in the field,
 and independently measured timing accuracy remain separate hardware observations.
 
 
@@ -465,14 +555,15 @@ trial leaves discovery open even if raw lock briefly returns. Existing60s failed
 parent retry bounds, fresh locators, authenticated JOIN and operator choices
 remain. The shared W12 default selection policy stays unchanged.
 
-LoRa AUTO likewise accumulates180s of loss and requires180s of continuous lock
-to clear it and stop reception. The main radio/supervisor path supplies actual
-current BLE quality directly; OLED initialization, blanking, minimal mode and
-displayed lock settlement do not control backup acquisition. Explicit KEEP OFF,
-receiver OFF, faults and update maintenance retain their fences. Once an
-original/follow-up pair provides available authenticated LoRa UTC, it replaces
-HOLD, acquisition or marginal BLE on the main clock. Being in range or RX ON
-alone cannot manufacture that time. LoRa never disciplines the BLE model.
+LoRa AUTO and KEEP ON now listen continuously, independently of BLE lock.
+The main radio/supervisor path supplies actual BLE quality without using OLED
+initialization, blanking, minimal mode or displayed lock as radio controls.
+Explicit KEEP OFF, receiver OFF, faults and update maintenance retain their
+fences. Qualified LoRa can supply the selected fallback clock; an unqualified
+same-context observer can supply estimated digital time when no usable primary
+clock exists. An acquiring observer does not replace valid primary BLE time.
+Being in range or RX ON cannot manufacture time or authority. LoRa never
+trains or disciplines the BLE model.
 
 The acquisition fix retains N30 corrections whose original capture preceded
 the most recent model publication. Each direct original freezes its delivered
@@ -517,7 +608,7 @@ separate dense-stream check retains all150 eligible corrections, preserves nine
 signed-envelope refusals, and records two unavailable startup predictions.
 These are deterministic software regressions, not field RF evidence or an
 independently measured UTC/PPS/output guarantee. Physical acquisition speed,
-intermittent-GM roaming and five-minute watchdog behavior still need retesting.
+intermittent-GM roaming and twelve-minute no-time boundary behavior still needs hardware testing.
 
 ## Version 0.2.9 reusable timing diagnostics
 
@@ -1055,3 +1146,131 @@ KEEP_ON controls the receiver policy; it does not change the exact transmitter
 factory filter. Check the configured transmitter against the shared registry
 when rebuilding. Device identities, enrolled images and live diagnostic traces
 remain in ignored local artifacts.
+
+## Independent LoRa mapping bracket
+
+LoRa keeps the original20MHz XTAL GPTimer even with BLE fine capture selected.
+The pinned ESP-IDF private ABI is checked before compilation. A single original
+driver lock now encloses direct GPTimer latches around the same public MCPWM
+software-capture call. Clock source, resolution, direction and running state
+must match; no BLE clock, estimator sample or GNSS observation substitutes.
+The unchanged400-tick width, preceding-anchor and original two-second expiry
+guards still apply. `map_bracket_ns` reports the software bracket independently
+from the conservative combined capture enclosure. Neither field is an RF/UTC
+accuracy bound.
+
+## Native LoRa capture coordinate
+
+LoRa keeps its own group0 APB80MHz capture counter and model. HeaderValid
+and bounded software CURRENT captures use that same counter; BLE keeps group1
+and supplies neither phase nor frequency. A fixed origin and64-bit extension
+refuse stopped/implausible counters, epoch changes and half-wrap ambiguity.
+The original eight-second HeaderValid-to-consumption limit remains separate
+from BLE's250ms event limit. Counter ticks are12.5ns; the existing estimator
+input uses normalized16MHz integers, with62.5ns quantization.
+
+The original XTAL20 mapping remains an independent admission guard. Physical
+pairs still require preceding qualified anchors, the unchanged400-tick bracket
+limit, two-second availability and original capture/source generations. Its
+midpoint no longer contributes phase or frequency to the delivered LoRa clock.
+The CURRENT-only channel has no GPIO, callback or IRQ; its bounded polling and
+pinned SDK ABI/register hashes are checked offline. Both group0 and group1
+APB timers hold their own maximum-APB PM locks while enabled. LoRa's CURRENT
+channel joins its existing capture stop/drain; BLE parking cannot stop it.
+
+The HeaderValid endpoint and99.328ms engineering delay input are unchanged,
+with RF/UTC bounds still unknown. Native source/build checks, portrait previews
+and host peripheral simulations do not qualify the changed delivered clock.
+Preserve the complete prospective next-pair and actual60s HOLD populations,
+including failures, source/capture withdrawals, missing witnesses and warmup.
+
+## Native CURRENT diagnostics
+
+The LoRa CURRENT sample pairs its80MHz hardware count and coarse health time
+inside the existing bounded lock. The delivered UTC snapshot retains that
+sampling time. Actual availability still checks source expiry and never renews
+the original grant. The coarse witness does not supply LoRa phase or frequency.
+
+A native failure retains its first CRC diagnostic capsule until reboot:
+`current_rc`, `current_reason`, `current_raw`, `current_prev_raw`, `current_us`,
+`current_prev_us`, `current_available_us` and `current_epoch`. A helper failure
+uses error `-4096 - current_rc`; a counter failure uses `-8192 - current_reason`.
+Reasons1–8 mean incarnation, backward coarse time, half-wrap coarse gap, raw
+half-wrap ambiguity, extension overflow, stopped count, low rate and high rate.
+Zero-filled fields mean no recorded CURRENT failure, not measured accuracy.
+The capsule is volatile; the durable fault journal remains unavailable.
+
+
+## Retained observer contracts
+
+The native build records the two-mode30s/120s estimator, exact measurement
+variance250000ns² and process scale1e-4 per acceleration mode. Qualification
+retains its original capture, source, physical120s and180s training fences.
+`lora_watch_contract` describes an additional authenticated same-context human
+observer, never a live lease. `clock_visibility_contract` identifies first-pair
+digital time, causal error from pair two and aged HOLD/META presentation.
+`no_time_retention_policy` cancels only the no-time absence restart during healthy
+active LoRa acquisition or after useful boot META/TZ is learned; it does not change actual-fault watchdogs or reported
+synchronization. Its armed interval is720000000us (12minutes), selected only by
+the N30 compile configuration; W12 retains its existing default.
+`maintenance_lora_contract` separates a visible old operating
+fault from generation-matched physical cleanup. Cleanup failures still refuse
+maintenance within the original2s deadline. Long human HOLD freezes its rate at
+300s with original ages; it is an explicitly unqualified approximation.
+
+These contracts identify source behavior, not measured accuracy or installation
+approval. Retain ordinary physical next-pair endpoints with actual model ages,
+all startup/steady cohorts and every excursion above1us. Analytical60s and
+actual finite60s HOLD endpoints are separate populations.
+
+The ten-row LoRa console retains its existing rows. The new unqualified watch
+extension in `N30_LORA_QUALITY` uses `watch_v1=` followed by exactly22 slash
+separated values. The normal reader verifies both frame CRCs, rejects unknown
+versions/counts/types/ranges, then expands these names automatically. Expanded
+JSON retains `watch_v1_raw`; raw serial evidence retains the original bytes.
+Direct-console field order is:
+
+| Positions | Ordered fields |
+| --- | --- |
+| 1–4 | `watch_valid`, `watch_state`, `watch_reason`, `watch_mode` |
+| 5–6 | `watch_sampled_us`, `watch_UTC_us` |
+| 7–10 | `watch_pairs`, `watch_rejected`, `watch_missing`, `watch_unmatched` |
+| 11–14 | `watch_age_ms`, `watch_error_age_ms`, `watch_span_ms`, `watch_prediction_age_ms` |
+| 15–18 | `watch_prediction_n`, `watch_total_prediction_n`, `watch_rms_ns`, `watch_total_rms_ns` |
+| 19–22 | `watch_max_ns`, `watch_over1us`, `watch_last_ns`, `watch_rate_ppb` |
+
+Positions5–6 are unsigned64-bit timestamps;21–22 are signed32-bit. Counts,
+ages and RMS are unsigned32-bit. Valid is0/1; state is0none,1ACQ,2TRACK,3HOLD,
+4stale-META,5fenced. Reason is0none,2context,3source-withdrawal,4counter,
+5OFF,6numeric/source-rate,7radio-fault. Prediction mode is0unknown,1observer,
+2qualified delivery,3actual finite-HOLD model,4aged observer. Classification
+uses the prior model/T0, not a completed trial's retained result. Unknown error
+is `UINT32_MAX`; a first pair has no measured forecast error. This wire packing
+saves repeated labels; it removes no observation or original buffer capacity.
+
+
+Timing diagnostics retain `local20` as the original descriptor coordinate and
+report `delivered20` separately when the successful N30 fine backend supplies
+that physical stamp. Exact epoch/sequence/event/channel binds the handoff;
+corrected Pair matching then requires its exact delivered tick. A handoff is
+not an authenticated correction: unmatched rows retain `matched=0`, unknown
+source UTC and no causal error. The reader keeps both coordinates. Conditional
+descriptor-bin shadow bounds are unavailable for a substituted fine endpoint;
+matched production causal errors remain diagnostics, with RF/UTC bounds unknown.
+The observer changes no model, capture admission, resource owner or permission.
+
+
+Current LoRa diagnostics provide the standard receive counters, immutable
+clock/model observations and first operating-fault evidence. The withdrawn
+packet-status/span probes are recorded in the [changelog](../../firmware/n30/CHANGELOG.md);
+their historical parser support does not advertise a current receive capability.
+
+
+Before a commissioning build, run the [coupled receiver gate](dual-timing-state-machines.md#coupled-pre-installation-gate)
+and pass its `receipt.json` with `--state-machine-receipt`. Failed, incomplete or
+stale-source receipts are refused before compilation. This offline gate grants
+no hardware installation or timing-accuracy acceptance.
+
+Direct GR3 renewal uses the [intersection of authenticated source grants](dual-timing-state-machines.md#source-envelope-renewal-and-physical-pairing).
+The build receipt identifies this policy; the gate exercises real packet MACs
+and the production physical-clock adapter alongside source/UI scheduling.

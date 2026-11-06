@@ -1,5 +1,75 @@
 # W12 changelog
 
+## 0.2.39 — 2026-11-06
+
+Share N30's source-absence policy: learned boot information and a fresh healthy
+LoRa receiver suppress destructive absence restarts without granting time or
+changing driver/worker fault supervision. Unlearned absence uses the full
+720-second timer; actual sustained faults retain120 seconds and worker-stall
+declarations retain the five-second minimum. OFF and maintenance cancel absence.
+
+CRC diagnostics expose watchdog inputs, separate fault/absence timers, retained
+RTC restart evidence, current BLE scope and automatic BLE recovery count.
+Return the bounded eight-event parent journal with overwrite/read-loss counts.
+The source-selection capsule and BLE refusal remain independent of output
+permission. Actual-supervisor offline tests are mandatory in the receiver gate.
+
+Finite functional validation on one W12 retained560 complete CRC frames across
+warm reception, an intentionally injected watchdog fault, the120-second reset
+and120s of post-reset observation. RTC evidence retained the test cause and
+prior boot; BLE following was sampled by4.230s and qualified BLE by9.864s in
+the new boot. Whole application, protected-prefix and necessary sector-tail
+readback passed. The preceding .38 receiver baseline retained1266 frames over
+600s, including one accepted BLE-only rebind and return to BLE selection.
+Host parser/collector failures and the first .39 native format-ABI build failure
+are separate retained failures. Raw exact-device logs and enrolled images remain
+private. These finite checks do not qualify endurance or UTC/output accuracy.
+
+## 0.2.38 — 2026-11-06
+
+Expose current BLE refusal, return-dwell progress, pause/reset counters,
+retained first interruption and latest parent change in the existing CRC
+`lora diag` frame. Main-loop observations use the same eligibility predicate
+as N30. Diagnostics consume no history and grant no source permission.
+
+Include the current image in normal compact-status, holdover and phase contract
+validation. The coupled offline gate checks the builder's current version
+against normal-status compatibility before hardware preparation.
+
+A valid direct-GR3 physical pair can cross a source-envelope renewal. The
+receiver intersects the original and correction-carrier deadlines instead of
+discarding the pair when the later envelope expires later. Both MACs, original
+physical age, coarse/replay limits and full source/boot/train/capture scope stay
+mandatory. New uncorrected headers cannot renew old model permission.
+
+Retry transient controller-capacity0x207 at the paused capability-data owner
+at100ms intervals, bounded to three attempts and the original500ms budget.
+Failed commands do not publish. Persistent capacity, other errors and all
+original source/owner/drain fences retain the fatal path. The actual owner is
+tested for W12, N30 and unchanged shared-target behavior.
+
+Recurring permission-only gaps below1.5s pause the30s return qualification,
+earning no credit and granting no output. Exact current source/quality scope
+must return; hard fences restart the dwell. Retain a fresh authenticated direct
+train through the bounded15s physical-progress recovery interval while original
+source output still expires immediately and fresh admission remains due at1.5s.
+The offline coupled gate exercises production holdover with recovery enabled.
+
+Supervise BLE acquisition independently of a working LoRa clock. Recent eligible
+discovery or authenticated current-parent PA, with15s of no physically corrected
+pair progress, requests the existing BLE-only bounded rebind. Retire advisory
+retry history after actual owner closure; preserve operator pins, rate gates,
+terminal authenticated fences, original2s drain and fault evidence. OFF, absence,
+ongoing physical progress and independently admitted RC9 retain their policies.
+
+Start the GM fitting trial after usable admission and share unusable-admission
+cooldown with the chooser. Admit delayed authenticated coarse JOIN below200ms
+uncertainty, keeping the250ms TTL, full uncertainty, full causal source guard and
+all replay and precision requirements. The legacy API remains100ms. Expired
+LoRa no longer leaves a latch that suppresses recovered qualified BLE. Fresh
+qualified LoRa retains its30s continuous same-scope return dwell. W12 timing,
+holdover/thermal policy, calibration, LR2021 model and RC9 wire are unchanged.
+
 ## 0.2.37 — 2026-11-03
 
 Preserve LR2021 HeaderValid IRQ through FIFO completion as required by the

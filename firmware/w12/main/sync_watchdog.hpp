@@ -1,26 +1,29 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #pragma once
 #include "native_r2.hpp"
+#include "g1_ble_eligibility.hpp"
+#include "source_absence_policy.hpp"
 #include <algorithm>
 namespace w12 {
 constexpr uint64_t SyncSnapshotMaxUs=250000;
-inline bool ble_locked(const v12::R2Status& s,uint64_t now){
- if(!s.requested||s.fault||s.rx_capture.fault||!s.following||!s.clock_valid||s.g1_retained_estimate||
-    s.rc7_upstream_mode_pending||s.rc_parent.pending()||s.rc_parent.state==4||
-    !s.root_identity||!s.root_boot||!s.source_epoch||!s.publication||now<s.follower_snapshot_us||now-s.follower_snapshot_us>=SyncSnapshotMaxUs)return false;
- // Coarse UTC permission must be live NOW. It renews independently of the
- // precision model and is not the horizon of a one-second quality forecast.
- // Capping that forecast by each short coarse renewal made healthy BLE lock
- // oscillate and prevented AUTO's continuous recovery from completing.
- if(s.service_until_us<=now||s.g1_corrected_until_us<=now)return false;
- // Match the sole G1 controller's lock_protected_quality(): current packet
- // permission must be live now; the quality forecast uses the original
- // replay anchor. Short corrected-pair renewals cannot make a healthy stream
- // alternate between BLE and RC8. This grants no future output permission.
- const auto until=s.g1_anchor_deadline_us;
- const auto tick=s.g1_relative_quality.evaluated20;
- return until>now&&s.g1_relative_quality.locked(tick,s.g1_clock_model)&&s.g1_relative_quality.hold_ms(tick,s.g1_clock_model,until-now)>=1000;
+inline bool ble_boot_learned(const v12::R2Status& s){
+#ifdef R2_TZ_WIRE
+ return s.tz_received!=0;
+#else
+ return s.clock_valid&&!s.g1_retained_estimate;
+#endif
 }
+// Return-dwell evidence only: current output is still refused at expiry.
+// A valid same-scope recovery must be observed within1.5s; every observation stays fresh within250ms.
+inline bool ble_permission_gap(const v12::R2Status& s,uint64_t now){
+ return s.requested&&!s.fault&&!s.rx_capture.fault&&!s.rc7_upstream_mode_pending&&
+  !s.rc_parent.pending()&&s.rc_parent.state!=4&&now>=s.follower_snapshot_us&&
+  now-s.follower_snapshot_us<SyncSnapshotMaxUs&&s.g1_anchor_deadline_us>now&&
+  s.g1_corrected_until_us&&s.g1_corrected_until_us<=now;
+}
+using ptob_ble::ble_lock_refusal;
+using ptob_ble::ble_lock_reason;
+inline bool ble_locked(const v12::R2Status& s,uint64_t now){return ble_lock_refusal(s,now)==0;}
 // Authenticated current time, independent of fine lock and display caches.
 // Polls retain the original source and worker deadlines; HOLD cannot feed it.
 inline uint64_t synchronized_until(const v12::R2Status& s,uint64_t now){
@@ -37,6 +40,9 @@ inline uint64_t synchronized_until(const v12::R2Status& s,uint64_t now){
 #ifdef PTOB_W12_LORA_RX
 #include "lora_view.h"
 namespace w12 {
+inline bool healthy_lora_receiver(const w12_lora_view& l,uint64_t now){
+ return l.requested&&l.active&&!l.fault&&now>=l.sampled_us&&now-l.sampled_us<SyncSnapshotMaxUs;
+}
 inline bool lora_time(const w12_lora_view& l,uint64_t now,uint64_t& utc){
  utc=0;
  // Match N30's functional RC8 display/watchdog path. Authenticated physical

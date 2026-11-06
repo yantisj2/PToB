@@ -84,9 +84,26 @@ The passive source has no original signed created/expires envelope, so its
 legacy RC9 wire1 server bridge is gated. RC9 client reception and valid legacy
 source-envelope behavior retain their original12s contract. A future passive
 bridge needs its own reviewed protocol; no source envelope or lease is synthesized.
-After LoRa supplies the local display, normal BLE returns after30 continuous
-seconds of fresh qualified lock in one admitted scope. This affects the display;
+After LoRa supplies the local display, normal BLE returns after30 seconds
+of fresh qualified lock in one admitted scope. Permission-only gaps below1.5s
+pause this evidence and earn no credit; scope, quality and owner changes reset
+it. `lora diag` reports refusal, dwell progress and the first interruption.
+This affects the display;
 authenticated relay and RC9 permission retain their own original checks.
+Expired or unqualified LoRa yields immediately to fresh qualified BLE and retires
+its display latch. Independent LoRa availability cannot mask stalled BLE:
+after15s without a new physical corrected pair, recent eligible discovery or
+authenticated current-parent reception can request a BLE-only bounded rebind.
+The original2s drain, operator selection, authentication and fault gates apply.
+The watchdog retains learned boot information through ordinary reception loss.
+Fresh healthy LoRa reception suppresses destructive absence restarts while BLE
+recovery continues independently. CRC diagnostics retain parent history,
+watchdog timers and restart evidence; these records grant no timing permission.
+The GM fitting trial starts after usable admission; failed peers share their
+retry cooldown with selection. Delayed direct JOIN may establish coarse replay
+context below200ms uncertainty within the unchanged250ms exchange limit, while
+retaining full uncertainty and full causal source-expiry subtraction. Precision
+lock still requires fresh physical corrections.
 
 Local HOLD preserves a BLE-trained estimate while ordinary source permission
 expires independently. Temperature experiments never steer production HOLD.

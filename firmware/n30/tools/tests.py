@@ -7,6 +7,8 @@ def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
  cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').exists() else 'clang++'),'-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize-recover=all','-I'+str(APP/'main'),str(APP/'tests/ui_test.cpp'),str(APP/'main/ui_render.cpp'),str(APP/'main/ui_model.cpp'),'-o',str(out/'ui-test')]
  subprocess.run(cmd,check=True,timeout=40);subprocess.run([out/'ui-test'],check=True,timeout=40)
+ subprocess.run([sys.executable,str(APP/'tools/adv_data_retry_tests.py'),'--out',str(out/'adv-data-retry')],check=True,timeout=120)
+ subprocess.run([sys.executable,'-B',APP/'tools/state_machine_tests.py','--out',out/'state-machines'],check=True,timeout=120)
  precision=[str(APP/'tests/precision_test.cpp') if x==str(APP/'tests/ui_test.cpp') else str(out/'precision-test') if x==str(out/'ui-test') else x for x in cmd]
  subprocess.run(precision,check=True,timeout=40);subprocess.run([out/'precision-test'],check=True,timeout=10)
  for n30 in (False,True):
@@ -39,6 +41,8 @@ def main():
  subprocess.run(owner,check=True,timeout=40);subprocess.run([out/'lora-owner-test'],check=True,timeout=10)
  parent=[*cmd[:cmd.index(str(APP/'tests/ui_test.cpp'))],'-DPTOB_N30=1','-I'+str(APP.parent/'w12/main'),str(APP/'tests/parent_fallback_test.cpp'),'-o',str(out/'parent-fallback-test')]
  subprocess.run(parent,check=True,timeout=40);subprocess.run([out/'parent-fallback-test'],check=True,timeout=10)
+ acquisition=[str(APP/'tests/ble_acquisition_recovery_test.cpp') if x==str(APP/'tests/parent_fallback_test.cpp') else str(out/'ble-acquisition-test') if x==str(out/'parent-fallback-test') else x for x in parent]
+ subprocess.run(acquisition,check=True,timeout=40);subprocess.run([out/'ble-acquisition-test'],check=True,timeout=10)
  recovery=[str(APP/'tests/recovery_budget_test.cpp') if x==str(APP/'tests/parent_fallback_test.cpp') else str(out/'recovery-test') if x==str(out/'parent-fallback-test') else x for x in parent]
  subprocess.run(recovery,check=True,timeout=40)
  for case in ('parent','lora'):subprocess.run([out/'recovery-test',case],check=True,timeout=10)

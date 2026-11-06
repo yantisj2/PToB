@@ -1,0 +1,8 @@
+# Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
+# Place only the unchanged pinned SDK software-capture command beside the
+# N30 bracket helper. This is a task-context latency choice, not ISR/cache-safe
+# qualification of its argument/error paths.
+[mapping:n30_lora_capture_command]
+archive: libesp_driver_mcpwm.a
+entries:
+    mcpwm_cap: mcpwm_capture_channel_trigger_soft_catch (noflash)

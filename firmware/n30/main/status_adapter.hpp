@@ -19,7 +19,7 @@ inline Model model(const v12::R2Status& s,const DisplayState& d,uint64_t now,con
  const bool healthy=s.requested&&!ble_parked&&!s.fault&&!s.rc7_upstream_mode_pending;
  if(healthy&&s.synced&&!s.rc_parent.pending()&&s.rc_parent.state!=4&&s.n30_signal.peer==s.joined_peer&&s.n30_signal.fresh(now))m.signal=s.n30_signal;
  m.relay_only=s.rc7_relay_only_requested;m.mode_pending=s.rc7_upstream_mode_pending;
- m.ble_parked=ble_parked;m.ble_requested=s.requested&&!ble_parked;
+ m.ble_parked=ble_parked;m.ble_requested=s.requested&&!ble_parked;m.ble_fault=s.fault;
  m.valid=healthy&&s.clock_valid&&d.valid&&(!s.following||(s.root_identity&&s.root_boot&&s.source_epoch&&s.publication));
  m.state=s.fault?State::Fault:!m.ble_requested?State::Off:s.rc7_upstream_mode_pending?State::Acquire:
    m.valid?(s.following?State::Follow:State::Hold):(s.connecting||s.connections)?State::Join:s.group_member?State::Acquire:State::Search;

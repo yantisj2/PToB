@@ -2,26 +2,31 @@
 // Copyright (c) 2026 Jonathan Yantis.
 #pragma once
 #include "native_r2.hpp"
+#include "g1_ble_eligibility.hpp"
 #include "dual_time.hpp"
 #include "rc9_time.hpp"
+#include "no_time_retention.hpp"
 #include <algorithm>
 namespace n30 {
 // Radio policy reads actual current BLE quality independently of rendering,
 // displayed lock settlement, blank/minimal mode, or OLED initialization.
-inline bool ble_locked(const v12::R2Status& s,uint64_t now){
- if(!s.requested||s.fault||s.rx_capture.fault||!s.following||!s.clock_valid||s.g1_retained_estimate||
-    s.rc7_upstream_mode_pending||s.rc_parent.pending()||s.rc_parent.state==4||
-    !s.root_identity||!s.root_boot||!s.source_epoch||!s.publication||
-    now<s.follower_snapshot_us||now-s.follower_snapshot_us>=SnapshotMaxUs)return false;
- // Match the controller's lock_protected_quality: both source permissions
- // must be live now; only the original replay anchor limits the independent
- // one-second quality forecast. Short renewals never extend output permission.
- if(s.service_until_us<=now||s.g1_corrected_until_us<=now)return false;
- const auto until=s.g1_anchor_deadline_us;
- const auto tick=s.g1_relative_quality.evaluated20;
- return until>now&&s.g1_relative_quality.locked(tick,s.g1_clock_model)&&
-   s.g1_relative_quality.hold_ms(tick,s.g1_clock_model,until-now)>=1000;
-}
+using ptob_ble::BleLockRefusal;
+using ptob_ble::BleReady;
+using ptob_ble::BleDisabled;
+using ptob_ble::BleFault;
+using ptob_ble::BleMode;
+using ptob_ble::BleNotFollowing;
+using ptob_ble::BleContext;
+using ptob_ble::BleSnapshot;
+using ptob_ble::BleCoarseExpiry;
+using ptob_ble::BleCorrectedExpiry;
+using ptob_ble::BleReplayExpiry;
+using ptob_ble::BleQuality;
+using ptob_ble::BleForecast;
+using ptob_ble::BleRetained;
+using ptob_ble::ble_lock_refusal;
+using ptob_ble::ble_lock_reason;
+inline bool ble_locked(const v12::R2Status& s,uint64_t now){return ble_lock_refusal(s,now)==BleReady;}
 // Current synchronized UTC, independent of precision lock and OLED caches.
 // These are the original source/worker deadlines, never now+hold on polling.
 inline uint64_t synchronized_until(const v12::R2Status& s,const n30_lora_view& l,uint64_t now,const v12::Rc9Status& r={}){

@@ -6,22 +6,27 @@ namespace n30::fine {
 struct Time {uint64_t raw80=0,tick20=0;uint32_t incarnation=0;};
 class Counter {
  public:
+ enum class Fault:uint8_t {None,Incarnation,CoarseBackward,CoarseGap,RawHalfWrap,Overflow,Stopped,RateLow,RateHigh};
  static constexpr uint64_t HalfWrapUs=26843545,MaxEventUs=250000,Base20=1000000;
  bool begin(uint32_t incarnation,uint32_t raw,uint64_t coarse,uint32_t hz){
   *this={};if(!incarnation||hz!=80000000)return false;
   incarnation_=incarnation;raw_=raw;extended_=origin_=raw;coarse_=rate_coarse_=progress_coarse_=coarse;rate_raw_=raw;live_=true;return true;
  }
- bool current(uint32_t incarnation,uint32_t raw,uint64_t coarse,Time& out){
-  out={};if(!live_||incarnation!=incarnation_||coarse<coarse_||coarse-coarse_>=HalfWrapUs)return fail();
-  const uint32_t delta=raw-raw_;if(delta>=0x80000000U||extended_>UINT64_MAX-delta)return fail();
+ [[gnu::noinline]] bool current(uint32_t incarnation,uint32_t raw,uint64_t coarse,Time& out){
+  out={};if(!live_||incarnation!=incarnation_)return fail(Fault::Incarnation);
+  if(coarse<coarse_)return fail(Fault::CoarseBackward);
+  if(coarse-coarse_>=HalfWrapUs)return fail(Fault::CoarseGap);
+  const uint32_t delta=raw-raw_;if(delta>=0x80000000U)return fail(Fault::RawHalfWrap);
+  if(extended_>UINT64_MAX-delta)return fail(Fault::Overflow);
   const auto next=extended_+delta;
   // Health guards only: stopped/stale/half-rate counters cannot create time.
   if(delta)progress_coarse_=coarse;
-  else if(coarse-progress_coarse_>100)return fail();
+  else if(coarse-progress_coarse_>100)return fail(Fault::Stopped);
   const auto elapsed=coarse-rate_coarse_;
   if(elapsed>=1000){
    const auto advance=next-rate_raw_;
-   if(advance+8000<elapsed*70||advance>elapsed*90+8000)return fail();
+   if(advance+8000<elapsed*70)return fail(Fault::RateLow);
+   if(advance>elapsed*90+8000)return fail(Fault::RateHigh);
    rate_coarse_=coarse;rate_raw_=next;
   }
   extended_=next;raw_=raw;coarse_=coarse;out={extended_,Base20+(extended_-origin_)/4,incarnation_};return true;
@@ -33,9 +38,10 @@ class Counter {
   const auto value=extended_-age;out={value,Base20+(value-origin_)/4,incarnation_};return true;
  }
  bool live() const{return live_;}
+ Fault fault() const{return fault_;}
  private:
- bool fail(){live_=false;return false;}
- uint64_t extended_=0,origin_=0,coarse_=0,rate_coarse_=0,rate_raw_=0,progress_coarse_=0;uint32_t raw_=0,incarnation_=0;bool live_=false;
+ bool fail(Fault reason){if(fault_==Fault::None)fault_=reason;live_=false;return false;}
+ uint64_t extended_=0,origin_=0,coarse_=0,rate_coarse_=0,rate_raw_=0,progress_coarse_=0;uint32_t raw_=0,incarnation_=0;bool live_=false;Fault fault_=Fault::None;
 };
 struct Edge {uint64_t raw80=0,tick20=0,seen_us=0;uint32_t number=0,raw32=0,incarnation=0;uint8_t kind=0,polarity=0;bool valid=false;};
 class History {

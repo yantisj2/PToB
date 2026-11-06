@@ -15,8 +15,19 @@ def verify_sources():
     assert sha(src/'v14_vectors.json')==m['v14_vectors_sha256']
     tz=json.loads((APP/'contracts/time_zone_v1.json').read_text())
     tz['source_files'].update(tz.get('dynamic_extension',{}).get('source_files',{}))
-    for n,h in m['source_files'].items():assert sha(src/n)==tz['source_files'].get('main/r2/r2-g1/'+n,h),n
-    for n,h in tz['source_files'].items():assert sha(APP/n)==h,n
+    expected={**{'main/r2/r2-g1/'+n:h for n,h in m['source_files'].items()},**tz['source_files']}
+    # Preserve historical manifests. This narrowly named derived extension
+    # records both the prior and current implementation of the same wire API.
+    extension=APP/'contracts/ble_recovery_v1.json'
+    if extension.exists():
+        e=json.loads(extension.read_text())
+        assert e['schema']==1 and e['scope']=='DERIVED_RECEIVER_LOCAL_COARSE_ACQUISITION_EXTENSION_NO_WIRE_CHANGE'
+        assert e['base_contract_sha256']==sha(APP/'contracts/r2_g1_client.json') and e['base_time_zone_contract_sha256']==sha(APP/'contracts/time_zone_v1.json')
+        assert set(e['source_files'])==set(e['base_source_files'])=={'main/r2/r2-g1/group_join.c','main/r2/r2-g1/group_join.h'}
+        for n,h in e['base_source_files'].items():assert expected[n]==h,n
+        assert e['legacy_uncertainty_limit_us']==100000 and e['maximum_receiver_local_uncertainty_us']==200000 and e['exchange_TTL_us']==250000
+        expected.update(e['source_files'])
+    for n,h in expected.items():assert sha(APP/n)==h,n
     assert sha(APP/'contracts/g1_upstream_field_profile.md')==m['upstream_field_profile_sha256']
     assert m['capabilities']==m['control']==0
     assert sha(APP/m['crypto_local_fix']['file'])==m['crypto_local_fix']['sha256']
@@ -63,7 +74,7 @@ def main():
     (out/'ptob_device.h').write_text('#define PTOB_FACTORY_MAC {2,0,0,0,0,7}\n#define PTOB_DEVICE_LABEL "C-3"\n#define PTOB_LEGACY_WIRE_ID 3\n')
     (out/'r2_bench_enrollment.h').write_text('static const r2_group_enrollment provision={{{'+','.join(map(str,range(32)))+'},UINT64_C(0x123456789abcdef0),1},UINT64_C(0x020000000007),"C-3",40000};\n')
     production=out/'C3-production-holdover'
-    run([CXX,'-std=c++20',*flags,'-Wno-missing-field-initializers','-DPTOB_W12_SHADOW_HOLDOVER=1','-DPTOB_W12_HOLDOVER_PRODUCTION=1','-DPTOB_W12_HOLDOVER_HORIZON=1','-DPTOB_W12_HOLDOVER_RATE=1','-DPTOB_W12_THERMAL_SHADOW_ONLY=1','-DPTOB_W12_FINE_CLOCK=1','-DV12_R2_RX_SHADOW=1','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_UNIT="C3"','-I'+str(APP/'tests/r2_fakes'),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP/'main'),'-I'+str(APP/'legacy/reference'),APP/'tests/native_g1_test.cpp',*objects,'-o',production],'production-holdover-build')
+    run([CXX,'-std=c++20',*flags,'-Wno-missing-field-initializers','-DPTOB_W12_BLE_RECOVERY=1','-DPTOB_W12_SHADOW_HOLDOVER=1','-DPTOB_W12_HOLDOVER_PRODUCTION=1','-DPTOB_W12_HOLDOVER_HORIZON=1','-DPTOB_W12_HOLDOVER_RATE=1','-DPTOB_W12_THERMAL_SHADOW_ONLY=1','-DPTOB_W12_FINE_CLOCK=1','-DV12_R2_RX_SHADOW=1','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_UNIT="C3"','-I'+str(APP/'tests/r2_fakes'),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP/'main'),'-I'+str(APP/'legacy/reference'),APP/'tests/native_g1_test.cpp',*objects,'-o',production],'production-holdover-build')
     run([production,'holdover-production'],'production-holdover-selection-sensor-scope-and-handoff')
     if a.selection=='holdover':
         (out/'receipt.json').write_text(json.dumps({'status':'PASSED','scope':'ACTUAL_NATIVE_HOLD_ENTRY_SELECTION_AND_HANDOFF','tests':records,'hardware_access':False},indent=2)+'\n')
@@ -86,7 +97,7 @@ def main():
     run([CXX,'-std=c++20',*flags,'-DV12_R2_ENABLED=1','-DV12_R2_CONFIG=13','-Wno-unused-parameter','-Wno-sign-compare','-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tools/preview_r2_dashboard.cpp','-o',out/'dashboard-preview'],'dashboard-framebuffer-build')
     run([out/'dashboard-preview',out],'dashboard-causal-RMS-estimated-hold-layout')
     run([CXX,'-std=c++20',*flags,'-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_corrected_clock_test.cpp',*objects,'-o',out/'corrected-clock-tests'],'corrected-clock-build')
-    run([CXX,'-std=c++20',*flags,'-DPTOB_W12_FINE_CLOCK=1','-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_corrected_clock_test.cpp',*objects,'-o',out/'fine-corrected-clock-tests'],'fine-corrected-clock-build')
+    run([CXX,'-std=c++20',*flags,'-DPTOB_W12_FINE_CLOCK=1','-DPTOB_W12_BLE_RECOVERY=1','-I'+str(APP/'legacy'),'-I'+str(APP/'legacy/reference'),'-I'+str(APP/'main'),APP/'tests/g1_corrected_clock_test.cpp',*objects,'-o',out/'fine-corrected-clock-tests'],'fine-corrected-clock-build')
     run([out/'fine-corrected-clock-tests'],'fine-corrected-clock')
     run([out/'corrected-clock-tests'],'functional-clock-frequency-scope-hold')
     for fine in (False,True):

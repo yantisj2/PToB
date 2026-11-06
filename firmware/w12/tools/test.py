@@ -24,7 +24,7 @@ AREAS = {
     'console': ['rc9_console_tests', 'lora_console_tests'],
     'core': ['g1_host_tests', 'fine_tests', 'shadow_holdover_tests', 'host_task_tests', 'sync_watchdog_tests', 'power_tests'],
 }
-FULL = AREAS['core'] + ['rc7_permission_e2e', 'lora_tests', 'rc9_tests', 'rc9_native_tests', 'rc9_console_tests', 'lora_console_tests', 'display_timing_tests', 'dual_display_tests', 'time_zone_tests']
+FULL = AREAS['core'] + ['ble_recovery_tests', 'rc7_permission_e2e', 'lora_tests', 'rc9_tests', 'rc9_native_tests', 'rc9_console_tests', 'lora_console_tests', 'display_timing_tests', 'dual_display_tests', 'time_zone_tests']
 
 
 def select(paths):

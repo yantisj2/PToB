@@ -7,6 +7,9 @@
 #include "native_direct.hpp"
 #include "native_diagnostic_tx.hpp"
 #include "periodic_rx.hpp"
+#ifdef PTOB_W12_BLE_RECOVERY
+#include "w12_ble_acquisition_recovery.hpp"
+#endif
 #ifdef PTOB_RC9
 #include "rc9/client.hpp"
 #ifdef PTOB_W12_LORA_RX
@@ -17,6 +20,7 @@
 #endif
 #ifdef PTOB_N30
 #include "fine_backend_api.hpp"
+#include "ble_acquisition_recovery.hpp"
 #elif defined(PTOB_W12_FINE_CLOCK)
 #include "w12_fine_clock.hpp"
 #endif
@@ -34,6 +38,12 @@ extern "C" {
 #include "g1_direct_session.hpp"
 #ifdef R2_TZ_WIRE
 #include "g1_time_zone.hpp"
+#endif
+#ifdef PTOB_N30
+#include "../../n30/main/adv_data_retry.hpp"
+#endif
+#ifdef PTOB_W12_BLE_RECOVERY
+#include "w12_adv_data_retry.hpp"
 #endif
 #include "g1_admission_policy.hpp"
 #include "g1_retained_estimate.hpp"
@@ -101,8 +111,11 @@ struct Peer {
 struct Incoming {uint64_t at=0;uint32_t incarnation=0;uint8_t bytes[RC_DYNAMIC_CONTROL_BYTES]{};uint16_t length=R2_GROUP_JOIN_BYTES;};
 struct Discovery {int8_t rssi=127,tx_power=127;uint64_t at=0;ble_addr_t address{};uint16_t interval=0;uint8_t sid=0,props=0,legacy_event_type=0,primary_phy=0,secondary_phy=0,length=0;uint8_t bytes[191]{};};
 struct Periodic {uint64_t at=0,identity=0;uint8_t bytes[190]{};uint8_t length=0;periodic_rx::Stamp capture{};
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+ uint32_t signal_epoch=0;
+#endif
 #ifdef PTOB_N30
- uint32_t signal_epoch=0;int8_t rssi=127;
+ int8_t rssi=127;
 #endif
 };
 #ifdef PTOB_RC9
@@ -121,6 +134,12 @@ void rc9_publish_status(uint64_t);
 #ifdef PTOB_N30
 n30::SignalStrength signal_strength;
 void signal_received(const Periodic& row,uint64_t now,uint32_t epoch){if(row.signal_epoch==epoch)signal_strength.observe(row.identity,row.signal_epoch,row.rssi,row.at,now);}
+#elif defined(PTOB_W12_BLE_RECOVERY)
+struct AcquisitionPeer {uint64_t identity=0,at=0;uint32_t epoch=0;} acquisition_peer;
+void signal_received(const Periodic& row,uint64_t now,uint32_t epoch){
+ if(epoch&&row.signal_epoch==epoch&&row.identity&&row.at&&now>=row.at&&now-row.at<w12::BleAcquisitionRecovery::PeerFreshUs)
+  acquisition_peer={row.identity,row.at,epoch};
+}
 #endif
 #if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
 Periodic fine_pending{};bool fine_waiting=false;
@@ -141,6 +160,15 @@ G1TimeZoneOrder coarse_tz_order; // Ordered within the admitted parent context.
 #endif
 G1CorrectedClock corrected_clock;
 G1AdmissionPolicy admission_policy;G1RetainedEstimate retained_estimate;G1ReceiveLoss receive_loss;
+#ifdef PTOB_N30
+using BleAcquisitionPolicy=n30::BleAcquisitionRecovery;
+#elif defined(PTOB_W12_BLE_RECOVERY)
+using BleAcquisitionPolicy=w12::BleAcquisitionRecovery;
+#endif
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+BleAcquisitionPolicy ble_acquisition_recovery;
+bool ble_acquisition_rebind=false;
+#endif
 #ifdef PTOB_W12_SHADOW_HOLDOVER
 W12ShadowHoldover shadow_holdover;uint32_t shadow_generation=0;uint64_t shadow_device_boot=0;
 #ifdef PTOB_W12_HOLDOVER_RATE
@@ -331,9 +359,31 @@ bool lock_protected_quality(const G1RelativeQuality& q,const G1ClockPrediction& 
 // of its forecast quality. A short quality dip must not force broad discovery
 // just to renew this same parent. This is scheduling only: lock, downstream
 // eligibility and every source/model/replay deadline retain their own gates.
+bool direct_acquisition_reserved(uint64_t now){
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+  const auto received=parent_selection.quality().last_rx;
+  return mode==R2Mode::Client&&!closing&&!fault&&!parent_diagnostic.pending()&&
+    full_listening()&&synced&&!sync_terminating&&!sync_cleanup_queued&&sync_identity==joined_peer&&
+    !rc_bound()&&!exclude_direct_gm&&joined_peer&&parent_selection.accepts(joined_peer,false)&&
+    anchor.valid(now)&&anchor.root==joined_peer&&anchor.boot==joined_boot&&anchor.until&&
+    now>=anchor.until&&now-anchor.until<BleAcquisitionPolicy::StallUs&&
+    received&&now>=received&&now-received<250000&&corrected_clock.prediction().tick;
+#else
+  (void)now;return false;
+#endif
+}
 bool precision_reserved(uint64_t now){
+  bool current=current_parent_time(now);
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+  // Output permission and acquisition ownership have different lifetimes.
+  // A short permission gap withdraws FOLLOW immediately, but must not let a
+  // newly seen relay displace a physically arriving, authenticated direct GM
+  // before the independent bounded physical-progress recovery. This grants
+  // no time, and does not postpone the1.5s fresh-admission request.
+  if(!current&&direct_acquisition_reserved(now))current=true;
+#endif
   if(!full_listening()||!synced||sync_terminating||sync_cleanup_queued||
-     sync_identity!=joined_peer||!current_parent_time(now))return false;
+     sync_identity!=joined_peer||!current)return false;
   const auto received=parent_selection.quality().last_rx;
   if(!received||now<received||now-received>=250000)return false;
 #ifdef V12_R2_RX_SHADOW
@@ -380,6 +430,9 @@ bool relay_slot_scanning();
 void relay_fence();void relay_close(uint64_t now,bool preserve_demand=false);bool relay_owned();bool relay_acl_available();void relay_poll(uint64_t now,bool upstream_due,bool admitting=false);
 void parent_record(G1ParentReason reason,uint64_t now);
 void begin_close(uint64_t now){if(closing)return;closing=true;
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+ ble_acquisition_rebind=false;
+#endif
 #ifdef R2_TZ_WIRE
  coarse_tz={};coarse_tz_order={};
 #endif
@@ -711,8 +764,11 @@ int gap(ble_gap_event* e,void* arg){
       if(!r.refusal)periodic_rx::match(p.sync_handle,p.data,p.data_length,tick,r.rx_stamp);
 #endif
       transport_record(r);if(!r.refusal){Periodic row{};row.at=now;row.identity=sync_identity;row.capture=r.rx_stamp;row.length=uint8_t(p.data_length);std::memcpy(row.bytes,p.data,p.data_length);
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+       row.signal_epoch=sync_capture_epoch;
+#endif
 #ifdef PTOB_N30
-       row.signal_epoch=sync_capture_epoch;row.rssi=p.rssi;
+       row.rssi=p.rssi;
 #endif
        periodic.push(row);}else inc(p1_bad);
     }
@@ -845,7 +901,7 @@ void send_join(uint64_t now){
   else if(rc){note(rc,R2Api::ControlWrite);if(rc==BLE_HS_ENOTCONN){peer.dead=true;inc(peer_losses);}else if(!transient(rc,R2Api::ControlWrite))error(rc,R2Api::ControlWrite);}
 }
 void changed_scope(uint64_t now,G1Reason reason=G1Reason::PeriodicScope,bool preserve_clock=false,G1ParentReason parent_reason=G1ParentReason::SourceChange);
-void forget_leader(uint64_t now,bool keep_admission=false);
+void forget_leader(uint64_t now,bool keep_admission=false,G1ParentReason cause=G1ParentReason::SourceChange);
 void cancel_connect(uint64_t now);
 #include "rc9_client_native.inc"
 void parent_record(G1ParentReason reason,uint64_t now){
@@ -965,7 +1021,12 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
   else if(r.kind==R2_JOIN_ACCEPT){const auto previous_peer=joined_peer,previous_boot=joined_boot;const bool previous_member=member;
     inc(join_accepts);inc(diagnostic.peer(r.sender).accepts);r2_group_join_remember(display,&peer.exchange,now);peer.close_at=now+2000;
     const auto reply=g1_admission_reply(r);r2_join_time time{};
-    const bool timed=r2_group_join_time(&time,&r,peer.exchange.proof_at,row.at,provision.map_bound_us);
+    const bool timed=
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+      r2_group_join_time_limit(&time,&r,peer.exchange.proof_at,row.at,provision.map_bound_us,200000);
+#else
+      r2_group_join_time(&time,&r,peer.exchange.proof_at,row.at,provision.map_bound_us);
+#endif
     admission_policy.reply(timed?reply:reply==G1AdmissionReply::Direct?G1AdmissionReply::Unusable:reply);
     // An authenticated zero-root NO_SOURCE reply is ordinary source loss,
     // not a foreign-root follower and not a reason to discard the old fit/PA.
@@ -974,6 +1035,13 @@ void receive_join(uint64_t now){Incoming row{};for(unsigned i=0;i<8&&incoming.po
       peer.selection_accepted=true;admission_failed(now);
       cooldown(r.sender,now,5000000);
       if(reply==G1AdmissionReply::ForeignRoot)parent_selection.cooldown(r.sender,now,60000000);
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+      else parent_selection.cooldown(r.sender,now,5000000);
+      // Authentication succeeded, but this reply supplied no usable clock.
+      // The chooser must see the same retry exclusion as connect(): otherwise
+      // a stronger cooling peer wins every choice and blocks weaker fresh
+      // alternatives without even attempting them. Existing time is retained.
+#endif
       if(!previous_member&&!anchor.source&&!rc_bound()){member=true;joined_peer=r.sender;joined_boot=r.sender_boot;}
       diagnostic.reason(G1Reason::JoinTime,now);continue;
     }
@@ -1115,13 +1183,13 @@ void changed_scope(uint64_t now,G1Reason reason,bool preserve_clock,G1ParentReas
 #endif
   corrected_phase_aligned=false;cancel_sync(now);discipline_scope(now);
   parent_record(reason==G1Reason::Permission?G1ParentReason::ReplayExpired:reason==G1Reason::RootHint?G1ParentReason::RootHint:parent_reason,now);}
-void forget_leader(uint64_t now,bool keep_admission){
+void forget_leader(uint64_t now,bool keep_admission,G1ParentReason cause){
 #ifdef PTOB_GM_SUCCESSOR
   const auto successor=gm_successor.lost(anchor,now);
 #endif
   // Revoke authority first. cancel_sync retains the exact SDK owner and its
   // original drain deadline; clearing a cache never fabricates radio OFF.
-  changed_scope(now);corrected_clock.clear();coarse_hold.clear();phase_learning={};rc_client.retry_at=0;
+  changed_scope(now,G1Reason::PeriodicScope,false,cause);corrected_clock.clear();coarse_hold.clear();phase_learning={};rc_client.retry_at=0;
   if(!keep_admission){peer.selection_reported=true;peer.dead=true;cancel_connect(now);terminate_peer(now);}
   Incoming old_reply{};while(incoming.pop(old_reply)){};
   Discovery old_locator{};while(discoveries.pop(old_locator)){};
@@ -1163,7 +1231,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     rc9::Time packet;
     if(rc9::decode_time(packet,row.bytes,row.length,provision.group)){
      if(rc9_client.receive(packet,now)){
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
       signal_received(row,now,sync_capture_epoch);
 #endif
       inc(auth);
@@ -1178,6 +1246,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     const auto matched=n30_fine_backend_receive(row.capture);
     if(matched==1){fine_pending=row;fine_waiting=true;break;}
     if(matched!=2){row.capture.actual=false;row.capture.association_observed=false;}
+    else if(n30_probe::fine_sink)n30_probe::fine_sink(row.capture);
   }
 #endif
 #ifdef PTOB_W12_FINE_CLOCK
@@ -1207,7 +1276,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
 #ifdef R2_TZ_WIRE
     if(row.identity==joined_peer)r2_tz_renew(&coarse_tz,row.at,R2_TZ_RC_PERIOD_US);
 #endif
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
     signal_received(row,now,sync_capture_epoch);
 #endif
 #ifdef V12_R2_RX_SHADOW
@@ -1257,12 +1326,12 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
 #ifdef R2_TZ_WIRE
     if(row.identity==joined_peer&&p.boot==joined_boot)r2_tz_renew(&coarse_tz,row.at,R2_TZ_GM_PERIOD_US);
 #endif
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
     signal_received(row,now,sync_capture_epoch);
 #endif
     if(!anchor_valid(now))continue;
     const bool same=row.identity==anchor.root&&p.boot==anchor.boot&&p.source_epoch==anchor.source_epoch&&p.train==anchor.publication;
-    if(!same){if(fresh_envelope(p.created_ns,p.expires_ns,p.utc_offset_ns,now))forget_leader(now);continue;}
+    if(!same){if(fresh_envelope(p.created_ns,p.expires_ns,p.utc_offset_ns,now))forget_leader(now,false,G1ParentReason::PacketScope);continue;}
     renew_permission(p.created_ns,p.expires_ns,p.utc_offset_ns,now);discipline_scope(now);
 #ifdef V12_R2_RX_SHADOW
     uint64_t available=0;clock_reference_read(&available);
@@ -1278,13 +1347,13 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
 #ifdef R2_TZ_WIRE
     if(row.identity==joined_peer&&p.route.boot==joined_boot)r2_tz_renew(&coarse_tz,row.at,R2_TZ_GM_PERIOD_US);
 #endif
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
     signal_received(row,now,sync_capture_epoch);
 #endif
     if(!anchor_valid(now)){diagnostic.reason(G1Reason::Permission,now);continue;}
     const bool same=ids[p.origin.root]==anchor.root&&p.origin.boot==anchor.boot&&p.origin.source_epoch==anchor.source_epoch&&
       row.identity==joined_peer&&p.route.boot==joined_boot&&(!relay_train||relay_train==p.route.train);
-    if(!same){if(fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true))forget_leader(now);continue;}
+    if(!same){if(fresh_envelope(p.origin.created_ns,p.origin.expires_ns,p.origin.utc_offset_ns,now,true))forget_leader(now,false,G1ParentReason::PacketScope);continue;}
 #ifdef PTOB_GM_SUCCESSOR
     if(row.capture.epoch==sync_capture_epoch&&row.capture.actual&&row.capture.association_observed)gm_control_capture20=row.capture.tick20;
 #endif
@@ -1427,7 +1496,7 @@ void coarse_relay_observed(const Discovery& d,uint64_t now){
 W12_STACK_FRAME void active_poll(uint64_t now){
   if(now<radio_resume_at)return;
 #ifdef PTOB_GM_SUCCESSOR
-  if(gm_successor.due(now)&&gm_successor.bound(anchor))forget_leader(now);
+  if(gm_successor.due(now)&&gm_successor.bound(anchor))forget_leader(now,false,G1ParentReason::Successor);
 #endif
   const bool corrected_live=corrected_clock.covers(now,now);
   if(corrected_was_live&&!corrected_live&&corrected_clock.until()&&now>=corrected_clock.until())receive_loss.freeze(now);
@@ -1443,9 +1512,9 @@ W12_STACK_FRAME void active_poll(uint64_t now){
   // Source permission already withdrew FOLLOW at its signed expiry. After
   // the existing1.5s acquisition-loss bound, stop retrying a six-minute old
   // session and rediscover. Short packet gaps keep their current acquisition.
-  if(anchor.source&&anchor.until&&now>=anchor.until&&now-anchor.until>=1500000&&
-     !corrected_clock.covers(now,now))forget_leader(now);
-  else if(anchor.source&&!anchor.valid(now))forget_leader(now);
+  if(anchor.source&&anchor.until&&now>=anchor.until&&now-anchor.until>=G1Anchor::RebootstrapGapUs&&
+     !corrected_clock.covers(now,now)&&!direct_acquisition_reserved(now))forget_leader(now,false,G1ParentReason::PermissionGap);
+  else if(anchor.source&&!anchor.valid(now))forget_leader(now,false,G1ParentReason::ReplayContext);
   if(!rc_bound()&&anchor.source&&anchor.rebootstrap(now))member=false;
   if(usable_utc()&&anchor.valid(now)&&!anchor.live(now))coarse_hold.retain(anchor);
   if(admission_root&&now>=admission_until)admission_root=admission_until=0;
@@ -1538,7 +1607,7 @@ W12_STACK_FRAME void active_poll(uint64_t now){
             (void)coarse_tz_order.observe(coarse_tz,c.tz,c.sequence,d.at,now,R2_TZ_GM_PERIOD_US,false);
         }
 #endif
-        if(accepted&&gm_successor.due(now)){forget_leader(now);break;}
+        if(accepted&&gm_successor.due(now)){forget_leader(now,false,G1ParentReason::Successor);break;}
       }
       continue;
     }
@@ -1678,12 +1747,53 @@ void parent_diagnostic_poll(uint64_t now){
   else if(closed&&parent_diagnostic.state==2){
     if(upstream_mode_change){exclude_direct_gm=relay_only_requested;upstream_mode_change=false;}
     parent_selection.reset();parent_selection.diagnostic(exclude_direct_gm);parent_selection.target(control.target,control.relay);
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+    if(ble_acquisition_rebind){
+      // Retire advisory blacklists, not the original admission rate/deadline
+      // gates or terminal authenticated GM fences. No old map is revived.
+      parent_selection.clear_history();gm_discovery={};phase_learning={};
+      ble_acquisition_rebind=false;
+    }
+#endif
     peer={};sync_identity=0;sync_address={};sync_cancelled=sync_terminating=false;
     retry_at=scan_retry_at=scan_retry_until=0;
     parent_diagnostic.state=3;parent_diagnostic.completed_us=completed;
   }
   portEXIT_CRITICAL(&mux);
 }
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+void ble_acquisition_poll(uint64_t now){
+  bool enabled=host_ready&&mode==R2Mode::Client&&client.running&&!client.stopping&&
+    !client.deadline_exceeded&&!fault&&!closing&&!stop_pending&&!command_pending&&
+    !parent_diagnostic.pending()&&parent_diagnostic.state!=4;
+#ifdef PTOB_RC9
+  enabled=enabled&&!rc9_bound(); // Functional fallback owns its existing recovery policy.
+#endif
+  bool locator=false;
+  for(unsigned i=0;i<8;++i){const auto& d=locators[i];const bool relay=d.sid==13;
+    if(locator_ids[i]&&parent_selection.accepts(locator_ids[i],relay)&&(!exclude_direct_gm||relay)&&
+       d.at&&now>=d.at&&now-d.at<BleAcquisitionPolicy::PeerFreshUs){locator=true;break;}
+  }
+#ifdef PTOB_N30
+  const bool nearby=locator||signal_strength.snapshot(joined_peer,sync_capture_epoch,now).fresh(now);
+#else
+  const bool nearby=locator||(synced&&sync_identity==joined_peer&&acquisition_peer.identity==joined_peer&&
+    acquisition_peer.epoch==sync_capture_epoch&&acquisition_peer.at&&now>=acquisition_peer.at&&
+    now-acquisition_peer.at<BleAcquisitionPolicy::PeerFreshUs);
+#endif
+  const bool due=ble_acquisition_recovery.observe(enabled,nearby,corrected_clock.accepted(),now);
+  // Let an already owned bounded admission/create complete. PA reception may
+  // be the stuck owner; the ordinary rebind path drains that exact handle.
+  if(!due||peer.connecting||peer.handle!=None||sync_pending||sync_cleanup_queued||sync_cleanup_requested||sync_terminating)return;
+  portENTER_CRITICAL(&mux);
+  const bool admitted=host_ready&&mode==R2Mode::Client&&client.running&&!client.stopping&&
+    !fault&&!closing&&!stop_pending&&!command_pending&&!parent_diagnostic.pending()&&
+    parent_diagnostic.admit(parent_diagnostic.target,now,parent_diagnostic.relay);
+  if(admitted){ble_acquisition_rebind=true;ble_acquisition_recovery.queued();}
+  portEXIT_CRITICAL(&mux);
+  if(admitted)admission_trace(32,sync_handle,int(ble_acquisition_recovery.rebinds()));
+}
+#endif
 void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
 #ifdef PTOB_RC9
   rc9_publish_status(now);
@@ -1851,6 +1961,11 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   snap.g1_retained_estimate=retained_selected;snap.g1_estimate_observed_us=retained_estimate.observed_us;
   snap.g1_retained_clock=retained_estimate;
   snap.g1_admission_policy=admission_policy;snap.g1_receive_loss=receive_loss;
+#ifdef PTOB_N30
+  snap.n30_ble_recoveries=ble_acquisition_recovery.rebinds();
+#elif defined(PTOB_W12_BLE_RECOVERY)
+  snap.w12_ble_recoveries=ble_acquisition_recovery.rebinds();
+#endif
 #if defined(V12_R2_OUTPUT_CORRECTION_NS) && V12_R2_OUTPUT_CORRECTION_NS != 0
   const auto output_reference=periodic_rx::rf_reference();
   snap.g1_clock_model=g1_output_correction(snap.g1_clock_model,V12_R2_OUTPUT_CORRECTION_NS,
@@ -2056,6 +2171,9 @@ void r2_host_poll(){if(!initialized)return;const auto begin=micros();bool start=
   if(fault&&relay_owned())relay_close(begin);
   periodic_rx::poll();
   if(closing)close_poll(begin);else if(rebind)parent_diagnostic_poll(begin);else if(mode!=R2Mode::Off&&begin>=next_poll){next_poll=begin+2000;active_poll(begin);}
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+  ble_acquisition_poll(micros());
+#endif
   recovery_poll(micros());
   periodic_rx::poll();discipline_scope(micros());if(periodic_rx::status().fault&&!closing){fault=true;begin_close(micros());}
 #ifdef V12_R2_RX_SHADOW

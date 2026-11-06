@@ -54,6 +54,22 @@ int main(){
  auto refused=fresh(resumed+30030000);choice.select(refused,lv(resumed+30030000),resumed+30030000,false);assert(refused.source==Source::LoRa);
  auto after_gap=fresh(resumed+60040000);choice.select(after_gap,lv(resumed+60040000),resumed+60040000);assert(after_gap.source==Source::LoRa);
  auto expiry=fresh(resumed+60050000);expiry.until_us=expiry.utc_at_us;choice.select(expiry,lv(resumed+60050000),resumed+60050000);assert(expiry.source==Source::LoRa);
+ // Expired LoRa retains only a human observer. It cannot impose a new30s
+ // wait on fresh settled BLE, including repeated short qualified returns.
+ for(unsigned kind=0;kind<4;++kind){
+  ClockSelection recovered;auto acquiring=fresh(start,false);recovered.select(acquiring,lv(start),start);
+  auto fallback=lv(start+10000);fallback.watch_valid=true;fallback.watch_sampled_us=start+10000;fallback.watch_utc_us=81010000;
+  if(kind==0)fallback.until_us=start+10000;
+  if(kind==1)fallback.state=1;
+  if(kind==2)fallback.active=false;
+  if(kind==3)fallback.fault=true;
+  auto primary=fresh(start+10000);recovered.select(primary,fallback,start+10000);
+  assert(primary.source==Source::Ble&&primary.utc_us==91010000&&primary.locked);
+  // A cached human observer still cannot promote unlocked BLE.
+  ClockSelection unqualified;acquiring=fresh(start,false);unqualified.select(acquiring,lv(start),start);
+  primary=fresh(start+10000,false);unqualified.select(primary,fallback,start+10000);
+  assert(primary.source!=Source::Ble||!primary.locked);
+ }
  // Actual short-press/page/cache pipeline cannot restart or bypass the gate.
  ClockSelection navigation;Input buttons;ClockHold navigation_pixels;View page;unsigned page_changes=0;uint8_t prior_page=page.page;
  auto initial=fresh(start,false);navigation.select(initial,lv(start),start);
@@ -67,4 +83,14 @@ int main(){
   assert(!page.menu.open&&b.source==(dt<30000000?Source::LoRa:Source::Ble));
  }
  assert(page_changes>=5);
+ // First-pair human time does not grant precision lock, PPS or serving.
+ n30_lora_view watch{};watch.sampled_us=watch.watch_sampled_us=start;watch.watch_utc_us=1700000000000000;watch.requested=watch.active=watch.watch_valid=watch.metadata_cached=true;watch.watch_pairs=1;watch.watch_rms_ns=UINT32_MAX;
+ Model early;early.sampled_us=start;ClockSelection observer;observer.select(early,watch,start);
+ assert(early.source==Source::LoRa&&early.valid&&!early.locked&&early.state==State::Acquire&&!early.serving&&early.rms_ns==UINT32_MAX);
+ assert(time(early,start,utc)&&!analog_time(early,start,utc)&&!pps_on(early,start));
+ watch.watch_pairs=2;watch.watch_prediction_n=1;watch.watch_rms_ns=81234;watch.watch_age_ms=90000;watch.watch_error_age_ms=90000;watch.watch_state=3;
+ early={};early.sampled_us=start;observer.select(early,watch,start);assert(early.state==State::Hold&&!early.locked&&early.rms_ns==81234&&time(early,start,utc));
+ assert(!lora_time(watch,start,utc)&&!time(early,start+SnapshotMaxUs,utc));
+ auto primary=fresh(start,false);primary.state=State::Acquire;ClockSelection isolated;isolated.select(primary,watch,start);assert(primary.source==Source::Ble&&time(primary,start,utc));
+ watch.fault=true;early={};early.sampled_us=start;observer.select(early,watch,start);assert(!early.valid);
 }

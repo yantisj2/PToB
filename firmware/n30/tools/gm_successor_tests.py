@@ -29,20 +29,25 @@ def main():
  for file in files:
   obj=out/(file.stem+'.o');run([cc,'-std=c11',*flags,'-c',file,'-o',obj],file.stem+'-compile');objects.append(obj)
  run([cxx,'-std=c++20',*flags,APP/'tests/gm_successor_test.cpp',*objects,'-o',out/'policy'],'policy-build');run([out/'policy'],'policy')
+ run([cxx,'-std=c++20',*flags,APP/'tests/coarse_join_test.cpp',*objects,'-o',out/'coarse-join'],'coarse-join-build');run([out/'coarse-join'],'coarse-join')
  if not a.w12:
   run([cxx,'-std=c++20',*flags,'-DPTOB_N30=1',APP/'tests/clock_handoff_test.cpp',*objects,'-o',out/'clock-handoff'],'clock-handoff-build');run([out/'clock-handoff'],'clock-handoff')
+  run([cxx,'-std=c++20',*flags,'-Wno-sign-compare','-DPTOB_N30=1','-I'+str(W12/'legacy'),'-I'+str(W12/'legacy/reference'),W12/'tests/g1_diagnostic_test.cpp','-o',out/'diagnostic-width'],'diagnostic-width-build');run([out/'diagnostic-width'],'diagnostic-width')
  prefix=(out/'native.cpp').read_text().split('#define V12_RC7_PERMISSION_NATIVE 1')[0]
  support=(W12/'tests/precision_priority_fixture.inc').read_text().split('int main(')[0]
  (out/'successor.cpp').write_text(prefix+'\nbool n30_fine_backend_selected(){return false;}\nint n30_fine_backend_receive(v12::periodic_rx::Stamp&){return -1;}\n'+support+'\n#include "gm_successor_native.inc"\n')
  native_flags=['-Wno-missing-field-initializers','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_UNIT="C1"','-DV12_R2_G1_LISTENING_PERCENT=100','-DCONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=8192','-DPTOB_GM_SUCCESSOR=1']
  if not a.w12:native_flags+=['-DPTOB_N30=1','-DV12_G1_FAILED_PARENT_RETRY_US=60000000']
- native_flags+=['-I'+str(x) for x in (APP/'tests',W12/'tests/r2_fakes',W12/'tests/console_fakes',W12/'legacy/reference')]
- run([cxx,'-std=c++20',*flags,*native_flags,out/'successor.cpp',*objects,'-o',out/'native'],'native-build')
+ native_flags+=['-I'+str(x) for x in (APP/'tests',W12/'tests/r2_fakes',W12/'tests/console_fakes',W12/'legacy',W12/'legacy/reference')]
+ ui=[] if a.w12 else [APP/'main/ui_model.cpp',APP/'main/ui_render.cpp']
+ run([cxx,'-std=c++20',*flags,*native_flags,out/'successor.cpp',*ui,*objects,'-o',out/'native'],'native-build')
  for case in ('withdraw','yield','switchover','loss','fallback','pin','relay-only','bad-mac','bad-address','scan'):run([out/'native',case],'native-'+case)
  if a.tz:
   for case in ('tz','tz-updates'):run([out/'native',case],'native-'+case)
  if not a.w12:
-  for case in ('handoff-join','handoff-clock-step','ble-off'):run([out/'native',case],'native-'+case)
+  for case in ('dual-coupled','handoff-join','handoff-clock-step','ble-off','permission-gap-parent','startup-unusable','startup-slow','startup-slow-expired','startup-slow-short','startup-slow-mac'):run([out/'native',case],'native-'+case)
+  for case in ('startup','stall','progress','busy','off','fault','absence','pin','relay-only','drain-failure'):
+   run([out/'native','ble-acquisition-'+case],'native-ble-acquisition-'+case)
  (out/'receipt.json').write_text(json.dumps({'status':'PASS','checks':records,'native_source_sha256':sha(W12/'main/native_g1.cpp'),'policy_sha256':sha(W12/'main/g1_gm_successor.hpp'),'wire_revision':3,'target':'W12' if a.w12 else 'N30','hardware_access':False,'precision':'UNQUALIFIED'},indent=2)+'\n')
  print('PASS N30 GM7 successor policy and production owner schedules; no hardware access')
 if __name__=='__main__':main()

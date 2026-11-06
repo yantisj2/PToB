@@ -25,7 +25,7 @@ void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
  v.clock_frozen=false;
  if(m.ble_parked&&saved_source_!=Source::LoRa)reset();
  if(v.help||v.blank||v.menu.open||(seen_&&now<observed_)){reset();return;}
- if(saved_&&!same_zone(m,now))reset();
+ if(saved_&&(!same_zone(m,now)||!same_source(m)))reset();
  // Real user navigation/wake wins immediately. A quality dip may retain an
  // already displayed saver only while the original idle timer still wants it.
  if(saved_&&(v.page!=page_||(saver_&&!saver_due)||(!saver_&&v.saver)))reset();
@@ -42,7 +42,8 @@ void ClockHold::update(const Model& m,View& v,uint64_t now,bool saver_due){
 void ClockHold::presented(const Model& m,const View& v,uint64_t now,const uint8_t frame[FrameBytes]){
  uint64_t utc;if(!v.help&&!v.blank&&!v.menu.open&&(v.saver||v.page==0)&&!v.clock_frozen&&(v.saver?saver_time(m,now,utc):analog_time(m,now,utc))){
   saved_tz_=m.tz;saved_tz_until_=m.tz_until_us;saved_source_=m.source;
-  saved_local_=m.source!=Source::LoRa&&m.source!=Source::Rc9&&r2_tz_valid(m.tz)&&now<m.tz_until_us;
+  saved_generation_=m.lora.generation;saved_epoch_=m.lora.capture_epoch;std::memcpy(saved_context_,m.lora.context,16);
+  saved_local_=r2_tz_valid(m.tz)&&now<m.tz_until_us;
   std::memcpy(image_,frame,FrameBytes);saved_=true;losing_=false;saver_=v.saver;page_=v.page;position_=v.saver_position;
  }
 }
@@ -78,11 +79,16 @@ Action Input::update(bool pressed,uint64_t now,View& v){
   }
   return Action::None;
  };
- if(pressed!=raw_){raw_=pressed;changed_=now;if(!pressed)v.menu.hold_percent=0;}
+ if(pressed!=raw_){
+  // update_saver runs before the debounced press. Preserve the original wake
+  // gesture now, before its raw edge makes the saver ineligible.
+  if(pressed&&!stable_&&armed_)wake_=wake_||v.saver||v.blank;
+  raw_=pressed;changed_=now;if(!pressed)v.menu.hold_percent=0;
+ }
  if(now>=changed_&&now-changed_>=40000&&raw_!=stable_){
   stable_=raw_;
   if(stable_){
-   if(armed_){down_=changed_;idle_=now;press_page_=v.page;cancelled_=consumed_=false;wake_=v.saver||v.blank;v.saver=v.blank=false;}
+   if(armed_){down_=changed_;idle_=now;press_page_=v.page;cancelled_=consumed_=false;wake_=wake_||v.saver||v.blank;v.saver=v.blank=false;}
   }else{
    if(armed_&&!consumed_&&!cancelled_){
     if(changed_>=down_&&changed_-down_>=MenuHoldUs)action=hold();

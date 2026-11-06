@@ -41,6 +41,16 @@ int main(){
  Input boot(true);View v;boot.update(true,9000000,v);boot.update(false,9100000,v);boot.update(false,9140000,v);assert(!v.menu.open&&!v.blank&&v.page==0);
  Button wake;wake.view.saver=wake.view.minimal=true;wake.tap(1999999);assert(!wake.view.saver&&!wake.view.menu.open&&wake.view.page==0);
  Button long_wake;long_wake.view.saver=true;long_wake.hold();assert(long_wake.view.menu.open&&!long_wake.view.saver);
+ // Production ordering: saver eligibility is recomputed on the first RAW
+ // edge, before the40ms stable press. That edge must retain wake ownership.
+ for(unsigned page=0;page<PageCount;page++)for(bool minimal:{false,true}){
+  Button w;w.view.page=page;w.view.saver=true;w.view.minimal=minimal;
+  w.input.update(true,w.at,w.view);
+  w.input.idle(w.at,true,w.view);assert(!w.view.saver);
+  w.input.update(true,w.at+40000,w.view);w.release(100000);
+  assert(w.view.page==page&&!w.view.saver&&!w.view.menu.open);
+  w.tap();assert(w.view.page==(page+1)%PageCount);
+ }
  Button cancel;cancel.start();cancel.view.page=1;cancel.input.update(true,cancel.at+100000,cancel.view);cancel.view.page=0;cancel.release(3000000);assert(!cancel.view.menu.open&&!cancel.view.blank&&cancel.view.page==0);
  std::puts("PASS N30 menu: exact2000ms raw-release boundaries, one action per hold, consumed opening, five-second idle, all pages, enabled-row wrap, power, boot/wake/cancellation");
 }

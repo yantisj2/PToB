@@ -472,12 +472,22 @@ class G1CorrectedClock {
     if(!best)return false;
     correction->available=0;last_original_=best->local;
     const auto& c=correction->value;
-    if(c.ticks>uint64_t(INT64_MAX)/125||!c.generation||correction->expires>best->expires)return refuse();
+    if(c.ticks>uint64_t(INT64_MAX)/125||!c.generation)return refuse();
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+    // A later authenticated source envelope can carry a correction for an
+    // earlier RF publication. Both original and correction have already
+    // passed their wire MAC/scope gates. Preserve that physical pair while
+    // intersecting the grants: a new header cannot renew an old RF original.
+    const auto expires=std::min(best->expires,correction->expires);
+#else
+    if(correction->expires>best->expires)return refuse();
+    const auto expires=correction->expires;
+#endif
     const uint64_t raw=c.ticks*125/2;
-    if(raw<best->created||raw>=correction->expires||best->offset<0||raw>uint64_t(INT64_MAX-best->offset))return refuse();
+    if(raw<best->created||raw>=expires||best->offset<0||raw>uint64_t(INT64_MAX-best->offset))return refuse();
     const uint64_t remote=raw;
     const uint64_t elapsed=(available20-best->local)*50;
-    const uint64_t permission=correction->expires-raw;
+    const uint64_t permission=expires-raw;
     const uint64_t guard=anchor.guard(now)*1000;
     if(permission<=elapsed||permission-elapsed<=best->enclosure||permission-elapsed-best->enclosure<=guard)return refuse();
     uint64_t remaining=(permission-elapsed-best->enclosure-guard)/1000;
@@ -510,7 +520,7 @@ class G1CorrectedClock {
     last_remote_ns_=remote;
     observe_clock(*best,raw,available20);
     if(matched_origin)*matched_origin={anchor.root,anchor.boot,anchor.source_epoch,best->created,
-      std::min(best->expires,correction->expires),best->offset,best->frame,0,0};
+      expires,best->offset,best->frame,0,0};
     coarse_enclosure_ns_=best->enclosure;
     inc(accepted_);return true;
   }

@@ -28,7 +28,10 @@ struct Input {
 portMUX_TYPE watchdog_mux=portMUX_INITIALIZER_UNLOCKED;
 Input input;FaultWatchdogModel model;FaultWatchdogStatus view;
 #if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
-ContinuousFaultWatchdogModel<UINT64_C(300000000)> sync_model;uint64_t last_sync_observed_us=0;
+#ifndef V12_NO_TIME_SYNC_US
+#define V12_NO_TIME_SYNC_US UINT64_C(300000000)
+#endif
+ContinuousFaultWatchdogModel<V12_NO_TIME_SYNC_US> sync_model;uint64_t last_sync_observed_us=0;
 #endif
 uint64_t fingerprint=0,boot_id=0;
 StaticTask_t task_storage;StackType_t task_stack[3072];
@@ -54,6 +57,9 @@ void supervise(void*){
     view.elapsed_us=model.active()&&now>=model.start_us()?now-model.start_us():0;
     view.test=current.test;
     restart=model.take_restart(now);
+    view.sampled_us=now;view.main_at_us=current.main_at;view.host_at_us=current.host_at;
+    view.host_expected=current.host_seen;view.fault_since_us=model.active()?model.start_us():0;
+    view.fault_elapsed_us=model.active()&&now>=model.start_us()?now-model.start_us():0;
 #if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
     // A valid observation can begin/end between100ms supervisor wakes. It
     // still breaks continuous loss; only this owner advances the timer model.
@@ -62,6 +68,9 @@ void supervise(void*){
     }
     sync_model.observe(now,current.sync_expected&&now>=current.sync_until_us?FaultNoTimeSync:0);
     const bool sync_restart=sync_model.take_restart(now);
+    view.sync_expected=current.sync_expected;view.sync_until_us=current.sync_until_us;
+    view.last_sync_us=current.sync_observed_us;view.no_time_since_us=sync_model.active()?sync_model.start_us():0;
+    view.no_time_elapsed_us=sync_model.active()&&now>=sync_model.start_us()?now-sync_model.start_us():0;
     view.mask|=sync_model.current_mask();
     if(sync_model.active()&&(!model.active()||sync_restart)){
       view.first_mask=sync_model.first_mask();view.since_us=sync_model.start_us();

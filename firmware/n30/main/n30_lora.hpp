@@ -7,6 +7,9 @@
 void n30_lora_control(bool ble_locked,uint64_t sampled_us,bool allowed,bool ble_parked=false);
 bool n30_lora_mode(n30::LoRaMode);
 bool n30_lora_cycle();
+bool n30_lora_hold60(uint64_t request_id);
 bool n30_lora_configured();
+// Operating errors remain visible separately from actual retirement failure.
+bool n30_lora_cleanup_fault();
 void n30_lora_snapshot(n30_lora_view&);
 void n30_lora_diagnostics(v12::ConsoleFrame&);

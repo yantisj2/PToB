@@ -31,6 +31,9 @@
 #include "n30_power.hpp"
 #include "fault_watchdog.hpp"
 #include "driver/gptimer.h"
+#include "lora_counter.h"
+#include "command_scan.hpp"
+#include "dual_command.hpp"
 #include "s3_clock_reference.h"
 #include "driver/gpio.h"
 #include "n30_console.hpp"
@@ -94,10 +97,12 @@ v12::UpdateGate update_gate;
 w12::PowerOff power_off;
 bool fine_stop_pending=false;
 bool ble_ui_off=false; // Explicit BLE-only OFF leaves independent LoRa policy alive.
+bool lora_app_wanted=true; // Independent RX intent; a BLE fault cannot revoke it.
 v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false,rc9_diagnostic_response=false;
 bool timing_diagnostic_response=false;uint32_t timing_after=0;
+bool dual_diagnostic_response=false;uint32_t dual_after=0,dual_parent_after=0;
 bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=0;
 bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;
 struct CommandResult {uint64_t nonce=0,admitted_us=0;bool accepted=false;const char* action="STATUS";const char* reason="READ_ONLY";} last_command;
@@ -191,7 +196,7 @@ void pps(const gnss_pps::Observation& edge){
  const auto mesh=v12::r2_status();
   response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " following=%u requested=%u fault=%u pcfg=%08" PRIx32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.following),unsigned(mesh.requested),unsigned(mesh.fault),uint32_t(v12::rc7_provisional_config().id>>32));
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=0\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session);
- if(rc9_diagnostic_response)n30_rc9_diagnostics(response);else if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else n30_lora_diagnostics(response);
+ if(dual_diagnostic_response)n30_display_dual_frame(response,dual_after,dual_parent_after,begin);else if(rc9_diagnostic_response)n30_rc9_diagnostics(response);else if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else n30_lora_diagnostics(response);
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  n30_display_status(response);v12::frame_submit(response);
 }
@@ -416,7 +421,7 @@ void pps(const gnss_pps::Observation& edge){
   n30_display_status(response);
   v12::frame_submit(response);
 }
-void respond_status(uint64_t nonce,uint64_t begin){if(rc9_diagnostic_response||lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
+void respond_status(uint64_t nonce,uint64_t begin){if(dual_diagnostic_response||rc9_diagnostic_response||lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
 [[gnu::noinline]] void ui(){
   if(!ui_ready)return;
   const auto s=v12::transport_status();const auto gps=gnss_pps::shadow_view(ticks());
@@ -486,6 +491,7 @@ void respond_status(uint64_t nonce,uint64_t begin){if(rc9_diagnostic_response||l
 }
 void stop_all(){
   ble_ui_off=false;
+  lora_app_wanted=false;
   // The host still reads the production clock while draining its RX hook.
   // WINDOW stop also stops that clock, so defer both until consumers close.
   fine_stop_pending=n30_fine_backend_selected();
@@ -501,17 +507,17 @@ void stop_all(){
 // response calls status() from this parser and must not stack both snapshots.
 [[gnu::noinline]] bool r2_command_off_ack(){return v12::r2_status().off_ack;}
 #endif
-void command(const char* text){
+[[gnu::noinline]] void command(const char* text){
   // Unbound OFF is a safety-only stop request. It carries no completed/fresh
   // receipt and cannot admit or prolong any RF/capture operation.
   if(!std::strcmp(text,"v12 off")){stop_all();v12::capture_stop();return;}
   char nonce_text[17]{},ticket_text[17]{},mac[18]{},boot_text[17]{};char extra=0;uint64_t nonce=0,permit=0,boot=0;
   const uint64_t admitted=micros();
-  if(std::sscanf(text,"v12 status %16s %c",nonce_text,&extra)==1&&v12::hex_id(nonce_text,nonce)&&nonce!=last_nonce){
+  if(N30_COMMAND_SCAN(text,"v12 status %16s %c",nonce_text,&extra)==1&&v12::hex_id(nonce_text,nonce)&&nonce!=last_nonce){
     last_nonce=nonce;last_command={nonce,admitted,true,"STATUS","READ_ONLY"};respond_status(nonce,admitted);return;
   }
   int at=0;
-  if(std::sscanf(text,"v12 do %16s %16s %17s %16s %n",ticket_text,nonce_text,mac,boot_text,&at)!=4||at<=0||
+  if(N30_COMMAND_SCAN(text,"v12 do %16s %16s %17s %16s %n",ticket_text,nonce_text,mac,boot_text,&at)!=4||at<=0||
       !v12::hex_id(nonce_text,nonce))return;
   last_command={nonce,admitted,false,"REFUSE","TICKET_OR_BOOT_BINDING"};
   const bool authorized=identity&&!std::strcmp(mac,factory_text)&&v12::hex_id(boot_text,boot)&&boot==session&&
@@ -529,6 +535,7 @@ void command(const char* text){
     const bool ok=n30_display_page(action[8]-'0');last_command={nonce,admitted,ok,"UI_PAGE",ok?"DISPLAY_ONLY":"INVALID_PAGE"};
   }
   else if(!std::strcmp(action,"lora diag")){lora_diagnostic_response=true;last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
+  else if(!std::strcmp(action,"lora hold60")){const bool ok=n30_lora_hold60(nonce);last_command={nonce,admitted,ok,"LORA_HOLD60",ok?"REQUESTED":"DISABLED_FAULT_OR_RESOURCE"};}
   else if(!std::strcmp(action,"rc9 diag")){rc9_diagnostic_response=true;last_command={nonce,admitted,true,"RC9_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strncmp(action,"window ",7)){
     const auto request=n30::window::parse(action);window_diagnostic_response=true;window_edge_response=window_late_response=false;window_after=0;
@@ -561,6 +568,12 @@ void command(const char* text){
       last_command={nonce,admitted,ok,"FINE_START",ok?"FINITE_RAW_OBSERVER":"BINDING_RESOURCE_OR_LATCH_REFUSED"};
     }
   }
+  else if(!std::strncmp(action,"dual ",5)){
+    dual_diagnostic_response=true;uint32_t after=0,parent=0;
+    const bool ok=n30::dual_cursors(action,after,parent);
+    if(ok){dual_after=after;dual_parent_after=parent;}
+    last_command={nonce,admitted,ok,"DUAL_READ",ok?"NONCONSUMING_STATE_AND_PARENT_HISTORY":"INVALID_CURSOR_SYNTAX"};
+  }
   else if(!std::strncmp(action,"timing ",7)){
     const auto request=n30::timing::parse(action);timing_diagnostic_response=true;
     last_command={nonce,admitted,false,"TIMING","INVALID_BOUNDS_OR_SYNTAX"};
@@ -586,7 +599,7 @@ void command(const char* text){
 #ifdef V12_R2_ENABLED
   else if(!std::strcmp(action,"r2 client")){
     const auto ls=v12::lora_status();const bool ok=!ls.enabled&&!ls.requested&&!ls.worker_busy&&ls.off_acknowledged&&!ls.failed&&v12::r2_client_start(nonce);
-    if(ok)ble_ui_off=false;
+    if(ok){ble_ui_off=false;lora_app_wanted=true;}
     last_command={nonce,admitted,ok,"R2_CLIENT",ok?"PERSISTENT_COARSE_CLIENT_BOUNDED_START_STOP":"R2_RESOURCE_PROFILE_OR_BOOT_SCOPE"};
   }
 #if V12_R2_CONFIG == 13
@@ -610,11 +623,11 @@ void command(const char* text){
   else if(!std::strcmp(action,"r2 client 50")||!std::strcmp(action,"r2 client 100")){
     const auto ls=v12::lora_status();const auto percent=!std::strcmp(action,"r2 client 50")?50:100;
     const bool ok=!ls.enabled&&!ls.requested&&!ls.worker_busy&&ls.off_acknowledged&&!ls.failed&&v12::r2_client_start_profile(nonce,percent);
-    if(ok)ble_ui_off=false;
+    if(ok){ble_ui_off=false;lora_app_wanted=true;}
     last_command={nonce,admitted,ok,"R2_CLIENT_PROFILE",ok?"EXACT_OFF_NEW_GENERATION_PROFILE":"R2_RESOURCE_PROFILE_OR_BOOT_SCOPE"};
   }
 #endif
-  else if(std::sscanf(action,"r2 %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
+  else if(N30_COMMAND_SCAN(action,"r2 %11s %" SCNu32 " %c",mode,&duration,&extra)==2){
     const auto chosen=!std::strcmp(mode,"passive")?v12::R2Mode::Passive:!std::strcmp(mode,"active")?v12::R2Mode::Active:v12::R2Mode::Off;
     const auto ls=v12::lora_status();const bool ok=!ls.enabled&&!ls.requested&&!ls.worker_busy&&ls.off_acknowledged&&!ls.failed&&v12::r2_request(chosen,duration,nonce);last_command={nonce,admitted,ok,"R2",ok?"FINITE_R2_ORIGINAL_LEASE":"R2_RESOURCE_PROFILE_OR_BOUND"};
   }else if(!r2_command_off_ack()&&std::strncmp(action,"capture ",8)){last_command.reason="R2_OWNS_BLE";}
@@ -627,16 +640,16 @@ void command(const char* text){
     const bool ok=bounded&&v12::n30_capture_tx_begin(nonce,duration);
     last_command={nonce,admitted,ok,"CAPTURE_TX",ok?"FINITE_TX_CRC_OBSERVER_LEASE":"BUSY_OR_BOUND"};
   }
-  else if(std::sscanf(action,"capture rolling %" SCNu32 " %c",&duration,&extra)==1){
+  else if(N30_COMMAND_SCAN(action,"capture rolling %" SCNu32 " %c",&duration,&extra)==1){
     const bool ok=v12::capture_rolling_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE_ROLLING",ok?"BOUNDED_OBSERVER_ORIGINAL_DEADLINE":"BUSY_OR_BOUND"};
   }
-  else if(std::sscanf(action,"capture %" SCNu32 " %c",&duration,&extra)==1){
+  else if(N30_COMMAND_SCAN(action,"capture %" SCNu32 " %c",&duration,&extra)==1){
     const bool ok=v12::capture_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE",ok?"FINITE_OBSERVER_LEASE":"BUSY_OR_BOUND"};
   }else{last_command.reason="UNKNOWN_OR_UNAVAILABLE_PROTOCOL";}
   if(!last_command.accepted&&commands_rejected!=UINT32_MAX)++commands_rejected;
-  respond_status(nonce,admitted);rc9_diagnostic_response=lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
+  respond_status(nonce,admitted);dual_diagnostic_response=rc9_diagnostic_response=lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
 }
-void input(){
+[[gnu::noinline]] void input(){
   static char line[192]{};static unsigned used=0;static bool discard=false;
   uint8_t bytes[64];const int n=n30_console::read(bytes,sizeof(bytes));
   for(int i=0;i<n;++i){const char c=char(bytes[i]);
@@ -690,7 +703,10 @@ void input(){
       v12::Services services;services.scan=rx.client.scan||rx.radio_requested;services.pending=rx.client.pending;
       services.host=rx.host_work_busy||rx.command_pending||!rx.off_acknowledged||tx.owner_busy||tx.lease.pending||!tx.off_acknowledged;services.sync=rx.client.synced;services.periodic=tx.periodic||tx.requested;services.discovery=tx.discovery;
       services.acl=acl.stage!=v12::DirectStage::Off;services.lora=lora.enabled||lora.requested||lora.worker_busy||!lora.off_acknowledged;
-      services.fault=n30_fine_cleanup_fault()||rx.client.state==v12::Lifecycle::Fault||tx.fault||acl.stage==v12::DirectStage::Fault||lora.failed;
+      // A retained radio operating error does not undo a fresh physical OFF
+      // acknowledgement. Cleanup failures still fault; all original enabled,
+      // busy, generation-matched offAck, DMA/host and two-second gates remain.
+      services.fault=n30_fine_cleanup_fault()||rx.client.state==v12::Lifecycle::Fault||tx.fault||acl.stage==v12::DirectStage::Fault||n30_lora_cleanup_fault();
       bool consumers_closed=!services.scan&&!services.pending&&!services.sync&&!services.periodic&&!services.discovery&&!services.acl&&!services.lora&&!services.host;
 #ifdef V12_R2_ENABLED
       const auto mesh=v12::r2_status();services.scan|=mesh.scan||mesh.requested;services.pending|=mesh.sync_pending||mesh.connecting;
@@ -721,7 +737,7 @@ void input(){
     const auto radio=v12::r2_activity();bool accepted=false;
     if(!update_gate.latched()){
       if(radio.requested){v12::r2_stop();ble_ui_off=true;accepted=true;}
-      else {accepted=v12::r2_client_start(micros());if(accepted)ble_ui_off=false;}
+      else {accepted=v12::r2_client_start(micros());if(accepted){ble_ui_off=false;lora_app_wanted=true;}}
     }
     n30_display_action_result(n30::Action::ToggleBle,accepted);
   }
@@ -731,6 +747,7 @@ void input(){
   }
 }
 [[gnu::noinline]] void clock_fault_progress(){
+  static_assert(V12_NO_TIME_SYNC_US==n30::NoTimeRestartUs);
   const auto rx=v12::transport_status();const auto tx=v12::diagnostic_tx_status();
   const auto direct=v12::direct_status();const auto lora=v12::lora_status();
   uint32_t mask=0;uint8_t api=0;int32_t rc=0;uint64_t parent=0;bool relay=false,applied=true;
@@ -743,10 +760,14 @@ void input(){
   if(update_gate.stage==v12::UpdateStage::Fault)mask|=v12::FaultUpdate;
 #ifdef V12_R2_ENABLED
   const auto mesh=v12::r2_status();const auto source_now=micros();
-  n30_lora_control(n30::ble_locked(mesh,source_now),source_now,(mesh.requested||ble_ui_off)&&!mesh.fault&&!update_gate.latched(),ble_ui_off);
+  const auto ble_refusal=ble_ui_off?uint32_t(n30::BleDisabled):n30::ble_lock_refusal(mesh,source_now);
+  n30_display_observe_source(mesh,source_now,ble_refusal);
+  n30_lora_control(ble_refusal==0,source_now,lora_app_wanted&&!update_gate.latched()&&!power_off.requested(),ble_ui_off);
   n30_lora_view lora_time;n30_lora_snapshot(lora_time);
   const auto rc9_time=v12::r2_rc9_status();
-  v12::fault_watchdog_sync_progress(!ble_ui_off&&mesh.requested&&!update_gate.latched(),n30::synchronized_until(mesh,lora_time,micros(),rc9_time));
+  static n30::NoTimeRetention no_time_retention;
+  const auto watchdog_now=micros();
+  v12::fault_watchdog_sync_progress(no_time_retention.expected(!ble_ui_off&&mesh.requested&&!update_gate.latched(),mesh.tz_received!=0,lora_time,watchdog_now),n30::synchronized_until(mesh,lora_time,watchdog_now,rc9_time));
   if(mesh.fault||mesh.client.deadline_exceeded||mesh.rx_capture.fault)mask|=v12::FaultR2;
   api=uint8_t(mesh.first_error_api);rc=mesh.first_error_rc;
   parent=mesh.rc_parent.target;relay=mesh.rc_parent.relay;
@@ -778,6 +799,12 @@ extern "C" bool IRAM_ATTR n30_lora_reference_read(uint64_t* count){
   // The LoRa DIO1 map needs short brackets and never reads the BLE model.
   // Its original counter remains running even when BLE selects MCPWM1.
   return count&&clock_timer&&gptimer_get_raw_count(clock_timer,count)==ESP_OK;
+}
+extern "C" bool n30_lora_reference_bracket(mcpwm_cap_channel_handle_t channel,uint64_t* before,uint64_t* after){
+  return n30_lora_counter_bracket(clock_timer,channel,before,after)==ESP_OK;
+}
+extern "C" int n30_lora_reference_current(mcpwm_cap_channel_handle_t channel,uint32_t* raw,uint64_t* sampled_us){
+  return n30_lora_counter_current(channel,raw,sampled_us);
 }
 extern "C" bool IRAM_ATTR clock_reference_read(uint64_t* count){
   if(n30_fine_backend_selected())return n30_fine_backend_current(count);

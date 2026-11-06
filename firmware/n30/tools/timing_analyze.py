@@ -94,7 +94,10 @@ def analyze(frames,centered=False,accel_bound=100,work_margin_us=1000):
  rows=list(samples.values());matched=[r for r in rows if r['matched']];causal=[r['remote_ns']-r['predicted_ns'] for r in matched if r['causal']]
  channels={str(ch):stats([r['remote_ns']-r['predicted_ns'] for r in matched if r['causal'] and r['channel']==ch]) for ch in sorted({r['channel'] for r in matched})}
  groups=collections.defaultdict(list)
- for r in matched:groups[(r['capture_boot'],r['diagnostic_id'],r['root'],r['boot'],r['source'],r['train'],r['epoch'])].append(r)
+ for r in matched:
+  # Descriptor-bin uncertainty does not describe a substituted fine capture.
+  if r.get('delivered20',r['local20'])!=r['local20']:continue
+  groups[(r['capture_boot'],r['diagnostic_id'],r['root'],r['boot'],r['source'],r['train'],r['epoch'])].append(r)
  shadow=[]
  if centered:
   for scope,records in groups.items():
@@ -113,7 +116,7 @@ def analyze(frames,centered=False,accel_bound=100,work_margin_us=1000):
     max_half=max(max_half or 0,p['conditional_half_width_ns'])
    shadow.append({'scope':scope,'causal_innovation':stats(scores),'predictions':trace,'unavailable_predictions':missing,'inconsistent_predictions':inconsistent,'conditional_sub_tick_predictions':narrow,'maximum_conditional_half_width_ns':max_half,'UTC_bound':'UNKNOWN'})
  expected=sum(int(s['sampled']) for s in sessions.values())
- return {'schema':1,'scope':'RELATIVE_DIAGNOSTIC_AND_CONDITIONAL_SHADOW_ONLY','frames':len(frames),'sessions':len(sessions),'record_conflicts':conflicts,'sampled_by_firmware':expected,'unique_records_received':len(rows),'missing_sample_records':max(0,expected-len(rows)),'unmatched_records':len(rows)-len(matched),'causal_unavailable':sum(not r['causal'] for r in matched),'causal_innovation':stats(causal),'channels':channels,'bracket_width_ns':stats([(r['after20']-r['before20'])*50 for r in rows]),'fine_high_bits':sorted({r['fine']>>10 for r in rows}),'timer_phase_mod10':dict(collections.Counter(str(r['local20']%10) for r in rows)),'shadow':shadow,'assumptions':{'centered_descriptor_bins':centered,'acceleration_envelope_ppb_s':accel_bound,'shadow_work_margin_us':work_margin_us,'RF_channel_bias':'UNKNOWN','quantizer_phase_calibrated':False,'shadow_can_control_clock':False},'absolute_UTC_bound':'UNKNOWN','physical_output_accuracy':'NOT_MEASURED'}
+ return {'schema':1,'scope':'RELATIVE_DIAGNOSTIC_AND_CONDITIONAL_SHADOW_ONLY','frames':len(frames),'sessions':len(sessions),'record_conflicts':conflicts,'sampled_by_firmware':expected,'unique_records_received':len(rows),'missing_sample_records':max(0,expected-len(rows)),'unmatched_records':len(rows)-len(matched),'fine_stamped_records':sum(r.get('delivered20',r['local20'])!=r['local20'] for r in matched),'fine_shadow_bounds':'UNAVAILABLE_DESCRIPTOR_BINS_DO_NOT_BOUND_FINE_ENDPOINT','causal_unavailable':sum(not r['causal'] for r in matched),'causal_innovation':stats(causal),'channels':channels,'bracket_width_ns':stats([(r['after20']-r['before20'])*50 for r in rows]),'fine_high_bits':sorted({r['fine']>>10 for r in rows}),'timer_phase_mod10':dict(collections.Counter(str(r['local20']%10) for r in rows)),'shadow':shadow,'assumptions':{'centered_descriptor_bins':centered,'acceleration_envelope_ppb_s':accel_bound,'shadow_work_margin_us':work_margin_us,'RF_channel_bias':'UNKNOWN','quantizer_phase_calibrated':False,'shadow_can_control_clock':False},'absolute_UTC_bound':'UNKNOWN','physical_output_accuracy':'NOT_MEASURED'}
 
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--raw',type=Path,required=True);p.add_argument('--manifest',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--assume-centered-bins',action='store_true');p.add_argument('--accel-bound-ppb-s',type=float,default=100);p.add_argument('--work-margin-us',type=int,default=1000);a=p.parse_args()

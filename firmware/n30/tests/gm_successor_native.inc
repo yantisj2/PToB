@@ -19,9 +19,19 @@ v12::Discovery locator(uint64_t id,int8_t rssi){
   d.bytes[0]=24;d.bytes[1]=0xff;auto* b=d.bytes+2;b[0]='G';b[1]='1';b[2]=1;
   r2_group_put(b+3,v12::provision.group.id,8);r2_group_put(b+11,v12::provision.group.epoch,4);r2_group_put(b+15,id,8);d.address=v12::canonical(id);return d;
 }
+#ifdef PTOB_N30
+#include "ble_acquisition_native.inc"
+#include "dual_timing_native.inc"
+#endif
 int main(int argc,char** argv){
   assert(argc==2);const std::string which=argv[1];const uint8_t mac[]={2,3,4,5,6,7};
   assert(v12::r2_init(44,mac)&&v12::r2_host_init()&&v12::r2_host_sync());step(8);v12::stop_scan();
+#ifdef PTOB_N30
+  if(which.starts_with("startup-slow")){startup_slow_case(which);return 0;}
+  if(which=="startup-unusable"){startup_unusable_case();return 0;}
+  if(which.starts_with("ble-acquisition-")){acquisition_case(which);return 0;}
+  if(which=="dual-coupled"){dual_coupled_case();return 0;}
+#endif
   fake_now=100000000;v12::window_start=v12::G1Window::start(fake_now);
   v12::anchor={true,501,601,UINT64_C(1700000000000000)+fake_now,fake_now,fake_now+1500000,2,3,1000};
   v12::joined_peer=v12::sync_identity=501;v12::joined_boot=601;v12::member=true;
@@ -30,6 +40,33 @@ int main(int argc,char** argv){
   v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);v12::admission_policy.acquired();
   v12::Rc7PermissionInspect::allow_lock(v12::corrected_clock);assert(v12::selection_protected(fake_now));
   const auto at=fake_now;
+#ifdef PTOB_N30
+  if(which=="permission-gap-parent"){
+    // Source permission expires before the next real corrected pair. Withdraw
+    // output immediately, but keep bounded acquisition on the exact current
+    // authenticated direct train; a fresh relay ad cannot create parent churn.
+    v12::anchor.until=fake_now;v12::Rc7PermissionInspect::expire(v12::corrected_clock,fake_now);
+    v12::parent_selection.delivered(3,11,fake_now);
+    assert(!v12::following(fake_now));
+    assert(v12::selection_protected(fake_now));
+    auto d=locator(777,-20);v12::discoveries.push(d);v12::active_poll(fake_now);
+    assert(v12::joined_peer==501&&v12::synced&&v12::sync_handle==9&&!v12::peer.connecting);
+    // Reproduce a late permission drought with continuing authenticated PA.
+    // The1.5s coarse rebootstrap rule must not destroy that acquisition before
+    // its independent15s physical-progress supervisor can recover it.
+    const auto until=v12::anchor.until;v12::retry_at=UINT64_MAX;
+    fake_now+=2000000;v12::parent_selection.delivered(3,12,fake_now);
+    assert(v12::selection_protected(fake_now));v12::active_poll(fake_now);
+    assert(v12::anchor.root==501&&v12::joined_peer==501&&v12::synced&&!v12::fault);
+    assert(v12::anchor.until==until&&!v12::following(fake_now));
+    // The scheduling reservation ends at the physical-stall bound. It
+    // supplies no inherited UTC, renewed grant or infinite incumbent hold.
+    fake_now=until+15000000;v12::parent_selection.delivered(3,13,fake_now);
+    assert(!v12::following(fake_now)&&!v12::selection_protected(fake_now));
+    v12::active_poll(fake_now);assert(!v12::anchor.source&&!v12::joined_peer);
+    puts("PASS permission drought withdraws output immediately, retains fresh authenticated direct acquisition until bounded15s stall, then retires it");return 0;
+  }
+#endif
 #ifdef R2_TZ_WIRE
   if(which=="tz-updates"){
     auto announce=[&](r2_tz zone,uint64_t sequence){

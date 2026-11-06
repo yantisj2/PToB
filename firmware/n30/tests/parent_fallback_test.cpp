@@ -6,6 +6,16 @@
 using v12::G1ParentSelection;
 int main(){
  constexpr uint64_t start=1000000,minute=60000000,failed=start+minute;
+ // A merely attempted GM cannot reserve the first minute. This covers an
+ // authenticated unusable/no-time reply as well as failed transport: neither
+ // path calls bind(), and a fresh alternative must remain selectable.
+ G1ParentSelection cold{minute};cold.seen(11,false,-80,start);cold.attempted(11,false,start);
+ cold.cooldown(11,start,5000000);cold.seen(11,false,-80,start+100000);cold.seen(22,false,-30,start+100000);
+ assert(cold.choose(start+100000)==22&&cold.parent()==0);
+ cold.target(11,false);assert(cold.choose(start+100000)==0);cold.target(0);
+ // Once a usable admission actually binds, preserve the ordinary fit trial.
+ G1ParentSelection admitted{minute};admitted.seen(11,false,-80,start);admitted.attempted(11,false,start);admitted.bind(11,111,1,start);
+ admitted.seen(11,false,-80,start+100000);admitted.seen(22,false,-30,start+100000);assert(admitted.choose(start+100000)==11);
  G1ParentSelection p{minute};p.seen(11,false,-20,start);p.bind(11,111,1,start);
  p.locked(false,failed);assert(p.needs_alternative());
  p.seen(11,false,-20,failed);assert(p.choose(failed)==0&&p.parent()==11);

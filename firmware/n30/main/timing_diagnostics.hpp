@@ -41,11 +41,24 @@ class Recorder {
   expire(now);if(!state_.active)return;
   for(unsigned i=0;i<count_;++i){auto& row=samples_[(head_+i)%Capacity];
    const auto& c=row.capture;
-   if(c.epoch==p.epoch&&c.tick20==p.local20&&c.event==p.event&&c.channel==p.channel){
+   const auto delivered=row.pair.local20?row.pair.local20:c.tick20;
+   if(c.epoch==p.epoch&&delivered==p.local20&&c.event==p.event&&c.channel==p.channel){
     if(!row.matched){row.pair=p;row.matched=true;inc(state_.matched);}return;
    }
   }
   inc(state_.pair_missing); // Includes intentional decimation; never zero-fill.
+ }
+ void fine(const v12::periodic_rx::Stamp& s,uint64_t now){
+  expire(now);if(!state_.active||!s.actual||!s.association_observed||!s.tick20||s.available20<s.tick20)return;
+  for(unsigned i=0;i<count_;++i){auto& row=samples_[(head_+i)%Capacity];const auto& raw=row.capture;
+   if(raw.epoch==s.epoch&&raw.sequence==s.sequence&&raw.event==s.event&&raw.channel==s.channel){
+    // Preserve the raw descriptor. Before a corrected pair arrives, its
+    // otherwise-unused local tick retains this accepted production coordinate.
+    // No buffer growth, synthetic pair, clock update or source permission.
+    if(!row.matched)row.pair.local20=s.tick20;
+    return;
+   }
+  }
  }
  Snapshot snapshot(uint64_t now){expire(now);auto s=state_;s.queued=uint8_t(count_);s.oldest=count_?samples_[head_].number:0;return s;}
  unsigned read(uint32_t after,Sample* out,unsigned capacity,uint64_t now){

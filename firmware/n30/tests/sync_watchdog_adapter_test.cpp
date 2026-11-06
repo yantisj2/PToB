@@ -49,4 +49,11 @@ int main(){
  l.state=1;assert(n30::synchronized_until(s,l,now)==0);l.state=2;l.fault=true;assert(n30::synchronized_until(s,l,now)==0);
  // A failed/expired LoRa stream cannot hide still-current BLE time.
  s=valid;assert(n30::synchronized_until(s,l,now)==now+n30::SnapshotMaxUs);
+ // Learned boot data survive both radios being poor, without live authority.
+ n30::NoTimeRetention retained;v12::R2Status poor{};n30_lora_view cached{};
+ assert(retained.expected(true,false,cached));cached.metadata_cached=true;
+ assert(!retained.expected(true,false,cached)&&!n30::synchronized_until(poor,cached,now));
+ cached={};for(uint64_t at=now;at<now+UINT64_C(3600000000);at+=1000000)assert(!retained.expected(true,false,cached)&&!n30::synchronized_until(poor,cached,at));
+ n30::NoTimeRetention ble_cache;assert(!ble_cache.expected(true,true,cached));
+ n30::NoTimeRetention reboot;assert(reboot.expected(true,false,cached));
 }

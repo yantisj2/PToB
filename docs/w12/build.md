@@ -5,16 +5,35 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-Current version **0.2.37** adds passive wire3/schedule8 LR2021 reception; the
-new source cannot feed the legacy RC9 server without an original signed source
-envelope. RC9 client behavior and wire1's12s contract remain unchanged. The
-shared passive codec/core and selected headers enter the immutable source and
-runtime manifests; normal builds need only this public repository.
+Paused relay capability-data updates tolerate transient controller-capacity
+0x207 with100ms bounded retries, at most three attempts within500ms. Failed
+commands never count as publication; persistent/other errors remain faults.
+
+BLE acquisition uses a15s physical-progress supervisor independently of LoRa.
+Recent eligible discovery or authenticated current-parent PA can request the
+existing BLE-only rebind, bounded by its original2s drain and fresh admission.
+Explicit OFF, actual faults, operator pins and independent RC9 fallback retain
+their policies. No quality-only restart occurs while physical corrections
+continue. Builds record the W12 acquisition, startup and coarse-bootstrap
+contracts and require `PTOB_W12_BLE_RECOVERY=1` in the owner/status consumers.
+The coarse JOIN ceiling is200000us; the250ms exchange TTL, full causal RTT,
+source-bound/drift expiry subtraction and original precision gates remain.
+
+Passive wire3/schedule8 LR2021 reception cannot feed the legacy RC9 server
+without an original signed source envelope. RC9 client behavior and wire1's12s
+contract remain unchanged. The shared passive codec/core and selected headers
+enter the immutable source and runtime manifests; normal builds need only this
+public repository. Expired/unqualified LoRa retires its display latch when
+qualified BLE returns; live qualified LoRa requires30s of qualified same-scope BLE time. Permission-only
+gaps below1.5s pause the dwell; longer gaps, changed quality/source and hard
+fences restart it. The source selector grants no permission during a gap.
 
 The existing storage policy preserves exact receive/estimator history while
 reducing fixed storage. GNSS profiles reserve the full 8192-byte host stack
 statically and check creation. Application watchdogs have a five-second minimum;
-fault/no-time restart intervals remain 120/300 seconds. All main-component
+actual-fault/unlearned-absence restart intervals are120/720 seconds. Learned
+boot information or fresh healthy LoRa reception suppresses absence restarts.
+All main-component
 sources use `-Os`, with SDK/controller assertions and the 1 MiB application
 ceiling preserved. [Version history](../../firmware/w12/CHANGELOG.md) records
 individual changes; [holdover](holdover.md) defines the current model and P99.
@@ -780,10 +799,12 @@ Normal framed status keeps its 9 body rows,8704 byte whole limit and original
 from the R2 row to accommodate current LoRa state/UTC/capture error counters.
 All source, owner drain, fault and stop-generation checks remain.
 
-A separate 300 s no-time watchdog accepts fresh authenticated current BLE or RC8
+A separate720s unlearned no-time watchdog accepts fresh authenticated current BLE or RC8
 UTC until their original deadlines, regardless of UI page and precision lock.
-Retained HOLD, stale snapshots and GNSS packet receipt cannot reset it.
-Explicit OFF or maintenance disables only that source-loss timer. The 120 s
+Retained HOLD, stale snapshots and GNSS packet receipt supply no synchronized
+time. Learned boot information and fresh healthy LoRa reception cancel the
+destructive absence timer; they grant no clock permission. Explicit OFF or
+maintenance also disables only that source-loss timer. The120s
 continuous owner-fault watchdog and RTC restart evidence are preserved.
 
 ```sh
@@ -794,7 +815,7 @@ python3 firmware/w12/tools/status_budget_test.py --rc7-estimate --lora
 
 These host checks exercise actual policy/codec/HMAC, replay/expiry,180 s training,
 30 s display-source return at actual observation/repaint cadences,
-300 s supervisor/reset boundaries, capture coexistence, owner cancellation, DMA
+720s supervisor/reset boundaries, learned/healthy-RX retention, capture coexistence, owner cancellation, DMA
 failure retention and TX refusal. Native builds use the pinned real RadioLib;
 the owner fixture uses a synthetic RadioLib call boundary. These are separate
 from actual RF interoperability and independently measured clock accuracy.
@@ -883,3 +904,30 @@ actual output while BLE remains a witness. See
 [production policy](holdover.md#production-clock) and
 [capture/replay](holdover.md#capture-and-replay). Historical thermal production
 and error-footer definitions belong to earlier editions, not current operation.
+
+Normal candidate builds require `--state-machine-receipt` from the public
+[coupled receiver gate](../n30/dual-timing-state-machines.md#coupled-pre-installation-gate).
+Development-only builds may omit it; a stale or failed receipt cannot qualify a
+candidate. The gate operates no hardware and grants no installation acceptance.
+
+Direct GR3 physical pairs may span a source-envelope renewal. Permission is
+clipped to both authenticated grants; a new header alone renews no clock.
+The receiver gate checks this [pairing boundary](../n30/dual-timing-state-machines.md#source-envelope-renewal-and-physical-pairing)
+with real MAC validation and preserves source/capture/age/replay limits.
+
+`lora diag` includes `dual_schema=2` BLE eligibility, return-dwell progress,
+pause/reset counters, current source scope and a retained first-interruption
+capsule. Eight parent vectors retain reason and old/new scope; overwritten and
+concurrently lost history remain explicit. Watchdog inputs, separate timers,
+RTC restart evidence and automatic BLE rebind count are read-only fields.
+See the [diagnostic field guide](../n30/dual-timing-state-machines.md#retained-diagnostic-reads).
+
+W12 shares N30's720-second unlearned-absence policy. Learned boot information
+or fresh healthy LoRa reception cancels destructive absence restarts without
+granting source time. Sustained actual faults retain120-second supervision;
+worker-stall declarations and configured SDK watchdogs have a five-second
+minimum. OFF/maintenance cancels absence, and reboot starts a fresh RAM policy.
+`wd_sync_expected` reports absence-reset arming; normal status `requested`
+reports BLE enable. `absence_learned` and `absence_rx_healthy` explain suppressed
+absence restarts. `wd_fault_elapsed_us` tracks the independent120-second fault
+interval, and RTC fields identify the preceding supervised reset.

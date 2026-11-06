@@ -45,6 +45,10 @@ struct R2Status {
 #endif
 #ifdef PTOB_N30
   n30::Signal n30_signal{}; // Fresh authenticated current-parent PA RSSI only.
+  uint32_t n30_ble_recoveries=0;
+#endif
+#ifdef PTOB_W12_BLE_RECOVERY
+  uint32_t w12_ble_recoveries=0;
 #endif
   R2Mode mode=R2Mode::Off;OwnerLease lease{};R2ClientService client{};
   bool requested=false,scan=false,advertising=false,sync_pending=false,synced=false;

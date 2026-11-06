@@ -34,6 +34,7 @@ LORA_NUMBERS={
  'POLICY':'remaining_ms acquire_us recover_us state sampled_us UTC_us frequency_hz SF BW_hz CR preamble RX_ONLY'}
 LORA_HEX='emitter emitter_boot stream root root_boot parent parent_boot'.split()
 LORA_FIXED={'ORIGINAL':{'bound':'UNKNOWN','BLE_update':'0'},'COUNTERS':{'TX':'FORBIDDEN'},'HARDWARE':{'timestamp':'HARDWARE_HEADER_VALID_MAPPED','physical_bias':'UNKNOWN','durable_fault_journal':'UNAVAILABLE'},'POLICY':{'acquire_us':'0','recover_us':'0','wire':'3','schedule':'8','frequency_hz':'922400000','SF':'11','BW_hz':'500000','CR':'8','model_delay_ns':'99328000','calibration':'ENGINEERING_UNVERIFIED','preamble':'12','RX_ONLY':'1','GPS':'ABSENT','source_freshness':'UNKNOWN','uncertainty':'UNKNOWN'}}
+DUAL_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_DUAL_STATE','N30_DUAL_EVENT0','N30_DUAL_EVENT1','N30_PARENT_EVENT0','N30_PARENT_EVENT1','N30_DUAL_CONTRACT','W12_V12_COMMAND','N30_UI')
 TIMING_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_TIMING_STATUS',*(f'N30_TIMING_SAMPLE{i}' for i in range(4)),'N30_TIMING_CONTRACT','W12_V12_COMMAND','N30_UI')
 FINE_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_FINE_STATUS',*(f'N30_FINE_EDGE{i}' for i in range(4)),'N30_FINE_CONTRACT','W12_V12_COMMAND','N30_UI')
 WINDOW_PACKET_ROWS=('W12_R2_STATUS','W12_V12_STATUS','N30_WINDOW_STATUS','N30_WINDOW_PACKET','N30_WINDOW_STAMP','N30_WINDOW_BRIDGE','N30_WINDOW_PAIR','N30_WINDOW_CONTRACT','W12_V12_COMMAND','N30_UI')
@@ -156,6 +157,48 @@ def validate_fine(rows):
 def timing_number(row,key,bits=32,signed=False):
  value=row.get(key,'');base.require(bool(re.fullmatch(r'-?(?:0|[1-9][0-9]*)' if signed else r'(?:0|[1-9][0-9]*)',value)),'Invalid timing number: '+key)
  n=int(value);base.require(-(2**(bits-1))<=n<2**(bits-1) if signed else 0<=n<2**bits,'Timing number range: '+key);return n
+def validate_dual(rows):
+ s=rows['N30_DUAL_STATE'];k=rows['N30_DUAL_CONTRACT']
+ for key in ('schema','epoch','publication','quality_scope','refusal','remaining_us','first_reason','first_refusal','first_epoch','first_publication'):timing_number(s,key)
+ for key in ('sampled_us','observed_us','since_us','max_gap_us','first_problem_us'):timing_number(s,key,64)
+ for key in ('root','boot','origin','first_root','first_boot'):base.require(bool(base.HEX16.fullmatch(s.get(key,''))),'Dual source identity '+key)
+ for key in ('qualified','presentation','lora_latched','main_observer'):base.require(s.get(key) in ('0','1'),'Dual source boolean '+key)
+ names={0:'READY',1:'DISABLED',2:'FAULT',4:'MODE_DRAIN',8:'NO_CURRENT_FOLLOW',16:'NO_CONTEXT',32:'STALE_SNAPSHOT',64:'COARSE_PERMISSION',128:'CORRECTED_PERMISSION',256:'REPLAY_CONTEXT',512:'RAW_QUALITY',1024:'QUALITY_FORECAST',2048:'RETAINED_HOLD'}
+ priority=(1,2,4,32,2048,64,128,256,16,8,512,1024)
+ refusal=int(s['refusal']);primary=next((x for x in priority if refusal&x),0)
+ base.require(s['schema'] in ('1','2','3') and s.get('why')==names[primary] and refusal&~4095==0 and int(s['first_refusal'])&~4095==0,'Dual refusal/schema')
+ base.require(0<=int(s['first_reason'])<=7 and int(s['remaining_us'])<=30000000,'Dual reason/dwell')
+ for key,value in dict(schema=s['schema'],observer='MAIN_OWNER',authority='UNCHANGED',source_records='8',parent_records='8',batch='2',nonconsuming='1',dwell_us='30000000',first_problem='RETAINED_FOR_BOOT').items():base.require(k.get(key)==value,'Dual contract '+key)
+ if s['schema'] in ('2','3'):
+  base.require(timing_number(s,'permission_gap_us',64)<(1500000 if s['schema']=='3' else 250000),'Bounded permission pause')
+  for key,value in dict(permission_gap_us='1500000' if s['schema']=='3' else '250000',gap_credit='PAUSED',output_permission='UNCHANGED').items():base.require(k.get(key)==value,'Dual pause contract '+key)
+ for key in ('after','next','sequence','overwritten','losses','scope_changes','observation_gaps','backwards','parent_after','parent_next','parent_lost'):timing_number(k,key)
+ base.require(int(k['overwritten'])==max(0,int(k['sequence'])-8),'Dual journal coverage')
+ cursor=int(k['after']);parent=int(k['parent_after']);lost=0
+ for family in ('DUAL','PARENT'):
+  hole=False
+  for i in range(2):
+   r=rows[f'N30_{family}_EVENT{i}'];base.require(r.get('valid') in ('0','1'),'Dual event validity')
+   if r['valid']=='0':hole=True;continue
+   base.require(not hole,'Dual event batch hole')
+   n=timing_number(r,'seq');timing_number(r,'at_us',64);reason=timing_number(r,'reason')
+   if family=='DUAL':
+    base.require(cursor<n<=int(k['sequence']) and 1<=reason<=7,'Dual source event ordering/reason');cursor=n
+    for key in ('root','boot','origin'):base.require(bool(base.HEX16.fullmatch(r.get(key,''))),'Dual event identity '+key)
+    for key in ('epoch','publication','quality_scope','refusal'):timing_number(r,key)
+    timing_number(r,'since_us',64)
+    base.require(int(r['refusal'])&~4095==0 and r.get('qualified') in ('0','1') and r.get('lora_latched') in ('0','1'),'Dual source event flags')
+   else:
+    base.require(parent<n and reason<=19,'Parent event ordering/reason');base.require(r.get('why')==('SCOPE_CHANGE','STARTUP','HOLD_GM','RECOVER_GM','RETURN_GM','LINK_POOR','CLOCK_UNAVAILABLE','CLOCK_STEP','SOURCE_CHANGE','REPLAY_EXPIRED','ROOT_HINT','MANUAL_PARENT','RELAY_ONLY','STOP','BEST_CANDIDATE','LOCK_TRIAL_EXPIRED','PERMISSION_GAP','REPLAY_CONTEXT','SUCCESSOR','PACKET_SCOPE')[reason],'Parent reason label');lost+=n-parent-1;parent=n
+    base.require(r.get('poor') in ('0','1') and timing_number(r,'decision',8)<=11,'Parent decision flags')
+    for key in ('score','best'):timing_number(r,key,16,True)
+    for prefix in ('from','to'):
+     for key in ('peer','boot','root'):base.require(bool(base.HEX16.fullmatch(r.get(prefix+'_'+key,''))),'Parent event identity')
+     for key in ('epoch','train'):timing_number(r,prefix+'_'+key)
+     base.require(timing_number(r,prefix+'_depth',8)<=2,'Parent path depth')
+    base.require(bool(base.HEX16.fullmatch(r.get('to_root_boot',''))),'Parent root boot')
+ base.require(cursor==int(k['next']) and parent==int(k['parent_next']) and lost==int(k['parent_lost']),'Dual nonconsuming cursor/loss accounting')
+
 def validate_timing(rows):
  s=rows['N30_TIMING_STATUS'];base.require(s.get('schema')=='1' and bool(base.HEX16.fullmatch(s.get('id',''))),'Timing schema/id')
  for key in ('every','seen','sampled','matched','overwritten','pair_missing','oldest','after','count'):timing_number(s,key)
@@ -178,12 +221,35 @@ def validate_timing(rows):
   base.require(int(r['n'])>last and int(r['n'])<=int(s['sampled']),'Timing cursor/order');last=int(r['n'])
   base.require(0<int(r['local20'])<=int(r['available20']) and 0<int(r['before20'])<=int(r['after20']),'Timing timestamp order')
   base.require(int(r['bt_hus'])<=624 and int(r['coarse'])<2**28 and int(r['bt_slot'])<2**28 and (int(r['fine'])&1023)<=624 and (int(r['channel'])<=36 or r['channel']=='255'),'Timing descriptor range')
-  if r['matched']=='1':base.require(int(r['corrected20'])>=int(r['available20']) and int(r['created_ns'])<=int(r['remote_ns'])<int(r['expires_ns']),'Timing correction causality/envelope')
+  if 'delivered20' in r:timing_number(r,'delivered20',64)
+  if r['matched']=='1':base.require(int(r['corrected20'])>=int(r.get('delivered20',r['available20']))>0 and int(r['created_ns'])<=int(r['remote_ns'])<int(r['expires_ns']),'Timing correction causality/envelope')
   base.require(r['matched']=='1' or (r['causal']=='0' and r['remote_ns']=='0'),'Unmatched timing sample supplied a correction')
  base.require(count==int(s['count']),'Timing batch count')
  contract={'observer':'WORKER_ONLY','cursor':'NONCONSUMING','records':'16','batch':'4','max_ms':'600000','timestamp':'DESCRIPTOR_500NS_TO_TIMER_50NS','RF_bias':'UNKNOWN','UTC_bound':'UNKNOWN','clock_update':'NONE'}
  for key,value in contract.items():base.require(rows['N30_TIMING_CONTRACT'].get(key)==value,'Timing contract: '+key)
 def validate_lora(rows,require_map_classification=False):
+ base.require(rows['N30_LORA_HARDWARE'].get('timestamp') in ('HARDWARE_HEADER_VALID_MAPPED','HARDWARE_HEADER_VALID_NATIVE80'),'LoRa hardware capture coordinate required')
+ h=rows['N30_LORA_HARDWARE']
+ p=rows['N30_LORA_POLICY']
+ probe_keys=[key for key in p if re.fullmatch(r'rx[0-9]+_v[0-9]+',key)]
+ if 'rx_probe' in p or probe_keys:
+  base.require(p.get('rx_probe')=='RAW80_HEADER_DONE_STATUS5_V1' and set(probe_keys)=={'rx24_v1','rx32_v1','rx112_v1'},'Unknown/incomplete raw RX probe contract')
+  for size in (24,32,112):
+   key=f'rx{size}_v1';raw=p[key];values=raw.split('/')
+   base.require(f'rx{size}_probe' not in p,'Ambiguous raw RX probe fields')
+   base.require(len(values)==8 and re.fullmatch(r'[0-9a-f]{10}',values[-1]) is not None,'Raw RX probe V1 fixed8/status5 encoding')
+   names=('count','epoch','tick16','header80','done80','span80','span_valid');probe=dict(zip(names,values))
+   for name in names:timing_number(probe,name,64 if name in ('epoch','tick16') else 32)
+   base.require(probe['span_valid'] in ('0','1'),'Raw RX probe span validity')
+   if probe['span_valid']=='1':
+    base.require(int(probe['count'])>0 and int(probe['epoch'])>0 and int(probe['tick16'])>0 and 0<int(probe['span80'])<=80000000 and ((int(probe['done80'])-int(probe['header80']))&0xffffffff)==int(probe['span80']),'Raw RX probe capture/span consistency')
+   probe['status_bytes']=[int(values[-1][i:i+2],16) for i in range(0,10,2)]
+   p[f'rx{size}_probe']=probe # Preserve original raw vector alongside expansion.
+ if 'current_rc' in h:
+  timing_number(h,'current_rc',32,True);timing_number(h,'current_reason',8)
+  for key in ('current_raw','current_prev_raw'):timing_number(h,key)
+  for key in ('current_us','current_prev_us','current_available_us','current_epoch'):timing_number(h,key,64)
+  base.require(int(h['current_reason'])<=8,'LoRa native counter failure classification')
  for suffix,names in LORA_NUMBERS.items():
   row=rows['N30_LORA_'+suffix]
   for key in names.split():
@@ -192,7 +258,8 @@ def validate_lora(rows,require_map_classification=False):
    base.require(bool(__import__('re').fullmatch(r'-?(?:0|[1-9][0-9]*)' if signed else r'(?:0|[1-9][0-9]*)',value)),'Invalid LoRa number: '+key)
    number=int(value);limit=2**64 if key in ('captured_tick16','capture_epoch','event_local_us','event_ns','created_ns','expires_ns','until_us','received_us','sampled_us','UTC_us') else 2**32
    base.require(-(2**31) <= number < 2**31 if signed else 0 <= number < limit,'LoRa number range: '+key)
-  for key,value in LORA_FIXED.get(suffix,{}).items():base.require(row.get(key)==value,'LoRa contract mismatch: '+key)
+  for key,value in LORA_FIXED.get(suffix,{}).items():
+   if key!='timestamp':base.require(row.get(key)==value,'LoRa contract mismatch: '+key)
  for key in LORA_HEX:base.require(bool(base.HEX16.fullmatch(rows['N30_LORA_CONTEXT'].get(key,''))),'LoRa identity syntax: '+key)
  base.require(bool(__import__('re').fullmatch('[0-9a-f]{32}',rows['N30_LORA_CONTEXT'].get('context',''))),'LoRa context syntax')
  if 'ble_locked' in rows['N30_LORA_POLICY']:base.require(rows['N30_LORA_POLICY']['ble_locked'] in ('0','1'),'LoRa actual BLE lock input')
@@ -201,10 +268,35 @@ def validate_lora(rows,require_map_classification=False):
   for key in keys.split():base.require(rows['N30_LORA_'+suffix][key] in ('0','1'),'LoRa boolean: '+key)
  base.require(int(rows['N30_LORA_POLICY']['state'])<=3 and int(rows['N30_LORA_QUALITY']['link_samples'])<=16,'LoRa state/fit range')
  q=rows['N30_LORA_QUALITY']
+ base.require(all(k=='watch_v1' for k in q if re.fullmatch(r'watch_v[0-9]+',k)),'Unknown watch vector version')
+ if 'watch_v1' in q:
+  keys=('watch_valid','watch_state','watch_reason','watch_mode','watch_sampled_us','watch_UTC_us','watch_pairs','watch_rejected','watch_missing','watch_unmatched','watch_age_ms','watch_error_age_ms','watch_span_ms','watch_prediction_age_ms','watch_prediction_n','watch_total_prediction_n','watch_rms_ns','watch_total_rms_ns','watch_max_ns','watch_over1us','watch_last_ns','watch_rate_ppb')
+  raw_vector=q.pop('watch_v1');values=raw_vector.split('/')
+  base.require(len(values)==len(keys) and not any(k in q for k in keys),'Watch V1 fixed22/ambiguous field encoding')
+  q.update(zip(keys,values));q['watch_wire_encoding']='FIXED22_V1';q['watch_v1_raw']=raw_vector
  if any(k in q for k in ('trained','slow_fit','model_valid','phase_ns','reference_age_ms')):
   for key in ('trained','slow_fit','model_valid'):base.require(q.get(key) in ('0','1'),'LoRa model boolean: '+key)
   timing_number(q,'phase_ns',32,True);timing_number(q,'reference_age_ms')
-  if q['trained']=='0':base.require(q['link_rms_ns']==str(2**32-1),'Untrained LoRa fit retains old RMS')
+  if q.get('raw_trained',q['trained'])=='0':base.require(q['link_rms_ns']==str(2**32-1),'Untrained LoRa fit retains old RMS')
+ if 'model_kind' in q:
+  base.require(q['model_kind'] in ('0','1') and q.get('raw_trained') in ('0','1'),'N30 delivered/raw model classification')
+  for key in ('model_rate_milli_ppb','model_accel_micro_ppb_s'):timing_number(q,key,64,True)
+  for key in ('model_samples','model_span_ms','prediction_n','prediction_rms_ns','prediction_recent_rms_ns','prediction_max_ns','prediction_over1us','frozen60_n','frozen60_rms_ns','frozen60_max_ns','frozen60_over1us'):timing_number(q,key)
+  timing_number(q,'prediction_last_ns',32,True)
+ if 'watch_valid' in q:
+  base.require(q['watch_valid'] in ('0','1') and rows['N30_LORA_CONTEXT'].get('metadata_cached') in ('0','1'),'Human watch/cache booleans')
+  for key in ('watch_sampled_us','watch_UTC_us'):timing_number(q,key,64)
+  for key in ('watch_pairs','watch_rejected','watch_missing','watch_unmatched','watch_age_ms','watch_error_age_ms','watch_span_ms','watch_prediction_age_ms','watch_prediction_n','watch_total_prediction_n','watch_rms_ns','watch_total_rms_ns','watch_max_ns','watch_over1us'):timing_number(q,key)
+  for key in ('watch_last_ns','watch_rate_ppb'):timing_number(q,key,32,True)
+  for key,limit in (('watch_state',5),('watch_reason',7),('watch_mode',4)):base.require(0<=timing_number(q,key,8)<=limit,'Human watch state/reason/mode')
+  for key in ('model_fast_accel_micro_ppb_s','model_slow_accel_micro_ppb_s'):timing_number(q,key,64,True)
+  base.require(int(q['watch_prediction_n'])<=int(q['watch_total_prediction_n']) and (int(q['watch_prediction_n'])!=0 or q['watch_rms_ns']==str(2**32-1)),'Human watch causal count/error unknown')
+ if 'hold_state' in q:
+  for key in ('hold_id','hold_requested_id'):base.require(bool(base.HEX16.fullmatch(q.get(key,''))),'Invalid LoRa hold request ID')
+  for key in ('hold_start_us','hold_until_us','hold_grant_until_us'):timing_number(q,key,64)
+  for key in ('hold_runs','hold60_n','hold60_rms_ns','hold60_max_ns','hold60_over1us'):timing_number(q,key)
+  base.require(q['hold_state'] in ('0','1','2','3') and q.get('hold_abort') in ('0','1','2','3','4','5','6','7') and q.get('hold_result') in ('0','1','2'),'LoRa hold state/result syntax')
+  if q['hold_state']=='1':base.require(int(q['hold_until_us'])-int(q['hold_start_us'])==60000000 and int(q['hold_grant_until_us'])>int(q['hold_until_us']),'LoRa finite original grant bound')
 
 def validate_rc9(rows):
  for name,keys in {'STATUS':'sampled_us UTC_us until_us valid following fault','ORIGIN':'source_epoch','QUALITY':'assurance authority metadata_known upstream_link_rms_ns','COUNTERS':'sequence accepted rejected','LEASE':'until_us clients serving'}.items():
@@ -227,6 +319,7 @@ class Parser(base.Parser):
   self.expected_rows=(*self.expected_rows,'N30_UI')
   if manifest.get('n30_frame_kind')=='RC9':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','N30_RC9_STATUS','N30_RC9_ORIGIN','N30_RC9_QUALITY','N30_RC9_COUNTERS','N30_RC9_LEASE','N30_RC9_CONTRACT','W12_V12_COMMAND','N30_UI')
   if manifest.get('n30_frame_kind')=='LORA':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','N30_LORA_CONTEXT','N30_LORA_ORIGINAL','N30_LORA_QUALITY','N30_LORA_COUNTERS','N30_LORA_HARDWARE','N30_LORA_POLICY','W12_V12_COMMAND','N30_UI')
+  if manifest.get('n30_frame_kind')=='DUAL':self.expected_rows=DUAL_ROWS
   if manifest.get('n30_frame_kind')=='TIMING':self.expected_rows=TIMING_ROWS
   if manifest.get('n30_frame_kind')=='FINE':self.expected_rows=FINE_ROWS
   if manifest.get('n30_frame_kind')=='WINDOW_PACKET':self.expected_rows=WINDOW_PACKET_ROWS
@@ -237,6 +330,7 @@ class Parser(base.Parser):
   for f in frames:
    if self.manifest.get('n30_frame_kind')=='RC9':validate_rc9(f['rows'])
    if self.manifest.get('n30_frame_kind')=='LORA':validate_lora(f['rows'],bool(self.manifest.get('lora_map_refusal_contract')))
+   if self.manifest.get('n30_frame_kind')=='DUAL':validate_dual(f['rows'])
    if self.manifest.get('n30_frame_kind')=='TIMING':validate_timing(f['rows'])
    if self.manifest.get('n30_frame_kind')=='FINE':
     validate_fine(f['rows'])
@@ -257,6 +351,8 @@ class Parser(base.Parser):
   return frames
 
 def mutation_command(frame,nonce,action):
+ dual=bool(re.fullmatch(r'dual read (?:0|[1-9][0-9]*) (?:0|[1-9][0-9]*)',action))
+ if dual:base.require(all(int(x)<2**32 for x in action.split()[2:]),'Dual uint32 cursor bounds')
  window=action in ('window packet','window stop') or bool(re.fullmatch(r'window (?:edges|ack|late) (?:0|[1-9][0-9]*)',action)) or bool(re.fullmatch(r'window start [1-9][0-9]* [1-9][0-9]*',action))
  if window:
   nums=[int(x) for x in action.split()[2:]]
@@ -276,6 +372,6 @@ def mutation_command(frame,nonce,action):
   nums=[int(x) for x in checked.split()[2:]]
   base.require(not nums or (0<=nums[0]<2**32 if checked.startswith('timing read ') else 1000<=nums[0]<=600000 and 1<=nums[1]<=64),'Timing command bounds')
  rc9_parent=bool(re.fullmatch(r'rc9-parent (?:auto|[0-9a-f]{16})',action))
- if not rc9_parent and not window and not timing and not probe and not tx_capture and action not in ('ui page 0','ui page 1','ui page 2','ui page 3','lora diag','rc9 diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
+ if not dual and not rc9_parent and not window and not timing and not probe and not tx_capture and action not in ('ui page 0','ui page 1','ui page 2','ui page 3','lora diag','lora hold60','rc9 diag','lora auto','lora on','lora off'):return base.mutation_command(frame,nonce,action)
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh UI request nonce required')
  b=frame['begin'];return f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()

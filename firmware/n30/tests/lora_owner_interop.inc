@@ -22,9 +22,22 @@ int main(){
   n30_test_packet(fake::packet.data(),3,2*i,0);packet_edge(24,i==2);
   run_for(2400000);n30_test_packet(fake::packet.data(),4,2*i,base+original*1000-99328000);packet_edge(32);
   if(i>=7){assert(published.state==2&&published.utc_us&&published.link_rms_ns<=1&&core_generation==gen);assert(published.utc_us==base/1000+fake::us);}
+  if(i==7){assert(n30_lora_hold60(5));worker_step(true);assert(published.hold_requested_id==5&&published.hold_result==1&&published.hold_active&&published.hold_id==5);assert(!n30_lora_hold60(6));}
  }
  assert(published.accepted==9&&published.crc_bad==1&&!published.invalid_capture&&!published.map_rejected&&!published.fault);
  run_for(120000000);assert(published.state==3&&!published.utc_us&&!published.until_us&&owned.enabled);
+ assert(published.watch_valid&&published.watch_state==3&&published.watch_pairs==9&&published.metadata_cached);
+ // Authentic same-context pairs continue through a missed META. Qualified
+ // leases expire, but the actual owner still feeds the unqualified observer.
+ for(unsigned i=14;i<19;i++){
+  run_for(30000000);const auto at=fake::us;n30_test_packet(fake::packet.data(),3,2*i,0);packet_edge(24);
+  run_for(2400000);n30_test_packet(fake::packet.data(),4,2*i,base+at*1000-99328000);packet_edge(32);
+ }
+ assert(!published.metadata_known&&!published.utc_us&&!published.until_us&&published.watch_valid&&published.watch_pairs==14&&!published.fault);
+ const auto watch_pairs=published.watch_pairs,errors=published.watch_prediction_n;
+ n30_test_packet(fake::packet.data(),2,36,base+fake::us*1000);packet_edge(112);run_for(10000);
+ assert(published.metadata_known&&published.watch_pairs==watch_pairs&&published.watch_prediction_n==errors&&!published.utc_us);
  assert(v12::lora_request(false,0));worker_step(true);assert(owner.drained());
+ assert(published.metadata_cached&&!published.watch_valid);
  std::puts("PASS schedule8 real HMAC/HeaderValid+RXdone matching, no-DISC, trained map, 6min counter wraps, CRC/expiry and continuous RX; synthetic peripherals");
 }

@@ -36,7 +36,7 @@ struct Model {
  uint64_t sampled_us=0,utc_at_us=0,utc_us=0,until_us=0;
  uint32_t rms_ns=UINT32_MAX;uint16_t hz=0,delivery=UINT16_MAX;
  bool valid=false,locked=false,serving=false,relay_only=false,mode_pending=false;
- bool ble_requested=false,lora_supported=false,ble_parked=false;
+ bool ble_requested=false,lora_supported=false,ble_parked=false,ble_fault=false;
  Source source=Source::None;
  Signal signal{};
  struct BleClock {uint64_t at_us=0,utc_us=0,until_us=0,root=0,boot=0;uint32_t epoch=0;bool valid=false,following=false;} ble;
@@ -78,7 +78,7 @@ class SaverTimer {
 bool current(const Model&,uint64_t now);
 inline const char* clock_zone(const Model& m,uint64_t now,uint64_t utc,uint64_t& shown){
  shown=utc;
- if(now<m.sampled_us||now-m.sampled_us>=SnapshotMaxUs||m.source==Source::LoRa||m.source==Source::Rc9||utc>INT64_MAX)return "UTC";
+ if(now<m.sampled_us||now-m.sampled_us>=SnapshotMaxUs||utc>INT64_MAX)return "UTC";
  int64_t local=0;const auto* zone=v12::clock_zone(m.tz,m.tz_until_us,now,int64_t(utc),local);
  // Portrait has no date field; normalize signed pre-epoch clock values by day.
  shown=local<0?uint64_t((local%INT64_C(86400000000)+INT64_C(86400000000))%INT64_C(86400000000)):uint64_t(local);
@@ -124,9 +124,17 @@ class ClockHold {
  bool saved_=false,losing_=false,seen_=false,saver_=false;
  uint8_t page_=0,position_=0;uint64_t observed_=0,loss_at_=0;
  r2_tz saved_tz_{};uint64_t saved_tz_until_=0;Source saved_source_=Source::None;bool saved_local_=false;
+ uint32_t saved_generation_=0;uint64_t saved_epoch_=0;uint8_t saved_context_[16]{};
+ bool same_source(const Model& m)const{
+  if(m.source!=Source::None&&m.source!=saved_source_)return false;
+  if(saved_source_==Source::LoRa){
+   if(saved_generation_!=m.lora.generation||saved_epoch_!=m.lora.capture_epoch)return false;
+   for(unsigned i=0;i<16;i++)if(saved_context_[i]!=m.lora.context[i])return false;
+  }return true;
+ }
  bool same_zone(const Model& m,uint64_t now)const{
-  const bool old_local=saved_source_!=Source::LoRa&&saved_source_!=Source::Rc9&&r2_tz_valid(saved_tz_)&&now<saved_tz_until_;
-  const bool new_local=now>=m.sampled_us&&now-m.sampled_us<SnapshotMaxUs&&m.source!=Source::LoRa&&m.source!=Source::Rc9&&r2_tz_valid(m.tz)&&now<m.tz_until_us;
+  const bool old_local=r2_tz_valid(saved_tz_)&&now<saved_tz_until_;
+  const bool new_local=now>=m.sampled_us&&now-m.sampled_us<SnapshotMaxUs&&r2_tz_valid(m.tz)&&now<m.tz_until_us;
   return saved_local_==old_local&&old_local==new_local&&(!old_local||(saved_tz_.id==m.tz.id&&saved_tz_.offset_min==m.tz.offset_min));
  }
  uint8_t image_[FrameBytes]{};

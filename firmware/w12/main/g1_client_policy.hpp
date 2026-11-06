@@ -7,6 +7,7 @@ namespace v12 {
 // Freshness and source permission have separate lifetimes. This clock is a
 // conservative replay context, never an independently qualified UTC source.
 struct G1Anchor {
+  static constexpr uint64_t RebootstrapGapUs=1500000;
   bool source=false;
   uint64_t root=0,boot=0,utc=0,at=0,until=0;
   uint32_t source_epoch=0,publication=0,uncertainty=0;
@@ -27,7 +28,7 @@ struct G1Anchor {
     // T096 precision_step retains acquisition independently of live output.
     // A1.5s continuous permission gap requests a new causal binding; expiry
     // itself withdraws FOLLOW immediately without destroying PA acquisition.
-    return !valid(now)||!until||(now>=until&&now-until>=1500000);
+    return !valid(now)||!until||(now>=until&&now-until>=RebootstrapGapUs);
   }
   // JOIN refresh is driven by replay uncertainty or sustained acquisition
   // loss, not each short permission. It never renews the corrected model.

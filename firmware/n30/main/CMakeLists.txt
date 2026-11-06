@@ -27,12 +27,13 @@ if(V12_R2_PROFILE)
     endif()
   endif()
 endif()
-idf_component_register(SRCS "native_main.cpp" "${w12}/main/fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp" "lora_core.c" "lora_diagnostics.cpp"
+idf_component_register(SRCS "native_main.cpp" "${w12}/main/fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp" "lora_core.c" "lora_thermal.c" "lora_diagnostics.cpp" "lora_counter.c"
   "${w12}/../t096/protocol/lora_passive.c" "${w12}/../t096/src/lora_passive_core.c"
   "${w12}/main/native_direct.cpp" "${w12}/main/native_credentials.cpp" "${w12}/main/native_diagnostic_tx.cpp" "${w12}/main/periodic_rx.cpp" "${w12}/main/periodic_tx.cpp" "${w12}/main/s3_clock_reference.c" "${w12}/main/direct_auth.cpp" "${control_source}" ${r2_sources}
   "${w12}/main/shared/public_codec.c" "${w12}/main/shared/p256_canonical.c" "${w12}/main/public_observer.cpp"
   "gnss_absent.cpp" "n30_power.cpp" "display.cpp" "ui_render.cpp" "ui_model.cpp" "timing_diagnostics.cpp" "relative_rate.cpp" "fine_capture.cpp" "window_diagnostics.cpp"
   INCLUDE_DIRS "." "${w12}/main" "${w12}/legacy" "${w12}/legacy/reference" ${r2_includes} "${w12}/../t096/include" "${w12}/../t096/protocol"
+  LDFRAGMENTS "lora_map.lf"
   REQUIRES bt mbedtls esp_driver_spi esp_driver_gptimer esp_driver_i2c esp_driver_gpio
     esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_pm esp_timer esp_hw_support)
 if(V12_R2_RX_SHADOW)
@@ -105,9 +106,11 @@ endif()
 
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=printf" "-Wl,--wrap=puts")
 target_compile_options(${COMPONENT_LIB} PRIVATE -fstack-usage)
-# Keep the portrait renderer within the fixed1MiB application slot. Timing,
-# capture and SDK/controller sources retain their existing compiler options.
-set_source_files_properties("ui_render.cpp" PROPERTIES COMPILE_OPTIONS "-Os")
+# Keep N30 presentation/observer and radio-wrapper code within the original
+# fixed1MiB slot. Shared timing cores and BLE capture/SDK options are unchanged.
+set_source_files_properties("ui_render.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("native_lora.cpp" "lora_core.c" "display.cpp" "ui_model.cpp"
+  "lora_diagnostics.cpp" "timing_diagnostics.cpp" "window_diagnostics.cpp" "native_main.cpp" "lora_counter.c" "lora_thermal.c" PROPERTIES COMPILE_OPTIONS "-Os")
 
 if(V12_R2_PROFILE STREQUAL "r2-g1")
   target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=ble_hs_hci_cmd_tx" "-Wl,--wrap=ble_hs_hci_rx_evt")
@@ -118,12 +121,21 @@ if(V12_UNIT STREQUAL "C3" AND V12_R2_PROFILE STREQUAL "r2-g1")
   target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_GPS_SHADOW_OBSERVER=1 PTOB_GPS_PHYSICAL_REFERENCE_ONLY=1 PTOB_N30_LORA_RX_ONLY=1)
 endif()
 
-target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_N30=1 PTOB_RC9=1 PTOB_GNSS_DISABLED=1 V12_G1_FAILED_PARENT_RETRY_US=60000000)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_N30=1 PTOB_RC9=1 PTOB_GNSS_DISABLED=1 V12_G1_FAILED_PARENT_RETRY_US=60000000 V12_NO_TIME_SYNC_US=720000000)
 if(PTOB_GM_SUCCESSOR)
   target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_GM_SUCCESSOR=1)
 endif()
 
 configure_file("${PTOB_LORA_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/n30_lora_config.h" COPYONLY)
+
+# Keep independent CURRENT/wrap guards in the original application slot.
+# No wire, acceptance, buffer, owner-drain or error checks are removed.
+set_source_files_properties("native_lora.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("lora_core.c" "lora_thermal.c" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("bounded_log.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("display.cpp" "ui_model.cpp" "lora_diagnostics.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+# N30-only build choice; W12 keeps its existing supervisor compilation.
+set_source_files_properties("${w12}/main/fault_watchdog.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
 
 # This adapter is explicitly private and bound to the reviewed SDK implementation.
 foreach(pair
@@ -148,3 +160,6 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE R2_TZ_WIRE=1)
 # Passive fixed500 namespace; the N30 pipeline has no measured bias prior.
 # Engineering symbol model: (12 + 4.25 + 8) * 2^11 / 500k = 99.328ms.
 target_compile_definitions(${COMPONENT_LIB} PRIVATE R2_LORA_PASSIVE_SLOW=1 R2_LORA_FIXED500_EXPERIMENT=1 R2_LORA_FIXED500_EVENT_DELAY_NS=99328000)
+
+# N30-only receiver build: preserve all shared G1 source behavior and guards.
+set_source_files_properties("${w12}/main/native_g1.cpp" PROPERTIES COMPILE_OPTIONS "-Os")

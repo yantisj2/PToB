@@ -5,6 +5,7 @@
 #include <cstdio>
 #include "freertos/task.h"
 #include "esp_system.h"
+#include "../main/no_time_retention.hpp"
 namespace fake {uint64_t us=0;unsigned restarts=0;int reset=ESP_RST_POWERON;struct Yield{};struct Restart{};}
 int64_t esp_timer_get_time(){return int64_t(fake::us);}
 int esp_reset_reason(){return fake::reset;}
@@ -16,17 +17,22 @@ TaskHandle_t xTaskCreateStaticPinnedToCore(void(*)(void*),const char*,unsigned b
 #include "../../w12/main/fault_watchdog.cpp"
 namespace {
 const uint8_t factory[6]={2,0,0,0,0,1};
+#ifdef PTOB_N30
+constexpr uint64_t D=720000000;
+static_assert(V12_NO_TIME_SYNC_US==D);
+#else
 constexpr uint64_t D=300000000;
+#endif
 void cold(){
  v12::input={};v12::model={};v12::view={};v12::intent={};fake::us=0;fake::restarts=0;fake::reset=ESP_RST_POWERON;
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
  v12::sync_model={};v12::last_sync_observed_us=0;
 #endif
  assert(v12::fault_watchdog_start(factory,1));
 }
 void tick(uint64_t now,bool expected,uint64_t until,uint32_t mask=0){
  fake::us=now;v12::fault_watchdog_main_progress(mask,0,0,777,true,true);v12::fault_watchdog_host_progress();
-#ifdef PTOB_N30
+#if defined(PTOB_N30) || defined(PTOB_W12_SYNC_WATCHDOG)
  v12::fault_watchdog_sync_progress(expected,until);
 #else
  (void)expected;(void)until;
@@ -35,7 +41,9 @@ void tick(uint64_t now,bool expected,uint64_t until,uint32_t mask=0){
 }
 }
 int main(){
-#ifdef PTOB_N30
+#if defined(PTOB_W12_SYNC_WATCHDOG) && !defined(PTOB_N30)
+ cold();tick(0,true,0);tick(D-1,true,0);assert(!fake::restarts);tick(D,true,0);assert(fake::restarts==1&&v12::intent.mask==v12::FaultNoTimeSync&&v12::intent.elapsed==300000000);
+#elif defined(PTOB_N30)
  cold();tick(0,true,0);tick(120000000,true,0);assert(!fake::restarts);
  tick(D-1,true,0);assert(!fake::restarts);tick(D,true,0);assert(fake::restarts==1);
  assert(v12::intent.mask==v12::FaultNoTimeSync&&v12::intent.elapsed==D&&v12::intent.parent==777);
@@ -54,7 +62,7 @@ int main(){
  cold();tick(0,true,0);tick(D-1,true,0);v12::fault_watchdog_sync_progress(true,D);
  tick(D,true,0);assert(!fake::restarts);tick(2*D-1,true,0);assert(!fake::restarts);
  tick(2*D,true,0);assert(fake::restarts==1);
- // Explicit OFF/maintenance cancels the interval and rearming requires300s.
+ // Explicit OFF/maintenance cancels the interval and rearming requires720s.
  cold();tick(0,true,0);tick(D-1,false,0);tick(2*D,false,0);assert(!fake::restarts);
  tick(2*D+1,true,0);tick(3*D,true,0);assert(!fake::restarts);tick(3*D+1,true,0);assert(fake::restarts==1);
  // Healthy deliberate BLE OFF never accrues a no-time deadline, whether
@@ -63,11 +71,28 @@ int main(){
  for(uint64_t at=D;at<=10*D;at+=100000){tick(at,false,(at/100000)%2?at+250000:0);assert(!fake::restarts&&!v12::sync_model.active()&&!(v12::fault_watchdog_status().mask&v12::FaultNoTimeSync));}
  cold();tick(100,true,0);tick(99,true,0);tick(D+100,true,0);assert(!fake::restarts);
  cold();tick(uint64_t(INT64_MAX)-D,true,0);tick(uint64_t(INT64_MAX)-1,true,0);assert(!fake::restarts);tick(uint64_t(INT64_MAX),true,0);assert(fake::restarts==1);
+ // Actual N30 retention policy cancels the supervisor's destructive absence
+ // timer, without supplying UTC or changing independent actual-fault timing.
+ cold();n30::NoTimeRetention retention;n30_lora_view cache{};
+ tick(0,retention.expected(true,false,cache),0);cache.metadata_cached=true;
+ tick(D-1,retention.expected(true,false,cache),0);cache={};
+ for(uint64_t at=D;at<=12*D;at+=1000000)tick(at,retention.expected(true,false,cache),0);
+ assert(!fake::restarts&&!(v12::fault_watchdog_status().mask&v12::FaultNoTimeSync));
+ tick(12*D+1,retention.expected(true,false,cache),0,v12::FaultLoRa);
+ tick(12*D+120000000,retention.expected(true,false,cache),0,v12::FaultLoRa);assert(!fake::restarts);
+ tick(12*D+120000001,retention.expected(true,false,cache),0,v12::FaultLoRa);assert(fake::restarts==1&&v12::intent.first_mask==v12::FaultLoRa);
+ // Boot just after META and miss further META. Healthy listening is ordinary
+ // acquisition, not a reason to reboot before the next authenticated control.
+ cold();n30::NoTimeRetention acquisition;n30_lora_view receiver{};receiver.requested=receiver.active=true;
+ for(uint64_t at=0;at<=5*D;at+=100000){receiver.sampled_us=at;tick(at,acquisition.expected(true,false,receiver,at),0);assert(!fake::restarts);}
+ receiver.metadata_cached=true;receiver.sampled_us=5*D+1;tick(5*D+1,acquisition.expected(true,false,receiver,5*D+1),0);assert(!fake::restarts);
+ n30::NoTimeRetention stale;receiver={};receiver.requested=receiver.active=true;receiver.sampled_us=1;
+ assert(stale.expected(true,false,receiver,250001));receiver.sampled_us=250001;receiver.fault=true;assert(stale.expected(true,false,receiver,250001));
 #else
  cold();tick(0,true,0);tick(10*D,true,0);assert(!fake::restarts&&v12::fault_watchdog_status().mask==0);
 #endif
  // Original actual-fault supervision is still120s, independently of no time.
  cold();tick(0,true,0,v12::FaultR2);tick(119999999,true,0,v12::FaultR2);assert(!fake::restarts);
  tick(120000000,true,0,v12::FaultR2);assert(fake::restarts==1&&v12::intent.first_mask==v12::FaultR2&&v12::intent.elapsed==120000000);
- std::puts("PASS actual supervisor/reset/RTC: N30 full300s no-time, recovery/OFF/rollback/overflow and unchanged120s fault/default W12");
+ std::puts("PASS actual supervisor/reset/RTC: N30 full720s no-time / W12 default300s, recovery/OFF/rollback/overflow and unchanged120s fault/default W12");
 }

@@ -24,6 +24,13 @@ int main(){
     assert(w12::synchronized_until(s,now)==0);
   }
 #ifdef PTOB_W12_LORA_RX
+  ptob::SourceAbsencePolicy absence;w12_lora_view acquisition{};acquisition.requested=acquisition.active=true;acquisition.sampled_us=now;
+  assert(w12::healthy_lora_receiver(acquisition,now)&&!absence.observe(true,false,w12::healthy_lora_receiver(acquisition,now)));
+  assert(!w12::synchronized_until(v12::R2Status{},acquisition,now)); // Healthy RX grants no time.
+  assert(!w12::healthy_lora_receiver(acquisition,now+250000));
+  assert(absence.observe(true,false,w12::healthy_lora_receiver(acquisition,now+250000)));
+  acquisition.fault=true;assert(!w12::healthy_lora_receiver(acquisition,now));
+  acquisition.fault=false;assert(!w12::healthy_lora_receiver(acquisition,now-1));
   w12_lora_view l{};l.active=l.requested=l.time_valid=true;l.state=2;l.emitter=1;l.root=2;l.root_boot=3;l.source_epoch=4;l.utc_us=1700000000000000;l.sampled_us=now;l.until_us=now+12000000;
   v12::R2Status lost;uint64_t utc=0;
   assert(w12::lora_time(l,now,utc)&&utc==l.utc_us);
