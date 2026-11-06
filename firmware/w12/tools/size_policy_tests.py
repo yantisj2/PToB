@@ -77,9 +77,14 @@ class SizePolicyTests(unittest.TestCase):
             self.check_policy()
         self.rows[0]['command'] += ' -fno-inline-functions-called-once'
         self.check_policy()
-        self.rows[1]['command'] += ' -fno-inline-functions-called-once'
+        self.rows.append({'file': '/app/radio.cpp', 'command': 'cc -Os -fno-inline-functions-called-once -o esp-idf/main/CMakeFiles/__idf_main.dir/radio.cpp.obj'})
         with self.assertRaisesRegex(ValueError, 'inlining selection'):
             self.check_policy()
+
+    def test_existing_sdk_flash_inlining_is_preserved(self):
+        self.receipt['main_inlining'] = 'DEFAULT'
+        self.rows[1]['command'] += ' -fno-inline-functions-called-once'
+        self.check_policy()
 
     def test_default_and_overridden_inlining_are_checked(self):
         self.receipt['main_inlining'] = 'DEFAULT'

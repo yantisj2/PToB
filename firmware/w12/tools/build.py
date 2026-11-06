@@ -81,7 +81,8 @@ def validate_size_compilation(receipt,compiled,config):
  if inlining not in (None,'DEFAULT','GNSS_MAIN_SHARED_CALLEES_V1'):raise ValueError('Unknown W12 main inlining policy')
  if inlining is not None:
   for row in compiled:
-   tokens=shlex.split(row['command']);selected=row['file'].endswith('/native_main.cpp') and '__idf_main.dir/' in row['command'] and inlining=='GNSS_MAIN_SHARED_CALLEES_V1'
+   if '__idf_main.dir/' not in row['command']:continue
+   tokens=shlex.split(row['command']);selected=row['file'].endswith('/native_main.cpp') and inlining=='GNSS_MAIN_SHARED_CALLEES_V1'
    flags=[v for v in tokens if v in ('-finline-functions-called-once','-fno-inline-functions-called-once')]
    if flags!=(['-fno-inline-functions-called-once'] if selected else []):raise ValueError('W12 GNSS main inlining selection differs from receipt')
  for flag in ('CONFIG_COMPILER_OPTIMIZATION_DEBUG=y','CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=y','CONFIG_COMPILER_OPTIMIZATION_ASSERTION_LEVEL=2'):
