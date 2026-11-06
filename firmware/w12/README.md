@@ -75,35 +75,17 @@ absolute-error threshold of **1 µs**, with populations, failures and coverage
 limits. `>=` is a lower bound; `--` means insufficient or stale evidence.
 Witness gaps remain unmeasured, and overlapping trials are correlated.
 
-LoRa AUTO/KEEP ON receive continuously to retain fresh authenticated metadata
-and a separate trained timing model. LoRa fit RMS describes internal consistency,
-not calibrated UTC error. The LR2021 hardware HeaderValid event uses W12's
-independent LoRa counter extension; BLE calibration and GNSS resources stay separate.
-The engineering99.328ms symbol-delay prior leaves the LR2021 endpoint unknown.
-The passive source has no original signed created/expires envelope, so its
-legacy RC9 wire1 server bridge is gated. RC9 client reception and valid legacy
-source-envelope behavior retain their original12s contract. A future passive
-bridge needs its own reviewed protocol; no source envelope or lease is synthesized.
-After LoRa supplies the local display, normal BLE returns after30 seconds
-of fresh qualified lock in one admitted scope. Permission-only gaps below1.5s
-pause this evidence and earn no credit; scope, quality and owner changes reset
-it. `lora diag` reports refusal, dwell progress and the first interruption.
-This affects the display;
-authenticated relay and RC9 permission retain their own original checks.
-Expired or unqualified LoRa yields immediately to fresh qualified BLE and retires
-its display latch. Independent LoRa availability cannot mask stalled BLE:
-after15s without a new physical corrected pair, recent eligible discovery or
-authenticated current-parent reception can request a BLE-only bounded rebind.
-The original2s drain, operator selection, authentication and fault gates apply.
-The watchdog retains learned boot information through ordinary reception loss.
-Fresh healthy LoRa reception suppresses destructive absence restarts while BLE
-recovery continues independently. CRC diagnostics retain parent history,
-watchdog timers and restart evidence; these records grant no timing permission.
-The GM fitting trial starts after usable admission; failed peers share their
-retry cooldown with selection. Delayed direct JOIN may establish coarse replay
-context below200ms uncertainty within the unchanged250ms exchange limit, while
-retaining full uncertainty and full causal source-expiry subtraction. Precision
-lock still requires fresh physical corrections.
+LoRa **AUTO/KEEP ON** stays warm with an independent timing model. BLE returns
+from live LoRa after **30 s of qualified same-scope time**; permission-only gaps
+below **1.5 s** pause the dwell. Expired or unqualified LoRa yields to fresh BLE.
+LoRa fit RMS and the engineering symbol-delay prior have unknown RF/UTC bounds;
+the passive source cannot feed the legacy RC9 server without its signed envelope.
+
+BLE has separate **15 s** no-progress recovery, using the original **2 s** owner
+drain and fresh admission. Learned boot information or healthy LoRa reception
+suppresses absence restarts while actual fault supervision continues.
+`lora diag` exposes BLE refusal/dwell, parent history and watchdog evidence.
+See the [recovery guide](../../docs/n30/dual-timing-state-machines.md) for details.
 
 Local HOLD preserves a BLE-trained estimate while ordinary source permission
 expires independently. Temperature experiments never steer production HOLD.

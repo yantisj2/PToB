@@ -41,18 +41,12 @@ Start with the target matching your hardware:
 For T096 GMs, follow the **[current GM7 guide](docs/t096/gm7-implementation.md)**
 for ACTIVE/HOT/COLD behavior and compatibility. T096 supports
 [location-based time zones and automatic DST](docs/t096/auto-time-zone-plan.md);
-W12, N30, StickS3 and CoreS3-SE consume authenticated GM time-zone metadata.
-N30 retains its last learned display offset for the boot; W12 uses the fresh
-metadata deadline and returns to UTC after expiry.
+W12, N30, StickS3 and CoreS3-SE receive authenticated GM time-zone metadata;
+the target guides define expiry and boot retention.
 StickS3 also exposes signed TZ metadata in passive diagnostics. Check each
 target's guide before pairing images. Passing direct-path windows and failed
 relay availability remain
 separate in the linked validation records; full certification remains open.
-
-N30 and W12 can receive independent passive LoRa time alongside BLE. Their
-consoles provide diagnostics; compatible T096 images provide the host USB timing
-stream. See the [receiver recovery and diagnostics guide](docs/n30/dual-timing-state-machines.md)
-for source selection, watchdogs and the offline gate required by candidate builds.
 
 See the [changelog](CHANGELOG.md) for recent development updates.
 
@@ -78,9 +72,10 @@ describes the proposed future storage/API; it is not implemented firmware.
 Firmware-rendered previews with illustrative values, not live measurements.
 Select a screen to open its target guide.
 
-[N30 clock, dual BLE/LoRa, Precision and receiver screens](firmware/n30/README.md) show its
-independent timing inputs and passive LoRa display fallback. N3-1/N3-2 onboarding
-requires verified factory identities; hardware qualification remains separate.
+[N30 screens](firmware/n30/README.md) cover BLE/LoRa selection and timing quality.
+The [N30/W12 recovery guide](docs/n30/dual-timing-state-machines.md) covers source
+states, diagnostics and offline checks. Exact-device onboarding and hardware
+qualification remain separate.
 
 For USB timing, ChronyControl tracking and client development updates, see the
 [macOS client README](clients/macos/README.md).

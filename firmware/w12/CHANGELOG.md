@@ -14,16 +14,12 @@ Return the bounded eight-event parent journal with overwrite/read-loss counts.
 The source-selection capsule and BLE refusal remain independent of output
 permission. Actual-supervisor offline tests are mandatory in the receiver gate.
 
-Finite functional validation on one W12 retained560 complete CRC frames across
-warm reception, an intentionally injected watchdog fault, the120-second reset
-and120s of post-reset observation. RTC evidence retained the test cause and
-prior boot; BLE following was sampled by4.230s and qualified BLE by9.864s in
-the new boot. Whole application, protected-prefix and necessary sector-tail
-readback passed. The preceding .38 receiver baseline retained1266 frames over
-600s, including one accepted BLE-only rebind and return to BLE selection.
-Host parser/collector failures and the first .39 native format-ABI build failure
-are separate retained failures. Raw exact-device logs and enrolled images remain
-private. These finite checks do not qualify endurance or UTC/output accuracy.
+Validation: one W12, 560 CRC frames across reception, an injected 120 s watchdog
+reset and 120 s post-reset observation. Readback and RTC cause passed; following
+was sampled by 4.230 s and qualified BLE by 9.864 s after reboot. The .38 baseline
+retained 1,266 frames over 600 s with one BLE-only rebind. Host parser/collector and
+initial native-format build failures remain separate. Raw logs/images stay
+private; endurance and UTC/output accuracy remain unqualified.
 
 ## 0.2.38 — 2026-11-06
 

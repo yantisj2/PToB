@@ -5,38 +5,16 @@ Copyright (c) 2026 Jonathan Yantis. MIT.
 Native builds [clean compiler output and retain the latest two image bundles](../firmware-storage.md)
 per device/profile, with installed/recovery pins preserved.
 
-Paused relay capability-data updates tolerate transient controller-capacity
-0x207 with100ms bounded retries, at most three attempts within500ms. Failed
-commands never count as publication; persistent/other errors remain faults.
+[Receiver recovery and diagnostics](../n30/dual-timing-state-machines.md) defines
+BLE acquisition, source selection, watchdogs and the required candidate gate.
+The receipt binds those policies and the selected public passive codec/core.
+BLE100 is required for the optional fine-clock/estimated-relay/LoRa combination;
+BLE50 remains client-only. Passive LoRa cannot supply the legacy RC9 server's
+signed source envelope.
 
-BLE acquisition uses a15s physical-progress supervisor independently of LoRa.
-Recent eligible discovery or authenticated current-parent PA can request the
-existing BLE-only rebind, bounded by its original2s drain and fresh admission.
-Explicit OFF, actual faults, operator pins and independent RC9 fallback retain
-their policies. No quality-only restart occurs while physical corrections
-continue. Builds record the W12 acquisition, startup and coarse-bootstrap
-contracts and require `PTOB_W12_BLE_RECOVERY=1` in the owner/status consumers.
-The coarse JOIN ceiling is200000us; the250ms exchange TTL, full causal RTT,
-source-bound/drift expiry subtraction and original precision gates remain.
-
-Passive wire3/schedule8 LR2021 reception cannot feed the legacy RC9 server
-without an original signed source envelope. RC9 client behavior and wire1's12s
-contract remain unchanged. The shared passive codec/core and selected headers
-enter the immutable source and runtime manifests; normal builds need only this
-public repository. Expired/unqualified LoRa retires its display latch when
-qualified BLE returns; live qualified LoRa requires30s of qualified same-scope BLE time. Permission-only
-gaps below1.5s pause the dwell; longer gaps, changed quality/source and hard
-fences restart it. The source selector grants no permission during a gap.
-
-The existing storage policy preserves exact receive/estimator history while
-reducing fixed storage. GNSS profiles reserve the full 8192-byte host stack
-statically and check creation. Application watchdogs have a five-second minimum;
-actual-fault/unlearned-absence restart intervals are120/720 seconds. Learned
-boot information or fresh healthy LoRa reception suppresses absence restarts.
-All main-component
-sources use `-Os`, with SDK/controller assertions and the 1 MiB application
-ceiling preserved. [Version history](../../firmware/w12/CHANGELOG.md) records
-individual changes; [holdover](holdover.md) defines the current model and P99.
+GNSS profiles reserve an **8 KiB** host stack statically. Main-component
+sources use `-Os`; SDK/controller assertions and the **1 MiB** application ceiling
+remain enforced. See [holdover](holdover.md) for the production model and P99.
 
 Use the offline runner for normal iteration. It operates no hardware:
 
