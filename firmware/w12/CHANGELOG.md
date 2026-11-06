@@ -2,6 +2,10 @@
 
 ## 0.2.39 — 2026-11-06
 
+Keep the full GNSS/radio image within its existing 1 MiB slot by sharing
+main-loop callees. Capture, BLE owner and SDK/controller flags are unchanged;
+the inspector checks the exact compiler selection and retained stack evidence.
+
 Share N30's source-absence policy: learned boot information and a fresh healthy
 LoRa receiver suppress destructive absence restarts without granting time or
 changing driver/worker fault supervision. Unlearned absence uses the full

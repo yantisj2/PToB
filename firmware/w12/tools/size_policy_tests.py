@@ -71,6 +71,27 @@ class SizePolicyTests(unittest.TestCase):
         self.rows[0]['command'] = 'cc -Og -Os -o "esp-idf/main/CMakeFiles/__idf_main.dir/folder with spaces/native_main.cpp.obj"'
         self.check_policy()
 
+    def test_gnss_shared_callees_are_limited_to_main(self):
+        self.receipt['main_inlining'] = 'GNSS_MAIN_SHARED_CALLEES_V1'
+        with self.assertRaisesRegex(ValueError, 'inlining selection'):
+            self.check_policy()
+        self.rows[0]['command'] += ' -fno-inline-functions-called-once'
+        self.check_policy()
+        self.rows[1]['command'] += ' -fno-inline-functions-called-once'
+        with self.assertRaisesRegex(ValueError, 'inlining selection'):
+            self.check_policy()
+
+    def test_default_and_overridden_inlining_are_checked(self):
+        self.receipt['main_inlining'] = 'DEFAULT'
+        self.check_policy()
+        self.rows[0]['command'] += ' -fno-inline-functions-called-once'
+        with self.assertRaisesRegex(ValueError, 'inlining selection'):
+            self.check_policy()
+        self.receipt['main_inlining'] = 'GNSS_MAIN_SHARED_CALLEES_V1'
+        self.rows[0]['command'] += ' -finline-functions-called-once'
+        with self.assertRaisesRegex(ValueError, 'inlining selection'):
+            self.check_policy()
+
 
 if __name__ == '__main__':
     unittest.main()

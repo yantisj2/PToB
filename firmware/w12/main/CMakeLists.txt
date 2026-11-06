@@ -109,6 +109,11 @@ target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=printf" "-Wl,--wrap
 # Bound the full GNSS/TZ/LoRa/RC9 application inside the existing 1 MiB slot.
 # Keep SDK/controller options and assertions unchanged.
 target_compile_options(${COMPONENT_LIB} PRIVATE -fstack-usage -Os)
+if(PTOB_W12_GNSS_INDICATORS)
+  # Share main-loop callees to retain the full GNSS/radio diagnostics in 1 MiB.
+  # Counter capture, BLE owner and SDK/controller compilation stay unchanged.
+  set_source_files_properties("native_main.cpp" PROPERTIES COMPILE_OPTIONS "-fno-inline-functions-called-once")
+endif()
 
 if(V12_R2_PROFILE STREQUAL "r2-g1")
   target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=ble_hs_hci_cmd_tx" "-Wl,--wrap=ble_hs_hci_rx_evt")

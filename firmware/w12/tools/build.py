@@ -77,6 +77,13 @@ def validate_size_compilation(receipt,compiled,config):
  for tokens in rows:
   optimization=[v for v in tokens if re.fullmatch(r'-O(?:[0-3sgz]|fast)',v)]
   if not optimization or optimization[-1]!=policy:raise ValueError('W12 main component must compile with effective '+policy)
+ inlining=receipt.get('main_inlining')
+ if inlining not in (None,'DEFAULT','GNSS_MAIN_SHARED_CALLEES_V1'):raise ValueError('Unknown W12 main inlining policy')
+ if inlining is not None:
+  for row in compiled:
+   tokens=shlex.split(row['command']);selected=row['file'].endswith('/native_main.cpp') and '__idf_main.dir/' in row['command'] and inlining=='GNSS_MAIN_SHARED_CALLEES_V1'
+   flags=[v for v in tokens if v in ('-finline-functions-called-once','-fno-inline-functions-called-once')]
+   if flags!=(['-fno-inline-functions-called-once'] if selected else []):raise ValueError('W12 GNSS main inlining selection differs from receipt')
  for flag in ('CONFIG_COMPILER_OPTIMIZATION_DEBUG=y','CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=y','CONFIG_COMPILER_OPTIMIZATION_ASSERTION_LEVEL=2'):
   if flag not in config.splitlines():raise ValueError('SDK optimization/assertion policy changed: '+flag)
 
@@ -217,6 +224,7 @@ def main():
  r['receiver_state_gate']={'receipt':str(a.state_machine_receipt.resolve()),'sha256':sha(a.state_machine_receipt),'status':'PASS_SOURCE_BOUND_OFFLINE'} if a.state_machine_receipt else None
  r['direct_parent_gap_policy']='SAME_DIRECT_PHYSICAL_TRAIN_STALL15S_NO_TIME_V2'
  r['relay_cap_retry']='PAUSED_CAP_DATA207_100MS_3_ATTEMPTS_ORIGINAL_FENCES_V1'
+ r['main_inlining']='GNSS_MAIN_SHARED_CALLEES_V1' if 'gnss_profile' in d else 'DEFAULT'
  r['source_renewal_policy']='AUTH_GR3_MATCHED_ORIGINAL_MIN_BOTH_GRANTS_V1'
  r['dual_state_diagnostics']='MAIN_ELIGIBILITY_DWELL_FIRST_LOSS_PARENT8_LORA_CRC_V2'
  dump(out/'receipt.json',r)

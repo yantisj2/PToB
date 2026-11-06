@@ -13,7 +13,8 @@ BLE50 remains client-only. Passive LoRa cannot supply the legacy RC9 server's
 signed source envelope.
 
 GNSS profiles reserve an **8 KiB** host stack statically. Main-component
-sources use `-Os`; SDK/controller assertions and the **1 MiB** application ceiling
+sources use `-Os`; GNSS main-loop callees remain shared to limit image size.
+SDK/controller assertions and the **1 MiB** application ceiling
 remain enforced. See [holdover](holdover.md) for the production model and P99.
 
 Use the offline runner for normal iteration. It operates no hardware:
