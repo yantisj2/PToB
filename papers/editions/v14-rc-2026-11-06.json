@@ -1,0 +1,279 @@
+{
+  "schema_version": 1,
+  "title": "Passive Precision Time over BLE: V14 Service and Profile Release Candidate",
+  "author": "Jonathan Yantis",
+  "edition_date": "2026-11-06",
+  "status": "RELEASE_CANDIDATE_AUTHOR_REVIEW_NOT_PUBLISHED",
+  "paper_license": "CC-BY-4.0",
+  "license": "MIT",
+  "copyright": "2026 Jonathan Yantis",
+  "page_count": 9,
+  "base_repository_commit": "645fc454f7f6d0a75bac5172b66ae67ffe0c75c8",
+  "scope": "BLE service and profile review only. No firmware release, installation, hardware work, SIG submission, or public review approval.",
+  "previous_edition": {
+    "edition_date": "2026-10-30",
+    "revision": "a44e8a7ccde6e21aaea71f970155b21bbd072946",
+    "manifest": {
+      "path": "papers/editions/v14-sig-2026-10-30.json",
+      "bytes": 8723,
+      "sha256": "ffed6623bad6a3fe6c9e5ef00ec21abf2dab300483cc883b6c31e095cded724d"
+    },
+    "files": [
+      {
+        "path": "papers/ptob-v14-sig-proposal.tex",
+        "bytes": 27384,
+        "sha256": "ed19fd66ad886b7300134984c5d5c6c24add68b6938a7f0b6ba5a6e870fa236e"
+      },
+      {
+        "path": "papers/ptob-v14-sig-proposal.pdf",
+        "bytes": 56213,
+        "sha256": "c8db9ea9b166ea2b5e42b2bc33c0a90e924436cb97b8500b4b93314d41cacef2"
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "papers/ptob-v14-release-candidate.tex",
+      "bytes": 31986,
+      "sha256": "cd756832f67b81cfc1dcfea1e62754ee86d33fc19e2e4c4fbfd1435f31de7d0d"
+    },
+    {
+      "path": "papers/ptob-v14-release-candidate.pdf",
+      "bytes": 62185,
+      "sha256": "15bd587007179fffb14e85c2a8afe0cbdb3f22978cf64f6b33edb5c1953eb8da"
+    }
+  ],
+  "protocol_profile": {
+    "reference_target_source": "T096 0.15.326",
+    "gm": "GM7v4+S2+C1+TZ1, G7V4 revision 4",
+    "root_timing": "GR3 revision 3, 190-byte AD, G1 timing engine",
+    "relay_timing": "RC7 revision 7/profile 5, 190-byte AD",
+    "admission": "JOIN revision 5 and RQ revision 8/profile 5",
+    "wire_change_since_2026_10_30": "None; the new edition documents the selected byte bindings, authentication and current source policies."
+  },
+  "cited_local_sources": [
+    {
+      "path": "firmware/t096/CMakeLists.txt",
+      "bytes": 14090,
+      "sha256": "f757d3ca5cd18f08d3c4bd0f467964c25e80344f1749baa4ff938de21b25bf40"
+    },
+    {
+      "path": "firmware/t096/CHANGELOG.md",
+      "bytes": 180454,
+      "sha256": "5a4ef3a7ae187839679dad842e159e75a6c72607020874d784b55c3c1987cb7d"
+    },
+    {
+      "path": "firmware/t096/README.md",
+      "bytes": 19640,
+      "sha256": "fc20eb6167f2be0f0135035d1b5248336dc35ad16b3f84ae85c5f68d094d762b"
+    },
+    {
+      "path": "docs/t096/gm7-implementation.md",
+      "bytes": 17874,
+      "sha256": "f6ca4f32dfb1e2e04d0a66fb054af0c6332b575a3109c3b7562721103ffe96ef"
+    },
+    {
+      "path": "docs/t096/auto-time-zone-plan.md",
+      "bytes": 18062,
+      "sha256": "84d3a33221b4fa9f03c69189b88f350dc47743ef90b020a0c5c825407ea4425b"
+    },
+    {
+      "path": "docs/t096/holdover.md",
+      "bytes": 7985,
+      "sha256": "3ddac4f646b356f54aacb5f6fb257b1f07e5154ea1268bd7531a7a3b019195d3"
+    },
+    {
+      "path": "docs/n30/dual-timing-state-machines.md",
+      "bytes": 12748,
+      "sha256": "87c98c12ab8fea94cc0eca0e873ff3fd9cd3e37fbf9e22ceae6d24474e05817d"
+    },
+    {
+      "path": "protocol/gm7_birth_c1/README.md",
+      "bytes": 5203,
+      "sha256": "4b4e9c838427a82be87e5f5b71b7f1e05876699199535a53776bbcfcc64f0753"
+    },
+    {
+      "path": "protocol/gm7_simplified_s2/vectors.json",
+      "bytes": 7666,
+      "sha256": "e9c5c37fa080a3d880d1d6bf1006826ce03ee0d4865ac1d0b0a3a98a00bd6c81"
+    },
+    {
+      "path": "protocol/time-zone-v1/README.md",
+      "bytes": 4365,
+      "sha256": "e5bd4621ccffd2fe79523ccf9b725eb10fdd70ef5bffd2bd6f1096a6a7b5004e"
+    },
+    {
+      "path": "protocol/time-zone-v1/vectors.json",
+      "bytes": 2317,
+      "sha256": "05ac3e845ca5f6453ec79f370812acce76be7a0063f89f705b87d26235fbab26"
+    },
+    {
+      "path": "tools/time_zones/README.md",
+      "bytes": 5049,
+      "sha256": "8042b399db85df608d398321a6570af4da8dcab605f6dcedc8a4c52657c30188"
+    },
+    {
+      "path": "tools/time_zones/zones.json",
+      "bytes": 6293,
+      "sha256": "2c765ff8ec319f11180a9466fcdac2bec8b27697129e0a8b25c1f33302dbbac3"
+    },
+    {
+      "path": "firmware/t096/include/rc_admission_policy.h",
+      "bytes": 5204,
+      "sha256": "9bd4cf4fd9a9dfe98cb7effd3562d3bde08371cb0b4cf43ec23ee7163ee89a81"
+    },
+    {
+      "path": "firmware/t096/src/gm7_service.c",
+      "bytes": 116071,
+      "sha256": "a273deb59cfae68f5635f6068602e11a1b8e7edc94c1459a6d52cd832e689758"
+    },
+    {
+      "path": "firmware/t096/src/rc_dynamic_service.c",
+      "bytes": 118987,
+      "sha256": "645b80d5abf1e04d108de1e8f85beca971393bd6f53c0e9f02d56c1dc5e7e20a"
+    },
+    {
+      "path": "firmware/t096/protocol/gm7_codec.c",
+      "bytes": 17174,
+      "sha256": "ae53b4b678498d219a008faa29dbec77422765b77bbbb54d20f65d024e0982f3"
+    },
+    {
+      "path": "firmware/t096/protocol/gm7_codec.h",
+      "bytes": 4674,
+      "sha256": "516c088ddf35a34985d9a90931cffcdfa3a73a1cc2a73046820a36b4e01a913c"
+    },
+    {
+      "path": "firmware/t096/protocol/gm7_owner.c",
+      "bytes": 54779,
+      "sha256": "2f62af725a902b6dbd8b34d417f94b03dcb883b04570b247f4859ae80df9a6f3"
+    },
+    {
+      "path": "firmware/t096/protocol/gm7_owner.h",
+      "bytes": 9351,
+      "sha256": "e8cf74a12da1899beb8713a7c7192a1385194c42a27517d98911183ba71e0d6b"
+    },
+    {
+      "path": "firmware/t096/protocol/group_auth.c",
+      "bytes": 3351,
+      "sha256": "a84826aaea8cacb85156fbaae5a51e382b708215ebfa97c3a29f846b4b334ab3"
+    },
+    {
+      "path": "firmware/t096/protocol/group_auth.h",
+      "bytes": 1003,
+      "sha256": "959a6b7fed23100448ac7de442d38806a146897b4c53038a0087fce298caaf87"
+    },
+    {
+      "path": "firmware/t096/protocol/group_precision.c",
+      "bytes": 11794,
+      "sha256": "a4ef2cbe361201451fa87c6fb168db336c0de4c29cb1583a0582b78e7389faf3"
+    },
+    {
+      "path": "firmware/t096/protocol/relay_codec.c",
+      "bytes": 6804,
+      "sha256": "3fd89655032fa5c444515c58a184aaf1d63d89382271b2facf14ac50bb65a936"
+    },
+    {
+      "path": "firmware/t096/protocol/rc_dynamic.c",
+      "bytes": 21544,
+      "sha256": "ce1a9164f96eeae2798a7b5542ca84d4fd1e995b899f8528d5d8fefde776c151"
+    },
+    {
+      "path": "firmware/t096/protocol/rc_dynamic.h",
+      "bytes": 4562,
+      "sha256": "116404b746bed683922d501a1d14022098e01e0577798aae99fceee7be8564bb"
+    },
+    {
+      "path": "firmware/t096/protocol/group_join.c",
+      "bytes": 11246,
+      "sha256": "b3c1cb17e00a4bae3baf86550d799bd2a32fc819a0eadd047cb8f1bc77f1959c"
+    },
+    {
+      "path": "firmware/t096/protocol/group_join.h",
+      "bytes": 4173,
+      "sha256": "738327a0266808bd31e37d0b6cddbbd47c989835ccca30764522d417b70ba6c0"
+    },
+    {
+      "path": "firmware/t096/protocol/group_control.h",
+      "bytes": 2469,
+      "sha256": "d3534296c2caefbd5af002e687dc1ea700b0a2d0d6209e62e32b44567d7cbff1"
+    },
+    {
+      "path": "firmware/t096/protocol/ble_transport.c",
+      "bytes": 81344,
+      "sha256": "68fc2e2f9507f0bc171e47f5b19a53b0e7ed7fbf4f934a383b47c83473c3bf30"
+    }
+  ],
+  "external_reference": {
+    "publisher": "Bluetooth SIG",
+    "title": "Bluetooth Core Specification v7.0",
+    "locator": "Vol. 6, Part B, §4.4.2.12",
+    "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v7.0/out/en/low-energy-controller/linklayer-ll--specification.html",
+    "scope": "Bluetooth bearer terminology only."
+  },
+  "evidence_cutoff_date": "2026-10-29",
+  "evidence_scope": "No new empirical population. The cited 0.15.209 observations retain the passed direct and failed relay windows separately; no new hardware, field availability, DST transition, precision or output qualification.",
+  "build": {
+    "compiler": "Tectonic 0.17.0",
+    "bundle_sha256": "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
+    "command": "SOURCE_DATE_EPOCH=1794024000 tectonic --outdir artifacts/papers papers/ptob-v14-release-candidate.tex",
+    "repeat_build_byte_identical": true,
+    "warnings": "Two underfull hboxes in the TZ section; no overflow, missing glyph or unresolved reference."
+  },
+  "review": {
+    "human_review": "Pending",
+    "public_review_approved": false,
+    "all_pages_visually_inspected": true,
+    "pages_inspected": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "rendering": "Poppler pdftoppm, 115 dpi",
+    "offline_checks": [
+      {
+        "runner": {
+          "path": "firmware/t096/tools/gm7_tests.py",
+          "bytes": 20391,
+          "sha256": "a4108ddd7a52037673dc37ad9f39b82c441041dcc93c4d3bfb113a1c8ddf9e96"
+        },
+        "result": "PASS",
+        "scope": "Production GM7 codec, owner, nomination, lifecycle and simulated controller boundaries. The frozen GM7 v3 vectors retain their original scope."
+      },
+      {
+        "runner": {
+          "path": "firmware/t096/tools/gm7_pt_recovery_tests.py",
+          "bytes": 5179,
+          "sha256": "b95e8a767ccc775e44d19d0802a737bf77059b042d754329f010ad6057093005"
+        },
+        "result": "PASS",
+        "scope": "Direct G1 matching, causal maps, source expiry and follower recovery."
+      },
+      {
+        "runner": {
+          "path": "firmware/t096/tools/time_zone_tests.py",
+          "bytes": 6857,
+          "sha256": "a2f68e7b7fb91ead638bc4d77939b4ad40a613aa02642057b86134d85a8ac242"
+        },
+        "result": "PASS",
+        "scope": "Current coarse codecs, synthetic vectors and independent HMAC, TZ ordering and leases."
+      },
+      {
+        "runner": {
+          "path": "firmware/t096/tools/rc_renewal_tests.py",
+          "bytes": 2525,
+          "sha256": "d8522c2160e3dd1f00f01c2c2fa5b6c472118b399252f6faed05ae4a91920830"
+        },
+        "result": "PASS",
+        "scope": "RC7 timing encode/decode, path/renewal and tag refusal; LLVM Clang."
+      }
+    ],
+    "prior_edition_and_import_check": "PASS: python3 tools/verify_v14.py",
+    "coverage_limit": "Host tests and synthetic vectors do not establish field failover, relay availability or calibrated UTC."
+  }
+}

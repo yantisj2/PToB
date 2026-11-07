@@ -150,8 +150,8 @@ The awake timing information and power scheduling pilot retains its
 **19 October 2026** edition. The
 USB/chrony and White Rabbit papers retain their **15–17 October** editions.
 The main viability synthesis is **approved for public draft review**.
-The V14 service/profile proposal has a **30 October author-review draft**;
-its companion boundary-clock study retains its **12 October** edition.
+The V14 service/profile paper has a **6 November release candidate for author
+review**; its companion boundary-clock study retains its **12 October** edition.
 All remain discussion/research drafts, without standards
 adoption or firmware qualification. Earlier import receipts retain their original
 byte identities; later editions are recorded separately.
@@ -270,20 +270,25 @@ Original internal paths in the manuscripts identify historical evidence; public
 counterparts and exclusions are listed in the collection. No new hardware tests,
 website deployment or manuscript submission accompanied this import.
 
-## V14 proposal and boundary-clock study
+## V14 release candidate and boundary-clock study
 
 | Draft | Read | Edit |
 | --- | --- | --- |
+| Passive Precision Time over BLE: V14 Service and Profile Release Candidate | [PDF](ptob-v14-release-candidate.pdf) | [LaTeX](ptob-v14-release-candidate.tex) |
 | Passive Precision Time over BLE: V14 Candidate Service and Profile Proposal | [PDF](ptob-v14-sig-proposal.pdf) | [LaTeX](ptob-v14-sig-proposal.tex) |
 | Passive Precision Time over BLE: V14 Boundary Clocks, Causal Timestamping, and Prospective One-Relay Validation | [PDF](ptob-v14-preprint.pdf) | [LaTeX](ptob-v14-preprint.tex) |
 
-The **30 October 2026 author-review proposal** describes the current
-GM7 broadcast election/HOT succession, RC7 dynamic paths and coarse TZ/DST
-metadata. It contains no design-history comparison or new empirical accuracy
-claim. Its [edition manifest](editions/v14-sig-2026-10-30.json) binds the matching
-source/PDF and reviewed public source snapshots. Run
+The **6 November 2026 release candidate** is for author review before public
+review. It pins the T096 0.15.326 BLE source snapshot and specifies G7V4
+control and observations, GR3 root timing, RC7/profile 5 relay timing, JOIN5
+and revision 8 relay admission/capability. It separates GM liveness, timing
+permission, and HOT eligibility. The [edition manifest](editions/v14-rc-2026-11-06.json)
+binds the source, PDF, codec inputs and offline checks. Public review approval
+and physical qualification are separate.
+
+The **30 October 2026 author-review proposal** and its
+[edition manifest](editions/v14-sig-2026-10-30.json) remain unchanged. Run
 `python3 tools/verify_v14_proposal.py` for offline identity and coarse-wire checks.
-Publication/submission approval is pending; the paper remains a proposal.
 
 The unchanged **12 October boundary-clock study** has evidence cutoff
 **2026-10-12T18:26:44.293859Z**, with specification
@@ -387,6 +392,7 @@ tectonic --outdir artifacts/papers papers/ptob-proposal.tex
 tectonic --outdir artifacts/papers papers/ptob-preprint.tex
 tectonic --outdir artifacts/papers papers/oscillator-pll-research-20261003.tex
 tectonic --outdir artifacts/papers papers/ptob-v14-sig-proposal.tex
+tectonic --outdir artifacts/papers papers/ptob-v14-release-candidate.tex
 tectonic --outdir artifacts/papers papers/ptob-v14-preprint.tex
 tectonic --outdir artifacts/papers papers/usb-macos-time-transfer-preprint.tex
 tectonic --outdir artifacts/papers papers/white-rabbit-study-20261015.tex
@@ -417,6 +423,9 @@ and verify its edition. No sleep energy or calibrated output qualification is cl
 
 Jonathan Yantis. *Passive Precision Time over BLE: V14 Candidate Service and
 Profile Proposal.* Author-review discussion draft, 30 October 2026.
+
+Jonathan Yantis. *Passive Precision Time over BLE: V14 Service and Profile
+Release Candidate.* Author review copy, 6 November 2026.
 
 Jonathan Yantis. *Passive Precision Time over BLE: V14 Boundary Clocks, Causal
 Timestamping, and Prospective One-Relay Validation.* Research preprint, draft,

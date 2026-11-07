@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-06 — V14 BLE release candidate for author review
+
+- Prepare the V14 BLE service/profile paper for author review, preserving the
+  October proposal. Pin the current reference source and specify G7V4 fields,
+  GR3/RC7 timing, JOIN5/revision 8 coarse admission and authentication coverage.
+- Separate GM liveness and HOT succession from time delivery, preserve the
+  failed historical relay availability gate, and leave physical qualification
+  and public review approval open.
+
 ## 2026-11-02 — publish Pi research and target independently of LoRa development
 
 - Publish the approved Pi/M-HAT paper, complete measured results, target source,
