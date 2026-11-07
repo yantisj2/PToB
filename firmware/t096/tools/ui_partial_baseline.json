@@ -1,0 +1,321 @@
+{
+  "copyright": "2026 Jonathan Yantis",
+  "elf_sha256": "86a175667f87044c4f18c3bd399be3d554676b612a8762230964a9568e411fb6",
+  "license": "CC-BY-4.0",
+  "purpose": "Named mutable-object baseline only; no hardware or precision qualification.",
+  "schema": 1,
+  "source_commit": "915636508ec7b366832f61c885f42fdf92d8f81f",
+  "source_sha256": "896e7536f9d719df9e2391f44cd3ca0856d759f99055c9ab16d203fe92d8e944",
+  "units": {
+    "display.c": {
+      "brightness": {
+        "bytes": 1,
+        "section": "datas",
+        "type": "SHT_PROGBITS"
+      },
+      "cached.1": {
+        "bytes": 2,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "command_bytes": {
+        "bytes": 16,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "due.3": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "frame_dma": {
+        "bytes": 5120,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "observed.0": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "transaction_deadline": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "tx": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "tx_set": {
+        "bytes": 8,
+        "section": "datas",
+        "type": "SHT_PROGBITS"
+      },
+      "valid.2": {
+        "bytes": 1,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      }
+    },
+    "ui_render.c": {},
+    "ui_service.c": {
+      "analog_ack": {
+        "bytes": 40,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "ble_toggle": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "close_state": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "context_flags": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "context_revision": {
+        "bytes": 4,
+        "section": "datas",
+        "type": "SHT_PROGBITS"
+      },
+      "context_seen": {
+        "bytes": 1,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "control_serial": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "drawn_context": {
+        "bytes": 4,
+        "section": "datas",
+        "type": "SHT_PROGBITS"
+      },
+      "drawn_hint": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "framebuffer": {
+        "bytes": 12800,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "history_context": {
+        "bytes": 4,
+        "section": "datas",
+        "type": "SHT_PROGBITS"
+      },
+      "input_button": {
+        "bytes": 16,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "input_changed": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "input_due": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "input_error": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "input_idle_since": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "input_last": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "input_last_poll": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "input_ready": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "input_stable": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "input_virtual_until": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "learned_tz": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "logic_bad_at": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "logic_bad_policy": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "logic_due_ms": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "logic_revision": {
+        "bytes": 4,
+        "section": "datas",
+        "type": "SHT_PROGBITS"
+      },
+      "logic_signature": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "lora_toggle": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "model": {
+        "bytes": 752,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "model_context": {
+        "bytes": 4,
+        "section": "datas",
+        "type": "SHT_PROGBITS"
+      },
+      "model_hint": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "model_interval": {
+        "bytes": 4,
+        "section": "datas",
+        "type": "SHT_PROGBITS"
+      },
+      "model_labels": {
+        "bytes": 24,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "model_lora_emitter": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "model_requested": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "model_serial": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "poweroff_request": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "press_request": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "profile_toggle": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "published_context": {
+        "bytes": 40,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "shadow_due": {
+        "bytes": 8,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "shadow_scope": {
+        "bytes": 40,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "shadow_session": {
+        "bytes": 4272,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "source_hint": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "source_loss_ms": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "source_loss_revision": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "started": {
+        "bytes": 1,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "status": {
+        "bytes": 248,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "stop_requested": {
+        "bytes": 4,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "thread": {
+        "bytes": 160,
+        "section": "bss",
+        "type": "SHT_NOBITS"
+      },
+      "ui_lock": {
+        "bytes": 20,
+        "section": "k_mutex_area",
+        "type": "SHT_PROGBITS"
+      }
+    }
+  }
+}

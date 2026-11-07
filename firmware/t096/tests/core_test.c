@@ -50,9 +50,13 @@ static void parse_tests(void)
   r.boot=0;assert(!r2_bound(&r,silicon,source,123));
   snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b yield 01",silicon,source);
   assert(r2_parse(command,&r));
-  for(unsigned chunk=255;chunk<=264;chunk++){
+  for(unsigned chunk=0;chunk<=640;chunk++){
    snprintf(command,sizeof command,"r2 00000002 %s %s 000000000000007b diag %04x",silicon,source,chunk);
-   if(chunk<264)assert(!r2_parse(command,&r)&&r.op==R2_DIAG&&r.trace_page==chunk);
+   bool accepted=chunk<264;
+#ifdef R2_FAULT_DURABLE
+   accepted=accepted||(chunk>=512&&chunk<640);
+#endif
+   if(accepted)assert(!r2_parse(command,&r)&&r.op==R2_DIAG&&r.trace_page==chunk);
    else assert(r2_parse(command,&r));
   }
   const char *bad[]={"", "r2", "r2 00000000", " r2", "r2  1", "r2 1 ", "r2\t1"};
@@ -119,9 +123,34 @@ static void maintenance_tests(void)
   assert(!r2_closed(&m,1999,0)); r2_expire(&m,m.deadline);
   assert(r2_commit(&m,4,m.deadline-1,m.deadline)==-EACCES && m.phase==R2_FAULT);
 }
+static void admission_tests(void)
+{
+  struct r2_request r={.id=1,.op=R2_STATUS};
+  strcpy(r.silicon,silicon);strcpy(r.source,source);
+  uint32_t floor=UINT32_C(0xa7000000);
+  /* A reconnect can always discover the boot/cursor without consuming it. */
+  assert(r2_admit(&r,silicon,source,123,100,101,&floor)&&floor==UINT32_C(0xa7000000));
+  r.id=UINT32_MAX;assert(r2_admit(&r,silicon,source,123,100,101,&floor)&&floor==UINT32_C(0xa7000000));
+  r.op=R2_PREPARE;r.boot=123;r.id=floor;
+  assert(!r2_admit(&r,silicon,source,123,100,101,&floor));
+  r.id=floor+1;
+  assert(!r2_admit(&r,"1000000000000002",source,123,100,101,&floor));
+  assert(!r2_admit(&r,silicon,source,124,100,101,&floor));
+  assert(!r2_admit(&r,silicon,source,123,102,101,&floor));
+  assert(!r2_admit(&r,silicon,source,123,100,100+R2_REPLY_MS,&floor));
+  assert(floor==UINT32_C(0xa7000000));
+  assert(r2_admit(&r,silicon,source,123,100,100+R2_REPLY_MS-1,&floor)&&floor==r.id);
+  assert(!r2_admit(&r,silicon,source,123,100,101,&floor));
+  r.op=R2_TRACE;r.id=1;assert(!r2_admit(&r,silicon,source,123,100,101,&floor));
+  floor=UINT32_MAX;r.id=1;r.op=R2_COMMIT;
+  assert(!r2_admit(&r,silicon,source,123,100,101,&floor)&&floor==UINT32_MAX);
+  r.op=R2_STATUS;assert(r2_admit(&r,silicon,source,123,100,101,&floor)&&floor==UINT32_MAX);
+  r.boot=124;assert(!r2_admit(&r,silicon,source,123,100,101,&floor));
+  r.boot=0;r.id=0;assert(!r2_admit(&r,silicon,source,123,100,101,&floor));
+}
 int main(void)
 {
-  parse_tests(); maintenance_tests();
+  parse_tests(); maintenance_tests();admission_tests();
   assert(r2_crc32("123456789",9)==0xcbf43926);
   char frame[128];assert(r2_frame(frame,8,1,1,"{}") == -ENOSPC);
   int n=r2_frame(frame,sizeof(frame),1,2,"{}");assert(n>0 && (size_t)n==strlen(frame));

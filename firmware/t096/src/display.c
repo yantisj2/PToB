@@ -26,28 +26,44 @@ static uint8_t command_bytes[16];
  * it, and only after the prior public completion/abort has retired DMA. */
 _Alignas(4) static uint8_t frame_dma[R2_UI_DMA_BYTES];
 static int64_t transaction_deadline;
+/* Sole synchronous owner; distinguishes optional pre-wire admission refusal
+ * without changing legacy full-frame/init errno semantics. */
+#ifdef R2_UI_PARTIAL_JOBS
+static bool ui_region_budget_mode;
+#define REGION_MODE ui_region_budget_mode
+#else
+#define REGION_MODE false
+#endif
 static int transfer(const uint8_t *data,size_t size)
 {
  /* Pinned synchronous SPIM owns timeout/STOP/DISABLE cleanup. Reserve the
   * entire computed wire time +10ms tolerance +1ms cleanup before submitting.
   * A failed frame remains failed; no new call borrows beyond its deadline. */
  int64_t reserve=(size*8*1000+config.frequency-1)/config.frequency+11;
- if(transaction_deadline-k_uptime_get()<reserve)return -ETIMEDOUT;
+ if(transaction_deadline-k_uptime_get()<reserve)return REGION_MODE?R2_DISPLAY_BUDGET_DECLINED:-ETIMEDOUT;
  tx.buf=(void *)data;tx.len=size;
  int rc=spi_write(spi,&config,&tx_set);
+ if(REGION_MODE){
+  if(rc<0)return rc;
+  return k_uptime_get()>=transaction_deadline?R2_DISPLAY_EXPIRED:rc;
+ }
  return k_uptime_get()>=transaction_deadline?-ETIMEDOUT:rc;
 }
-static bool command(uint8_t value,const uint8_t *args,size_t n)
+static int command_status(uint8_t value,const uint8_t *args,size_t n)
 {
- if(n>sizeof(command_bytes))return false;
- if(gpio_pin_set_dt(&cs,1)||gpio_pin_set_dt(&dc,0))return false;
- command_bytes[0]=value;int rc=transfer(command_bytes,1);
+ if(n>sizeof(command_bytes))return -EINVAL;
+ int rc=gpio_pin_set_dt(&cs,1);if(!rc)rc=gpio_pin_set_dt(&dc,0);if(rc)return rc;
+ command_bytes[0]=value;rc=transfer(command_bytes,1);
  if(!rc&&n){memcpy(command_bytes,args,n);rc=gpio_pin_set_dt(&dc,1);if(!rc)rc=transfer(command_bytes,n);}
- {int end=gpio_pin_set_dt(&cs,0);if(!rc)rc=end;}
- return rc==0;
+ {int end=gpio_pin_set_dt(&cs,0);if(!rc||(end<0&&rc>=0))rc=end;}
+ return rc;
 }
+static bool command(uint8_t value,const uint8_t *args,size_t n){return !command_status(value,args,n);}
 int r2_display_init(void)
 {
+#ifdef R2_UI_PARTIAL_JOBS
+ ui_region_budget_mode=false;
+#endif
  transaction_deadline=k_uptime_get()+500; /* Entire initialization, including sleeps. */
  if(!device_is_ready(spi))return -ENODEV;
  if(!pwm_is_ready_dt(&backlight))return -ENODEV;
@@ -105,6 +121,9 @@ int r2_display_init(void)
 }
 int r2_display_frame(const uint8_t *fb)
 {
+#ifdef R2_UI_PARTIAL_JOBS
+ ui_region_budget_mode=false;
+#endif
  transaction_deadline=k_uptime_get()+250;
  const uint8_t col[]={0,24,0,103},row[]={0,0,0,159};
  if(!command(0x2a,col,4)||!command(0x2b,row,4)||!command(0x2c,0,0))return -EIO;
@@ -120,6 +139,47 @@ int r2_display_frame(const uint8_t *fb)
  {int done=gpio_pin_set_dt(&cs,0);if(!rc)rc=done;}
  return rc;
 }
+#ifdef R2_UI_PARTIAL_JOBS
+int r2_display_region(const uint8_t *fb,unsigned x,unsigned y,unsigned w,unsigned h,
+ uint64_t deadline,r2_display_checkpoint_fn checkpoint,void *context)
+{
+ if(!fb||!w||!h||x>=R2_UI_WIDTH||y>=R2_UI_HEIGHT||w>R2_UI_WIDTH-x||
+    h>R2_UI_HEIGHT-y||w*h>R2_UI_DMA_PIXELS||deadline>INT64_MAX)return -EINVAL;
+ transaction_deadline=(int64_t)deadline;
+ ui_region_budget_mode=true;
+ uint8_t col[]={0,(uint8_t)(x+24),0,(uint8_t)(x+w+23)};
+ uint8_t row[]={0,(uint8_t)y,0,(uint8_t)(y+h-1)};
+ int rc=0;
+ rc=command_status(0x2a,col,sizeof col);
+ if(!rc&&checkpoint&&!checkpoint(context,R2_DISPLAY_WINDOW))rc=R2_DISPLAY_OBSOLETE;
+ if(!rc){
+  rc=command_status(0x2b,row,sizeof row);
+  if(!rc&&checkpoint&&!checkpoint(context,R2_DISPLAY_WINDOW))rc=R2_DISPLAY_OBSOLETE;
+ }
+ if(!rc){
+  rc=command_status(0x2c,NULL,0);
+  if(!rc&&checkpoint&&!checkpoint(context,R2_DISPLAY_WINDOW))rc=R2_DISPLAY_OBSOLETE;
+ }
+ if(!rc&&checkpoint&&!checkpoint(context,R2_DISPLAY_PREPARE))rc=R2_DISPLAY_OBSOLETE;
+ for(unsigned r=0;!rc&&r<h;r++){
+  if(!r2_ui_expand_rgb565(frame_dma+r*w*2,sizeof frame_dma-r*w*2,
+      fb+(y+r)*R2_UI_WIDTH+x,w))rc=-EINVAL;
+  else if(checkpoint&&!checkpoint(context,R2_DISPLAY_EXPAND))rc=R2_DISPLAY_OBSOLETE;
+ }
+ if(!rc&&checkpoint&&!checkpoint(context,R2_DISPLAY_SUBMIT))rc=R2_DISPLAY_OBSOLETE;
+ if(!rc)rc=gpio_pin_set_dt(&cs,1);
+ if(!rc)rc=gpio_pin_set_dt(&dc,1);
+ if(!rc)rc=transfer(frame_dma,w*h*2);
+ /* The public synchronous call has returned before CS cleanup/checkpoint.
+  * A callback can neither cancel nor rewrite driver-owned DMA. */
+ {int end=gpio_pin_set_dt(&cs,0);if(!rc||(end<0&&rc>=0))rc=end;}
+#ifdef R2_UI_PARTIAL_JOBS
+ ui_region_budget_mode=false;
+#endif
+ if(checkpoint)(void)checkpoint(context,R2_DISPLAY_RETIRED);
+ return rc;
+}
+#endif
 /* Only called by the sole UI owner after spi_write returned and the public
  * driver completed/aborted its transfer. No application peripheral reset. */
 int r2_display_recover(void){return gpio_pin_set_dt(&cs,0);}

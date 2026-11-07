@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Actual scanner/owner/service startup lifetime, original negative and WD bounds.
+"""Actual RAM diagnostic/owner startup lifetime, original negative and WD bounds.
 MIT. Copyright(c)2026 Jonathan Yantis. No hardware.
 """
 import argparse,hashlib,json,os,re,shutil,subprocess
@@ -8,7 +8,7 @@ APP=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);p.add_argument('--deps',type=Path,required=True);a=p.parse_args();O=a.out.resolve();O.mkdir(parents=True,exist_ok=False)
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def fn(s,name):
- m=re.search(r'^[^\n]*\b'+name+r'\([^;]*?\)\n\{',s,re.M);assert m,name
+ m=re.search(r'^[^\n]*\b'+name+r'\([^;]*?\)\s*\{',s,re.M);assert m,name
  start=s.index('{',m.start());depth=1;i=start+1
  while depth:
   depth+=(s[i]=='{')-(s[i]=='}');i+=1
@@ -19,12 +19,15 @@ def noincludes(s):return re.sub(r'^#(?:include|define R2_LOCK_UNIT)[^\n]*\n','',
 hw=noincludes((APP/'src/lora_hw.c').read_text());hw=re.sub(r'(?<![.])(?<!->)\bgeneration\b','hw_generation',hw);(O/'actual_hw.inc').write_text(hw)
 fixture=(APP/'tests/lora_hw_test.c').read_text().split('static void inject(int flags)')[0].replace('#include R2_LORA_OWNER_BODY','#include "actual_hw.inc"')
 (O/'actual_hw_fixture.inc').write_text(fixture)
-diagnostic=(APP/'src/diagnostic.c').read_text();selected='\n'.join(fn(diagnostic,n)for n in ['blank','binding','valid5','valid6','valid_record','valid_crash','event_binding_any_source','valid_event_any_source','protected_page','select_target','r2_diag_init'])
-for old,new in [('phase','diag_phase'),('generation','diag_generation'),('binding','scan_binding')]:selected=re.sub(r'(?<![.])(?<!->)\b'+old+r'\b',new,selected)
-# A deterministic high-priority observer at the flash-read and CRC-loop cuts;
-# these probes are test-only, never generated into firmware.
-anchor='crc^=bytes[k];';assert selected.count(anchor)==1;selected=selected.replace(anchor,'if(k==256)observer_probe(1);'+anchor)
-(O/'actual_diag.inc').write_text('/* Selected diagnostic.c bodies retain SPDX-License-Identifier: Apache-2.0. */\n'+selected+'\n')
+diagnostic=(APP/'src/diagnostic.c').read_text()
+declarations=diagnostic[diagnostic.index('static uint32_t package['):diagnostic.index('static void increment(')]
+selected=declarations.replace(' __aligned(4)','')+fn(diagnostic,'r2_diag_init')
+for name in ('phase','generation','identity'):
+ selected=re.sub(r'(?<![.])(?<!->)\b'+name+r'\b','diag_'+name,selected)
+# Inject the independent observer at the actual scratch initialization boundary.
+anchor='memset(&r2_diag_scratch,0,sizeof r2_diag_scratch);'
+assert selected.count(anchor)==1
+(O/'actual_diag.inc').write_text(selected.replace(anchor,'observer_probe(0);'+anchor)+'\n')
 (O/'zephyr').mkdir();(O/'zephyr/kernel.h').write_text('/* Host boundary is declared by fixture. */\n')
 main=(APP/'src/main.c').read_text();watchdog=(APP/'src/watchdog.c').read_text()
 assert main.index('r2_watchdog_boot(&identity)')<main.index('r2_diag_init(&identity)')<main.index('r2_lora_init(')
@@ -47,5 +50,5 @@ for fixed in [False,True]:
  for mode in [1,2,3]:
   with(O/(name+'-'+str(mode)+'.log')).open('x')as log:subprocess.run([str(O/name),str(mode)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=15)
   passed.append(name+'-'+str(mode))
-(O/'receipt.json').write_text(json.dumps({'hardware':False,'passed':passed,'readiness_storage':'one atomic_t outside shared512B union; native RAM delta measured separately','production_bodies':['r2_diag_init, valid schema/CRC and select_target','r2_lora_init, service_step, begin_stop, watchdog_check/poll','full lora_hw body including first-fault and sticky hardware fault'],'test_only_changes':['private hardware generation symbol renamed for TU composition','explicit observer calls at fake flash-read, actual CRC-loop cut and initialization cuts','original negative removes only readiness clear/publish/read gate'],'inputs':{str(p.relative_to(APP)):sha(p)for p in [APP/'src/lora_service.c',APP/'src/lora_hw.c',APP/'src/diagnostic.c',APP/'src/main.c',APP/'src/watchdog.c',APP/'tests/lora_hw_test.c',APP/'tests/lora_init_gate_test.c',APP/'tools/lora_init_gate_tests.py']},'limits':['Synthetic valid schema5 record only; no private flash/raw data','Scheduled observer/peripheral/kernel/flash/reset model boundaries; not exact prior physical scanner record proof','Controller/RF behavior and existing watchdog30s bound unchanged; native/field gates separate']},indent=2)+'\n')
-print('PASS composed actual scanner/LoRa initialization: old negative, preinit no-side-effect gate, publication ordering and original30s observer bounds')
+(O/'receipt.json').write_text(json.dumps({'hardware':False,'passed':passed,'readiness_storage':'one atomic_t outside shared512B union; native RAM delta measured separately','production_bodies':['r2_diag_init RAM scratch initialization','r2_lora_init, service_step, begin_stop, watchdog_check/poll','full lora_hw body including first-fault and sticky hardware fault'],'test_only_changes':['private hardware generation symbol renamed for TU composition','observer calls at actual scratch clear and initialization cuts','original negative removes only readiness clear/publish/read gate'],'inputs':{str(p.relative_to(APP)):sha(p)for p in [APP/'src/lora_service.c',APP/'src/lora_hw.c',APP/'src/diagnostic.c',APP/'src/main.c',APP/'src/watchdog.c',APP/'tests/lora_hw_test.c',APP/'tests/lora_init_gate_test.c',APP/'tools/lora_init_gate_tests.py']},'limits':['Synthetic preinitialization scratch only; no private flash or raw data','Scheduled observer/peripheral/kernel/reset model boundaries; historical flash scanner absent','Controller/RF behavior and existing watchdog30s bound unchanged; native/field gates separate']},indent=2)+'\n')
+print('PASS composed actual RAM diagnostic/LoRa initialization: old negative, preinit no-side-effect gate, publication ordering and original30s observer bounds')

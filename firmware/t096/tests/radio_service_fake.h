@@ -38,6 +38,7 @@ static void k_thread_name_set(struct k_thread *t,const char *name){}
 static void k_sleep(int delay){}
 static uint64_t fake_time=1000000;
 static uint64_t k_uptime_ticks(void){return fake_time;}
+static uint32_t k_uptime_get_32(void){return (uint32_t)(fake_time/1000);}
 static uint64_t k_ticks_to_us_floor64(uint64_t ticks){return ticks;}
 typedef struct {uint8_t type;struct {uint8_t val[6];} a;} bt_addr_le_t;
 static bool bt_addr_le_eq(const bt_addr_le_t *a,const bt_addr_le_t *b){return !memcmp(a,b,sizeof *a);}

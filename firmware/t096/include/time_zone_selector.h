@@ -22,6 +22,9 @@ struct r2_tz_selector {
 };
 /* Read-only generated image; UINT16_MAX means an ambiguous geographic cell. */
 bool r2_tz_db_offset(uint16_t id, uint64_t utc_us, int16_t *offset);
+/* Calendar conversion span only; never a source or TZ-metadata lease. */
+bool r2_tz_db_offset_span(uint16_t id,uint64_t utc_us,int16_t *offset,
+ uint64_t *first_us,uint64_t *until_us);
 uint16_t r2_tz_db_geo(int32_t latitude_e7, int32_t longitude_e7);
 const char *r2_tz_db_name(uint16_t id);
 size_t r2_tz_db_size(void);

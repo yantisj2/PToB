@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #define TICKS_PER_SECOND 16000000u
 typedef enum {CLOCK_NO_TIME, CLOCK_ACQUIRING, CLOCK_LOCKED, CLOCK_HOLDOVER} clock_state_t;
+enum {UI_LORA_SYNC_NONE,UI_LORA_SYNC_META,UI_LORA_SYNC_PAIR,UI_LORA_SYNC_TRAIN,
+      UI_LORA_SYNC_GAP,UI_LORA_SYNC_OFF,UI_LORA_SYNC_FAULT,UI_LORA_SYNC_WAIT,UI_LORA_SYNC_STALE};
 #include "ptob_ui_role.h"
 
 #define UI_WIDTH 80u
@@ -38,6 +40,7 @@ typedef struct {
     bool rf_help;
     uint8_t rf_lamps[UI_RF_RADIOS][UI_RF_KINDS];
     bool rf_ble_tx_mode;
+    bool native_rf_lora_estimated,native_rf_comparison_estimated;
     ui_rf_comparison_t rf_sources;
     const char *unit_name;
     ptob_ui_role_t ui_role;
@@ -53,6 +56,8 @@ typedef struct {
     bool native_hot_standby; /* Current local hot standby, never mere selection. */
     bool native_ble_time; /* Selected network UTC; local GPS remains diagnostic only. */
     bool native_lora_source,native_lora_acquiring; /* Selected/expected LoRa display; no BLE/PLL authority. */
+    uint8_t native_lora_phase,native_lora_samples;uint16_t native_lora_fit_s;
+    bool native_lora_observed;uint32_t native_lora_pair_s,native_lora_error_s;
     uint8_t native_rx_bars;
     bool native_rx_known;
     uint8_t native_reason; /* Functional panel reason; no precision-error inference. */

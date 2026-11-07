@@ -77,8 +77,8 @@ int main(int argc,char **argv){
  m=good(4001);loss(&m,4001);assert(!r2_ui_sync_display_time(&c,&m,4001,&utc));
  m=good(5000);loss(&m,5000);m.ble_local_holdover=true;m.clock.valid=true;m.clock.utc_us=10000000;
  m.ble_time_selected=true;m.ble_valid_until_us=5500000;
- assert(r2_ui_analog(&m,5000)&&!strcmp(r2_ui_servo_state(&m,5000),"LOCAL HOLD"));
+ assert(!r2_ui_analog(&m,5000)&&!strcmp(r2_ui_servo_state(&m,5000),"ACQUIRING"));
  assert(!m.precision.authorized&&!m.precision.map_valid);
  assert(!r2_ui_analog(&m,5500));m.profile_switching=true;assert(!r2_ui_analog(&m,5000));
- puts("PASS actual RC display:500ms stale-model lease and explicit local HOLD without precision authority");
+ puts("PASS historical RC display500ms anti-flicker preserved;120s BLE cache cannot grant analog after native loss");
 }

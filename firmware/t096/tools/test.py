@@ -15,6 +15,8 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     out=Path(directory)
     compiler=os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').is_file() else shutil.which('clang'))
     subprocess.run([sys.executable,str(APP/'tools/servo_equivalence_tests.py'),'--out',str(out/'servo-equivalence')],env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/cpu_idle_work_tests.py'),'--deps',str(args.deps),'--out',str(out/'cpu-idle-work')],env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/ui_diag_work_tests.py'),'--out',str(out/'ui-diagnostic-work')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/auto_time_zone_tests.py'),'--out',str(out/'auto-time-zone')],env={**os.environ,'CC':compiler},check=True,timeout=90)
     subprocess.run([sys.executable,str(APP/'tests/test_tz_compile_mode.py')],check=True,timeout=30)
     subprocess.run([sys.executable,str(APP/'tests/test_time_zone_build.py')],check=True,timeout=30)
@@ -56,6 +58,8 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([sys.executable,str(APP/'tools/health_register_tests.py'),'--deps',str(args.deps),'--out',str(out/'health-registers')],env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,'-m','unittest',str(APP/'tests/test_lora_build_binding.py')],check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/framebuffer_tests.py'),'--out',str(out/'framebuffer')],
+                   env={**os.environ,'CC':compiler},check=True,timeout=60)
+    subprocess.run([sys.executable,str(APP/'tools/lora_sync_ui_tests.py'),'--out',str(out/'lora-sync-ui')],
                    env={**os.environ,'CC':compiler},check=True,timeout=60)
     subprocess.run([sys.executable,str(APP/'tools/dc_tests.py'),'--out',str(out/'dc')],
                    env={**os.environ,'CC':compiler},check=True,timeout=60)
@@ -144,14 +148,14 @@ with (nullcontext(str(args.out.resolve())) if args.out else tempfile.TemporaryDi
     subprocess.run([*flags,'-c',str(APP/'src/precision.c'),'-o',str(out/'precision.o')],check=True,timeout=30)
     subprocess.run([*flags,'-c',str(APP/'src/ui_render.c'),'-o',str(out/'ui_render.o')],check=True,timeout=30)
     dynamic_ui=(APP/'src/rc_dynamic_service.c').read_text()
-    begin=dynamic_ui.index('void r2_service_ui(struct r2_ui_model *m) {')
-    (out/'rc_ui_binding_under_test.h').write_text(dynamic_ui[begin:dynamic_ui.index('\nint r2_service_relay(',begin)])
+    begin=dynamic_ui.index('void r2_service_ui_logic(')
+    (out/'rc_ui_binding_under_test.h').write_text(dynamic_ui[begin:dynamic_ui.index('\nstatic bool ui_details_copy(',begin)])
     subprocess.run([*flags,'-I'+str(out),str(APP/'tests/rc_ui_binding_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'rc_ui_binding')],check=True,timeout=30)
     subprocess.run([str(out/'rc_ui_binding')],check=True,timeout=30)
     subprocess.run([*flags,'-DR2_TZ_WIRE=1','-I'+str(out),str(APP/'tests/rc_ui_binding_test.c'),str(APP/'src/ui_render.c'),str(APP/'src/precision.c'),'-o',str(out/'rc_ui_binding_tz')],check=True,timeout=30)
     subprocess.run([str(out/'rc_ui_binding_tz')],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_service_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_service')],check=True,timeout=30)
-    for mode in map(str,[*range(34),*range(35,42),52,53]):
+    for mode in map(str,[*range(34),*range(35,42),52,53,54,55]):
         subprocess.run([str(out/'ui_service'),mode],check=True,timeout=30)
     subprocess.run([*flags,'-I'+str(out),'-include',str(APP/'tests/ui_service_fake.h'),str(APP/'tests/ui_sync_worker_test.c'),str(out/'ui_render.o'),str(out/'precision.o'),'-o',str(out/'ui_sync_worker')],check=True,timeout=30)
     subprocess.run([str(out/'ui_sync_worker')],check=True,timeout=30)

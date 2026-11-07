@@ -1,6 +1,7 @@
 #include "cleanup_budget.h"
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "ble_service.h"
+#include "rf_clock.h"
 #include "group_admission.h"
 #include "gm_diagnostics.h"
 #include "build_identity.h"
@@ -563,6 +564,11 @@ void r2_service_supervise(void)
 }
 int r2_service_close_result(void)
 {struct r2_service_status s;r2_service_snapshot(&s);return s.error?s.error:s.closed||!started?0:-EAGAIN;}
+#ifndef R2_GM7_NATIVE
+void r2_service_rf_clock(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){
+ (void)at;(void)now;if(out)*out=(struct r2_rf_clock_sample){0};
+}
+#endif
 void r2_service_snapshot(struct r2_service_status *out)
 {
  (void)k_mutex_lock(&lock,K_FOREVER);*out=status;(void)k_mutex_unlock(&lock);

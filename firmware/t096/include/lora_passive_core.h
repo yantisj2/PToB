@@ -119,6 +119,13 @@ bool lp_rx_meta(struct lp_rx *,const struct lp_packet *,const struct r2_group_co
 bool lp_rx_hint(struct lp_rx *,const struct lp_packet *,uint64_t packet_end_us,uint64_t observed_us);
 bool lp_rx_sync(struct lp_rx *,uint32_t cursor,uint64_t tick,uint64_t epoch,uint64_t event_us,uint64_t observed_us);
 bool lp_rx_follow(struct lp_rx *,const struct lp_packet *,const struct lp_age *,uint64_t epoch,uint64_t observed_us);
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_FIXED500_EXPERIMENT)
+/* Separate same-context human observer. Authentication, physical capture,
+ * cursor and two-step checks remain mandatory. These calls never renew META
+ * or create source-age/authority bounds; use only the display projection. */
+bool lp_rx_watch_sync(struct lp_rx *,uint32_t cursor,uint64_t tick,uint64_t epoch,uint64_t event_us,uint64_t observed_us);
+bool lp_rx_watch_follow(struct lp_rx *,const struct lp_packet *,uint64_t epoch,uint64_t observed_us);
+#endif
 /* Commit at an actual current capture after FOLLOW processing, never a
  * fabricated arrival time. Frequency/phase fits consume prior physical pairs. */
 bool lp_rx_discipline(struct lp_rx *,uint64_t tick,uint64_t epoch,uint64_t now_us);

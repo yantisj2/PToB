@@ -16,8 +16,8 @@
 #endif
 #define R2_DIAG_BANKS 2u
 /* Current-boot RAM event record, schema8, exported over USB in bank0 chunks0..7.
- * No NV reads/writes/erase, boot restore, or diagnostic storage thread exists.
- * Historical flash addresses above describe protected old evidence only. */
+ * A separate startup-only fault owner may append to erased historical slots;
+ * no runtime event writer, erase, operational restore or storage thread exists. */
 int r2_diag_init(const struct r2_identity *id);
 int r2_diag_arm(uint64_t original_arrival_ms,uint32_t seconds);
 int r2_diag_mark(void);
@@ -32,7 +32,8 @@ int r2_diag_record_result(uint64_t token);
 void r2_diag_finish(int error);
 void r2_diag_poll(void);
 int r2_diag_state(void);
-/* Always -ENOTSUP: cross-boot crash persistence is disabled. */
+/* CPU startup persistence result; -ENOENT when none pending, -ENOSPC if full.
+ * Non-durable configurations return -ENOTSUP. */
 int r2_diag_crash_result(void);
 int r2_diag_read(unsigned bank,unsigned chunk,uint8_t out[64]);
 

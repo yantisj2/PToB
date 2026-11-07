@@ -3,6 +3,7 @@
 #include "diagnostic.h"
 #include "controller_diag.h"
 #include "health.h"
+#include "fault_boot.h"
 #include "core.h"
 #include "time_service.h"
 #include "build_identity.h"
@@ -41,13 +42,17 @@ int r2_diag_init(const struct r2_identity *id){
 #if defined(R2_CONTROLLER_FAULT_CAPTURE) || defined(R2_CONTROLLER_DIAGNOSTICS)
  r2_controller_diag_init();
 #endif
+#ifdef R2_FAULT_DURABLE
+ r2_fault_boot(id,package);
+ memset(package,0,sizeof package); /* restore current-boot event workspace */
+#endif
  phase=1;return 0;
 }
 int r2_diag_arm(uint64_t arrival,uint32_t seconds){
  (void)arrival;if(phase!=1||seconds>120)return -EACCES;
  normal=seconds==0;phase=2;return 0;
 }
-static void snapshot(uint32_t p[16],const struct r2_service_status *s,const struct r2_ui_status *u)
+static void snapshot(uint32_t p[16],const struct r2_service_status *s,uint32_t ui_max_frame_ms,uint32_t ui_missed)
 {
  p[0]=millis(s->at);p[1]=s->self|(s->coordinator<<8)|(s->root<<16)|(s->standby<<24);
  p[2]=s->serving|((uint32_t)s->follower<<1)|((uint32_t)s->active<<2)|((uint32_t)s->hot_ready<<3)|((uint32_t)s->source_eligible<<4)|((uint32_t)s->precision.rms_valid<<5)|((uint32_t)s->precision.map_valid<<6)|((uint32_t)s->precision.locked<<7);
@@ -57,7 +62,7 @@ static void snapshot(uint32_t p[16],const struct r2_service_status *s,const stru
  p[3]=s->hot_refusal;p[4]=s->source_epoch;p[5]=s->source_evidence&&s->at>=s->source_evidence?millis(s->at-s->source_evidence):UINT32_MAX;
  p[6]=remaining(s->service_until,s->at);uint32_t last_age=millis((uint64_t)s->record_age_us+999),max_age=millis((uint64_t)s->record_age_max_us+999);
  p[7]=(last_age>65535?65535:last_age)|((max_age>65535?65535:max_age)<<16);p[8]=s->rx_latency_max_us;
- p[9]=s->backlog|(s->rx_queue_peak<<16);p[10]=s->drops;p[11]=s->rejected;p[12]=s->worker_max_us;p[13]=s->precision.rms_ns;p[14]=u->max_frame_ms;p[15]=u->missed;
+ p[9]=s->backlog|(s->rx_queue_peak<<16);p[10]=s->drops;p[11]=s->rejected;p[12]=s->worker_max_us;p[13]=s->precision.rms_ns;p[14]=ui_max_frame_ms;p[15]=ui_missed;
 }
 static uint32_t ram_stack_unused(bool system){
 #ifdef CONFIG_INIT_STACKS
@@ -80,7 +85,8 @@ static int submit(unsigned reason,int error){
  memcpy(&package[34],&trigger,8);package[37]=have_sample?2:0;package[38]=command_count;
  package[41]=UINT32_MAX; /* no diagnostic storage thread */
  package[47]=last_clock.reason;package[48]=ram_stack_unused(false);package[49]=ram_stack_unused(true);
- struct r2_ui_status ui;r2_ui_snapshot(&ui);package[50]=ui.error;package[51]=ui.max_frame_ms;
+ int ui_error;uint32_t ui_max_frame_ms,ui_missed;r2_ui_diag_snapshot(&ui_error,&ui_max_frame_ms,&ui_missed);
+ package[50]=ui_error;package[51]=ui_max_frame_ms;
  memcpy(&package[52],&last_service.root_boot,8);memcpy(&package[54],&last_service.standby_boot,8);
  package[56]=last_service.source_epoch;package[57]=last_service.pair_epoch;package[58]=last_service.precision.samples;
  package[59]=(reason&64)?last_service.hot_withdrawal_reason:last_service.hot_refusal;
@@ -107,7 +113,8 @@ int r2_diag_mark(void){
 }
 void r2_diag_sample(const struct r2_service_status *s,const struct r2_clock_view *clock)
 {
- uint64_t now=k_uptime_get();struct r2_ui_status ui;r2_ui_snapshot(&ui);
+ uint64_t now=k_uptime_get();int ui_error;uint32_t ui_max_frame_ms,ui_missed;
+ r2_ui_diag_snapshot(&ui_error,&ui_max_frame_ms,&ui_missed);
  uint32_t reason=0;
  if(have_sample){
   if(s->root_boot!=last_service.root_boot||s->source_epoch!=last_service.source_epoch||s->coordinator!=last_service.coordinator||s->standby_boot!=last_service.standby_boot)reason|=4;
@@ -119,11 +126,11 @@ void r2_diag_sample(const struct r2_service_status *s,const struct r2_clock_view
 #endif
   /* Ordinary map warmup/route transitions stay in bounded RAM/status.
    * They do not initiate RAM record updates on a healthy field clock. */
-  if((s->error&&s->error!=last_service.error)||s->drops>last_service.drops||ui.error)reason|=1;
+  if((s->error&&s->error!=last_service.error)||s->drops>last_service.drops||ui_error)reason|=1;
   if(s->precision.overflows>last_service.precision.overflows||(clock->faults>last_clock.faults&&(clock->reason==R2_INPUT_DRIVER||clock->reason==R2_INPUT_OVERFLOW||clock->reason==R2_INPUT_TIMEBASE)))reason|=32;
  }
  if(!have_sample||now>=sample_due){memcpy(previous,current,sizeof previous);previous_root_boot=last_service.root_boot;previous_standby_boot=last_service.standby_boot;previous_pair_epoch=last_service.pair_epoch;sample_due=now+250;}
- snapshot(current,s,&ui);last_service=*s;last_clock=*clock;have_sample=true;
+ snapshot(current,s,ui_max_frame_ms,ui_missed);last_service=*s;last_clock=*clock;have_sample=true;
  if(phase==2)phase=5;
  if(!reason)return;
  if(!normal||quiescing||finish_requested||r2_diag_state()<1)return;
@@ -189,7 +196,13 @@ int r2_diag_record_result(uint64_t token){if(!token||token>generation)return -EI
 #if defined(R2_CONTROLLER_FAULT_CAPTURE) || defined(R2_CONTROLLER_DIAGNOSTICS)
 bool r2_controller_diag_ready_locked(void){return phase>=1;}
 #endif
-int r2_diag_crash_result(void){return -ENOTSUP;} /* no cross-boot crash persistence */
+int r2_diag_crash_result(void){
+#ifdef R2_FAULT_DURABLE
+ return r2_fault_cpu_result();
+#else
+ return -ENOTSUP;
+#endif
+}
 int r2_diag_state(void){return phase;}
 int r2_diag_read(unsigned bank,unsigned chunk,uint8_t out[64]){
  if(bank||chunk>=8||pending_post||phase!=4)return -ENOENT;

@@ -18,6 +18,11 @@ void r2_watchdog_console(char *,size_t);
 bool r2_watchdog_restore_rc(bool *);
 int r2_watchdog_bootloader(uint64_t original_deadline_ms);
 unsigned r2_watchdog_reset_kind(void);
+#ifdef R2_FAULT_DURABLE
+/* First pending context; original boot/binding, never timing/profile authority. */
+const volatile uint32_t *r2_watchdog_pending_record(void);
+void r2_watchdog_pending_saved(uint32_t retained_crc);
+#endif
 #else
 static inline int r2_watchdog_boot(const struct r2_identity *id){(void)id;return 0;}
 static inline void r2_watchdog_enable(bool on){(void)on;}
@@ -32,4 +37,6 @@ static inline void r2_watchdog_console(char *line,size_t size){(void)line;(void)
 static inline bool r2_watchdog_restore_rc(bool *rc){(void)rc;return false;}
 static inline int r2_watchdog_bootloader(uint64_t deadline){(void)deadline;return 0;}
 static inline unsigned r2_watchdog_reset_kind(void){return 0;}
+static inline const volatile uint32_t *r2_watchdog_pending_record(void){return NULL;}
+static inline void r2_watchdog_pending_saved(uint32_t crc){(void)crc;}
 #endif

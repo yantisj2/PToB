@@ -17,7 +17,10 @@ bool r2_capture_now(struct r2_capture *c){*c=(struct r2_capture){now_tick,1,R2_C
 typedef int atomic_t;
 static int atomic_get(atomic_t *v){return *v;}
 static int atomic_set(atomic_t *v,int n){int old=*v;*v=n;return old;}
-#include "../src/rc_shadow.c"
+#ifndef R2_SHADOW_IMPLEMENTATION
+#define R2_SHADOW_IMPLEMENTATION "../src/rc_shadow.c"
+#endif
+#include R2_SHADOW_IMPLEMENTATION
 static unsigned competing_drains;
 static void competing_drain(void){++competing_drains;r2_shadow_poll_normal();}
 int main(void){
@@ -101,5 +104,48 @@ int main(void){
  r2_shadow_manual(false);assert(!r2_shadow_enabled());
  r2_shadow_serving(false);assert(r2_shadow_enabled());
  r2_shadow_enable(false);assert(!r2_shadow_enabled());
+ /* Pending entries retain every bit without carrying a completed map.
+  * Bad captures/negative arrival remain raw evidence, not invented samples. */
+ r2_shadow_manual(true);
+ struct r2_clock before=c;
+ const int64_t arrivals[]={INT64_MIN,-1,0,INT64_MAX};
+ for(unsigned i=0;i<4;i++){
+  struct r2_capture wide={UINT64_C(0xfedcba9876543200)+i,
+   UINT64_C(0x8123456789abcdef),R2_CAPTURE_NOW};
+  r2_shadow_edge(wide,arrivals[i]);r2_shadow_poll_normal();
+  const struct rc_shadow_record *q=&records[(rhead+RC_SHADOW_RECORDS-1)%RC_SHADOW_RECORDS];
+  assert(q->edge.tick==wide.tick&&q->edge.epoch==wide.epoch&&q->edge.kind==wide.kind);
+  assert(q->arrival_us==arrivals[i]&&q->reason==RC_SHADOW_BAD_CAPTURE&&!q->valid);
+  assert(!q->map.root&&!q->relay_ns&&!q->utc_ns&&!q->phase_ns&&!q->reference_seen);
+ }
+ assert(!memcmp(&before,&c,sizeof c));
+ /* Preserve all eight pending slots, one counted overflow, then FIFO gaps. */
+ cursor=stats.edges;uint32_t drops=stats.drops;
+ for(unsigned i=0;i<RC_SHADOW_QUEUE+1;i++){
+  e=(struct r2_capture){UINT64_C(0x1234567800000000)+i,UINT64_C(0x2345678900000000),R2_CAPTURE_PPS};
+  r2_shadow_edge(e,1000);
+ }
+ assert(qcount==RC_SHADOW_QUEUE&&stats.drops==drops+1);
+ r2_shadow_edge(e,1000);assert(stats.drops==drops+1); /* duplicate, not a second loss */
+ r2_shadow_poll_normal();assert(!qcount);
+ now_us=800999;assert(!r2_shadow_read(cursor,&r,&st));
+ now_us=801000;
+ for(unsigned i=0;i<RC_SHADOW_QUEUE;i++){
+  assert(r2_shadow_read(cursor,&r,&st));cursor=r.sequence;
+  assert(r.edge.tick==UINT64_C(0x1234567800000000)+i&&r.edge.epoch==UINT64_C(0x2345678900000000));
+  assert(!r.valid&&r.reason==RC_SHADOW_NO_MAP);
+ }
+ /* Matching late references update reads; epoch mismatch never associates. */
+ c.last_rmc_utc=INT64_MIN;c.last_rmc=INT64_MAX;r2_shadow_reference(r.edge,&c);
+ assert(r2_shadow_read(cursor-1,&r,&st)&&r.reference_seen&&r.rmc_utc_us==INT64_MIN&&r.rmc_at_us==INT64_MAX);
+ c.last_rmc_utc=123;r2_shadow_reference(r.edge,&c);
+ assert(r2_shadow_read(cursor-1,&r,&st)&&r.rmc_utc_us==123);
+ struct r2_capture other=r.edge;other.epoch^=UINT64_C(1)<<63;c.last_rmc_utc=456;r2_shadow_reference(other,&c);
+ assert(r2_shadow_read(cursor-1,&r,&st)&&r.rmc_utc_us==123);
+ /* Long-running counters retain their original saturating behavior. */
+ stats.edges=UINT32_MAX-1;stats.drops=UINT32_MAX;
+ for(unsigned i=0;i<RC_SHADOW_QUEUE+1;i++){e.tick+=16000000;r2_shadow_edge(e,1000);}
+ assert(stats.edges==UINT32_MAX&&stats.drops==UINT32_MAX&&qcount==RC_SHADOW_QUEUE);
+ r2_shadow_poll_normal();r2_shadow_manual(false);
  puts("PASS immutable normal/RC/LoRa/local-HOLD PPS maps, independent expiry, metadata deferral and no witness feedback");
 }

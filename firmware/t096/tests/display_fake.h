@@ -29,6 +29,10 @@ struct spi_buf_set {struct spi_buf *buffers;size_t count;};
 static unsigned delayed_completion;
 static int64_t fake_now;static bool timeout;static unsigned transfers,largest;static int lights;static const void *pending_dma;
 static unsigned fail_transfer,delay_transfer,transfer_delay;
+#ifdef R2_DISPLAY_REGION_FIXTURE
+static int injected_spi_error=-116,injected_cs_error=-5;
+static unsigned cs_close_calls,fail_cs_close;
+#endif
 static unsigned payload_transfers,payload_bytes;
 static uint8_t wire[R2_UI_BYTES],dma_snapshot[R2_UI_DMA_BYTES];
 static const uint8_t *payload_buffer;
@@ -37,7 +41,11 @@ static void (*spi_wait_hook)(const uint8_t *,size_t);
 static bool device_is_ready(const struct device *d){return true;}
 static bool gpio_is_ready_dt(const struct gpio_dt_spec *p){return true;}
 static int gpio_pin_configure_dt(const struct gpio_dt_spec *p,unsigned flags){return 0;}
-static int gpio_pin_set_dt(const struct gpio_dt_spec *p,int v){if(p->pin==tft_backlight)lights=v;if(p->pin==tft_cs)cs_active=v;if(p->pin==tft_dc)dc_data=v;return 0;}
+static int gpio_pin_set_dt(const struct gpio_dt_spec *p,int v){
+#ifdef R2_DISPLAY_REGION_FIXTURE
+ if(p->pin==tft_cs&&!v&&++cs_close_calls==fail_cs_close)return injected_cs_error;
+#endif
+ if(p->pin==tft_backlight)lights=v;if(p->pin==tft_cs)cs_active=v;if(p->pin==tft_dc)dc_data=v;return 0;}
 static int gpio_pin_get_dt(const struct gpio_dt_spec *p){return 0;}
 static int64_t k_uptime_get(void){return fake_now;}
 static void k_msleep(int ms){fake_now+=ms;}
@@ -48,7 +56,10 @@ static int spi_write(const struct device *d,const struct spi_config *c,const str
  pending_dma=b->buffers[0].buf;
  memcpy(dma_snapshot,pending_dma,size);
  if(size>16){
-  assert(dc_data&&size==R2_UI_DMA_BYTES&&payload_bytes+size<=sizeof wire);
+  assert(dc_data&&payload_bytes+size<=sizeof wire);
+#ifndef R2_DISPLAY_REGION_FIXTURE
+  assert(size==R2_UI_DMA_BYTES);
+#endif
   if(!payload_buffer)payload_buffer=pending_dma;else assert(payload_buffer==pending_dma);
   memcpy(wire+payload_bytes,pending_dma,size);payload_bytes+=(unsigned)size;++payload_transfers;
  }
@@ -58,7 +69,11 @@ static int spi_write(const struct device *d,const struct spi_config *c,const str
  fake_now+=timeout?10:delayed_completion;delayed_completion=0;
  if(transfers==delay_transfer)fake_now+=transfer_delay;
  pending_dma=NULL; /* public synchronous completion or bounded driver abort */
+#ifdef R2_DISPLAY_REGION_FIXTURE
+ return timeout?-116:transfers==fail_transfer?injected_spi_error:0;
+#else
  return timeout||transfers==fail_transfer?-116:0;
+#endif
 }
 
 #define SENSOR_CHAN_DIE_TEMP 1

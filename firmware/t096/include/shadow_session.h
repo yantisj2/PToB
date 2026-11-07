@@ -82,8 +82,40 @@ static inline uint32_t r2_shadow_percentile(const struct r2_shadow_session *s,un
  uint32_t lo=r2_shadow_rank(s,rank,approximate),hi=fraction?r2_shadow_rank(s,rank+1,approximate):lo;
  return (uint32_t)(((uint64_t)lo*(100-fraction)+(uint64_t)hi*fraction+50)/100);
 }
-static inline void r2_shadow_session_view(const struct r2_shadow_session *s,struct r2_shadow_session_view *v){
- *v=(struct r2_shadow_session_view){.elapsed_ms=s->elapsed_ms,.session=s->session,.samples=s->samples,.skipped=s->skipped,.missing=s->missing,.max_ns=s->max_ns,.state=s->state,.active=s->active,.valid=s->samples!=0};
+/* One histogram pass supplies the four interpolation endpoints. Keep the
+ * historical representatives/rounding, including explicit approximate tails.
+ * Ranks may coincide or interleave for small populations. */
+static inline void r2_shadow_percentiles(const struct r2_shadow_session *s,
+ uint32_t *p95,uint32_t *p99,bool *approximate){
+ uint32_t ranks[4],values[4]={0},fraction[2];
+ for(unsigned j=0;j<2;j++){
+  uint64_t scaled=(uint64_t)(s->samples-1)*(95+4*j);
+  ranks[2*j]=(uint32_t)(scaled/100);fraction[j]=(uint32_t)(scaled%100);
+  ranks[2*j+1]=ranks[2*j]+(fraction[j]!=0);
+ }
+ uint64_t total=0;
+ for(unsigned i=0;i<R2_SHADOW_BINS;i++){
+  uint64_t before=total;total+=s->histogram[i];
+  if(before!=total){
+   for(unsigned j=0;j<4;j++)if(before<=ranks[j]&&ranks[j]<total){
+    values[j]=r2_shadow_bin_value(i);*approximate|=i>=R2_SHADOW_EXACT_BINS;
+   }
+  }
+  if(total>ranks[3])break;
+ }
+ *p95=(uint32_t)(((uint64_t)values[0]*(100-fraction[0])+(uint64_t)values[1]*fraction[0]+50)/100);
+ *p99=(uint32_t)(((uint64_t)values[2]*(100-fraction[1])+(uint64_t)values[3]*fraction[1]+50)/100);
+}
+/* UI-only consumer may reuse its already published view. Session+sample
+ * count identifies immutable moments/bins; elapsed/rejected/missing/state
+ * remain fresh. No extra histogram/cache allocation or renderer state. */
+static inline void r2_shadow_session_refresh(const struct r2_shadow_session *s,struct r2_shadow_session_view *v){
+ bool changed=v->session!=s->session||v->samples!=s->samples;
+ v->elapsed_ms=s->elapsed_ms;v->session=s->session;v->samples=s->samples;
+ v->skipped=s->skipped;v->missing=s->missing;v->max_ns=s->max_ns;
+ v->state=(uint8_t)s->state;v->active=s->active;v->valid=s->samples!=0;
+ if(!changed)return;
+ v->mean_tenth_ns=0;v->rms_ns=v->p95_ns=v->p99_ns=0;v->approximate=false;
  if(!s->samples)return;
  int64_t q=s->sum/s->samples,r=s->sum%s->samples;
  v->mean_tenth_ns=q*10+(r*10+(r<0?-(int64_t)s->samples/2:(int64_t)s->samples/2))/s->samples;
@@ -91,5 +123,8 @@ static inline void r2_shadow_session_view(const struct r2_shadow_session *s,stru
  uint64_t square_mean=(upper/s->samples)<<32;
  square_mean|=(((upper%s->samples)<<32)|(uint32_t)s->squares_lo)/s->samples;
  v->rms_ns=r2_servo_rms_floor(square_mean,1);
- v->p95_ns=r2_shadow_percentile(s,95,&v->approximate);v->p99_ns=r2_shadow_percentile(s,99,&v->approximate);
+ r2_shadow_percentiles(s,&v->p95_ns,&v->p99_ns,&v->approximate);
+}
+static inline void r2_shadow_session_view(const struct r2_shadow_session *s,struct r2_shadow_session_view *v){
+ memset(v,0,sizeof *v);r2_shadow_session_refresh(s,v);
 }

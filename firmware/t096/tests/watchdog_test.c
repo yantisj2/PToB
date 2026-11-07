@@ -52,6 +52,15 @@ void r2_lora_watchdog_check(void){lora_checks++;}
 #endif
 #include "../src/watchdog.c"
 #undef k_sleep
+/* The RAM-only diagnostic no longer restores a previous-boot capsule. Check
+ * the current emitted record here, without reinstating production retention. */
+#ifndef previous_bound
+static bool previous_bound(const struct r2_identity *identity){
+ return r2_watchdog_capsule[0]==WD_MAGIC&&r2_watchdog_capsule[33]==crc(r2_watchdog_capsule)&&
+  !memcmp((const void *)&r2_watchdog_capsule[12],R2_WATCHDOG_BINDING,64)&&
+  !memcmp((const void *)&r2_watchdog_capsule[28],identity->silicon,16);
+}
+#endif
 static int r2_bootloader_request(void){boot_requests++;return -EIO;}
 static char sent[1536];
 static unsigned console_reports;

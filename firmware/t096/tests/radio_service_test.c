@@ -20,6 +20,14 @@ bool r2_lora_source_needed(void){return lora_needed;}
 void r2_lora_source_publish(const struct rc8_export *s){lora_export=*s;++lora_publishes;}
 void r2_lora_source_withdraw(void){++lora_withdraws;}
 void r2_lora_quality_publish(const struct rc8_scope *s,const struct rc8_quality *q){(void)s;assert(!(q->values&~q->known));}
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+static enum r2_lora_source_gate source_gate;
+void r2_lora_source_status(enum r2_lora_source_gate gate){source_gate=gate;}
+static bool ble_needed;static unsigned ble_observations;static struct lp_ble_return observed_ble;
+bool r2_lora_ble_needed(void){return ble_needed;}
+bool r2_lora_ble_shadow_allowed(void){return true;}
+void r2_lora_ble_observe(const struct lp_ble_scope *s,uint64_t until,uint32_t refused,uint64_t at){++ble_observations;lp_ble_observe(&observed_ble,s,until,refused,at);}
+#endif
 #endif
 static struct bt_le_per_adv_sync fixture;
 static bool owned,armed;
@@ -55,7 +63,8 @@ bool r2_ble_initiating(void){return mode==6;}
 bool r2_ble_admission_due(uint64_t now){return mode==14;}
 bool r2_ble_admission_reserves_scan(uint64_t now){return mode==14&&now%1000000<200000;}
 static uint64_t capture_tick=16000000,capture_us=1000000;
-bool r2_capture_now(struct r2_capture *out){*out=(struct r2_capture){capture_tick,1,R2_CAPTURE_NOW};return true;}
+static uint64_t capture_test_epoch=1;static bool capture_test_available=true;
+bool r2_capture_now(struct r2_capture *out){*out=(struct r2_capture){capture_tick,capture_test_epoch,R2_CAPTURE_NOW};return capture_test_available;}
 bool r2_capture_now_at(struct r2_capture *out,uint64_t *at){bool valid=r2_capture_now(out);if(at)*at=capture_us;return valid;}
 bool r2_ble_client_align(uint64_t now,uint64_t utc_us){return true;}
 bool r2_ble_client_window_open(uint64_t now,uint32_t window){return now%1000000<window;}
@@ -182,7 +191,7 @@ int main(int argc,char **argv){
   puts("PASS actual retained native callback owner: repeated closes preserve first2s deadline, no early reuse, exact timeout stays sticky after real callback drain");return 0;
  }
 #ifdef R2_LORA
- if(mode==62){
+ if(mode==62||mode==63||mode==64||mode==65){
   /* Same authenticated BLE map, captured between kernel microseconds. Its
    * permission must not shrink as repeated PT snapshots round paired clocks. */
   capture_us=64000000;capture_tick=capture_us*16;
@@ -190,7 +199,7 @@ int main(int argc,char **argv){
   struct r2_radio_scope grant={.root=1,.root_identity=3,.boot=9,.source_epoch=3,
    .publication_epoch=1,.until_us=INT64_MAX,.follower=true,.broadcast=true};
   pt_input.stopped=false;pt_input.grant=active_scope=precision.scope=grant;
-  precision.local_epoch=1;precision.train=1;precision.accepted=12;
+  precision.local_epoch=1;precision.train=9;precision.remote_capture=7;precision.accepted=12;
   precision.last_available=precision.last_accepted=capture_tick;
   precision.data_until=capture_tick+R2_CAPTURE_HZ;
   precision.origin_created_ns=1900000000;precision.origin_expires_ns=4000000000;
@@ -204,9 +213,67 @@ int main(int argc,char **argv){
    precision.servo.quality_predictions[i]=precision.servo.output_quality.predictions[i]=1;
   }
   precision.servo.pll.state=R2_SERVO_PLL_LOCKED;precision.servo.pll.last_update=capture_tick;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  if(mode==65){
+   lora_needed=false;ble_needed=true;precision_step(capture_us);
+   assert(observed_ble.qualified&&observed_ble.until_us==pt_output.valid_until);
+   assert(observed_ble.scope.parent==3&&observed_ble.scope.parent_boot==9&&
+    observed_ble.scope.root==3&&observed_ble.scope.root_boot==9&&
+    observed_ble.scope.source_epoch==3&&observed_ble.scope.train==9&&
+    observed_ble.scope.parent_capture_epoch==7&&observed_ble.scope.capture_epoch==1);
+   assert(!lora_publishes&&ble_observations==1);
+   struct r2_radio_precision before=precision;
+   uint64_t utc_before=pt_output.utc,until_before=pt_output.valid_until;
+   bool valid_before=pt_output.utc_valid;ble_needed=false;precision_step(capture_us);
+   assert(ble_observations==1&&!lora_publishes&&memcmp(&before,&precision,sizeof before)==0);
+   assert(pt_output.utc==utc_before&&pt_output.utc_valid==valid_before&&pt_output.valid_until==until_before);
+   ble_needed=true;precision_step(capture_us);assert(ble_observations==2&&observed_ble.qualified);
+   pt_input.grant.broadcast=active_scope.broadcast=precision.scope.broadcast=false;
+   precision_step(capture_us);assert(pt_output.utc_valid&&!observed_ble.qualified&&source_gate==R2_LORA_SOURCE_SCOPE);
+   pt_input.grant.broadcast=active_scope.broadcast=precision.scope.broadcast=true;
+   precision_step(capture_us);assert(pt_output.utc_valid&&observed_ble.qualified);
+   precision.servo.output.phase=1001;precision_step(capture_us);
+   assert(pt_output.utc_valid&&!observed_ble.qualified); /* Quality remains independent. */
+   precision.servo.output.phase=0;precision.data_until=capture_tick;precision_step(capture_us);
+   assert(!pt_output.utc_valid&&!observed_ble.qualified);
+   puts("PASS actual receiver BLE observer uses complete direct-parent/train/counter scope and original BLE permission; OFF leaves model/UTC/lease identical, no TX export, quality/expiry fenced");return 0;
+  }
+  if(mode==64){
+   uint64_t original_until=precision.data_until;
+   for(unsigned i=0;i<160;i++){
+    /* Reproduce the observed150..260ns lock oscillation with unchanged
+     * authenticated root/epoch, original permission and delivered formula. */
+    uint64_t residual=i&1?260:150;
+    for(unsigned j=0;j<32;j++)precision.servo.quality_squares[j]=precision.servo.output_quality.squares[j]=residual*residual;
+    precision.servo.pll.state=i&1?R2_SERVO_PLL_TRACKING:R2_SERVO_PLL_LOCKED;
+    precision_step(capture_us);
+    assert(lora_publishes==i+1&&!lora_withdraws&&source_gate==R2_LORA_SOURCE_READY);
+    assert(lora_export.until_tick<=original_until&&lora_export.scope.source_epoch==3&&lora_export.scope.root_boot==9);
+    if(i&1)assert(!pt_output.view.locked);
+   }
+   /* The independent acquisition limit is strict; this is not permission to
+    * forward an unconverged/faulted clock or refresh the upstream lease. */
+   for(unsigned j=0;j<32;j++)precision.servo.output_quality.squares[j]=UINT64_C(1000000);
+   unsigned before=lora_withdraws;precision_step(capture_us);assert(lora_withdraws>before&&lora_publishes==160);
+   for(unsigned j=0;j<32;j++)precision.servo.output_quality.squares[j]=UINT64_C(998001);
+   precision.servo.output.phase=1000;precision_step(capture_us);assert(lora_publishes==161);
+   before=lora_withdraws;precision.servo.output.phase=1001;precision_step(capture_us);assert(lora_withdraws>before&&lora_publishes==161);
+   precision.servo.output.phase=0;precision.servo.fault=true;before=lora_withdraws;precision_step(capture_us);assert(lora_withdraws>before&&lora_publishes==161);
+   precision.servo.fault=false;precision.data_until=capture_tick;before=lora_withdraws;precision_step(capture_us);assert(lora_withdraws>before&&lora_publishes==161);
+   puts("PASS fixed500 delivered BLE source survives strict200 badge changes; strict1us quality/phase, servo fault and original expiry still fence export");return 0;
+  }
+#endif
   uint64_t until=0,first=capture_tick;unsigned publishes=0;
   for(unsigned i=0;i<160;i++){
    capture_us=64000000+i*31;capture_tick=first+(uint64_t)i*497;
+   if(mode==63){
+    /* The current grant is already FOLLOW; an older published GM snapshot
+     * must not let unrelated local GNSS loss revoke its LoRa export. */
+    if(!i)pt_output.scope=(struct r2_radio_scope){.gm=true};
+    struct r2_source_clock local={0};
+    r2_radio_service_source(&local,(i&1)!=0,100+i);
+    assert(!lora_withdraws);
+   }
    precision_step(capture_us);assert(lora_publishes==++publishes&&!lora_withdraws);
    assert(lora_export.until_tick<=precision.data_until&&lora_export.until_tick>capture_tick);
    if(i)assert(lora_export.until_tick==until);
@@ -217,7 +284,8 @@ int main(int argc,char **argv){
   assert(lora_export.until_tick<until);until=lora_export.until_tick;
   capture_tick=precision.data_until;capture_us=64500000;precision_step(capture_us);
   assert(lora_withdraws);
-  puts("PASS actual broadcast BLE export: paired-clock jitter cannot cancel startup; genuine expiry and loss still fence TX");return 0;
+  puts(mode==63?"PASS follower LoRa source ignores local GNSS loss/requalification/epochs and stale GM publication; actual upstream expiry still fences TX":
+   "PASS actual broadcast BLE export: paired-clock jitter cannot cancel startup; genuine expiry and loss still fence TX");return 0;
  }
  if(mode>=23&&mode<=29){
   bool gm=mode==23||mode==28;

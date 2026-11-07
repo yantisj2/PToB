@@ -41,6 +41,85 @@ def crash_static_allowance(gm7,profile,version,config,symbols):
     # One CPU, actual64B guard/prefix:3136-(2176+64)=896 new ISR bytes.
     return symbols['r2_crash_record'][0]['size']+symbols['z_interrupt_stacks'][0]['size']-(2176+64)
 
+def object_mutable_bytes(out,owner):
+    path=Path(out)/'target/CMakeFiles/app.dir/src'/(owner+'.obj')
+    require(path.is_file(),'Missing fault owner object: '+owner)
+    with path.open('rb') as stream:
+        elf=ELFFile(stream)
+        return sum(int(q['sh_size'])for q in elf.iter_sections()
+                   if q['sh_flags']&3==3)
+
+def fault_only_retention(gm7,version,symbols):
+    """Exact fault-only allocation, never an operational RAM-state allowance."""
+    if not(gm7 and version>=(0,15,308)):return None
+    expected={'r2_watchdog_capsule':(136,'noinit'),'r2_crash_record':(512,'noinit'),
+              'r2_fault_capsule':(256,'bss'),'uf2_intent':(88,'noinit')}
+    if version>=(0,15,309):expected['r2_watchdog_pending']=(136,'noinit')
+    for name,(size,section) in expected.items():
+        entries=symbols.get(name,[])
+        require(len(entries)==1,'Missing/duplicate fault-only allocation: '+name)
+        q=entries[0]
+        require(q['size']==size and q['section']==section and q['type']=='SHT_NOBITS' and
+                0x20002000<=q['address']<=0x20040000-size,
+                'Fault-only retention allocation: '+name)
+    records={'r2_watchdog_capsule':136,'r2_crash_record':512}
+    if version>=(0,15,309):records['r2_watchdog_pending']=136
+    return dict(records=records,bytes=sum(records.values()),
+                current_boot_fault_bytes=256,separate_one_shot_uf2_intent_bytes=88,
+                binding='CRC_SCHEMA_FACTORY_ORIGINAL_BUILD_TAGS'if version>=(0,15,309)else'CRC_SCHEMA_EXACT_SOURCE_PRIVATE_BUILD_FACTORY',
+                prior_boot_identity='EXPLICIT_RECORD_HEADER',operational_restore=False,
+                flash_persistence=version>=(0,15,309),ram_survival='CONDITIONAL',
+                cross_image_ram_layout='CONDITIONAL_NO_FIXED_REGION_OR_PRE_CRT_COPY',
+                pending_old_image=version>=(0,15,309))
+
+def ui_partial_accounting(out,enabled,objects,passive):
+    """All new writable UI objects, independently of the old LoRa composite."""
+    if not enabled:
+        names={'ui_partial_state','ui_raster','ui_region_budget_mode','ui_rf_optional_cache','ui_shadow_observer','ui_query_scratch','ui_worker_phase','ui_critical_dirty','ui_read_owner','ui_control_revision','ui_policy_revision','ui_urgent_revision'}
+        require(not any(n in names for unit in objects.values()for n in unit),'Partial UI allocation without production build definition')
+        return {'bytes':0,'composite_bytes':0,'allocations':{},'budget_bytes':0}
+    path=out/'source/tools/ui_partial_baseline.json'
+    require(path.is_file(),'Missing explicit UI mutable-object baseline')
+    baseline=json.loads(path.read_text())
+    require(baseline.get('schema')==1 and baseline.get('source_sha256')==
+        '896e7536f9d719df9e2391f44cd3ca0856d759f99055c9ab16d203fe92d8e944','Unknown UI baseline identity')
+    units=baseline['units']
+    scalar_names={'ui_worker_phase','ui_critical_dirty','ui_read_owner',
+                  'ui_control_revision','ui_policy_revision','ui_urgent_revision'}
+    expected={('ui_service.c',n):4 for n in scalar_names}
+    expected.update({('ui_service.c','ui_partial_state'):None,
+                     ('ui_service.c','ui_shadow_observer'):64,
+                     ('ui_service.c','ui_query_scratch'):None,
+                     ('ui_render.c','ui_raster'):32,
+                     ('display.c','ui_region_budget_mode'):1})
+    if passive:expected[('ui_service.c','ui_rf_optional_cache')]=48
+    added={}
+    for unit,old in units.items():
+        current=objects[unit]
+        for name,allocation in old.items():
+            actual=current.get(name)
+            if unit=='ui_service.c' and name=='shadow_scope':
+                # The statistical source-population key grows40->56B. Attribute
+                # only its exact16B increment; retain the frozen baseline file.
+                require(allocation['bytes']==40 and actual==dict(allocation,bytes=56),
+                        'Shadow population key must grow by exactly16B')
+                added[unit+':'+name]=dict(actual,bytes=16,actual_bytes=56,baseline_bytes=40)
+            else:require(actual==allocation,'Existing UI allocation changed/missing: '+unit+':'+name)
+        for name,allocation in current.items():
+            if name in old:continue
+            key=(unit,name)
+            require(key in expected,'Unreviewed writable UI object: '+unit+':'+name)
+            size=expected[key]
+            require(allocation['bytes']>0 and (size is None or allocation['bytes']==size),'UI object bound: '+unit+':'+name)
+            added[unit+':'+name]=allocation
+    require(set(added)=={u+':'+n for u,n in expected}|{'ui_service.c:shadow_scope'},'Missing explicitly bounded partial UI object')
+    total=sum(a['bytes']for a in added.values())
+    composite=sum(a['bytes']for n,a in added.items()if n.startswith('ui_service.c:'))
+    require(total<=1024,'Partial UI state exceeds1024B; no canvas/model/stack increase permitted')
+    return {'bytes':total,'composite_bytes':composite,'allocations':added,'budget_bytes':1024,
+            'baseline_sha256':sha(path),'baseline_source_sha256':baseline['source_sha256']}
+
+
 def inspect(out,allow_development=False):
     out=Path(out);r=json.loads((out/'receipt.json').read_text())
     dc=r['profile']=='DC'
@@ -67,8 +146,10 @@ def inspect(out,allow_development=False):
     require(payload[:len(binary)]==binary and all(x==0 for x in payload[len(binary):]),'UF2/BIN mismatch')
     flash_end=0;ram_end=0;allocations={};ui_mutable_bytes=0;linked_names=set();holdover_mutable_bytes=0;audit_mutable_bytes=0
     lora_display_mutable={name:0 for name in (('main.c','ui_service.c','lora_passive_service.c','lora_hw.c') if passive else ('main.c','ui_service.c','lora_service.c','lora_hw.c'))}
-    lab_audit_bytes=0
+    lab_audit_bytes=0;rf_objects={};rf_ui_model_bytes=0;rc_check_allocation=None
     if slow:lora_display_mutable['gm7_admission']=0
+    ui_label_cache_allocation=None
+    ui_partial_objects={n:{} for n in ("ui_service.c","ui_render.c","display.c")}
     with (out/'target/zephyr/zephyr.elf').open('rb') as f:
         elf=ELFFile(f)
         for seg in elf.iter_segments():
@@ -79,15 +160,33 @@ def inspect(out,allow_development=False):
             if seg['p_vaddr']>=0x20000000 and seg['p_memsz']:
                 require(0x20002000<=seg['p_vaddr'] and seg['p_vaddr']+seg['p_memsz']<=0x20040000,'ELF RAM bounds')
                 ram_end=max(ram_end,seg['p_vaddr']+seg['p_memsz'])
+        causal_mutable_bytes=0;causal_allocations={}
         symbol_owner=''
         for symbol in elf.get_section_by_name('.symtab').iter_symbols():
             linked_names.add(symbol.name)
             if symbol['st_info']['type']=='STT_FILE':symbol_owner=symbol.name
             index=symbol['st_shndx']
+            if symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int) and elf.get_section(index)['sh_flags']&1:
+                if (symbol_owner,symbol.name) in (('lora_passive_service.c','rf_observer'),('rc_dynamic_service.c','rf_rc')):
+                    rf_objects[symbol_owner+':'+symbol.name]=int(symbol['st_size'])
+                if symbol_owner=='ui_service.c' and symbol.name=='model':rf_ui_model_bytes=int(symbol['st_size'])
+            if symbol_owner in ui_partial_objects and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
+                section=elf.get_section(index)
+                if section['sh_flags']&1:ui_partial_objects[symbol_owner][symbol.name]=dict(bytes=int(symbol['st_size']),section=section.name,type=section['sh_type'])
+            if symbol_owner=='rc_dynamic_service.c' and symbol.name=='first_check_site' and isinstance(index,int):
+                section=elf.get_section(index)
+                rc_check_allocation=dict(bytes=int(symbol['st_size']),section=section.name,type=section['sh_type'])
+            if symbol_owner=='ble_causal_events.c' and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
+                if elf.get_section(index)['sh_flags']&1:causal_mutable_bytes+=int(symbol['st_size'])
+            if symbol_owner=='radio_service.c' and symbol.name in ('pt_output','gm7_direct') and isinstance(index,int):
+                causal_allocations[symbol.name]=int(symbol['st_size'])
             if symbol_owner=='rc_dynamic_service.c' and symbol.name.startswith('hold_') and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
                 if elf.get_section(index)['sh_flags']&1:holdover_mutable_bytes+=int(symbol['st_size'])
             if symbol_owner=='radio_audit.c' and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
                 if elf.get_section(index)['sh_flags']&1:audit_mutable_bytes+=int(symbol['st_size'])
+            if symbol_owner=='ui_service.c' and symbol.name=='model_labels' and isinstance(index,int):
+                section=elf.get_section(index)
+                ui_label_cache_allocation=dict(bytes=int(symbol['st_size']),section=section.name,type=section['sh_type'])
             if symbol_owner=='ui_service.c' and symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int):
                 if elf.get_section(index)['sh_flags']&1:ui_mutable_bytes+=int(symbol['st_size'])
             if slow and symbol_owner=='gm7_service.c' and symbol.name in ('lora_admitted_epoch','lora_readmission'):
@@ -98,14 +197,35 @@ def inspect(out,allow_development=False):
             if r.get('lora_bw_experiment') and symbol_owner=='lora_passive_service.c' and symbol.name=='audits':
                 require(isinstance(index,int) and elf.get_section(index)['sh_flags']&1,'Missing writable laboratory packet audits')
                 lab_audit_bytes+=int(symbol['st_size'])
-            if symbol.name not in ('r2_fault_capsule','r2_watchdog_capsule','r2_crash_record','z_interrupt_stacks','pt_input','pt_output','r2_tz_data','tz_selector'):continue
+            allocation_name='r2_watchdog_pending'if symbol.name=='previous'and symbol_owner=='watchdog.c'else symbol.name
+            if allocation_name not in ('r2_fault_capsule','r2_watchdog_capsule','r2_crash_record','z_interrupt_stacks','pt_input','pt_output','r2_tz_data','tz_selector','uf2_intent','r2_watchdog_pending'):continue
             index=symbol['st_shndx']
             require(isinstance(index,int),'Unallocated crash symbol')
             section=elf.get_section(index)
-            allocations.setdefault(symbol.name,[]).append(dict(
+            allocations.setdefault(allocation_name,[]).append(dict(
                 size=int(symbol['st_size']),address=int(symbol['st_value']),
                 section=section.name,type=section['sh_type']))
+    if r.get('rc_check_site_encoding'):
+        require(r['rc_check_site_encoding']=='RC_CHECK_LINE12_EIO_V1','Unknown RC first-check encoding')
+        require(rc_check_allocation==dict(bytes=4,section='bss',type='SHT_NOBITS'),'RC first-check allocation differs from4B')
+        from rc_check_sites import resolve
+        mapped=json.loads((out/'rc_check_sites.json').read_text())
+        require(mapped.get('sites') and mapped.get('count')==len(mapped['sites']),'RC source map population')
+        for entry in mapped['sites']:
+            require(resolve(out,r['watchdog_binding_sha256'],entry['site'])['resolved'],'RC map not bound to original source')
     config=(out/'target/zephyr/.config').read_text()
+    fault_retention=fault_only_retention(gm7,tuple(map(int,r['version'].split('.'))),allocations)
+    boot_fault_store=None
+    causal_expected=gm7 and tuple(map(int,r['version'].split('.')))>=(0,15,302)
+    causal_added=causal_mutable_bytes
+    if causal_expected:
+        require(causal_allocations.get('pt_output')==752 and causal_allocations.get('gm7_direct')==72,'Causal descriptive publications differ from reviewed752/72 bytes')
+        require(0<causal_mutable_bytes<=984,'Causal recorder/state/lock exceeds984B')
+        causal_added+=causal_allocations['pt_output']-736+causal_allocations['gm7_direct']-48
+        require(causal_added<=1024,'Causal diagnostics exceed1024B added mutable allocation')
+    else:require(causal_mutable_bytes==0,'Causal recorder leaked into unsupported image')
+    if tuple(map(int,r['version'].split('.')))>=(0,15,290):
+        require(r.get('lora_rx_gain')=='SX1262_BOOSTED_08AC_96_READBACK_KCT8103L_RX_LNA_V1','LoRa boosted RX gain/LNA contract missing')
     if gm7 and r['profile'] in ('GM','RC') and tuple(map(int,r['version'].split('.')))>=(0,15,269):
         require(1000<=holdover_mutable_bytes<=1280,'Complete local HOLD state exceeds1280B or is missing')
     if tuple(map(int,r['version'].split('.')))>=(0,15,271) and not dc:
@@ -116,6 +236,25 @@ def inspect(out,allow_development=False):
     # .197 adds one durable callback word per slot (24B with struct alignment).
     hot_allowance=(104 if tuple(map(int,r['version'].split('.'))) >= (0,15,197) else 80 if tuple(map(int,r['version'].split('.'))) >= (0,15,196) else 64) if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,194) else 0
     commands=(out/'target/compile_commands.json').read_text()
+    # .306 adds only descriptive RF-page snapshots:72B LoRa +56B RC and
+    # one40B field in the existing UI model. Charge exact linked symbols,
+    # not a blanket increase to the older sparse-servo/TZ/menu allocations.
+    # The original1024B absolute floor and all stack/buffer sizes remain.
+    rf_enabled=tuple(map(int,r['version'].split('.')))>=(0,15,306) and 'R2_LORA=1' in commands
+    rf_ui_added=40 if rf_enabled else 0
+    if rf_enabled:
+        require(rf_ui_model_bytes>=40,'Missing linked RF UI comparison model')
+        for name,size in rf_objects.items():
+            require(size=={'lora_passive_service.c:rf_observer':72,'rc_dynamic_service.c:rf_rc':56}[name],'RF scalar snapshot size changed: '+name)
+        if passive:
+            require(rf_objects=={'lora_passive_service.c:rf_observer':72,'rc_dynamic_service.c:rf_rc':56},'Missing passive RF owner snapshots')
+            require({'r2_lora_rf_clock','r2_ui_rf_requested'}<=linked_names,'Missing on-demand RF comparison integration')
+    else:require(not rf_objects,'RF observer allocation outside selected LoRa feature')
+    rf_added=sum(rf_objects.values())+rf_ui_added
+    require(rf_added<=192,'RF presentation exceeds192B descriptive allocation')
+    rf_group_added=rf_ui_added+rf_objects.get('lora_passive_service.c:rf_observer',0)
+    require(('R2_BLE_CAUSAL_EVENTS=1' in commands)==causal_expected,'Causal diagnostic compile membership differs')
+    require(('/src/ble_causal_events.c' in commands)==causal_expected,'Causal diagnostic source membership differs')
     if tuple(map(int,r['version'].split('.')))>=(0,15,288):
         usb=r.get('usb_cdc_recovery')
         if dc or pc:
@@ -134,6 +273,10 @@ def inspect(out,allow_development=False):
             require('R2_USB_CDC_RECOVERY=1' in commands,'Periodic console RX readiness integration')
     if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,202):
         require_tz_compile_mode(json.loads(commands))
+    ui_partial_enabled='R2_UI_PARTIAL_JOBS=1' in commands
+    ui_partial_expected=gm7 and r['profile'] in ('GM','RC') and tuple(map(int,r['version'].split('.')))>=(0,15,324)
+    require(ui_partial_enabled==ui_partial_expected,'Production partial UI definition mismatch')
+    ui_partial=ui_partial_accounting(out,ui_partial_enabled,ui_partial_objects,passive)
     # TZ1 wire/cache allocation is208B versus the inspected .201 GM/RC image.
     # Source205 adds a bounded64B for leased TZ snapshots used by the UI.
     # Charge it to its own bounded feature allocation, not the RC8 allowance.
@@ -164,20 +307,30 @@ def inspect(out,allow_development=False):
     if lab_audit_allowance:require(lab_audit_bytes==(48 if slow else 192),'Laboratory selected-profile audit allocation')
     lab_audit_added=max(0,lab_audit_bytes-40) if lab_audit_allowance else 0
     require(lab_audit_added<=lab_audit_allowance,'Laboratory audit exceeds its selected-profile increment')
-    lora_stage2_added=max(0,sum(lora_display_mutable.values())-23795)
+    # .320 descriptive label keys reuse the existing75B model strings.
+    # Charge exactly the new24B factory tuple independently of LoRa servo state.
+    ui_label_cache_added=0
+    if ui_label_cache_allocation is not None:
+        require(tuple(map(int,r['version'].split('.')))>=(0,15,320),'Unexpected UI label cache')
+        require(ui_label_cache_allocation==dict(bytes=24,section='bss',type='SHT_NOBITS'),'UI descriptive factory tags exceed24B')
+        ui_label_cache_added=24
+    if gm7 and r['profile'] in ('GM','RC') and tuple(map(int,r['version'].split('.')))>=(0,15,320):
+        require(ui_label_cache_added==24,'Missing independently bounded UI label keys')
+    lora_stage2_total=max(0,sum(lora_display_mutable.values())-23795)
+    lora_stage2_added=max(0,sum(lora_display_mutable.values())-23795-rf_group_added-ui_label_cache_added-ui_partial['composite_bytes'])
     lora_enhanced_added=max(0,lora_stage2_added-1510-lab_audit_added) if lora_enhanced_allowance else 0
     require(lora_enhanced_added<=lora_enhanced_allowance,'Sparse LoRa servo exceeds128B added native state')
     if lora_stage2_allowance:
         require(lora_stage2_added<=lora_stage2_allowance+lora_enhanced_allowance+lab_audit_allowance,'LoRa runtime exceeds its bounded mutable state allocation: '+str(lora_display_mutable))
         require((({'lp_decode','lp_tx_reserve_control','lp_rx_follow','lp_tx_start','r2_lora_hw_passive_configure','r2_lora_shadow_publish'}| (set() if r.get('lora_tx_diagnostic') else {'lp_encode'})) if passive else {'rc8_probe_encode','rc8_probe_decode','r2_lora_hw_idle','r2_lora_tz_publish'})<=linked_names,'Missing selected LoRa integration')
-    lora_display_added=max(0,sum(lora_display_mutable.values())-23606)
+    lora_display_added=max(0,sum(lora_display_mutable.values())-23606-rf_group_added-ui_label_cache_added-ui_partial['composite_bytes'])
     if lora_display_allowance:
         require(({'r2_lora_name_publish','lp_context'} if passive else {'r2_lora_name_publish','rc8_name_encode','rc8_name_decode'})<=linked_names,'Missing authenticated LoRa metadata')
         require(all(lora_display_mutable.values()),'Missing linked LoRa display allocation accounting')
         require(lora_display_added<=lora_display_allowance+lora_stage2_allowance+lora_enhanced_allowance+lab_audit_allowance,'LoRa name/display state exceeds bounded addition')
     if menu_allowance:
         require({'r2_ui_press','r2_ui_menu_result','r2_service_ble_rx'}<=linked_names,'Missing ordinary menu/receive controls')
-        require(0<ui_mutable_bytes<=18145+menu_allowance+lora_stage2_allowance,'Menu exceeds128B added mutable UI state')
+        require(0<ui_mutable_bytes-ui_partial['composite_bytes']<=18145+menu_allowance+lora_stage2_allowance+rf_ui_added,'Menu exceeds128B added mutable UI state')
     if auto_tz_allowance:
         require(tuple(map(int,r['version'].split('.')))>=(0,15,206),'Unexpected automatic TZ version')
         data=allocations.get('r2_tz_data',[]);state=allocations.get('tz_selector',[])
@@ -193,7 +346,7 @@ def inspect(out,allow_development=False):
         require(hashlib.sha256(image).hexdigest()==r.get('time_zone',{}).get('database_sha256'),'Linked TZ image identity mismatch')
         # .205 same normal configuration leaves4372B. Charge at most256B for
         # the complete auto feature, including position, queue and snapshots.
-        require(0x20040000-ram_end+menu_allowance+lora_display_allowance+lora_stage2_allowance>=4372-256,'Automatic TZ exceeds256B added static state')
+        require(0x20040000-ram_end+menu_allowance+lora_display_allowance+lora_stage2_allowance+rf_added>=4372-256,'Automatic TZ exceeds256B added static state')
         require(r.get('time_zone',{}).get('mode') in ('auto','manual-zone','manual-offset'),'Missing TZ build binding')
         tz=r['time_zone']
         require(tz['mode_number']=={'manual-offset':0,'manual-zone':1,'auto':2}[tz['mode']],'TZ mode binding disagreement')
@@ -427,7 +580,7 @@ def inspect(out,allow_development=False):
         # separately agreed4096B incremental RC8 ceiling as well as1024B gate.
         # .180-.186 GM have a separately verified512B retained crash record and
         #896B ISR allocation; neither changes the RC8 budget or absolute floor.
-        require(0x20040000-ram_end+crash_allowance+hot_allowance+tz_allowance+auto_tz_allowance+menu_allowance+lora_display_allowance+lora_stage2_allowance>=8740-4096,'RC8 exceeds4096B incremental static budget')
+        require(0x20040000-ram_end+crash_allowance+hot_allowance+tz_allowance+auto_tz_allowance+menu_allowance+lora_display_allowance+lora_stage2_allowance+rf_added>=8740-4096,'RC8 exceeds4096B incremental static budget')
         private_sha=hashlib.sha256((private_sha+':lora-tx:'+transmitter).encode()).hexdigest()
     if dc or pc:
         with (out/'target/zephyr/zephyr.elf').open('rb') as f:
@@ -452,9 +605,34 @@ def inspect(out,allow_development=False):
         nm=str(Path(compiler).with_name('arm-zephyr-eabi-nm'))
         archive=out/'target/app/libapp.a'
         undefined=subprocess.check_output([nm,'-u',str(archive)],text=True)
-        require(not re.search(r'(?:flash_(?:read|write|erase)|nvs_(?:read|write|delete)|settings_(?:load|save|delete))\b',undefined),'Application NV dependency remains')
-        for name in ('r2_fault_capsule','r2_crash_record','r2_watchdog_capsule'):
-            for q in allocations.get(name,[]):require(q['section']!='noinit','Operational retained state: '+name)
+        if tuple(map(int,r['version'].split('.')))<(0,15,309):
+            require(not re.search(r'(?:flash_(?:read|write|erase)|nvs_(?:read|write|delete)|settings_(?:load|save|delete))\b',undefined),'Application NV dependency remains')
+        else:
+            require('/src/fault_boot.c' in commands and '/src/fault_store.c' in commands and
+                    '-DR2_FAULT_DURABLE=1' in commands,'Missing startup-only fault store membership')
+            # This owner may READ/WRITE only; no erase/settings/runtime journal owner.
+            owner_undefined=subprocess.check_output([nm,'-A','-u',str(archive)],text=True)
+            for row in owner_undefined.splitlines():
+                hit=re.search(r'\b(?:z_impl_|z_vrfy_)?((?:flash_(?:read|write|erase)|nvs_(?:read|write|delete)|settings_(?:load|save|delete)))\b',row)
+                if hit:require('fault_boot.c.obj' in row and hit[1] in ('flash_read','flash_write'),'Unapproved NV owner/call: '+row)
+            require('flash_erase(' not in (Path(__file__).resolve().parents[1]/'src/fault_boot.c').read_text() and
+                    'flash_write(' not in (Path(__file__).resolve().parents[1]/'src/fault_store.c').read_text(),'Boot-only no-erase boundary')
+            metadata=object_mutable_bytes(out,'fault_boot.c')
+            engine=object_mutable_bytes(out,'fault_store.c')
+            require(metadata<=24 and engine==0,'Boot-only fault mutable budget')
+            boot_fault_store=dict(sole_owner='fault_boot.c',calls=['flash_read','flash_write'],
+                boot_metadata_bytes=metadata,erase_forbidden=True,
+                metadata_mutable_bytes=metadata,metadata_budget_bytes=24,
+                engine_mutable_bytes=engine,slots=16,bytes=8192,start_address='0xe1000',
+                automatic_erase=False,runtime_writer=False,write_phase='STARTUP_BEFORE_RADIO_THEN_SEALED',
+                transaction_budget_ms=500,driver_timeout='CHECKED_AROUND_CALLS_NOT_HARD_PREEMPTION',
+                app_undefined_owners=owner_undefined,
+                app_undefined_owners_sha256=hashlib.sha256(owner_undefined.encode()).hexdigest())
+
+
+        if fault_retention is None:
+            for name in ('r2_fault_capsule','r2_crash_record','r2_watchdog_capsule'):
+                for q in allocations.get(name,[]):require(q['section']!='noinit','Operational retained state: '+name)
         require('rc8_probe_encode' not in linked_names and 'rc8_name_encode' not in linked_names,'Active RC8 companion leaked into passive image')
         require('/src/lora_service.c' not in commands and '/src/lora_passive_store.c' not in commands,'Passive owner membership')
         dts=(out/'target/zephyr/zephyr.dts').read_text()
@@ -476,9 +654,27 @@ def inspect(out,allow_development=False):
         private_sha=hashlib.sha256((private_sha+':fixed500:922400000_SF11_CR8_P30_M300').encode()).hexdigest()
         private_sha=hashlib.sha256((private_sha+':event-delay-ns:'+str(event_delay)).encode()).hexdigest()
         if tuple(map(int,r['version'].split('.')))>=(0,15,288):
-            require(r.get('fixed500_runtime')==dict(ble_return_dwell_us=30000000,deferred_fault_ms=300000,
+            expected_runtime=dict(ble_return_dwell_us=30000000,deferred_fault_ms=300000,
                 precharge_lead_us=4000000,meta_launch_late_us=3000000,operator_rearm=True,
-                source_gap='EXACT_AUTHENTICATED_SCOPE_FUTURE_PRECISION',normal_export_authority=False),'Fixed500 runtime policy binding')
+                source_gap='EXACT_AUTHENTICATED_SCOPE_FUTURE_PRECISION',normal_export_authority=False)
+            if tuple(map(int,r['version'].split('.')))>=(0,15,291):
+                expected_runtime.update(context_change='FRESH_TRAIN_META_AFTER_QUIESCENCE',
+                    unannounced_context_retry=True,train_indicator='COMPLETED_FOLLOW_CADENCE')
+                require('r2_lora_console_poll' in linked_names,'Passive console health integration')
+            if tuple(map(int,r['version'].split('.')))>=(0,15,292):
+                expected_runtime.update(restart_hold_us=30000000,display_source_freshness='ORIGINAL_CAPTURE_INTERVAL')
+            if tuple(map(int,r['version'].split('.')))>=(0,15,293):
+                expected_runtime.update(ble_source_gate='FRESH_AUTHENTICATED_DELIVERED_ACQUISITION',
+                    ble_source_quality_ns=1000,ble_source_phase_ns=1000,train_permission_indicator=True)
+                require('r2_lora_source_status' in linked_names,'LoRa source refusal visibility')
+            if tuple(map(int,r['version'].split('.')))>=(0,15,296):
+                expected_runtime.update(receiver_watch='BOOT_CONTEXT_CACHE_PHYSICAL_PAIR_OBSERVER_V1',
+                    early_time_pairs=1,causal_error_pairs=2,observer_export_authority=False)
+                require('/src/lora_receiver_watch.c' in commands,'Compiled receiver watch missing')
+                require({'lp_receiver_watch_meta','lp_receiver_watch_follow','lp_receiver_watch_time',
+                    'lp_receiver_watch_fence','lp_rx_watch_sync','lp_rx_watch_follow'}<=linked_names,
+                    'Linked physical receiver watch missing')
+            require(r.get('fixed500_runtime')==expected_runtime,'Fixed500 runtime policy binding')
             require({'lp_tx_rearm','r2_lora_ble_observe','r2_lora_ble_shadow_allowed'}<=linked_names,'Fixed500 runtime integration')
     else:require('R2_LORA_FIXED500_EXPERIMENT=1' not in commands,'Unexpected fixed500 experiment')
     if r.get('lora_bw_experiment'):
@@ -494,7 +690,7 @@ def inspect(out,allow_development=False):
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
-    return {'lab_audit_mutable_bytes':lab_audit_bytes,'lab_audit_added_mutable_bytes':lab_audit_added,'lab_audit_increment_budget_bytes':lab_audit_allowance,'lora_enhanced_added_mutable_bytes':lora_enhanced_added,'lora_enhanced_mutable_budget_bytes':lora_enhanced_allowance,'audit_mutable_bytes':audit_mutable_bytes,'audit_mutable_budget_bytes':1108,'holdover_mutable_bytes':holdover_mutable_bytes,'holdover_mutable_budget_bytes':1280,'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
+    return {'ui_partial':ui_partial,'ui_partial_build_definition':('R2_UI_PARTIAL_JOBS=1' if ui_partial_enabled else None),'ui_label_cache_mutable_bytes':ui_label_cache_added,'ui_label_cache_allocation':ui_label_cache_allocation,'ui_label_cache_budget_bytes':24 if ui_label_cache_added else 0,'fault_durable_NV_boundary':boot_fault_store,'boot_fault_store':boot_fault_store,'fault_only_retention':fault_retention,'rf_presentation_mutable_bytes':rf_added,'rf_presentation_mutable_budget_bytes':192 if rf_enabled else 0,'rf_presentation_owner_allocations':rf_objects,'rf_presentation_UI_copy_bytes':rf_ui_added,'rf_presentation_UI_model_bytes':rf_ui_model_bytes,'lora_stage2_total_including_rf_bytes':lora_stage2_total,'ble_causal_mutable_bytes':causal_mutable_bytes,'ble_causal_added_mutable_bytes':causal_added,'ble_causal_budget_bytes':1024 if causal_expected else 0,'lab_audit_mutable_bytes':lab_audit_bytes,'lab_audit_added_mutable_bytes':lab_audit_added,'lab_audit_increment_budget_bytes':lab_audit_allowance,'lora_enhanced_added_mutable_bytes':lora_enhanced_added,'lora_enhanced_mutable_budget_bytes':lora_enhanced_allowance,'audit_mutable_bytes':audit_mutable_bytes,'audit_mutable_budget_bytes':1108,'holdover_mutable_bytes':holdover_mutable_bytes,'holdover_mutable_budget_bytes':1280,'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

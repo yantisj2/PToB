@@ -37,6 +37,25 @@ struct rc_shadow_record {
  uint32_t sequence,reason,association,reference_reason;bool valid,pll,reference_fix,reference_pps,reference_seen;
 };
 struct rc_shadow_status {uint32_t edges,drops,overwritten,disabled,duplicates;bool enabled;uint8_t request_mask;uint64_t now_tick,epoch;};
+/* A statistical population, never a clock-selection or admission key. Changes
+ * split UI sessions; ordinary map refreshes/accepted counts do not. */
+static inline uint8_t rc_shadow_input_kind(const struct rc_shadow_map *m){
+ return m->lora?3:m->local_hold?2:m->normal?1:0;
+}
+struct rc_shadow_population {
+ uint64_t root,root_boot,parent,parent_boot;
+ uint32_t root_epoch,parent_epoch,train,lora_delay_ns;
+ uint8_t input;bool valid;
+};
+static inline void rc_shadow_population_set(struct rc_shadow_population *p,const struct rc_shadow_map *m){
+ *p=(struct rc_shadow_population){m->root,m->root_boot,m->parent,m->parent_boot,
+  m->root_epoch,m->parent_epoch,m->train,m->lora_delay_ns,rc_shadow_input_kind(m),true};
+}
+static inline bool rc_shadow_population_same(const struct rc_shadow_population *p,const struct rc_shadow_map *m){
+ return p->root==m->root&&p->root_boot==m->root_boot&&p->parent==m->parent&&p->parent_boot==m->parent_boot&&
+  p->root_epoch==m->root_epoch&&p->parent_epoch==m->parent_epoch&&p->train==m->train&&
+  p->lora_delay_ns==m->lora_delay_ns&&p->input==rc_shadow_input_kind(m);
+}
 _Static_assert(sizeof(struct rc_shadow_status)==40,"Witness request mask must use existing padding");
 void r2_shadow_map(const struct rc5_clock *,const struct rc5_state *,uint64_t,uint64_t);
 /* Corrected normal follower map, frozen by its owning PT worker only. */

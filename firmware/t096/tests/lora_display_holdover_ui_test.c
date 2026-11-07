@@ -14,7 +14,7 @@ static void save(const char *dir,const char *name){
  for(unsigned i=0;i<sizeof rgb;i+=2){unsigned p=((unsigned)rgb[i]<<8)|rgb[i+1];fputc((p>>11)*255/31,f);fputc(((p>>5)&63)*255/63,f);fputc((p&31)*255/31,f);}fclose(f);
 }
 int main(int argc,char **argv){assert(argc==2);
- struct r2_ui_model m={.sampled_ms=1000,.platform_ready=true,.unit="TEST",.ble_rx_supported=true,.lora={.requested=true,.active=true,.choice=RC8_SELECT_NONE,.state=RC8_EXPIRED,.display_held=true,.sampled_us=1000000,.utc_us=UINT64_C(86399900000),.until_us=1000000+R2_LORA_DISPLAY_HOLD_US,.display_until_us=UINT64_MAX,.age_ms=700000,.link_samples=6,.link_rms_ns=4552}};
+ struct r2_ui_model m={.sampled_ms=1000,.platform_ready=true,.unit="TEST",.ble_rx_supported=true,.lora={.requested=true,.active=true,.choice=RC8_SELECT_NONE,.state=RC8_EXPIRED,.display_held=true,.context_known=true,.fit_span_ms=150000,.sampled_us=1000000,.utc_us=UINT64_C(86399900000),.until_us=1000000+R2_LORA_DISPLAY_HOLD_US,.display_until_us=UINT64_MAX,.age_ms=700000,.link_samples=6,.link_rms_ns=4552}};
  int64_t utc,prior=0;bool coarse;uint64_t start=(uint64_t)UINT32_MAX-5;
  for(uint64_t t=start;t<start+2000;t+=25){
   m.sampled_ms=t;m.lora.sampled_us=t*1000;m.lora.utc_us=UINT64_C(86399900000)+(t-start)*1000;
@@ -33,13 +33,13 @@ int main(int argc,char **argv){assert(argc==2);
   assert(r2_ui_display_time(&m,t,&utc,&coarse)&&coarse&&utc==(int64_t)m.lora.utc_us+(int64_t)(t-1000)*1000&&r2_ui_analog(&m,t));
   assert(!lora_input_current(&m,t)&&!lora_rms_current(&m,t));
  }
- r2_ui_render(fb,&m,&s,1000);text_at(36,20,"ACQ",C_AMBER);text_at(26,122,"REF AGE",C_DIM);text_at(28,133,"700s",C_DIM);save(argv[1],"acquisition-watch");
- s.page=2;r2_ui_render(fb,&m,&s,1000);text_at(4,20,"UTC ESTIMATE",C_AMBER);save(argv[1],"acquisition-detail");
+ r2_ui_render(fb,&m,&s,1000);text_at(36,20,"ACQ",C_AMBER);text_at(26,122,"SYNCING",C_DIM);text_at(16,133,"150/180s",C_AMBER);save(argv[1],"acquisition-watch");
+ s.page=2;r2_ui_render(fb,&m,&s,1000);text_at(4,20,"LORA SYNC",C_AMBER);text_at(4,61,"6 PAIRS",C_DIM);save(argv[1],"acquisition-detail");
  s.page=0;s.screensaver=true;r2_ui_render(fb,&m,&s,1000);text_at(36,(int)r2_ui_saver_top(0)+3,"ACQ",C_AMBER);save(argv[1],"acquisition-saver");
  m.lora.display_acquiring=false;m.lora.display_held=false;m.lora.state=RC8_AVAILABLE;m.lora.choice=RC8_SELECT_LORA;m.lora.time_valid=m.lora.quality_known=true;
  s.page=0;s.screensaver=false;assert(!strcmp(r2_ui_servo_state(&m,1000),"RECEIVING")&&lora_rms_current(&m,1000));
  m.lora.fit_age_ms=62510;assert(lora_rms_current(&m,1000));m.lora.fit_age_ms=119999;assert(lora_rms_current(&m,1000));m.lora.fit_age_ms=120000;assert(!lora_rms_current(&m,1000));m.lora.fit_age_ms=0;
- r2_ui_render(fb,&m,&s,1000);text_at(36,20,"LOR",C_GREEN);text_at(26,122,"LOR RMS",C_DIM);save(argv[1],"acquisition-trained");
+ r2_ui_render(fb,&m,&s,1000);text_at(36,20,"LOR",C_GREEN);text_at(26,122,"FIT RMS",C_DIM);save(argv[1],"acquisition-trained");
  m.lora.display_held=true;m.lora.state=RC8_EXPIRED;m.lora.choice=RC8_SELECT_NONE;m.lora.time_valid=m.lora.quality_known=false;
  assert(!strcmp(r2_ui_servo_state(&m,1000),"HOLD")&&!lora_rms_current(&m,1000));
  r2_ui_render(fb,&m,&s,1000);text_at(36,20,"HOLD",C_AMBER);text_at(26,122,"REF AGE",C_DIM);save(argv[1],"acquisition-trained-hold");
@@ -56,7 +56,7 @@ int main(int argc,char **argv){assert(argc==2);
  assert(r2_ui_display_time(&m,1000,&utc,&coarse)&&coarse);
  assert(!strcmp(r2_ui_servo_state(&m,1000),"ACQUIRING"));
  s.page=0;s.screensaver=true;r2_ui_render(fb,&m,&s,1000);
- text_at(36,20,"ACQ",C_AMBER);text_at(19,62,"SYNCING",C_AMBER);text_at(13,82,"ACQUIRING",C_AMBER);save(argv[1],"stale-precision-acquiring");
+ text_at(36,20,"ACQ",C_AMBER);text_at(13,62,"LORA SYNC",C_AMBER);text_at(16,82,"PAIR GAP",C_AMBER);save(argv[1],"stale-precision-acquiring");
  m.lora.rx_age_ms=UINT32_MAX;assert(!r2_ui_saver_allowed(&m,1000)&&!r2_ui_analog(&m,1000));
  /* A newly accepted pair permits presentation without discarding cached UTC. */
  m.lora.rx_age_ms=0;assert(r2_ui_saver_allowed(&m,1000)&&r2_ui_analog(&m,1000));

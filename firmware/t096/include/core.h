@@ -41,6 +41,10 @@ struct r2_maint {
 int r2_parse(const char *line, struct r2_request *out);
 bool r2_factory_parse(const char *,uint64_t *);
 bool r2_bound(const struct r2_request *r, const char *silicon, const char *source, uint64_t boot);
+/* STATUS bootstraps a new host session without consuming the per-boot cursor.
+ * Every other request must advance it; invalid bindings/deadlines never do. */
+bool r2_admit(const struct r2_request *,const char *silicon,const char *source,
+              uint64_t boot,uint64_t arrival,uint64_t now,uint32_t *last_request);
 int r2_prepare(struct r2_maint *m, uint64_t nonce, uint64_t arrival, uint64_t now, bool safe);
 int r2_closed(struct r2_maint *m, uint64_t now, int result);
 int r2_commit(struct r2_maint *m, uint64_t nonce, uint64_t arrival, uint64_t now);

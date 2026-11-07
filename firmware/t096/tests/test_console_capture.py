@@ -26,6 +26,15 @@ def frame(sequence=1, payload=None):
 
 
 class CaptureTest(unittest.TestCase):
+    def test_request_bootstrap_cursor(self):
+        self.assertEqual(m.request_cursor({},0xa7000000),0xa7000000)
+        self.assertEqual(m.request_cursor({'last_request':0},0xffffffff),0)
+        self.assertEqual(m.request_cursor({'last_request':17},0xa7000000),17)
+        self.assertEqual(m.request_cursor({'last_request':0xffffffff},1),0xffffffff)
+        for invalid in (-1,0x100000000,True,'17',None):
+            with self.subTest(cursor=invalid),self.assertRaises(ValueError):
+                m.request_cursor({'last_request':invalid},1)
+
     def test_owned_callout_with_unopened_tty_rc1(self):
         tree='+-o ExactDevice\n  "USB Serial Number" = "fixture"\n  "IOCalloutDevice" = "/dev/cu.fixture"\n'
         for code in (0,1):

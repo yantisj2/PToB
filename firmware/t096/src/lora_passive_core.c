@@ -571,6 +571,64 @@ bool lp_rx_follow(struct lp_rx *r,const struct lp_packet *p,const struct lp_age 
  r->pending=false;r->prediction=true;r->hint=true;r->hint_cursor=p->cursor+2;r->hint_us=r->pending_us+LP_BEAT_US;
  return true;
 }
+#if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_FIXED500_EXPERIMENT)
+/* This second receiver belongs only to the human watch. The live receiver
+ * above retains its original META/physical deadlines and all callers. */
+bool lp_rx_watch_sync(struct lp_rx *r,uint32_t cursor,uint64_t tick,uint64_t epoch,uint64_t event,uint64_t now){
+ if(!r||!r->cached||!epoch||!tick||event>UINT64_MAX-LP_HOLD_US||cursor<r->highest||
+    ((uint64_t)cursor-r->highest>32&&(cursor<r->meta_cursor||(uint64_t)cursor-r->meta_cursor>32))||
+    now<event||now-event>LP_SYNC_PROCESS_US){if(r)pending_clear(r);return false;}
+ r->pending=true;r->hint=r->prediction=false;r->pending_cursor=cursor;
+ r->pending_tick=tick;r->pending_epoch=epoch;r->pending_us=event;r->pending_deadline_us=event+LP_PENDING_US;
+ return true;
+}
+bool lp_rx_watch_follow(struct lp_rx *r,const struct lp_packet *p,uint64_t epoch,uint64_t now){
+ if(!r||!p||p->kind!=LP_FOLLOW||p->schedule!=LP_SCHEDULE||!r->pending||p->cursor!=r->pending_cursor||epoch!=r->pending_epoch||
+ now<r->pending_us||now>=r->pending_deadline_us){if(r){++r->rejected;pending_clear(r);}return false;}
+ /* An observation cannot issue an independently bounded source grant. */
+ bool bounded=false;
+ uint64_t model_ns=p->utc_ns;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ /* Apply the independently frozen prior to the actual model input, before
+  * fitting or delivered-map publication. Authentication/freshness use the
+  * original packet; the correction creates no new source authority. */
+ if(LP_FIXED_EVENT_DELAY_NS<0){
+  uint64_t magnitude=(uint64_t)-LP_FIXED_EVENT_DELAY_NS;
+  if(model_ns<magnitude){++r->rejected;pending_clear(r);return false;}
+  model_ns-=magnitude;
+ }else if(!add(model_ns,(uint64_t)LP_FIXED_EVENT_DELAY_NS,&model_ns)){
+  ++r->rejected;pending_clear(r);return false;
+ }
+#endif
+ if(r->last_tick&&(p->cursor<=r->highest||model_ns<=r->last_tx_ns||
+    (epoch==r->last_epoch&&r->pending_tick<=r->last_tick))){++r->rejected;pending_clear(r);return false;}
+ r->physical_deadline_us=r->pending_us+LP_HOLD_US;
+ if(now>=r->physical_deadline_us){pending_clear(r);return false;}
+ if(epoch!=r->last_epoch){r->fit_count=0;if(epoch!=r->display_epoch)r->display_valid=r->display_acquiring=false;}
+ r->last_tick=r->pending_tick;r->last_tx_ns=model_ns;r->last_us=r->pending_us;
+ r->highest=p->cursor;r->have_pair=true;r->bounded=r->bounded&&bounded;r->last_epoch=epoch;
+ fit(r,r->last_tick,r->last_tx_ns);
+ if(r->trained){
+#ifndef R2_LORA_PASSIVE_SLOW
+  r->display_tick=r->last_tick;r->display_ns=r->last_tx_ns;
+  r->display_us=r->last_us;r->display_epoch=r->last_epoch;r->display_rate_ppb=r->rate_ppb;r->display_valid=true;r->display_acquiring=false;}
+#else
+  /* The native owner commits this causal fit at an actual current capture.
+   * Do not step the delivered phase to the newest noisy raw observation. */
+ }
+#endif
+#ifdef R2_LORA_PASSIVE_SLOW
+ else if(!r->display_valid){
+  r->display_tick=r->last_tick;r->display_ns=r->last_tx_ns;r->display_us=r->last_us;
+  r->display_epoch=r->last_epoch;r->display_rate_ppb=0;r->display_valid=r->display_acquiring=true;
+ }
+#endif
+ ++r->accepted;
+ r->pending=false;r->prediction=true;r->hint=true;r->hint_cursor=p->cursor+2;r->hint_us=r->pending_us+LP_BEAT_US;
+ return true;
+}
+#endif
+
 bool lp_rx_discipline(struct lp_rx *r,uint64_t tick,uint64_t epoch,uint64_t now){
  if(!r||!r->trained||!r->have_pair||epoch!=r->last_epoch||tick<r->last_tick||
     now<r->last_us||now>=r->physical_deadline_us||r->model_accepted==r->accepted)return false;

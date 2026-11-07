@@ -4,8 +4,12 @@
  */
 #include "watchdog.h"
 #include "watchdog_policy.h"
+#include "rc_check_site.h"
 #include "ble_service.h"
 #include "build_identity.h"
+#ifdef R2_FAULT_DURABLE
+#include "fault_store.h"
+#endif
 #ifdef R2_LORA
 #include "lora_watchdog.h"
 #include "lora_service.h"
@@ -29,14 +33,21 @@ _Static_assert(WD_PARENT_MS>=30000u&&WD_CORE_MS>=30000u&&WD_RC_WORKER_MS>=30000u
 enum {WD_NO_SYNC=1,WD_RETRIES_EXHAUSTED,WD_CORE_STALL,WD_RECOVERY_FAILED,WD_RC_WORKER_STALL,WD_LORA_FAULT,
  WD_FATAL=16,WD_UF2=256};
 /* CRC/commit, exact source and silicon binding; RAM survival is conditional. */
-volatile uint32_t r2_watchdog_capsule[WD_WORDS];
+volatile uint32_t r2_watchdog_capsule[WD_WORDS] __noinit;
+_Static_assert(sizeof r2_watchdog_capsule==136,"Fixed diagnostic watchdog retention");
 struct uf2_request {uint32_t magic,checksum;char binding[64],silicon[16];};
 static volatile struct uf2_request uf2_intent __noinit;
 static uint32_t uf2_crc(void){
  const volatile uint8_t *p=(const volatile uint8_t *)&uf2_intent.binding;
  uint32_t c=UINT32_MAX;for(unsigned i=0;i<80;i++){c^=p[i];for(unsigned b=0;b<8;b++)c=(c>>1)^(UINT32_C(0xedb88320)&-(c&1u));}return ~c;
 }
+#ifdef R2_FAULT_DURABLE
+/* Separate first-pending diagnostic record; never current-reset authority. */
+static uint32_t previous[WD_WORDS] __noinit;
+static bool pending_attributed;
+#else
 static uint32_t previous[WD_WORDS];
+#endif
 static uint64_t physical_boot;
 static unsigned reset_kind;
 static uint32_t reset_flags;
@@ -83,6 +94,65 @@ static void capsule(unsigned reason,uint32_t control_detail)
  r2_watchdog_capsule[32]=reason==WD_RC_WORKER_STALL?control_detail:(uint32_t)atomic_get(&restart_error);
  r2_watchdog_capsule[33]=crc(r2_watchdog_capsule);
  __DMB();r2_watchdog_capsule[0]=WD_MAGIC;__DSB();
+}
+/* Diagnostics only. These words never restore a profile, clock or train. */
+static bool watchdog_bound(const struct r2_identity *id)
+{
+ return r2_watchdog_capsule[0]==WD_MAGIC&&r2_watchdog_capsule[1]==1&&
+  r2_watchdog_capsule[33]==crc(r2_watchdog_capsule)&&
+  !memcmp((const void *)&r2_watchdog_capsule[12],R2_WATCHDOG_BINDING,64)&&
+  !memcmp((const void *)&r2_watchdog_capsule[28],id->silicon,16);
+}
+#ifdef R2_FAULT_DURABLE
+static bool watchdog_any_bound(const volatile uint32_t *p,const char *factory)
+{
+ bool software=p[0]==WD_MAGIC&&p[1]==1;
+ bool observed=p[0]==R2_FAULT_RESET_MAGIC&&p[1]==2&&!p[4]&&
+  (p[5]&(RESET_WATCHDOG|RESET_CPU_LOCKUP));
+ if((!software&&!observed)||p[33]!=crc(p)||
+    !(p[2]||p[3])||
+    memcmp((const void *)&p[28],factory,16))return false;
+ const volatile unsigned char *binding=(const volatile unsigned char *)&p[12];
+ for(unsigned i=0;i<64;i++)if(!((binding[i]>='0'&&binding[i]<='9')||(binding[i]>='a'&&binding[i]<='f')))return false;
+ return true;
+}
+static void observe_hardware_reset(const struct r2_identity *id)
+{
+ previous[0]=0;previous[1]=2;
+ previous[2]=(uint32_t)id->boot;previous[3]=(uint32_t)(id->boot>>32);
+ previous[4]=0;previous[5]=id->reset_cause; /* software cause/prior fault boot UNKNOWN */
+ memcpy(previous+12,R2_WATCHDOG_BINDING,64);memcpy(previous+28,id->silicon,16);
+ previous[33]=crc(previous);__DMB();previous[0]=R2_FAULT_RESET_MAGIC;__DSB();
+}
+const volatile uint32_t *r2_watchdog_pending_record(void)
+{return watchdog_any_bound(previous,silicon)?previous:NULL;}
+void r2_watchdog_pending_saved(uint32_t retained_crc)
+{
+ if(r2_watchdog_pending_record()&&previous[33]==retained_crc){
+  memset(previous,0,sizeof previous);pending_attributed=false;
+ }
+}
+#endif
+static const char *previous_reason_name(void)
+{
+#ifdef R2_FAULT_DURABLE
+ if(previous[0]==R2_FAULT_RESET_MAGIC)return "UNKNOWN";
+#endif
+ if(previous[0]!=WD_MAGIC)return "UNAVAILABLE";
+#ifdef R2_FAULT_DURABLE
+ if(!pending_attributed)return "UNKNOWN"; /* older pending context is not this reset */
+#endif
+ switch(previous[4]){
+ /* A recovery request continues feeding; its stale context cannot attribute
+  * a later parent timeout. The raw words still preserve that observation. */
+ case WD_NO_SYNC:return "UNKNOWN";
+ case WD_RETRIES_EXHAUSTED:return "RETRIES_EXHAUSTED";
+ case WD_CORE_STALL:return "CORE_STALL";
+ case WD_RECOVERY_FAILED:return "RECOVERY_FAILED";
+ case WD_RC_WORKER_STALL:return "CONTROL_STALL";
+ case WD_LORA_FAULT:return "LORA_FAULT";
+ default:return previous[4]>=WD_FATAL&&previous[4]<WD_UF2?"CPU_FATAL":"UNKNOWN";
+ }
 }
 static bool updater_bound(const struct r2_identity *id){
  return uf2_intent.magic==WD_MAGIC&&uf2_intent.checksum==uf2_crc()&&
@@ -149,6 +219,12 @@ void r2_watchdog_observe(const struct r2_service_status *s,bool allowed)
  /* Source153: copy only the matching normal-backend first retirement detail
   * into the accepted mailbox. Diagnostic bits never participate in reset. */
  if(!s->profile_rc&&s->error==-ETIMEDOUT&&s->transport_fault.error==s->error&&s->transport_fault.operation==3)
+  stalled|=s->transport_fault.host_detail&UINT32_C(0xfff8);
+ /* Copy typed diagnostic detail from this accepted snapshot. These bits never
+  * participate in the unchanged low3 failure predicates. Unknown is allowed. */
+ if(s->error==-EIO&&s->transport_fault.error==s->error&&
+    s->transport_fault.operation==R2_RC_CHECK_OPERATION&&
+    r2_rc_check_site(s->error,s->transport_fault.host_detail))
   stalled|=s->transport_fault.host_detail&UINT32_C(0xfff8);
  atomic_inc(&sequence);
  atomic_set(&report_at,(atomic_val_t)k_uptime_get_32());atomic_set(&report_rc,s->profile_rc);
@@ -231,7 +307,28 @@ int r2_watchdog_boot(const struct r2_identity *id)
  if(!id||id->result)return -EACCES;
  physical_boot=id->boot;memcpy(silicon,id->silicon,16);
  bool updater=(id->reset_cause&RESET_WATCHDOG)&&updater_bound(id);
- memset(previous,0,sizeof previous);memset((void *)r2_watchdog_capsule,0,sizeof r2_watchdog_capsule);
+ uint64_t prior=(uint64_t)r2_watchdog_capsule[2]|((uint64_t)r2_watchdog_capsule[3]<<32);
+ bool immediate=id->reset_cause==RESET_WATCHDOG&&prior&&prior!=id->boot&&watchdog_bound(id);
+ unsigned immediate_reason=immediate?r2_watchdog_capsule[4]:0;
+#ifdef R2_FAULT_DURABLE
+ uint64_t pending_boot=(uint64_t)previous[2]|((uint64_t)previous[3]<<32);
+ bool pending=pending_boot&&pending_boot!=id->boot&&watchdog_any_bound(previous,id->silicon);
+ if(!pending){
+  memset(previous,0,sizeof previous);
+  unsigned last=r2_watchdog_capsule[4];
+  bool terminal=(last>=2&&last<=6)||(last>=WD_FATAL&&last<WD_UF2);
+  if((!updater||terminal)&&id->reset_cause==RESET_WATCHDOG&&prior&&prior!=id->boot&&
+     r2_watchdog_capsule[0]==WD_MAGIC&&watchdog_any_bound(r2_watchdog_capsule,id->silicon))
+   memcpy(previous,(const void *)r2_watchdog_capsule,sizeof previous);
+  else if(!updater&&(id->reset_cause&(RESET_WATCHDOG|RESET_CPU_LOCKUP)))
+   observe_hardware_reset(id);
+ }
+ pending_attributed=immediate&&!memcmp(previous,(const void *)r2_watchdog_capsule,sizeof previous);
+#else
+ memset(previous,0,sizeof previous);
+ if(immediate)memcpy(previous,(const void *)r2_watchdog_capsule,sizeof previous);
+#endif
+ memset((void *)r2_watchdog_capsule,0,sizeof r2_watchdog_capsule);
  memset((void *)&uf2_intent,0,sizeof uf2_intent); /* consume once, even malformed */
  uint32_t flags=id->reset_cause;reset_flags=flags;
  reset_kind=!flags?R2_UI_RESET_UNKNOWN:(flags&(flags-1))?R2_UI_RESET_MULTIPLE:
@@ -239,6 +336,14 @@ int r2_watchdog_boot(const struct r2_identity *id)
   flags==RESET_POR?R2_UI_RESET_POWER:flags==RESET_BROWNOUT?R2_UI_RESET_BROWNOUT:
   flags==RESET_WATCHDOG?R2_UI_RESET_WATCHDOG:flags==RESET_CPU_LOCKUP?R2_UI_RESET_LOCKUP:
   flags==RESET_LOW_POWER_WAKE?R2_UI_RESET_WAKE:flags==RESET_DEBUG?R2_UI_RESET_DEBUG:R2_UI_RESET_UNKNOWN;
+ if(flags==RESET_WATCHDOG&&immediate){
+  unsigned reason=immediate_reason;
+  if(reason==WD_RETRIES_EXHAUSTED)reset_kind=R2_UI_RESET_WD_PROFILE;
+  else if(reason==WD_CORE_STALL)reset_kind=R2_UI_RESET_WD_CORE;
+  else if(reason==WD_RECOVERY_FAILED)reset_kind=R2_UI_RESET_WD_RECOVERY;
+  else if(reason==WD_RC_WORKER_STALL||reason==WD_LORA_FAULT||
+          (reason>=WD_FATAL&&reason<WD_UF2))reset_kind=R2_UI_RESET_WD_FAULT;
+ }
  int cleared=hwinfo_clear_reset_cause();if(cleared)return cleared;
  /* Watchdog reset clears WDT, unlike a soft reset. A bound one-shot UF2
   * continuation runs BEFORE arming WDT and uses the existing public request.
@@ -281,13 +386,19 @@ void r2_watchdog_console(char *line,size_t capacity)
  uint32_t current=(unsigned)atomic_get(&intent)|((unsigned)atomic_get(&report_rc)<<1)|
   ((unsigned)(atomic_get(&report_useful)&2)<<1)|((unsigned)atomic_get(&retries)<<8)|((unsigned)atomic_get(&reset_reason)<<16);
  if(reported&&current==signature&&now<report_due)return;
- int n=snprintf(line,capacity,"R2_WATCHDOG {\"parent_ms\":%u,\"gm_ms\":%u,\"rc_ms\":%u,\"enabled\":%u,\"profile_rc\":%u,\"retries\":%u,\"silent_ms\":%u,\"reset_reason\":%u,\"reset_flags\":%u,\"last_reset\":%u,\"refusal_flags\":%u,\"coordination_activity\":%s,\"observations\":[%u,%u,%u,%u],\"previous\":[",
+ int n=snprintf(line,capacity,"R2_WATCHDOG {\"parent_ms\":%u,\"gm_ms\":%u,\"rc_ms\":%u,\"enabled\":%u,\"profile_rc\":%u,\"retries\":%u,\"silent_ms\":%u,\"reset_reason\":%u,\"reset_flags\":%u,\"last_reset\":%u,\"refusal_flags\":%u,\"coordination_activity\":%s,\"observations\":[%u,%u,%u,%u],\"boot\":\"%016llx\",\"previous_boot\":\"%016llx\",\"previous_cause\":\"%s\",\"previous\":[",
   WD_PARENT_MS,R2_WD_GM_MS,R2_WD_RC_MS,(unsigned)atomic_get(&intent),(unsigned)atomic_get(&report_rc),
   (unsigned)atomic_get(&retries),(uint32_t)(k_uptime_get_32()-(uint32_t)atomic_get(&silent_since)),(unsigned)atomic_get(&reset_reason),reset_flags,reset_kind,(unsigned)atomic_get(&refusal_flags),(atomic_get(&report_useful)&2)?"true":"false",
   (unsigned)atomic_get(&observations),(unsigned)atomic_get(&useful_observations),
-  (unsigned)atomic_get(&future_observations),(unsigned)atomic_get(&stale_observations));
+  (unsigned)atomic_get(&future_observations),(unsigned)atomic_get(&stale_observations),
+  (unsigned long long)physical_boot,
+  (unsigned long long)(previous[0]==WD_MAGIC?((uint64_t)previous[2]|((uint64_t)previous[3]<<32)):0),previous_reason_name());
  if(n<0||(size_t)n>=capacity)return;
- for(unsigned i=0;previous[0]==WD_MAGIC&&i<WD_WORDS;i++){
+ bool previous_available=previous[0]==WD_MAGIC;
+#ifdef R2_FAULT_DURABLE
+  previous_available=previous_available||previous[0]==R2_FAULT_RESET_MAGIC;
+#endif
+  for(unsigned i=0;previous_available&&i<WD_WORDS;i++){
   int added=snprintf(line+n,capacity-(size_t)n,"%s%u",i?",":"",previous[i]);
   if(added<0||(size_t)added>=capacity-(size_t)n)return;
   n+=added;

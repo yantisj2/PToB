@@ -220,6 +220,9 @@ int r2_radio_service_init(unsigned self, const struct r2_enrollment *e) {
   return 0;
 }
 void r2_radio_service_continuous(bool e) { (void)e; }
+void r2_radio_service_rf_clock(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){(void)at;(void)now;*out=(struct r2_rf_clock_sample){0};}
+bool r2_radio_service_rf_clock_try(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){r2_radio_service_rf_clock(out,at,now);return true;}
+
 static unsigned fake_stop_calls,fake_activate_calls,fake_handoff_calls;
 static uint64_t fake_handoff_root,fake_handoff_boot;
 static uint32_t fake_handoff_epoch;
@@ -312,7 +315,8 @@ bool r2_radio_service_handoff_ready(uint64_t r, uint64_t b, uint32_t e) {
   (void)e;
   return fake_pt_closed && (!fake_handoff_enforced || fake_handoff_valid);
 }
-void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *d,uint64_t now){(void)now;memset(d,0,sizeof *d);}
+static struct r2_gm7_follow_diagnostic fake_follow_diagnostic;
+void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *d,uint64_t now){(void)now;*d=fake_follow_diagnostic;}
 void r2_radio_service_gm7_timing(struct r2_gm7_timing *t, uint64_t now) {
   (void)now;
   *t = fake_timing;
@@ -573,7 +577,7 @@ static void diagnostics_and_remap(void) {
   struct r2_ui_holds holds = {0};
   r2_ui_holds_update(&holds, &m, fake_kernel / 1000);
   assert(holds.hot_since && fake_kernel / 1000000 - (holds.hot_since - 1) == 3);
-  char text[2048];
+  char text[3072-96];
   for (unsigned page = 0; page <= GM7_PEERS; page++) {
     assert(r2_gm7_diagnostic_format(text, sizeof text, page, "TEST-SOURCE",
                                     0xabc, true) > 0);

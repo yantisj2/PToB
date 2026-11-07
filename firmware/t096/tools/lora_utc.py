@@ -17,7 +17,7 @@ import subprocess
 import termios
 import time
 import tty
-from console_capture import Frames, close_serial, resolve, validate_config
+from console_capture import Frames, close_serial, resolve, validate_config, request_cursor
 
 
 def operate(query, *, request=False, token=None, delay_ms=0, allow_over_cap=False):
@@ -120,6 +120,7 @@ class Console:
             if not observed or (self.boot and self.boot!=observed):raise ValueError('boot changed; no reconnect')
             if value.get('source')!=self.config['source']:raise ValueError('firmware source mismatch')
             if op=='status' and any(value.get(k)!=v for k,v in dict(unit=self.unit,silicon=self.config['silicon_id'],commit=self.config['commit']).items()):raise ValueError('exact device/build mismatch')
+            if op=='status':self.request=request_cursor(value,self.request)
             self.boot=observed;self.state['boot']=f'{observed:016x}';self.record('reply',op=op,payload=value);return value
         raise TimeoutError('missing bound response; request never retried')
 

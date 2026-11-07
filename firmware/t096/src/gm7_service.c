@@ -4,6 +4,7 @@
 #include "../protocol/gm7_bridge.h"
 #include "../protocol/gm7_phase.h"
 #include "ble_service.h"
+#include "rf_clock.h"
 #include "ble_transport.h"
 #include "capture.h"
 #include "cleanup_budget.h"
@@ -228,7 +229,11 @@ static void fence(unsigned reason, uint64_t now) {
   gm7_owner_withdraw(&owner, reason, now);
   gm7_scheduler_cancel_positive(&scheduler, now);
   r2_gm7_controller_cancel(now);
+#ifdef R2_BLE_CAUSAL_EVENTS
+  r2_radio_service_gm7_withdraw_cause(reason,owner.event_generation);
+#else
   r2_radio_service_withdraw();
+#endif
 }
 static __attribute__((noinline)) bool source_read(struct gm7_source *s,
                                                   struct r2_source_clock *map,
@@ -868,8 +873,13 @@ static __attribute__((noinline)) void receive(struct gm7_bridge b, uint64_t utc,
     if (!bridge(&b) || b.epoch != clock_epoch)
       return;
     if (generation != owner.event_generation) {
-      if (!owner.serving)
-        r2_radio_service_withdraw();
+      if(!owner.serving){
+#ifdef R2_BLE_CAUSAL_EVENTS
+      r2_radio_service_gm7_withdraw_cause(owner.reason,owner.event_generation);
+#else
+      r2_radio_service_withdraw();
+#endif
+    }
       gm7_scheduler_cancel_positive(&scheduler, b.hf);
       r2_gm7_controller_cancel(b.hf);
     }
@@ -1286,13 +1296,9 @@ static void cycle(struct k_work *work) {
   r2_radio_service_gm7_contact(&heard_root,&heard_boot,&heard_tick,&heard_epoch);
   if (heard_epoch==b.epoch && heard_tick && heard_tick<=b.hf*16)
     gm7_owner_contact(&owner,heard_root,heard_boot,heard_tick/16,b.hf);
-  if (!owner.serving && t.scope.follower &&
-      t.scope.root_identity==owner.scope.active && t.scope.boot==owner.scope.boot &&
-      t.scope.source_epoch && t.scope.publication_epoch && t.capture_gen) {
-    owner.scope.timing_epoch=t.scope.source_epoch;
-    owner.scope.train=t.scope.publication_epoch;
-    owner.scope.capture_gen=t.capture_gen;
-  }
+  /* CONTROL owns its authenticated selected scope. PT is an independently
+   * published timing snapshot; it must not roll ANN context backward. Exact
+   * PT/CONTROL agreement is still required by preparation() below. */
   struct gm7_preparation prep;
   preparation(&prep, b, &t);
   bool promoted_reservation = promoted_reservation_current(b,&source) &&
@@ -1922,8 +1928,26 @@ int r2_service_close_result(void) {
   r2_service_snapshot(&s);
   return s.error ? s.error : s.closed || !started ? 0 : -EAGAIN;
 }
-void r2_service_snapshot(struct r2_service_status *out) {
-  (void)k_mutex_lock(&lock, K_FOREVER);
+static bool ui_rf_copy(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now,bool try_only,r2_ui_read_boundary_fn boundary,void *context){
+ if(!out)return true;
+ if(try_only){if(k_mutex_lock(&lock,K_NO_WAIT))return false;}
+ else (void)k_mutex_lock(&lock,K_FOREVER);
+ bool live=configured&&started&&!status.error&&!status.closing&&!atomic_get(&stopping)&&!resuming;
+ bool copied=true;
+ if(live){if(try_only)copied=r2_radio_service_rf_clock_try(out,at,now);else r2_radio_service_rf_clock(out,at,now);}
+ else *out=(struct r2_rf_clock_sample){0};
+ if(boundary)(void)boundary(context,R2_UI_READ_GM,false);
+ (void)k_mutex_unlock(&lock);
+ if(boundary&&!boundary(context,R2_UI_READ_GM,true))return false;
+
+ return copied;
+}
+void r2_service_rf_clock(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){(void)ui_rf_copy(out,at,now,false,NULL,NULL);}
+bool r2_service_rf_clock_try(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now,r2_ui_read_boundary_fn boundary,void *context){return ui_rf_copy(out,at,now,true,boundary,context);}
+
+static bool ui_snapshot_copy(struct r2_service_status *out,bool try_only,r2_ui_read_boundary_fn boundary,void *context){
+  if(try_only){if(k_mutex_lock(&lock,K_NO_WAIT))return false;}
+ else (void)k_mutex_lock(&lock,K_FOREVER);
   memset(out, 0, sizeof *out);
 #define P(field) out->field = status.field
 #ifdef R2_TZ_WIRE
@@ -1985,14 +2009,21 @@ void r2_service_snapshot(struct r2_service_status *out) {
   memcpy(out->identities, status.identities, sizeof status.identities);
   memcpy(out->name, status.name, sizeof status.name);
   memcpy(out->lamps, status.lamps, sizeof status.lamps);
-  (void)k_mutex_unlock(&lock);
+  if(boundary)(void)boundary(context,R2_UI_READ_GM,false);
+ (void)k_mutex_unlock(&lock);
+ if(boundary&&!boundary(context,R2_UI_READ_GM,true))return false;
   if (out->closing || atomic_get(&stopping)) {
     out->serving = out->follower = out->follower_clock_valid = out->hot_ready =
         false;
     out->precision.authorized = out->precision.map_valid =
         out->precision.locked = false;
   }
+
+ return true;
 }
+void r2_service_snapshot(struct r2_service_status *out){(void)ui_snapshot_copy(out,false,NULL,NULL);}
+bool r2_service_snapshot_try(struct r2_service_status *out,r2_ui_read_boundary_fn boundary,void *context){return ui_snapshot_copy(out,true,boundary,context);}
+
 int r2_gm7_request_yield(void) {
   (void)k_mutex_lock(&lock,K_FOREVER);
   int rc;
@@ -2088,9 +2119,7 @@ int r2_normal_service_resume_gm(uint64_t incarnation, uint32_t changes) {
   return 0;
 }
 
-void r2_service_ui(struct r2_ui_model *m) {
-  struct r2_service_status s;
-  r2_service_snapshot(&s);
+void r2_service_ui_logic(struct r2_ui_model *m,const struct r2_service_status *s) {
   uint64_t now = kernel_now();
   (void)k_mutex_lock(&lock, K_FOREVER);
   m->gm7_owner = true;
@@ -2103,6 +2132,161 @@ void r2_service_ui(struct r2_ui_model *m) {
   m->gm7_hot_ms = diagnostic.hot_ms;
   m->gm7_active_ms = diagnostic.active_ms;
   m->gm7_pps_ms = diagnostic.pps_ms;
+  (void)k_mutex_unlock(&lock);
+
+#ifdef R2_TZ_WIRE
+  m->tz=s->tz;m->tz_until_us=s->tz_until_us;
+#endif
+  m->ble_active = s->active && !s->closing;
+  m->root = s->root;
+  m->rx = s->rx;
+  m->authenticated = s->authenticated;
+  m->precision = s->precision;
+  m->quality = s->quality;
+  m->coordinator = s->coordinator;
+  m->standby = s->standby;
+  m->profile_supported = true;
+  m->profile_rc = s->profile_rc;
+  m->profile_switching = s->profile_pending;
+  m->relay_selected = s->relay.selected;
+  m->relay_upstream = s->relay.parent;
+  m->time_relay_hops = s->relay.selected ? s->relay.time_relay_hops : 0;
+  m->boundary_clock = s->relay.selected;
+  m->rc_source_held = s->relay.held_time;
+  m->rc_update_age_ms = s->relay.correction_age_ms;
+  m->rc_source_age_ms = s->relay.source_age_ms;
+  /* Presentation-only settling state. Progress refreshes it; stale permission
+   * never grants time or analog eligibility. Keep identity for at most5s after
+   * the last accepted correction, and clear immediately on stop/root change. */
+  static uint64_t ui_root_boot, ui_root_id, ui_progress_at;
+  static uint32_t ui_source_epoch, ui_accepted;
+  uint64_t candidate = s->root < 4 ? s->identities[s->root] : 0;
+  bool candidate_live = s->active && !s->error && !s->closing &&
+                        !atomic_get(&stopping) && !s->serving && s->root_boot &&
+                        s->source_epoch && candidate && s->root != s->self &&
+                        (s->self >= 4 || candidate != s->identities[s->self]);
+  if (!candidate_live || ui_root_boot != s->root_boot ||
+      ui_root_id != candidate || ui_source_epoch != s->source_epoch) {
+    ui_root_boot = s->root_boot;
+    ui_root_id = candidate;
+    ui_source_epoch = s->source_epoch;
+    ui_accepted = s->precision.accepted;
+    ui_progress_at = 0;
+  }
+  if (candidate_live && s->precision.accepted != ui_accepted) {
+    ui_accepted = s->precision.accepted;
+    ui_progress_at = now;
+  }
+  m->sync_attempt =
+      candidate_live &&
+      (now < s->authority_until || (ui_progress_at && now >= ui_progress_at &&
+                                   now - ui_progress_at < 5000000));
+  if (s->profile_rc) {
+    m->clock.valid = false;
+  }
+  m->source_eligible = s->source_eligible;
+  m->gm_capable = s->gm_capable;
+  m->gm_cold = s->gm_cold;
+  m->admission_ms = s->admission_ms;
+  m->hot_ready = s->hot_ready;
+  m->hot_refusal = s->hot_refusal;
+  m->precision_beat_hz = s->active && !s->closing && !s->error &&
+                                 (s->serving || s->follower_clock_valid)
+                             ? R2_PRECISION_HZ
+                             : 0;
+  r2_ui_reception(m, &s->reception, now);
+  memcpy(m->lamps, s->lamps, 8);
+  /* UI may project the frozen delivered map only through its independently
+   * computed deadline. Worker cadence is not source evidence, and does not
+   * shorten an otherwise valid map to an arbitrary50ms presentation lease. */
+  bool fresh = !s->error && !s->closing && !atomic_get(&stopping);
+  /* Authenticated source role and valid delivered time are independent.
+   * Loss of a precision map need not erase an unchanged live root identity. */
+  uint64_t self_id = s->self < 4 ? s->identities[s->self] : 0;
+  uint64_t root_id = s->root < 4 ? s->identities[s->root] : 0;
+  m->scope_active =
+      fresh && (s->serving || (root_id && self_id && root_id != self_id &&
+                              now < s->authority_until));
+  m->role =
+      m->scope_active ? (s->serving ? R2_UI_GM : R2_UI_FOLLOWER) : R2_UI_NO_ROLE;
+  m->authenticated_gm = m->scope_active && !s->serving;
+  m->local_hot_standby = fresh && s->hot_ready;
+  m->gm_source_fresh = m->scope_active && s->serving &&
+                       s->local_source_epoch == m->clock.source_epoch &&
+                       m->clock.fix_active && m->clock.pps_present;
+  /* A nonbootstrap authenticated GR3 origin comes from the root physical
+   * PPS-derived source map. Captured
+   * corrections plus the locked receiver map establish synchronization to
+   * that GM counter, independently of local GNSS. This is no absolute UTC or
+   * output accuracy qualification, and public coarse JOIN alone cannot pass. */
+  m->follower_pps_valid = m->authenticated_gm && s->follower_clock_valid &&
+                          s->source_frame_ns && s->root_boot && s->source_epoch &&
+                          s->precision.authorized && s->precision.locked &&
+                          s->precision.fit_valid && s->precision.map_valid &&
+                          now < s->service_until;
+  m->sync_age_ms = UINT32_MAX;
+  r2_ui_select_ble_time(m, s->follower_utc, s->time_sampled_us, now,
+                        s->service_until, fresh && s->follower_clock_valid);
+  /* One UI producer owns this boot-local display anchor. Permission expiry,
+   * root changes and reacquisition withdraw authority above, not elapsed time.
+   * Only validated local, delivered BLE or authenticated JOIN time seeds it. */
+  static uint64_t display_utc, display_at;
+  static bool display_valid;
+  static uint32_t display_profile;
+  if (s->profile_pending || display_profile != s->profile_changes) {
+    display_valid = false;
+    display_profile = s->profile_changes;
+  }
+  if (display_valid && now < display_at)
+    display_valid = false;
+  if (m->clock.valid && m->clock.utc_us >= 0) {
+    display_utc = (uint64_t)m->clock.utc_us;
+    display_at = now;
+    display_valid = true;
+  } else if (!display_valid && fresh && s->display_coarse_valid &&
+             now >= s->display_coarse_at &&
+             now - s->display_coarse_at <= INT64_MAX &&
+             s->display_coarse_utc <=
+                 (uint64_t)INT64_MAX - (now - s->display_coarse_at)) {
+    display_utc = s->display_coarse_utc;
+    display_at = s->display_coarse_at;
+    display_valid = true;
+  }
+  m->coarse_valid = display_valid;
+  m->coarse_utc_us = display_utc;
+  m->coarse_at_us = display_at;
+  /* Operator UI policy: <=200ns delivered RMS, with <=500ms visual loss
+   * tolerance. This never modifies servo lock, map expiry or output authority.
+   */
+  static uint64_t face_root, face_boot, face_at, face_until;
+  static uint32_t face_epoch, face_rms;
+  bool changed = (candidate && face_root && candidate != face_root) ||
+                 (s->root_boot && face_boot && s->root_boot != face_boot) ||
+                 (s->source_epoch && face_epoch && s->source_epoch != face_epoch);
+  bool hard_loss = !fresh || !s->active || s->serving || now < face_at || changed;
+  if (hard_loss || (s->precision.rms_valid && s->precision.rms_ns > 200))
+    face_until = 0;
+  bool measured = fresh && candidate_live && m->authenticated_gm &&
+                  s->follower_clock_valid && s->source_frame_ns &&
+                  s->precision.authorized && s->precision.fit_valid &&
+                  s->precision.map_valid && s->precision.rms_valid &&
+                  s->precision.rms_ns <= 200 && now < s->service_until;
+  if (measured && now <= UINT64_MAX - 500000) {
+    face_root = candidate;
+    face_boot = s->root_boot;
+    face_epoch = s->source_epoch;
+    face_at = now;
+    face_until = now + 500000;
+    face_rms = s->precision.rms_ns;
+  }
+  m->face_lock_until_us = face_until;
+  m->face_rms_ns = face_rms;
+}
+static bool ui_details_copy(struct r2_ui_model *m,const struct r2_service_status *s,bool try_only,r2_ui_read_boundary_fn boundary,void *context){
+  uint64_t now=kernel_now();
+  if(try_only){if(k_mutex_lock(&lock,K_NO_WAIT))return false;}
+ else (void)k_mutex_lock(&lock,K_FOREVER);
+  m->gm7_peer_valid=m->gm7_peer_current=m->gm7_peer_fresh=m->gm7_peer_eligible_claim=false;
   unsigned selected = (unsigned)((now / 4000000) % GM7_PEERS);
   for (unsigned scan = 0; scan < GM7_PEERS; scan++) {
     unsigned i = (selected + scan) % GM7_PEERS;
@@ -2120,182 +2304,110 @@ void r2_service_ui(struct r2_ui_model *m) {
       break;
     }
   }
-  (void)k_mutex_unlock(&lock);
-
-#ifdef R2_TZ_WIRE
-  m->tz=s.tz;m->tz_until_us=s.tz_until_us;
-#endif
-  m->ble_active = s.active && !s.closing;
-  m->root = s.root;
-  m->rx = s.rx;
-  m->authenticated = s.authenticated;
-  m->precision = s.precision;
-  m->quality = s.quality;
-  m->coordinator = s.coordinator;
-  m->standby = s.standby;
-  m->profile_supported = true;
-  m->profile_rc = s.profile_rc;
-  m->profile_switching = s.profile_pending;
-  m->relay_selected = s.relay.selected;
-  m->relay_upstream = s.relay.parent;
-  m->time_relay_hops = s.relay.selected ? s.relay.time_relay_hops : 0;
-  m->boundary_clock = s.relay.selected;
-  m->rc_source_held = s.relay.held_time;
-  m->rc_update_age_ms = s.relay.correction_age_ms;
-  m->rc_source_age_ms = s.relay.source_age_ms;
-  /* Presentation-only settling state. Progress refreshes it; stale permission
-   * never grants time or analog eligibility. Keep identity for at most5s after
-   * the last accepted correction, and clear immediately on stop/root change. */
-  static uint64_t ui_root_boot, ui_root_id, ui_progress_at;
-  static uint32_t ui_source_epoch, ui_accepted;
-  uint64_t candidate = s.root < 4 ? s.identities[s.root] : 0;
-  bool candidate_live = s.active && !s.error && !s.closing &&
-                        !atomic_get(&stopping) && !s.serving && s.root_boot &&
-                        s.source_epoch && candidate && s.root != s.self &&
-                        (s.self >= 4 || candidate != s.identities[s.self]);
-  if (!candidate_live || ui_root_boot != s.root_boot ||
-      ui_root_id != candidate || ui_source_epoch != s.source_epoch) {
-    ui_root_boot = s.root_boot;
-    ui_root_id = candidate;
-    ui_source_epoch = s.source_epoch;
-    ui_accepted = s.precision.accepted;
-    ui_progress_at = 0;
-  }
-  if (candidate_live && s.precision.accepted != ui_accepted) {
-    ui_accepted = s.precision.accepted;
-    ui_progress_at = now;
-  }
-  m->sync_attempt =
-      candidate_live &&
-      (now < s.authority_until || (ui_progress_at && now >= ui_progress_at &&
-                                   now - ui_progress_at < 5000000));
-  unsigned labels[3] = {s.root, s.root, s.coordinator};
+  if(boundary)(void)boundary(context,R2_UI_READ_GM,false);
+ (void)k_mutex_unlock(&lock);
+ if(boundary&&!boundary(context,R2_UI_READ_GM,true))return false;
+  unsigned labels[3] = {s->root, s->root, s->coordinator};
   char *names[3] = {m->root_name, m->upstream_name, m->coordinator_name};
   for (unsigned j = 0; j < 3; j++) {
     unsigned p = labels[j];
-    uint64_t id = p < 4 ? s.identities[p] : 0;
-    bool known = p == s.self ||
-                 ((s.follower_clock_valid || m->sync_attempt) && p == s.root) ||
-                 (p < 4 && (s.authenticated_mask & (1u << p)));
+    uint64_t id = p < 4 ? s->identities[p] : 0;
+    bool known = p == s->self ||
+                 ((s->follower_clock_valid || m->sync_attempt) && p == s->root) ||
+                 (p < 4 && (s->authenticated_mask & (1u << p)));
     r2_ui_identity_name(names[j], known ? id : 0,
-                        known ? (p == s.self ? s.name
-                                 : p < 4     ? s.peer_names[p]
+                        known ? (p == s->self ? s->name
+                                 : p < 4     ? s->peer_names[p]
                                              : NULL)
                               : NULL);
   }
-  if (s.profile_rc) {
-    m->clock.valid = false;
-  }
-  if (s.relay.selected)
-    r2_ui_identity_name(m->upstream_name, s.relay.parent_identity, NULL);
-  m->source_eligible = s.source_eligible;
-  m->gm_capable = s.gm_capable;
-  m->gm_cold = s.gm_cold;
-  m->admission_ms = s.admission_ms;
-  m->hot_ready = s.hot_ready;
-  m->hot_refusal = s.hot_refusal;
+  if (s->relay.selected)
+    r2_ui_identity_name(m->upstream_name, s->relay.parent_identity, NULL);
+
+ return true;
+}
+void r2_service_ui_details(struct r2_ui_model *m,const struct r2_service_status *s){(void)ui_details_copy(m,s,false,NULL,NULL);}
+bool r2_service_ui_details_try(struct r2_ui_model *m,const struct r2_service_status *s,r2_ui_read_boundary_fn boundary,void *context){return ui_details_copy(m,s,true,boundary,context);}
+
+void r2_service_ui(struct r2_ui_model *m) {
+  struct r2_service_status s;r2_service_snapshot(&s);
+  r2_service_ui_logic(m,&s);
 #if defined(CONFIG_BT_PER_ADV)
   r2_time_precision_snapshot(&m->pps_precision);
 #endif
-  m->precision_beat_hz = s.active && !s.closing && !s.error &&
-                                 (s.serving || s.follower_clock_valid)
-                             ? R2_PRECISION_HZ
-                             : 0;
-  r2_ui_reception(m, &s.reception, now);
-  memcpy(m->lamps, s.lamps, 8);
-  /* UI may project the frozen delivered map only through its independently
-   * computed deadline. Worker cadence is not source evidence, and does not
-   * shorten an otherwise valid map to an arbitrary50ms presentation lease. */
-  bool fresh = !s.error && !s.closing && !atomic_get(&stopping);
-  /* Authenticated source role and valid delivered time are independent.
-   * Loss of a precision map need not erase an unchanged live root identity. */
-  uint64_t self_id = s.self < 4 ? s.identities[s.self] : 0;
-  uint64_t root_id = s.root < 4 ? s.identities[s.root] : 0;
-  m->scope_active =
-      fresh && (s.serving || (root_id && self_id && root_id != self_id &&
-                              now < s.authority_until));
-  m->role =
-      m->scope_active ? (s.serving ? R2_UI_GM : R2_UI_FOLLOWER) : R2_UI_NO_ROLE;
-  m->authenticated_gm = m->scope_active && !s.serving;
-  m->local_hot_standby = fresh && s.hot_ready;
-  m->gm_source_fresh = m->scope_active && s.serving &&
-                       s.local_source_epoch == m->clock.source_epoch &&
-                       m->clock.fix_active && m->clock.pps_present;
-  /* A nonbootstrap authenticated GR3 origin comes from the root physical
-   * PPS-derived source map. Captured
-   * corrections plus the locked receiver map establish synchronization to
-   * that GM counter, independently of local GNSS. This is no absolute UTC or
-   * output accuracy qualification, and public coarse JOIN alone cannot pass. */
-  m->follower_pps_valid = m->authenticated_gm && s.follower_clock_valid &&
-                          s.source_frame_ns && s.root_boot && s.source_epoch &&
-                          s.precision.authorized && s.precision.locked &&
-                          s.precision.fit_valid && s.precision.map_valid &&
-                          now < s.service_until;
-  m->sync_age_ms = UINT32_MAX;
-  r2_ui_select_ble_time(m, s.follower_utc, s.time_sampled_us, now,
-                        s.service_until, fresh && s.follower_clock_valid);
-  /* One UI producer owns this boot-local display anchor. Permission expiry,
-   * root changes and reacquisition withdraw authority above, not elapsed time.
-   * Only validated local, delivered BLE or authenticated JOIN time seeds it. */
-  static uint64_t display_utc, display_at;
-  static bool display_valid;
-  static uint32_t display_profile;
-  if (s.profile_pending || display_profile != s.profile_changes) {
-    display_valid = false;
-    display_profile = s.profile_changes;
-  }
-  if (display_valid && now < display_at)
-    display_valid = false;
-  if (m->clock.valid && m->clock.utc_us >= 0) {
-    display_utc = (uint64_t)m->clock.utc_us;
-    display_at = now;
-    display_valid = true;
-  } else if (!display_valid && fresh && s.display_coarse_valid &&
-             now >= s.display_coarse_at &&
-             now - s.display_coarse_at <= INT64_MAX &&
-             s.display_coarse_utc <=
-                 (uint64_t)INT64_MAX - (now - s.display_coarse_at)) {
-    display_utc = s.display_coarse_utc;
-    display_at = s.display_coarse_at;
-    display_valid = true;
-  }
-  m->coarse_valid = display_valid;
-  m->coarse_utc_us = display_utc;
-  m->coarse_at_us = display_at;
-  /* Operator UI policy: <=200ns delivered RMS, with <=500ms visual loss
-   * tolerance. This never modifies servo lock, map expiry or output authority.
-   */
-  static uint64_t face_root, face_boot, face_at, face_until;
-  static uint32_t face_epoch, face_rms;
-  bool changed = (candidate && face_root && candidate != face_root) ||
-                 (s.root_boot && face_boot && s.root_boot != face_boot) ||
-                 (s.source_epoch && face_epoch && s.source_epoch != face_epoch);
-  bool hard_loss = !fresh || !s.active || s.serving || now < face_at || changed;
-  if (hard_loss || (s.precision.rms_valid && s.precision.rms_ns > 200))
-    face_until = 0;
-  bool measured = fresh && candidate_live && m->authenticated_gm &&
-                  s.follower_clock_valid && s.source_frame_ns &&
-                  s.precision.authorized && s.precision.fit_valid &&
-                  s.precision.map_valid && s.precision.rms_valid &&
-                  s.precision.rms_ns <= 200 && now < s.service_until;
-  if (measured && now <= UINT64_MAX - 500000) {
-    face_root = candidate;
-    face_boot = s.root_boot;
-    face_epoch = s.source_epoch;
-    face_at = now;
-    face_until = now + 500000;
-    face_rms = s.precision.rms_ns;
-  }
-  m->face_lock_until_us = face_until;
-  m->face_rms_ns = face_rms;
+  r2_service_ui_details(m,&s);
 }
 
+static int follow_causal_append(char *out,size_t capacity,int start,
+ const struct r2_gm7_follow_diagnostic *d,const struct gm7_scope *control,
+ uint32_t control_flags,uint32_t control_role,uint32_t control_reason){
+ static const char *const causes[]={"UNSUPPORTED_OWNER_PATH","CONTROL_STOPPED",
+  "PT_NOT_MANAGED","PT_OWNER_ERROR","PT_CONTROL_BINDING_REFUSED","QUERY_CAPTURE_UNAVAILABLE",
+  "CAPTURE_EPOCH_MISMATCH","QUERY_BEFORE_PUBLICATION","PT_SCOPE_EXPIRED","CONTROL_GRANT_EXPIRED",
+  "NO_MATCHED_PHYSICAL_MAP","PHYSICAL_MAP_EXPIRED","NO_MATCHED_DATA_PERMISSION","SIGNED_DATA_PERMISSION_EXPIRED",
+  "FIT_UNAVAILABLE_AT_PT_SAMPLE","OUTPUT_UNAVAILABLE_AT_PT_SAMPLE","SERVO_FAULT_AT_PT_SAMPLE",
+  "UTC_UNAVAILABLE_AT_PT_SAMPLE","EFFECTIVE_PERMISSION_EXPIRED"};
+ bool pt_known=d->scope.follower&&!d->scope.gm&&d->scope.broadcast&&d->scope.root_identity&&d->scope.boot;
+ bool grant_known=d->grant.root_identity&&d->grant.boot&&d->grant.source_epoch&&d->grant.publication_epoch;
+ bool control_known=(control_flags&1)&&control->active&&control->boot&&control->timing_epoch&&control->train;
+ bool header_known=d->header_root&&d->header_boot&&d->header_source&&d->header_train&&d->header_capture&&d->header_epoch;
+ bool control_match=control->active==d->grant.root_identity&&control->boot==d->grant.boot&&
+  control->timing_epoch==d->grant.source_epoch&&control->train==d->grant.publication_epoch&&control->capture_gen==d->grant.remote_capture_epoch;
+ bool header_match=d->header_root==d->scope.root_identity&&d->header_boot==d->scope.boot&&
+  d->header_source==d->scope.source_epoch&&d->header_train==d->train&&d->header_capture==d->capture_gen&&d->header_epoch==d->counter_epoch;
+ bool hf_known=pt_known&&d->paired&&d->query_epoch==d->counter_epoch;
+ if(start<=0||(size_t)start>=capacity)return -ENOSPC;
+ int n=start-1;
+ int extra=snprintf(out+n,capacity-(size_t)n,
+  ",\"causal\":{\"query_kernel_us\":%llu,\"query_hf_tick\":%llu,\"query_hf_epoch\":%llu,\"capture_available\":%s,"
+  "\"physical_until_hf_tick\":%llu,\"data_until_hf_tick\":%llu,\"hf_bounds_known\":%s,"
+  "\"pt_scope_until_kernel_us\":%llu,\"current_grant_until_kernel_us\":%llu,\"effective_until_kernel_us\":%llu,"
+  "\"utc_at_pt_sample\":%s,\"map_at_pt_sample\":%s,\"utc_readable_at_query\":%s,\"rms_ns_at_pt_sample\":%u,\"quality_bins_at_pt_sample\":%u,"
+  "\"pt_managed\":%s,\"pt_stopped\":%s,\"pt_owner_error\":%d,\"binding_current\":%s,"
+  "\"pt_declared_train\":%u,\"pt_declared_capture_gen\":%u,"
+  "\"grant_root\":\"%016llx\",\"grant_boot\":\"%016llx\",\"grant_source_epoch\":%u,\"grant_train\":%u,\"grant_capture_gen\":%u,"
+  "\"control_root\":\"%016llx\",\"control_boot\":\"%016llx\",\"control_source_epoch\":%u,\"control_train\":%u,\"control_capture_gen\":%u,\"control_flags\":%u,\"control_role\":%u,\"control_reason\":%u,"
+  "\"header_root\":\"%016llx\",\"header_boot\":\"%016llx\",\"header_source_epoch\":%u,\"header_train\":%u,\"header_capture_gen\":%u,\"header_publication\":%u,\"header_hf_tick\":%llu,\"header_hf_epoch\":%llu,"
+  "\"control_matches_grant\":%s,\"grant_matches_pt\":%s,\"header_matches_pt\":%s,\"refusal_bits\":%u,\"causes\":[",
+  (unsigned long long)d->query_us,(unsigned long long)d->query_tick,(unsigned long long)d->query_epoch,d->paired?"true":"false",
+  (unsigned long long)d->physical_until_tick,(unsigned long long)d->data_until_tick,hf_known?"true":"false",
+  (unsigned long long)d->scope.until_us,(unsigned long long)d->grant.until_us,(unsigned long long)d->effective_until_us,
+  d->utc_at_sample?"true":"false",d->map_at_sample?"true":"false",d->utc_readable_now?"true":"false",d->rms_ns,d->quality_bins,
+  d->managed?"true":"false",d->stopped?"true":"false",d->owner_error,d->binding_current?"true":"false",
+  d->scope.publication_epoch,d->scope.remote_capture_epoch,
+  (unsigned long long)d->grant.root_identity,(unsigned long long)d->grant.boot,d->grant.source_epoch,d->grant.publication_epoch,d->grant.remote_capture_epoch,
+  (unsigned long long)control->active,(unsigned long long)control->boot,control->timing_epoch,control->train,control->capture_gen,control_flags,control_role,control_reason,
+  (unsigned long long)d->header_root,(unsigned long long)d->header_boot,d->header_source,d->header_train,d->header_capture,d->header_publication,(unsigned long long)d->header_tick,(unsigned long long)d->header_epoch,
+  control_known&&grant_known?(control_match?"true":"false"):"null",grant_known&&pt_known?(d->scope_equal?"true":"false"):"null",header_known&&pt_known?(header_match?"true":"false"):"null",d->refusals);
+ if(extra<0||(size_t)extra>=capacity-(size_t)n)return -ENOSPC;
+ n+=extra;
+ unsigned emitted=0;
+ for(unsigned i=0;i<sizeof causes/sizeof causes[0];i++)if(d->refusals&(1u<<i)){
+  extra=snprintf(out+n,capacity-(size_t)n,"%s\"%s\"",emitted?",":"",causes[i]);
+  if(extra<0||(size_t)extra>=capacity-(size_t)n)return -ENOSPC;
+  n+=extra;++emitted;
+ }
+ extra=snprintf(out+n,capacity-(size_t)n,
+  "],\"signed_origin_expiry_ns\":null,\"lora_return_policy\":\"SEPARATE_OWNER_SAMPLE\",\"authority\":false}}");
+ if(extra<0||(size_t)extra>=capacity-(size_t)n)return -ENOSPC;
+ return n+extra;
+}
 int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
                              const char *source, uint64_t physical_boot,
                              bool runtime_gm) {
   if(page==9){
     struct r2_gm7_follow_diagnostic d={0};
-    if(runtime_gm)r2_radio_service_gm7_follow_diagnostic(&d,kernel_now());
+    struct gm7_scope control={0};uint32_t control_flags=0,control_role=0,control_reason=0;
+    if(runtime_gm){
+      /* Existing service->PT lock order. Copy/capture only; formatting runs
+       * after both owners are released. No control or PT authority changes. */
+      (void)k_mutex_lock(&lock,K_FOREVER);
+      control=owner.scope;control_role=owner.role;control_reason=owner.reason;
+      control_flags=(configured&&started?1u:0u)|(owner.failed?2u:0u)|(owner.stopped?4u:0u)|
+        (input.stopped?8u:0u)|(input.fatal?16u:0u)|(resuming?32u:0u)|(owner.serving?64u:0u);
+      r2_radio_service_gm7_follow_diagnostic(&d,kernel_now());
+      (void)k_mutex_unlock(&lock);
+    }else d.refusals=R2_FOLLOW_UNSUPPORTED;
     int n=snprintf(out,capacity,
       "{\"schema\":7,\"protocol\":\"" GM7_DIAG_PROTOCOL "\",\"source\":\"%s\",\"boot\":\"%016llx\",\"page\":9,\"metric\":\"GM7_FOLLOWER_ESTIMATOR\",\"authority\":false,\"scope_current\":%s,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"timing_epoch\":%u,\"train\":%u,\"capture_gen\":%u,\"counter_epoch\":%llu,\"sampled_us\":%llu,\"source_until_us\":%llu,\"last_correction_tick\":%llu,\"fit_count\":%u,\"fit_span_us\":%u,\"observations\":%u,\"resets\":%u,\"saturated\":%u,\"arithmetic_faults\":%u,\"unavailable\":%u,\"fit_rate\":%d,\"quality_bins\":%u,\"state_flags\":%u,\"scope_resets\":%u,\"scope_reset_bits\":%u,\"receiver_stops\":%u,\"receiver_stop_pc\":%u}",
       source,(unsigned long long)physical_boot,d.current?"true":"false",
@@ -2305,7 +2417,7 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       d.stats.count,d.stats.span_us,d.stats.observations,d.stats.resets,d.stats.saturated,
       d.stats.arithmetic_faults,d.stats.unavailable,d.stats.rate,d.stats.quality_count,d.stats.flags,
       d.scope_resets,d.scope_reset_bits,d.stops,d.stop_pc);
-    return n>=0&&(size_t)n<capacity?n:-ENOSPC;
+    return n>=0&&(size_t)n<capacity?follow_causal_append(out,capacity,n,&d,&control,control_flags,control_role,control_reason):-ENOSPC;
   }
   if(page>GM7_PEERS)return -EINVAL;
   (void)k_mutex_lock(&lock, K_FOREVER);
@@ -2441,4 +2553,10 @@ int r2_gm7_diagnostic_format(char *out, size_t capacity, unsigned page,
       witness.capture_epoch_low32,witness.pending_crc);
   (void)k_mutex_unlock(&lock);
   return n >= 0 && (size_t)n < capacity ? n : -ENOSPC;
+}
+
+/* Main-only nonblocking release witness; no status/source mutation. */
+bool r2_normal_service_ui_lock_probe(void){
+ if(k_mutex_lock(&lock,K_NO_WAIT))return false;
+ (void)k_mutex_unlock(&lock);return true;
 }

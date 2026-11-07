@@ -12,17 +12,23 @@ struct r2_lora_view {
  /* Occupy existing alignment space; display estimates add no mutable RAM.
   * Conservative remaining lease in8s units, projected from original expiry. */
  /* Positive excess delay when rtt_positive; otherwise the learned floor. */
- uint32_t rtt_value_ns;
+ /* Passive wire3 has no RTT jobs; reuse that field for actual current-fit
+  * physical span. These display observations grant no clock authority. */
+ union {uint32_t rtt_value_ns;uint32_t fit_span_ms;};
  uint64_t utc_us,until_us,sampled_us,display_until_us;
  uint32_t age_ms,link_rms_ns,rx_age_ms,activity_age_ms,fit_age_ms;
  int16_t rssi_half_dbm;int8_t snr_quarter_db;uint8_t activity_kind;
  uint16_t root_tag,emitter_tag,parent_tag;
  uint8_t state,assurance,choice,link_samples,kind,parent_class,parent_accuracy;
  uint8_t requested:1,active:1,transmitter:1,fault:1,quality_known:1,time_valid:1,parent_quality:1,coord_follow:1;
- uint8_t display_held:1,rssi_valid:1,rtt_base_count:2,rtt_positive:1,display_acquiring:1,tz_observed:1;
+ uint8_t display_held:1,rssi_valid:1,rtt_base_count:2,rtt_positive:1,display_acquiring:1,tz_observed:1,context_known:1;
  uint8_t rtt_life_8s;
+ /* Authenticated boot cache and causal pre-update error. These are human
+  * observations, separate from time_valid/quality_known and live until_us. */
+ uint32_t prediction_rms_ns,prediction_age_ms,prediction_n;
+ bool metadata_cached,observer_available;
 };
-_Static_assert(sizeof(struct r2_lora_view)<=88,"RC8 view with coarse TZ");
+_Static_assert(sizeof(struct r2_lora_view)<=104,"LoRa view with retained observer diagnostics");
 /* Freshness limits from the original physical pair. Slow mode separately
  * retains a same-boot UI-only HOLD cache;120s is not its display lifetime.
  * Legacy/fast display continuation remains bounded by its existing policy. */
@@ -44,9 +50,15 @@ void r2_lora_view_named(struct r2_lora_view *,uint64_t *factory,char name[25]);
 void r2_lora_init(uint64_t factory,uint64_t boot,uint64_t transmitter,const struct r2_group_config *);
 void r2_lora_control(bool profile_rc,bool allowed,enum rc8_selected normal_source);
 #ifdef R2_LORA_FIXED500_EXPERIMENT
+enum r2_lora_source_gate {R2_LORA_SOURCE_READY,R2_LORA_SOURCE_SCOPE,
+ R2_LORA_SOURCE_GNSS,R2_LORA_SOURCE_BLE_MAP,R2_LORA_SOURCE_BLE_QUALITY,
+ R2_LORA_SOURCE_CAPTURE,R2_LORA_SOURCE_REVOKED,R2_LORA_SOURCE_UNAVAILABLE};
+/* Diagnostic only, stored in spare owner flag bits; grants no RF authority. */
+void r2_lora_source_status(enum r2_lora_source_gate);
 /* Qualified BLE observation only; never a LoRa clock/authority input. */
 bool r2_lora_ble_needed(void);
-void r2_lora_ble_observe(const struct rc8_scope *,uint64_t until_us,uint32_t refused,uint64_t now_us);
+struct lp_ble_scope;
+void r2_lora_ble_observe(const struct lp_ble_scope *,uint64_t until_us,uint32_t refused,uint64_t now_us);
 bool r2_lora_ble_shadow_allowed(void);
 #endif
 /* Computed by serialized BLE owner from original authenticated contact leases. */
@@ -72,6 +84,7 @@ void r2_lora_gm_admission(bool serving,uint64_t original_until_us,bool explicit_
 bool r2_lora_transmitter_quiescent(void);
 #endif
 #if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
+void r2_lora_console_poll(uint64_t boot,uint64_t now_ms);
 int r2_lora_diagnostics_json(char *,size_t,int result);
 #endif
 int r2_lora_json(char *,size_t,int result);

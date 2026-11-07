@@ -4,7 +4,16 @@
 #include "../src/ui_service.c"
 int main(int argc,char **argv){
  assert(argc==2);mode=atoi(argv[1]);
- if(mode==52){
+ if(mode==56){
+  status.ready=true;assert(!r2_ui_page(1));assert(r2_ui_rf_requested());
+  status.help=true;assert(!r2_ui_rf_requested());status.help=false;
+  status.menu.open=true;assert(!r2_ui_rf_requested());status.menu.open=false;
+  status.screensaver=true;assert(!r2_ui_rf_requested());status.screensaver=false;
+  status.stopped=true;assert(!r2_ui_rf_requested());status.stopped=false;
+  status.ready=false;assert(!r2_ui_rf_requested());status.ready=true;
+  assert(!r2_ui_page(0));assert(!r2_ui_rf_requested());
+ }
+ else if(mode==52){
   for(unsigned profile=0;profile<2;profile++)for(unsigned page=2;page<=6;page+=4){
    shadow_session=(struct r2_shadow_session){0};witness_enabled=false;fake_now=1000;
    struct r2_ui_model m={.sampled_ms=1000,.gm_capable=true,.gm_cold=!profile,.profile_rc=profile,
@@ -26,7 +35,9 @@ int main(int argc,char **argv){
  }
  else if(mode==0){r2_ui_stop();r2_ui_start();assert(!entry&&!init_calls&&!r2_ui_close_result());}
  else{
-  struct r2_ui_model m={.unit="TC-01",.profile_supported=mode>=14};r2_ui_publish(&m);if((mode>=8&&mode<14)||mode==24||mode>=26)assert(!r2_ui_page(R2_UI_SHADOW_PAGE));if(mode==16)assert(!r2_ui_page(3));if(mode>=35)assert(!r2_ui_page(mode==40?5:mode==41?0:mode==53?6:2));if(mode==17)assert(!r2_ui_page(1));r2_ui_start();assert(entry&&priority==6);entry(NULL,NULL,NULL);
+  struct r2_ui_model m={.unit="TC-01",.profile_supported=mode>=14};r2_ui_publish(&m);if((mode>=8&&mode<14)||mode==24||mode>=26)assert(!r2_ui_page(R2_UI_SHADOW_PAGE));if(mode==16)assert(!r2_ui_page(3));if(mode>=35)assert(!r2_ui_page(mode==40?5:mode==41?0:mode==53?6:2));if(mode==17||mode==54||mode==55)assert(!r2_ui_page(1));r2_ui_start();assert(entry&&priority==9);entry(NULL,NULL,NULL);
+  if(mode==54)assert(first_help>=2000&&first_help<2050&&help_release_seen&&status.page==1&&!status.help&&!status.menu.open);
+  if(mode==55){assert(input_help_at>=2000&&input_help_at<2050&&input_menu_at>=2500&&input_menu_at<2550);assert(first_help>=input_help_at&&first_menu>=input_menu_at&&first_help<first_menu&&first_help<input_menu_at&&first_menu<input_menu_at+250&&status.page==1&&!status.help&&status.menu.open);}
   if(mode==1)assert(!init_calls&&!frame_calls&&off_calls==1&&!r2_ui_close_result());
   if(mode==2){assert(init_calls==1&&frame_calls>=10&&off_calls==1&&!r2_ui_close_result());assert(starts[1]-starts[0]>=230&&starts[2]-starts[1]>=230&&starts[2]-starts[0]>=500);assert(status.buttons==2&&status.page==2&&!status.help&&!status.poweroff);}
   if(mode==14||mode==15){assert(status.menu.open&&!status.profile_toggles&&!status.help&&!status.poweroff&&status.page==0);assert(!r2_ui_take_profile_toggle());}

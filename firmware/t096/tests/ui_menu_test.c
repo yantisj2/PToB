@@ -12,6 +12,27 @@ static enum r2_ui_menu_action step(bool down,uint64_t advance,bool saver){now+=a
 static enum r2_ui_menu_action tap(void){assert(step(true,100,false)==R2_MENU_NONE);return step(false,120,false);}
 static enum r2_ui_menu_action hold(void){assert(step(true,100,false)==R2_MENU_NONE);enum r2_ui_menu_action a=step(true,2000,false);assert(step(true,4500,false)==R2_MENU_NONE);assert(step(false,100,false)==R2_MENU_NONE);return a;}
 static void boundaries(void){
+ for(unsigned duration=1499;duration<=2000;duration++){
+  struct r2_ui_menu m={0};struct r2_ui_button_state b={0};
+  assert(r2_ui_menu_sample_help(&m,&b,true,true,false,31,true,100,160)==R2_MENU_NONE);
+  enum r2_ui_menu_action action=r2_ui_menu_sample_help(&m,&b,false,false,false,31,true,100+duration,100+duration+60);
+  assert(action==(duration==1499?R2_MENU_PAGE:duration<2000?R2_MENU_HELP:R2_MENU_OPEN));
+  assert(m.open==(duration==2000));
+ }
+ {
+  struct r2_ui_menu m={0};struct r2_ui_button_state b={0};
+  assert(r2_ui_menu_sample_help(&m,&b,true,true,false,31,true,100,160)==R2_MENU_NONE);
+  assert(r2_ui_menu_sample_help(&m,&b,true,true,false,31,true,100,1599)==R2_MENU_NONE);
+  assert(r2_ui_menu_sample_help(&m,&b,true,true,false,31,true,100,1600)==R2_MENU_HELP);
+  assert(r2_ui_menu_sample_help(&m,&b,true,true,false,31,false,100,1601)==R2_MENU_NONE);
+  assert(r2_ui_menu_sample_help(&m,&b,false,false,false,31,false,1800,1860)==R2_MENU_NONE); /* Stay on help. */
+  assert(r2_ui_menu_sample_help(&m,&b,true,true,false,31,false,2000,2060)==R2_MENU_NONE);
+  assert(r2_ui_menu_sample_help(&m,&b,false,false,false,31,false,2120,2180)==R2_MENU_PAGE); /* Caller returns from help. */
+  m=(struct r2_ui_menu){0};b=(struct r2_ui_button_state){0};
+  assert(r2_ui_menu_sample_help(&m,&b,true,true,true,31,true,100,160)==R2_MENU_NONE);
+  assert(r2_ui_menu_sample_help(&m,&b,true,true,false,31,true,100,1600)==R2_MENU_NONE);
+  assert(r2_ui_menu_sample_help(&m,&b,false,false,false,31,true,1800,1860)==R2_MENU_WAKE);
+ }
  for(unsigned duration=1999;duration<=2000;duration++){
   struct r2_ui_menu m={0};struct r2_ui_button_state b={0};
   assert(r2_ui_menu_step(&m,&b,true,false,31,100)==R2_MENU_NONE);

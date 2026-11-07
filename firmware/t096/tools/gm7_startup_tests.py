@@ -7,7 +7,10 @@ app=Path(__file__).resolve().parents[1];root=app.parents[1]
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--deps',type=Path,required=True);p.add_argument('--out',type=Path,required=True);args=p.parse_args();out=args.out.resolve();out.mkdir(parents=True,exist_ok=False)
 source={n:(app/n).read_text()for n in ['src/main.c','src/time_service.c','src/capture.c','src/gm7_service.c','tests/gm7_service_test.c','tests/capture_fake.h','tests/gm7_startup_test.c']}
 # Exact main startup branch, no copied policy reimplementation.
-main=source['src/main.c'];a=main.index('    if(platform_ready&&!source_started)');b=main.index('    if(now>=ui_due)',a);block=main[a:b]
+main=source['src/main.c'];a=main.index('    if(platform_ready&&!source_started)')
+# End before the independent UI context/clock maintenance branch.
+context=main.index('    struct r2_ui_context ui_context=',a)
+b=main.rindex('#ifdef R2_GM7_NATIVE\n',a,context);block=main[a:b]
 time=source['src/time_service.c'];a=time.index('void r2_time_start(void)');b=time.index('\nvoid r2_time_service',a);time_start=time[a:b]
 for n in ['nrfx_timer.h','nrfx_ppi.h','nrfx_gpiote.h','radio_nrf5_resources.h','zephyr/kernel.h','zephyr/sys/atomic.h','zephyr/sys/onoff.h','zephyr/drivers/clock_control/nrf_clock_control.h','zephyr/drivers/gpio.h','hal/nrf_radio.h','zephyr/bluetooth/bluetooth.h','zephyr/bluetooth/conn.h','zephyr/bluetooth/gatt.h','zephyr/random/random.h']:
  p=out/n;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('/* Public driver fake boundary. */\n')

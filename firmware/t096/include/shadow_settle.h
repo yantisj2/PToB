@@ -11,7 +11,7 @@
 struct r2_shadow_settle {
  uint64_t boundary,epoch,first,last,root,root_boot,parent,parent_boot;
  uint32_t cursor,root_epoch,parent_epoch,train,seen,skipped,missing,resets;
- bool collecting,tracking,lora;
+ bool collecting,tracking,lora;uint8_t input;uint32_t lora_delay_ns;
 };
 static inline void r2_shadow_settle_add(uint32_t *n,uint32_t add){*n=add>UINT32_MAX-*n?UINT32_MAX:*n+add;}
 static inline void r2_shadow_settle_reset(struct r2_shadow_settle *s){
@@ -32,10 +32,12 @@ static inline bool r2_shadow_settle_observe(struct r2_shadow_settle *s,const str
  if(s->tracking&&(r->edge.tick<=s->last||r->edge.tick-s->last>R2_SHADOW_SETTLE_GAP_TICKS||
     s->root!=r->map.root||s->root_boot!=r->map.root_boot||s->root_epoch!=r->map.root_epoch||
     s->parent!=r->map.parent||s->parent_boot!=r->map.parent_boot||
-    s->parent_epoch!=r->map.parent_epoch||s->train!=r->map.train||s->lora!=r->map.lora))r2_shadow_settle_reset(s);
+     s->parent_epoch!=r->map.parent_epoch||s->train!=r->map.train||s->lora!=r->map.lora||
+     s->input!=rc_shadow_input_kind(&r->map)||s->lora_delay_ns!=r->map.lora_delay_ns))r2_shadow_settle_reset(s);
  if(!s->tracking){s->tracking=true;s->first=r->edge.tick;s->root=r->map.root;s->root_boot=r->map.root_boot;
   s->root_epoch=r->map.root_epoch;s->parent=r->map.parent;s->parent_boot=r->map.parent_boot;
-  s->parent_epoch=r->map.parent_epoch;s->train=r->map.train;s->lora=r->map.lora;}
+   s->parent_epoch=r->map.parent_epoch;s->train=r->map.train;s->lora=r->map.lora;
+   s->input=rc_shadow_input_kind(&r->map);s->lora_delay_ns=r->map.lora_delay_ns;}
  s->last=r->edge.tick;
  return s->last-s->first>=R2_SHADOW_SETTLE_TICKS;
 }

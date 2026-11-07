@@ -4,6 +4,7 @@
  * TIMER3 and the native observation adapter supply every timing capture.
  */
 #include "ble_service.h"
+#include "rf_clock.h"
 #include "ble_transport.h"
 #include "capture.h"
 #include "core.h"
@@ -68,6 +69,18 @@ static bool fit_rms_valid;
 static struct rc5_clock local_clock;
 static struct r2_group_config group;
 static struct r2_service_status status;
+#ifdef R2_LORA
+/* One UI-only delivered map; published with status under state_lock. Identity,
+ * source expiry and sampled kernel bounds come from that same status commit. */
+struct rf_rc_map {
+ uint64_t effective,anchor_tick,anchor_ns,epoch,until_tick;
+ int64_t utc_offset;
+ int32_t ppb,phase_ns;
+};
+static struct rf_rc_map rf_rc;
+_Static_assert(sizeof(struct rf_rc_map)==56,"RF RC map scalar publication budget");
+#endif
+
 static struct r2_identity identity;
 /* Route indices are bounded by validated RC5 routes. Keep their storage
  * narrow: eight extra BSS bytes can advance native stack alignment by64B. */
@@ -209,6 +222,10 @@ static int sync_close_error;
 static struct bt_le_ext_adv *pa;
 static bt_addr_le_t parent;
 static atomic_t fault, stop_requested, started;
+/* Failure-only metadata. Owner provenance advances after existing join/reset gates.
+ * A missing/preempted metadata write is UNKNOWN; it never gates fault. */
+static atomic_t first_check_site;
+_Static_assert(sizeof first_check_site==4,"One failure-only scalar");
 static struct k_thread owner_thread;
 K_THREAD_STACK_DEFINE(owner_stack, 8192);
 K_MUTEX_DEFINE(state_lock);
@@ -219,16 +236,30 @@ static uint32_t cap_received, cap_authenticated, cap_usable;
 static uint64_t mono_us(void) {
   return k_ticks_to_us_floor64(k_uptime_ticks());
 }
-static void check(bool ok, const char *why) {
-  (void)why;
-  if (!ok && atomic_cas(&fault, 0, -EIO)) {
-    r2_timing_event(R2_TIMING_OWNER_FAULT,-EIO,self_identity,r2_crc32(why,strlen(why)),0,0);
+#include "rc_check_site.h"
+static void check_at(bool ok,const char *why,unsigned site){
+  if(!ok){
+    /* Capture volatile owner provenance only on failure. The original fault
+     * CAS remains the sole error decision, regardless of metadata contents. */
+    uint32_t token=(uint32_t)atomic_get(&first_check_site);
+    if(atomic_cas(&fault,0,-EIO)){
+      if((token&R2_RC_CHECK_GENERATION_MASK)!=R2_RC_CHECK_GENERATION_MASK)
+        (void)atomic_cas(&first_check_site,(atomic_val_t)token,
+          (atomic_val_t)((token&R2_RC_CHECK_GENERATION_MASK)|r2_rc_check_pack(site)));
+      r2_timing_event(R2_TIMING_OWNER_FAULT,-EIO,self_identity,r2_crc32(why,strlen(why)),0,0);
 #if defined(R2_RC_DYNAMIC_FIXTURE)
-    printk("RC7_OWNER_FAULT self=%016llx reason=%s\n",
-           (unsigned long long)self_identity, why);
+      printk("RC7_OWNER_FAULT self=%016llx reason=%s\n",
+             (unsigned long long)self_identity,why);
 #endif
+    }
   }
 }
+#define RC_CHECK_BASE 0u
+#define RC_CHECK_LINE_MAX 2559u
+#define check(ok,why) do{ \
+ _Static_assert(__LINE__<=RC_CHECK_LINE_MAX,"RC check source domain exhausted"); \
+ check_at((ok),(why),RC_CHECK_BASE+__LINE__); \
+}while(0)
 
 static struct rc_slots slot_state;
 /* Advisory placement only; survives scope/owner recovery, never supplies time. */
@@ -625,7 +656,16 @@ static void cleanup_progress(void) {
   if(status.closing)status.at=mono_us();
   k_mutex_unlock(&state_lock);
 }
+/* The included transport owns a separate source-coordinate range. */
+#undef RC_CHECK_BASE
+#undef RC_CHECK_LINE_MAX
+#define RC_CHECK_BASE R2_RC_CHECK_TRANSPORT_BASE
+#define RC_CHECK_LINE_MAX (R2_RC_CHECK_SITE_MAX-R2_RC_CHECK_TRANSPORT_BASE)
 #include "rc_dynamic_transport.inc"
+#undef RC_CHECK_BASE
+#undef RC_CHECK_LINE_MAX
+#define RC_CHECK_BASE 0u
+#define RC_CHECK_LINE_MAX 2559u
 /* Caller has drained the previous sync/publication and owns no transient ACL.
  * No phase/acquisition latch from that parent may inhibit the next admission. */
 static void parent_handoff_reset(void) {
@@ -1705,6 +1745,29 @@ static void captures(struct r2_capture now) {
     }
   }
 }
+#ifdef R2_LORA
+/* Serialized RC worker, with state_lock held by the publication boundary. */
+static void rf_clock_publish(struct r2_capture now,bool valid,const struct rc5_stamp *stamp){
+  rf_rc=(struct rf_rc_map){0};
+  if(valid&&running&&!status.error&&!status.closing&&now.epoch==capture_epoch&&
+     local_clock.root_boot==current_origin.boot&&local_clock.root_epoch==current_origin.epoch&&
+     local_clock.parent_boot==timing.parent_boot&&local_clock.parent_epoch==timing.parent_epoch){
+   for(unsigned i=0;i<local_clock.count;i++){
+    const struct rc5_map *m=&local_clock.map[(local_clock.head+3-i)%4];
+    if(m->effective>now.tick)continue;
+    if(m->generation==stamp->generation){
+     uint64_t until=m->effective>UINT64_MAX-RC_FIELD_HOLD_TICKS?UINT64_MAX:m->effective+RC_FIELD_HOLD_TICKS;
+     uint64_t discipline=discipline_at>UINT64_MAX-RC_FIELD_HOLD_TICKS?UINT64_MAX:discipline_at+RC_FIELD_HOLD_TICKS;
+     if(discipline<until)until=discipline;
+     if(timing.context_until<until)until=timing.context_until;
+     rf_rc=(struct rf_rc_map){.effective=m->effective,.anchor_tick=m->anchor_tick,.anchor_ns=m->anchor_ns,
+      .epoch=now.epoch,.until_tick=until,.utc_offset=current_origin.utc_offset,.ppb=m->ppb,.phase_ns=m->phase_ns};
+    }
+    break;
+   }
+  }
+}
+#endif
 static void snapshot_publish(struct r2_capture now) {
   struct rc5_stamp stamp = {0};
   bool valid = node && rc5_clock_read(&local_clock, &timing, now.tick, &stamp);
@@ -1876,6 +1939,9 @@ static void snapshot_publish(struct r2_capture now) {
   status.relay.map_valid = valid;
   status.relay.utc_us = utc;
   status.relay.bound_ns = RC5_UNKNOWN;
+#ifdef R2_LORA
+  rf_clock_publish(now,valid,&stamp);
+#endif
   k_mutex_unlock(&state_lock);
 }
 #ifdef R2_PC_PROFILE
@@ -2389,6 +2455,9 @@ int r2_service_configure(const struct r2_identity *id,
   phase = 0;
   direct_phase_bias = RC_DIRECT_PPS_CORRECTION_NS;
   rc_slots_init(&slot_state, 1, 0);
+  /* Existing admission/join/reset gates have passed. Never reuse an old
+   * metadata generation; exhaustion disables only this diagnostic. */
+  atomic_set(&first_check_site,(atomic_val_t)r2_rc_check_next((uint32_t)atomic_get(&first_check_site)));
   atomic_clear(&fault);
   atomic_clear(&stop_requested);
   atomic_clear(&started);
@@ -2396,6 +2465,10 @@ int r2_service_configure(const struct r2_identity *id,
   k_msgq_purge(&sync_queue);
   memset(transport_snapshot, 0, sizeof transport_snapshot);
   cap_received = cap_authenticated = cap_usable = 0;
+#ifdef R2_LORA
+  rf_rc=(struct rf_rc_map){0};
+#endif
+  k_mutex_lock(&state_lock,K_FOREVER);
   status = (struct r2_service_status){.configured = true,
                                       .closed = true,
                                       .normal = true,
@@ -2405,8 +2478,10 @@ int r2_service_configure(const struct r2_identity *id,
                                       .coordinator = 255,
                                       .standby = 255,
                                       .group_id = group.id,
-                                      .key_epoch = group.epoch};
+                                      .key_epoch = group.epoch,
+                                      .rc_check_generation=(uint16_t)((uint32_t)atomic_get(&first_check_site)>>16)};
   snprintf(status.name, sizeof status.name, "%s", id->unit);
+  k_mutex_unlock(&state_lock);
   return 0;
 }
 /* Called only between configure and start by the dispatcher. Admission still
@@ -2485,13 +2560,88 @@ int r2_service_close_result(void) {
 #endif
   return s.closed && !s.active ? 0 : s.error ? s.error : -EAGAIN;
 }
-void r2_service_snapshot(struct r2_service_status *out) {
-  k_mutex_lock(&state_lock, K_FOREVER);
-  *out = status;
-  k_mutex_unlock(&state_lock);
-  if (atomic_get(&fault))
-    out->error = atomic_get(&fault);
+static bool ui_rf_copy(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now,bool try_only,r2_ui_read_boundary_fn boundary,void *context){
+ if(!out)return true;
+ *out=(struct r2_rf_clock_sample){0};
+#ifdef R2_LORA
+ if(!at.epoch||at.kind!=R2_CAPTURE_NOW||atomic_get(&fault)||atomic_get(&stop_requested))return true;
+ struct rf_rc_map p;uint64_t issued,expires,until;bool live;
+ if(try_only){if(k_mutex_lock(&state_lock,K_NO_WAIT))return false;}
+ else (void)k_mutex_lock(&state_lock,K_FOREVER);
+ p=rf_rc;issued=status.relay.source_created_ns;expires=status.relay.source_expires_ns;
+ until=status.service_until;
+ live=status.active&&!status.closing&&!status.error&&status.follower_clock_valid&&
+  now>=status.time_sampled_us&&now<until&&status.relay.root_identity&&status.root_boot&&
+  !status.relay.held_time;
+ out->root=status.relay.root_identity;out->boot=status.root_boot;
+ out->source_epoch=status.source_epoch;out->train=status.relay.upstream_train;
+ if(boundary)(void)boundary(context,R2_UI_READ_RC,false);
+ (void)k_mutex_unlock(&state_lock);
+ if(boundary&&!boundary(context,R2_UI_READ_RC,true))return false;
+ if(!live||at.epoch!=p.epoch||at.tick>=p.until_tick||p.ppb< -300000||p.ppb>300000)return true;
+ struct rc5_map m={.effective=p.effective,.anchor_tick=p.anchor_tick,.anchor_ns=p.anchor_ns,
+  .ppb=p.ppb,.phase_ns=p.phase_ns};
+ uint64_t ns,elapsed;
+ if(!rc5_map_project(&m,at.tick,&ns,&elapsed)||ns<issued||ns>=expires||ns>INT64_MAX||
+    (p.utc_offset>0&&ns>(uint64_t)(INT64_MAX-p.utc_offset))||
+    (p.utc_offset<0&&ns<(uint64_t)(-(p.utc_offset+1))+1))return true;
+ /* A bounded UI horizon clips the original physical/context and immutable
+  * source expiry. It never materializes a new timing permission. */
+ uint64_t room=(p.until_tick-at.tick)/16;
+ if(room>250000)room=250000;
+ if(until-now<room)room=until-now;
+ uint32_t lo=0,hi=(uint32_t)room;
+ while(lo<hi){uint32_t mid=lo+(hi-lo+1)/2;uint64_t future,dt;
+  if(at.tick<=UINT64_MAX-(uint64_t)mid*16&&rc5_map_project(&m,at.tick+(uint64_t)mid*16,&future,&dt)&&future<expires)lo=mid;
+  else hi=mid-1;
+ }
+ if(!lo)return true;
+ int64_t phase=elapsed<UINT64_C(1000000000)?p.phase_ns:0;
+ int64_t correction=(phase-p.ppb)*INT64_C(1000000000)/(INT64_C(1000000000)+p.ppb);
+ *out=(struct r2_rf_clock_sample){.root=out->root,.boot=out->boot,.source_epoch=out->source_epoch,.train=out->train,
+  .time_ns=(uint64_t)((int64_t)ns+p.utc_offset),.rate_ppb=(int32_t)correction,.fresh_until_us=now+lo,
+  .available=true,.fresh=true,.utc=true,.rate_valid=true};
+#else
+ (void)at;(void)now;
+#endif
+
+ return true;
 }
+void r2_service_rf_clock(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){(void)ui_rf_copy(out,at,now,false,NULL,NULL);}
+bool r2_service_rf_clock_try(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now,r2_ui_read_boundary_fn boundary,void *context){return ui_rf_copy(out,at,now,true,boundary,context);}
+
+/* Failure-only helper: keep the ordinary snapshot frame and healthy branch
+ * unchanged. Clear the complete typed structure, including future/padding bytes,
+ * without a library call or an automatic record-sized scratch object. */
+static void __attribute__((noinline)) check_snapshot(struct r2_service_status *out){
+  uint32_t word=(uint32_t)atomic_get(&first_check_site);
+  uint16_t detail=(uint16_t)(word>>16)==out->rc_check_generation?r2_rc_check_recorded(word):0;
+  if(r2_rc_check_site(-EIO,detail)){
+    struct r2_transport_fault *f=&out->transport_fault;
+    volatile unsigned char *zero=(volatile unsigned char *)f;
+    for(unsigned i=0;i<sizeof *f;i++)zero[i]=0;
+    f->error=-EIO;f->operation=R2_RC_CHECK_OPERATION;
+    f->peer=r2_rc_check_site(-EIO,detail);f->host_detail=detail;
+  }
+}
+static bool ui_snapshot_copy(struct r2_service_status *out,bool try_only,r2_ui_read_boundary_fn boundary,void *context){
+  if(try_only){if(k_mutex_lock(&state_lock,K_NO_WAIT))return false;}
+ else (void)k_mutex_lock(&state_lock,K_FOREVER);
+  *out = status;
+  if(boundary)(void)boundary(context,R2_UI_READ_RC,false);
+ (void)k_mutex_unlock(&state_lock);
+ if(boundary&&!boundary(context,R2_UI_READ_RC,true))return false;
+  if (atomic_get(&fault)){
+    out->error = atomic_get(&fault);
+    if(out->error==-EIO)check_snapshot(out);
+  }
+  /* A preempted/mismatched metadata read is UNKNOWN; no timestamp is invented. */
+
+ return true;
+}
+void r2_service_snapshot(struct r2_service_status *out){(void)ui_snapshot_copy(out,false,NULL,NULL);}
+bool r2_service_snapshot_try(struct r2_service_status *out,r2_ui_read_boundary_fn boundary,void *context){return ui_snapshot_copy(out,true,boundary,context);}
+
 void r2_dynamic_service_transport_snapshot(uint32_t out[13]) {
   k_mutex_lock(&state_lock, K_FOREVER);
   memcpy(out, transport_snapshot, sizeof transport_snapshot);
@@ -2512,68 +2662,84 @@ void r2_dynamic_service_acquisition_snapshot(uint32_t out[20]) {
   memcpy(out, acquisition_snapshot, sizeof acquisition_snapshot);
   k_mutex_unlock(&state_lock);
 }
-void r2_service_ui(struct r2_ui_model *m) {
-  struct r2_service_status s;
-  r2_service_snapshot(&s);
+void r2_service_ui_logic(struct r2_ui_model *m,const struct r2_service_status *s) {
 #ifdef R2_TZ_WIRE
-  m->tz=s.tz;m->tz_until_us=s.tz_until_us;
+  m->tz=s->tz;m->tz_until_us=s->tz_until_us;
 #endif
   m->profile_supported = true;
   m->profile_rc = true;
   m->profile_switching = false;
-  m->ble_active = s.active && !s.closing;
+  m->ble_active = s->active && !s->closing;
   m->root = 0;
   m->coordinator = m->standby = 255;
-  m->precision = s.precision;
-  memcpy(m->lamps, s.lamps, sizeof m->lamps);
-  r2_ui_reception(m, &s.reception, mono_us());
+  m->precision = s->precision;
+  memcpy(m->lamps, s->lamps, sizeof m->lamps);
+  r2_ui_reception(m, &s->reception, mono_us());
   m->precision_beat_hz =
-      s.active && !s.closing && !s.error && s.follower_clock_valid
+      s->active && !s->closing && !s->error && s->follower_clock_valid
           ? R2_PRECISION_HZ
           : 0;
-  m->rx = s.rx;
-  m->authenticated = s.authenticated;
+  m->rx = s->rx;
+  m->authenticated = s->authenticated;
   m->gm_capable = false;
-  m->source_eligible = s.source_eligible;
+  m->source_eligible = s->source_eligible;
   m->relay_selected = parent_known;
   m->time_relay_hops = parent_known ? routes.node[parent_index].depth : 0;
-  m->relay_upstream = s.relay.parent;
+  m->relay_upstream = s->relay.parent;
   m->boundary_clock = true;
-  m->rc_source_held = s.relay.held_time;
-  m->rc_update_age_ms = s.relay.update_age_ms;
-  m->rc_source_age_ms = s.relay.source_age_ms;
-  bool live = s.active && !s.error && !s.closing;
-  m->rc_serving_clients = live && s.follower_clock_valid &&
-      ((s.relay.active && s.relay.phase_admitted && s.relay.tx_corrections) ||
+  m->rc_source_held = s->relay.held_time;
+  m->rc_update_age_ms = s->relay.update_age_ms;
+  m->rc_source_age_ms = s->relay.source_age_ms;
+  bool live = s->active && !s->error && !s->closing;
+  m->rc_serving_clients = live && s->follower_clock_valid &&
+      ((s->relay.active && s->relay.phase_admitted && s->relay.tx_corrections) ||
        r2_uc_serving_clients());
   m->ble_active = live;
-  m->sync_attempt = live && !s.follower_clock_valid;
-  m->scope_active = live && (s.serving || s.follower);
+  m->sync_attempt = live && !s->follower_clock_valid;
+  m->scope_active = live && (s->serving || s->follower);
   m->role =
-      m->scope_active ? (s.serving ? R2_UI_GM : R2_UI_FOLLOWER) : R2_UI_NO_ROLE;
-  m->authenticated_gm = live && s.follower;
-  m->gm_source_fresh = live && s.serving && m->clock.source_available;
-  r2_ui_identity_name(m->root_name, routes.node[0].id, NULL);
-  r2_ui_identity_name(
-      m->upstream_name,
-      node && s.relay.selected ? routes.node[s.relay.parent].id : 0, NULL);
-  r2_time_precision_snapshot(&m->pps_precision);
+      m->scope_active ? (s->serving ? R2_UI_GM : R2_UI_FOLLOWER) : R2_UI_NO_ROLE;
+  m->authenticated_gm = live && s->follower;
+  m->gm_source_fresh = live && s->serving && m->clock.source_available;
   if (node) { /* Local GNSS remains a witness, never selected fallback. */
     m->clock.valid = false;
     m->coarse_valid = false;
-    r2_ui_select_ble_time(m, s.follower_utc, s.time_sampled_us, mono_us(),
-                          s.service_until, live && s.follower_clock_valid);
+    r2_ui_select_ble_time(m, s->follower_utc, s->time_sampled_us, mono_us(),
+                          s->service_until, live && s->follower_clock_valid);
     uint64_t held_utc;uint32_t held_age;
     if(live&&hold_read(&held_utc,&held_age)){
       uint64_t at=mono_us();
       m->clock.utc_us=(int64_t)held_utc;m->clock.valid=true;
       uint64_t remaining=(uint64_t)(120000-held_age)*1000;
       m->ble_time_selected=true;m->ble_valid_until_us=at+(remaining<500000?remaining:500000);
-      m->ble_local_holdover=!s.follower_clock_valid;
+      m->ble_local_holdover=!s->follower_clock_valid;
       m->rc_source_held=m->ble_local_holdover||held_age>=500;
       m->rc_update_age_ms=held_age;
     }
   }
+}
+static bool ui_details_copy(struct r2_ui_model *m,const struct r2_service_status *s,bool try_only,r2_ui_read_boundary_fn boundary,void *context){
+  uint64_t root,upstream;
+  if(try_only){if(k_mutex_lock(&state_lock,K_NO_WAIT))return false;}
+ else (void)k_mutex_lock(&state_lock,K_FOREVER);
+  root=routes.node[0].id;
+  upstream=node&&s->relay.selected?routes.node[s->relay.parent].id:0;
+  if(boundary)(void)boundary(context,R2_UI_READ_RC,false);
+ (void)k_mutex_unlock(&state_lock);
+ if(boundary&&!boundary(context,R2_UI_READ_RC,true))return false;
+  r2_ui_identity_name(m->root_name,root,NULL);
+  r2_ui_identity_name(m->upstream_name,upstream,NULL);
+
+ return true;
+}
+void r2_service_ui_details(struct r2_ui_model *m,const struct r2_service_status *s){(void)ui_details_copy(m,s,false,NULL,NULL);}
+bool r2_service_ui_details_try(struct r2_ui_model *m,const struct r2_service_status *s,r2_ui_read_boundary_fn boundary,void *context){return ui_details_copy(m,s,true,boundary,context);}
+
+void r2_service_ui(struct r2_ui_model *m) {
+  struct r2_service_status s;r2_service_snapshot(&s);
+  r2_service_ui_logic(m,&s);
+  r2_time_precision_snapshot(&m->pps_precision);
+  r2_service_ui_details(m,&s);
 }
 int r2_service_relay(uint64_t session, uint32_t seconds, uint64_t arrival) {
   (void)session;
@@ -2603,4 +2769,10 @@ uint32_t r2_service_stack_unused(void) {
 }
 uint32_t r2_radio_service_stack_unused(void) {
   return r2_service_stack_unused();
+}
+
+/* Main-only nonblocking release witness; no status/source mutation. */
+bool r2_dynamic_service_ui_lock_probe(void){
+ if(k_mutex_lock(&state_lock,K_NO_WAIT))return false;
+ (void)k_mutex_unlock(&state_lock);return true;
 }

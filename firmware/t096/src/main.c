@@ -7,6 +7,7 @@
 #endif
 #include "health.h"
 #include "timing_events.h"
+#include "ble_causal_events.h"
 #include "initiator_diag.h"
 #include "watchdog.h"
 #include "time_service.h"
@@ -32,6 +33,9 @@
 #ifdef R2_LORA
 #include "lora_service.h"
 #include "lora_watchdog.h"
+#if defined(R2_GM7_NATIVE) && (defined(R2_LORA_PASSIVE_SLOW)||defined(R2_LORA_PASSIVE_FAST))
+#include "rf_clock.h"
+#endif
 #endif
 #ifdef R2_NATIVE_BLE
 #include "ble_service.h"
@@ -40,6 +44,7 @@
 #include "radio_audit.h"
 #include "radio_capture.h"
 #include "diagnostic.h"
+#include "fault_boot.h"
 #ifdef R2_RC_PROFILE
 #include "rc_unicast.h"
 #include "rc_dynamic_service.h"
@@ -48,6 +53,7 @@
 #include "r2_enrollment.h"
 #endif
 #include "rc_shadow.h"
+#include "bounded_json.h"
 #include "rc_direct_calibration.h"
 #include "build_identity.h"
 #ifdef R2_RC_PROFILE
@@ -98,32 +104,47 @@ static void __attribute__((noinline)) clock_reply(const struct r2_request *r,uin
   struct r2_pps_precision_view q;r2_time_precision_snapshot(&q);
   struct r2_gnss_aid_status aid;r2_gnss_aid_status(&aid);
   struct r2_source_pps_view source_pps;r2_time_source_pps_snapshot(&source_pps);
-  int n=snprintf(json,sizeof(json),
-    "{\"source\":\"%s\",\"boot\":\"%016llx\",\"state\":%u,\"valid\":%s,"
-    "\"utc_us\":%lld,\"mono_us\":%lld,\"gps_age_us\":%lld,\"pps_age_us\":%lld,\"rx_age_us\":%lld,\"gga_age_us\":%lld,\"gga_hdop_centi\":%u,"
-    "\"input_error\":%d,\"rate_ppb\":%d,\"phase_us\":%lld,\"rate_valid\":%s,\"source_available\":%s,"
-    "\"generation\":%u,\"source_epoch\":%u,\"pairs\":%u,\"accepted\":%u,\"rejected\":%u,"
-    "\"faults\":%u,\"reason\":%u,\"association\":%u,\"pps_edges\":%u,\"pps_rejected\":%u,"
-    "\"pps_present\":%s,\"fix_active\":%s,\"sats_used\":%u,\"gga_count\":%u,\"queue_drops\":%u,"
-    "\"pps_capture_epoch\":%llu,\"pps_capture_age_us\":%lld,\"pps_fit_samples\":%u,"
-    "\"pps_rate_valid\":%s,\"pps_fit_valid\":%s,\"pps_drift_ppb\":%d,\"pps_trim_ppb\":%d,"
-    "\"pps_fit_rms_ns\":%u,\"pps_prediction_rms_ns\":%u,\"native_capture_error\":%d,"
-    "\"source_pps\":[%llu,%llu,%llu,%llu,%llu,%d,%u,%s],\"rmc\":[%u,%u],\"aid\":[%u,%u,%u,%u,%d,%s,%llu],"
+  struct clock_json_context {const char *source;uint32_t drops;int capture_error;};
+  const struct clock_json_context context={R2_SOURCE_SHA,drops,r2_capture_error()};
+#define CJ(kind,key,member) R2_JSON_FIELD(kind,key,1,struct r2_clock_view,member)
+#define QJ(kind,key,member) R2_JSON_FIELD(kind,key,2,struct r2_pps_precision_view,member)
+#define XJ(kind,key,member) R2_JSON_FIELD(kind,key,3,struct clock_json_context,member)
+  static const struct r2_json_field fields[]={
+    XJ(R2_J_STRING,"source",source),R2_JSON_FIELD(R2_J_HEX64,"boot",0,struct r2_identity,boot),
+    CJ(R2_J_U32,"state",state),CJ(R2_J_BOOL,"valid",valid),
+    CJ(R2_J_I64,"utc_us",utc_us),CJ(R2_J_I64,"mono_us",mono_us),
+    CJ(R2_J_I64,"gps_age_us",gps_age_us),CJ(R2_J_I64,"pps_age_us",pps_age_us),
+    CJ(R2_J_I64,"rx_age_us",rx_age_us),CJ(R2_J_I64,"gga_age_us",gga_age_us),CJ(R2_J_U16,"gga_hdop_centi",gga_hdop_centi),
+    CJ(R2_J_I32,"input_error",input_error),CJ(R2_J_I32,"rate_ppb",rate_ppb),CJ(R2_J_I64,"phase_us",phase_us),
+    CJ(R2_J_BOOL,"rate_valid",rate_valid),CJ(R2_J_BOOL,"source_available",source_available),
+    CJ(R2_J_U32,"generation",generation),CJ(R2_J_U32,"source_epoch",source_epoch),
+    CJ(R2_J_U32,"pairs",pairs),CJ(R2_J_U32,"accepted",accepted),CJ(R2_J_U32,"rejected",rejected),
+    CJ(R2_J_U32,"faults",faults),CJ(R2_J_U32,"reason",reason),CJ(R2_J_U32,"association",association),
+    CJ(R2_J_U32,"pps_edges",pps_edges),CJ(R2_J_U32,"pps_rejected",pps_rejected),
+    CJ(R2_J_BOOL,"pps_present",pps_present),CJ(R2_J_BOOL,"fix_active",fix_active),
+    CJ(R2_J_U32,"sats_used",sats_used),CJ(R2_J_U32,"gga_count",gga_count),XJ(R2_J_U32,"queue_drops",drops),
+    QJ(R2_J_U64,"pps_capture_epoch",epoch),QJ(R2_J_I64,"pps_capture_age_us",age_us),QJ(R2_J_U32,"pps_fit_samples",samples),
+    QJ(R2_J_BOOL,"pps_rate_valid",rate_valid),QJ(R2_J_BOOL,"pps_fit_valid",fit_valid),
+    QJ(R2_J_I32,"pps_drift_ppb",drift_ppb),QJ(R2_J_I32,"pps_trim_ppb",trim_ppb),
+    QJ(R2_J_U32,"pps_fit_rms_ns",fit_rms_ns),QJ(R2_J_U32,"pps_prediction_rms_ns",prediction_rms_ns),
+    XJ(R2_J_I32,"native_capture_error",capture_error)};
+#undef CJ
+#undef QJ
+#undef XJ
+  const void *bases[]={&identity,&t,&q,&context};
+  struct r2_json writer;r2_json_init(&writer,json,sizeof json);r2_json_text(&writer,"{");
+  r2_json_fields(&writer,fields,sizeof fields/sizeof fields[0],bases,4);
+  r2_json_format(&writer,
+    ",\"source_pps\":[%llu,%llu,%llu,%llu,%llu,%d,%u,%s],\"rmc\":[%u,%u],\"aid\":[%u,%u,%u,%u,%d,%s,%llu],"
 #ifdef R2_DC_PROFILE
     "\"dc_gnss_bridge\":[%u,%u,%u,%u,%u],"
 #endif
     "\"precision\":\"UNKNOWN\",\"timescale\":\"POSIX_UTC_ESTIMATE\",\"uncertainty_us\":null}",
-    R2_SOURCE_SHA,(unsigned long long)identity.boot,t.state,t.valid?"true":"false",
-    (long long)t.utc_us,(long long)t.mono_us,(long long)t.gps_age_us,(long long)t.pps_age_us,(long long)t.rx_age_us,(long long)t.gga_age_us,(unsigned)t.gga_hdop_centi,
-    t.input_error,t.rate_ppb,(long long)t.phase_us,t.rate_valid?"true":"false",t.source_available?"true":"false",
-    t.generation,t.source_epoch,t.pairs,t.accepted,t.rejected,t.faults,t.reason,t.association,
-    t.pps_edges,t.pps_rejected,t.pps_present?"true":"false",t.fix_active?"true":"false",
-    t.sats_used,t.gga_count,drops,(unsigned long long)q.epoch,(long long)q.age_us,q.samples,
-    q.rate_valid?"true":"false",q.fit_valid?"true":"false",q.drift_ppb,q.trim_ppb,q.fit_rms_ns,q.prediction_rms_ns,r2_capture_error(),(unsigned long long)source_pps.tick,(unsigned long long)source_pps.epoch,(unsigned long long)source_pps.ns,(unsigned long long)source_pps.generation,(unsigned long long)source_pps.map_from,source_pps.phase_ns,source_pps.observations,source_pps.valid?"true":"false",t.rmc_status,t.rmc_mode,aid.attempts,aid.completed,aid.aborted,aid.ack,aid.result,aid.busy?"true":"false",(unsigned long long)aid.utc_ms
+    (unsigned long long)source_pps.tick,(unsigned long long)source_pps.epoch,(unsigned long long)source_pps.ns,(unsigned long long)source_pps.generation,(unsigned long long)source_pps.map_from,source_pps.phase_ns,source_pps.observations,source_pps.valid?"true":"false",t.rmc_status,t.rmc_mode,aid.attempts,aid.completed,aid.aborted,aid.ack,aid.result,aid.busy?"true":"false",(unsigned long long)aid.utc_ms
 #ifdef R2_DC_PROFILE
     ,gnss_bridge[0],gnss_bridge[1],gnss_bridge[2],gnss_bridge[3],gnss_bridge[4]
 #endif
-    );
+    );int n=r2_json_result(&writer);
   if(n<0||(size_t)n>=sizeof(json)||reply_sequence==UINT32_MAX)return;
 #ifdef R2_TZ_AUTO
   struct r2_position position;r2_time_position_snapshot(&position);
@@ -135,6 +156,9 @@ static void __attribute__((noinline)) clock_reply(const struct r2_request *r,uin
     (long)position.latitude_e7,(long)position.longitude_e7,(unsigned long long)age,
     age<=R2_TZ_POSITION_US?"true":"false");
   if(extra<0||(size_t)extra>=sizeof(json)-(size_t)n+1)return;
+#endif
+#if defined(R2_UI_PARTIAL_JOBS)
+  if(!r2_ui_critical_append(json,sizeof(json)))return;
 #endif
   n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);
   if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);
@@ -197,13 +221,52 @@ static void __attribute__((noinline)) lora_reply(const struct r2_request *r,uint
 #ifdef R2_NATIVE_BLE
 static void __attribute__((noinline)) shadow_reply(const struct r2_request *r,uint64_t arrival,int result)
 {
-    struct rc_shadow_record q={0};struct rc_shadow_status st;bool found=r2_shadow_read((uint32_t)r->nonce,&q,&st);
+    struct rc_shadow_record q={0};struct rc_shadow_status st;
+    struct shadow_json_values {int32_t result,correction;bool found;const char *input;} x={.result=result};
+    x.found=r2_shadow_read((uint32_t)r->nonce,&q,&st);
+    x.correction=q.map.lora?0:(r2_enrollment.boundary_field?rc_direct_pps_correction(r2_enrollment.boundary_profile):RC_DIRECT_PPS_CORRECTION_NS);
+    x.input=q.map.lora?"LORA":q.map.local_hold?"BLE_LOCAL_HOLD":q.map.normal?"BLE":"RC_FIELD";
+#define SQ(kind,key,member) R2_JSON_FIELD(kind,key,1,struct rc_shadow_record,member)
+#define SS(kind,key,member) R2_JSON_FIELD(kind,key,2,struct rc_shadow_status,member)
+#define SX(kind,key,member) R2_JSON_FIELD(kind,key,3,struct shadow_json_values,member)
+    static const struct r2_json_field fields[]={
+      R2_JSON_RAW("\"schema\":2"),R2_JSON_LITERAL("source",R2_SOURCE_SHA),R2_JSON_LITERAL("commit",R2_CHILD_COMMIT),
+      R2_JSON_FIELD(R2_J_CHARS,"silicon",0,struct r2_identity,silicon),
+      R2_JSON_FIELD(R2_J_CHARS,"unit",0,struct r2_identity,unit),
+      R2_JSON_FIELD(R2_J_HEX64,"boot",0,struct r2_identity,boot),
+      SX(R2_J_I32,"result",result),SX(R2_J_BOOL,"found",found),SS(R2_J_BOOL,"enabled",enabled),
+      /* request_mask is uint8, so emit it separately below as a promoted u32. */
+    };
+    static const struct r2_json_field record_fields[]={
+      SS(R2_J_U32,"edges",edges),SS(R2_J_U32,"queue_drops",drops),SS(R2_J_U32,"overwritten",overwritten),
+      SS(R2_J_U32,"disabled_edges",disabled),SS(R2_J_U32,"duplicates",duplicates),
+      SS(R2_J_U64,"now_tick",now_tick),SS(R2_J_U64,"now_epoch",epoch),
+      SQ(R2_J_U32,"sequence",sequence),SQ(R2_J_U64,"edge_tick",edge.tick),SQ(R2_J_U64,"edge_epoch",edge.epoch),
+      SQ(R2_J_I64,"arrival_us",arrival_us),SQ(R2_J_U32,"reason",reason),SQ(R2_J_BOOL,"map_valid",valid),
+      SQ(R2_J_U32,"map_generation",map.map.generation),SQ(R2_J_U64,"activation_lo",map.lo),
+      SQ(R2_J_U64,"activation_tick",map.active),SQ(R2_J_U64,"discipline_tick",map.map.effective),
+      SQ(R2_J_U64,"relay_ns",relay_ns),SQ(R2_J_I64,"utc_ns",utc_ns),SQ(R2_J_I64,"phase_ns",phase_ns),SQ(R2_J_BOOL,"pll",pll),
+      SQ(R2_J_HEX64,"parent",map.parent),SQ(R2_J_HEX64,"parent_boot",map.parent_boot),
+      SQ(R2_J_HEX64,"root",map.root),SQ(R2_J_HEX64,"root_boot",map.root_boot),
+      SQ(R2_J_U32,"root_epoch",map.root_epoch),SQ(R2_J_U32,"parent_epoch",map.parent_epoch),
+      SQ(R2_J_U32,"train",map.train),SQ(R2_J_U32,"accepted",map.accepted),SQ(R2_J_U64,"root_issued_ns",map.issued),
+      SQ(R2_J_BOOL,"reference_seen",reference_seen),SQ(R2_J_U32,"association",association),
+      SQ(R2_J_BOOL,"reference_fix",reference_fix),SQ(R2_J_BOOL,"reference_pps",reference_pps),
+      SQ(R2_J_U32,"reference_reason",reference_reason),SQ(R2_J_I64,"rmc_utc_us",rmc_utc_us),SQ(R2_J_I64,"rmc_at_us",rmc_at_us),
+      SX(R2_J_I32,"applied_phase_correction_ns",correction),SX(R2_J_STRING,"input",input),SQ(R2_J_U32,"applied_lora_delay_ns",map.lora_delay_ns)
+    };
+#undef SQ
+#undef SS
+#undef SX
+    const void *bases[]={&identity,&q,&st,&x};struct r2_json j;r2_json_init(&j,json,sizeof json);
+    r2_json_format(&j,"{");r2_json_fields(&j,fields,sizeof fields/sizeof fields[0],bases,4);
+    r2_json_format(&j,",\"request_mask\":%u,",st.request_mask);
+    r2_json_fields(&j,record_fields,sizeof record_fields/sizeof record_fields[0],bases,4);
+    r2_json_format(&j,",\"uncorrected_phase_ns\":");
     int64_t raw_phase=q.phase_ns-(q.map.lora?(int64_t)q.map.lora_delay_ns:0);
     if(raw_phase< -INT64_C(500000000))raw_phase+=INT64_C(1000000000);
-    char raw_phase_json[32];if(q.valid)snprintf(raw_phase_json,sizeof raw_phase_json,"%lld",(long long)raw_phase);else strcpy(raw_phase_json,"null");
-    int n=snprintf(json,sizeof json,
-      "{\"schema\":2,\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"found\":%s,\"enabled\":%s,\"request_mask\":%u,\"edges\":%u,\"queue_drops\":%u,\"overwritten\":%u,\"disabled_edges\":%u,\"duplicates\":%u,\"now_tick\":%llu,\"now_epoch\":%llu,\"sequence\":%u,\"edge_tick\":%llu,\"edge_epoch\":%llu,\"arrival_us\":%lld,\"reason\":%u,\"map_valid\":%s,\"map_generation\":%u,\"activation_lo\":%llu,\"activation_tick\":%llu,\"discipline_tick\":%llu,\"relay_ns\":%llu,\"utc_ns\":%lld,\"phase_ns\":%lld,\"pll\":%s,\"parent\":\"%016llx\",\"parent_boot\":\"%016llx\",\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"root_epoch\":%u,\"parent_epoch\":%u,\"train\":%u,\"accepted\":%u,\"root_issued_ns\":%llu,\"reference_seen\":%s,\"association\":%u,\"reference_fix\":%s,\"reference_pps\":%s,\"reference_reason\":%u,\"rmc_utc_us\":%lld,\"rmc_at_us\":%lld,\"applied_phase_correction_ns\":%d,\"input\":\"%s\",\"applied_lora_delay_ns\":%u,\"uncorrected_phase_ns\":%s,\"absolute_error_ns\":null}",
-      R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,result,found?"true":"false",st.enabled?"true":"false",st.request_mask,st.edges,st.drops,st.overwritten,st.disabled,st.duplicates,(unsigned long long)st.now_tick,(unsigned long long)st.epoch,q.sequence,(unsigned long long)q.edge.tick,(unsigned long long)q.edge.epoch,(long long)q.arrival_us,q.reason,q.valid?"true":"false",q.map.map.generation,(unsigned long long)q.map.lo,(unsigned long long)q.map.active,(unsigned long long)q.map.map.effective,(unsigned long long)q.relay_ns,(long long)q.utc_ns,(long long)q.phase_ns,q.pll?"true":"false",(unsigned long long)q.map.parent,(unsigned long long)q.map.parent_boot,(unsigned long long)q.map.root,(unsigned long long)q.map.root_boot,q.map.root_epoch,q.map.parent_epoch,q.map.train,q.map.accepted,(unsigned long long)q.map.issued,q.reference_seen?"true":"false",q.association,q.reference_fix?"true":"false",q.reference_pps?"true":"false",q.reference_reason,(long long)q.rmc_utc_us,(long long)q.rmc_at_us,q.map.lora?0:(r2_enrollment.boundary_field?rc_direct_pps_correction(r2_enrollment.boundary_profile):RC_DIRECT_PPS_CORRECTION_NS),q.map.lora?"LORA":q.map.local_hold?"BLE_LOCAL_HOLD":q.map.normal?"BLE":"RC_FIELD",q.map.lora_delay_ns,raw_phase_json);
+    if(q.valid)r2_json_format(&j,"%lld",(long long)raw_phase);else r2_json_format(&j,"null");
+    r2_json_format(&j,",\"absolute_error_ns\":null}");int n=r2_json_result(&j);
     if(n<0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
 #ifdef R2_PC_PROFILE
     int extra=snprintf(json+n-1,sizeof json-(size_t)n+1,",\"image_profile\":\"PC\",\"pc_projection\":%s,\"experimental\":true}",q.map.experimental?"true":"false");
@@ -212,6 +275,7 @@ static void __attribute__((noinline)) shadow_reply(const struct r2_request *r,ui
     n=r2_frame(frame,sizeof frame,r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
 }
 #endif
+
 static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint64_t arrival,int result)
 {
   if(r->op==R2_MENU){
@@ -257,7 +321,19 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
     uint64_t parent;bool relay_only;uint32_t profile[5],transport[13],uc[8],acq[20],gm[7],connection[20];
     r2_service_test_parent_status(&parent,&relay_only);r2_service_profile_status(profile);
     r2_service_test_transport_status(transport);r2_uc_stats(uc);r2_service_test_acquisition_status(acq);r2_service_test_gm_admission_status(gm);r2_service_test_connection_status(connection);
-    int n=snprintf(json,sizeof json,"{\"source\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"rc_parent\":\"%016llx\",\"boot_relay_only\":%s,\"profile_rc\":%s,\"pending\":%s,\"transport\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"clock_domains\":[%u,%u,%u],\"unicast\":[%u,%u,%u,%u,%u,%u,%u,%u],\"acquisition\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],\"gm_admission\":[%u,%u,%u,%u,%u,%u,%u],\"connection\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u]}",R2_SOURCE_SHA,(unsigned long long)identity.boot,result,(unsigned long long)parent,relay_only?"true":"false",profile[0]?"true":"false",profile[1]?"true":"false",transport[0],transport[1],transport[2],transport[3],transport[4],transport[5],transport[6],transport[7],transport[8],transport[9],transport[10],transport[11],transport[12],(unsigned)nrf_clock_lf_src_get(NRF_CLOCK),(unsigned)nrf_clock_lf_is_running(NRF_CLOCK),(unsigned)nrf_clock_hf_is_running(NRF_CLOCK,NRF_CLOCK_HFCLK_HIGH_ACCURACY),uc[0],uc[1],uc[2],uc[3],uc[4],uc[5],uc[6],uc[7],acq[0],acq[1],acq[2],acq[3],acq[4],acq[5],acq[6],acq[7],acq[8],acq[9],acq[10],acq[11],acq[12],acq[13],acq[14],acq[15],acq[16],acq[17],acq[18],acq[19],gm[0],gm[1],gm[2],gm[3],gm[4],gm[5],gm[6],connection[0],connection[1],connection[2],connection[3],connection[4],connection[5],connection[6],connection[7],connection[8],connection[9],connection[10],connection[11],connection[12],connection[13],connection[14],connection[15],connection[16],connection[17],connection[18],connection[19]);
+    uint32_t domains[3]={(unsigned)nrf_clock_lf_src_get(NRF_CLOCK),
+     (unsigned)nrf_clock_lf_is_running(NRF_CLOCK),(unsigned)nrf_clock_hf_is_running(NRF_CLOCK,NRF_CLOCK_HFCLK_HIGH_ACCURACY)};
+    struct r2_json writer;r2_json_init(&writer,json,sizeof json);
+    r2_json_format(&writer,"{\"source\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"rc_parent\":\"%016llx\",\"boot_relay_only\":%s,\"profile_rc\":%s,\"pending\":%s,\"transport\":",
+     R2_SOURCE_SHA,(unsigned long long)identity.boot,result,(unsigned long long)parent,
+     relay_only?"true":"false",profile[0]?"true":"false",profile[1]?"true":"false");
+    r2_json_u32_array(&writer,transport,13);
+    r2_json_text(&writer,",\"clock_domains\":");r2_json_u32_array(&writer,domains,3);
+    r2_json_text(&writer,",\"unicast\":");r2_json_u32_array(&writer,uc,8);
+    r2_json_text(&writer,",\"acquisition\":");r2_json_u32_array(&writer,acq,20);
+    r2_json_text(&writer,",\"gm_admission\":");r2_json_u32_array(&writer,gm,7);
+    r2_json_text(&writer,",\"connection\":");r2_json_u32_array(&writer,connection,20);
+    r2_json_text(&writer,"}");int n=r2_json_result(&writer);
     if(n<0||(size_t)n>=sizeof json||reply_sequence==UINT32_MAX)return;
     struct r2_rx_loss_capsule capsule;
     if(r2_radio_capture_loss(&capsule)){
@@ -314,7 +390,12 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
   if(r->op==R2_GM){
 #ifdef R2_GM7_NATIVE
     uint32_t gm7_profile[5];r2_service_profile_status(gm7_profile);
-    int n=r2_gm7_diagnostic_format(json,sizeof json,(unsigned)r->nonce,R2_SOURCE_SHA,identity.boot,!gm7_profile[0]&&!gm7_profile[1]);
+    int n;
+#ifdef R2_BLE_CAUSAL_EVENTS
+    if(r->nonce>=10&&r->nonce<=13)n=r2_ble_causal_json(json,sizeof json,identity.boot,(unsigned)r->nonce);
+    else
+#endif
+    n=r2_gm7_diagnostic_format(json,sizeof json,(unsigned)r->nonce,R2_SOURCE_SHA,identity.boot,!gm7_profile[0]&&!gm7_profile[1]);
 #elif defined(R2_GM5_NATIVE)
     struct r2_gm5_diagnostic d={0};r2_gm_diagnostic_snapshot(&d);
     uint32_t gm_profile[5];r2_service_profile_status(gm_profile);if(gm_profile[0]||gm_profile[1])d.state.enabled=false;
@@ -371,16 +452,27 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
   if(r->op==R2_PRECISION){
     struct r2_service_status s;r2_service_snapshot(&s);
     struct r2_pps_precision_view p;r2_time_precision_snapshot(&p);
-    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"boot\":\"%016llx\",\"at_us\":%llu,\"root\":%u,\"metric\":\"%s\",\"rms_ns\":%u,\"rms_valid\":%s,\"samples\":%u,\"fit_valid\":%s,\"correction_age_valid\":%s,\"correction_age_ms\":%u,\"map_valid\":%s,\"locked\":%s,\"trim_ppb\":%d,\"drift_ppb\":%d,\"drift_valid\":%s,\"accepted\":%u,\"rejected\":%u,\"duplicates\":%u,\"overflows\":%u,\"pps_drift_ppb\":%d,\"pps_trim_ppb\":%d,\"pps_rate_valid\":%s,\"pps_prediction_rms_ns\":%u,\"captured\":%u,\"invalid_captures\":%u,\"train\":%u,\"publications\":%u,\"tx_reject\":[%u,%u,%u,%u],\"authorized\":%s,\"lease_expired\":%u,\"start_delay_ticks\":%llu,\"publish_ticks\":%llu,\"stale_tx\":%u,\"slot\":%u,\"slot_scans\":%u,\"slot_scan_verified\":%u,\"slot_scan_failures\":%u,\"slot_scan_owned_us\":%llu,\"slot_changes\":%u,\"slot_rollbacks\":%u,\"slot_busy\":%u,\"slot_requests\":%u,\"client_quiet_faults\":%u,\"upstream_recoveries\":%u,\"sync_creating\":%s,\"sync_active\":%s,\"phase_acquiring\":%s,\"discipline_gap_max_us\":%llu,\"holdover_expiries\":%u,\"holdover_recoveries\":%u,\"gm_capable\":%s,\"source_eligible\":%s,\"admission_ms\":%u,\"coordinator\":%u,\"standby\":%u,\"hot_ready\":%s,\"hot_refusal\":%u,\"hello_map_refusals\":%u,\"hello_width_us\":%u,\"quality\":[%u,%u,%u,%u,%u],\"absolute_utc_qualified\":false}",
+    struct r2_radio_capture_stats raw;r2_radio_capture_stats(&raw);
+    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"boot\":\"%016llx\",\"at_us\":%llu,\"root\":%u,\"metric\":\"%s\",\"rms_ns\":%u,\"rms_valid\":%s,\"samples\":%u,\"fit_valid\":%s,\"correction_age_valid\":%s,\"correction_age_ms\":%u,\"map_valid\":%s,\"locked\":%s,\"trim_ppb\":%d,\"drift_ppb\":%d,\"drift_valid\":%s,\"accepted\":%u,\"rejected\":%u,\"duplicates\":%u,\"overflows\":%u,\"pps_drift_ppb\":%d,\"pps_trim_ppb\":%d,\"pps_rate_valid\":%s,\"pps_prediction_rms_ns\":%u,\"captured\":%u,\"invalid_captures\":%u,\"rx_capture\":[%u,%u,%u,%u,%u,%u,%u,%u],\"rx_last\":[%llu,%llu,%llu],\"train\":%u,\"publications\":%u,\"tx_reject\":[%u,%u,%u,%u],\"authorized\":%s,\"lease_expired\":%u,\"start_delay_ticks\":%llu,\"publish_ticks\":%llu,\"stale_tx\":%u,\"slot\":%u,\"slot_scans\":%u,\"slot_scan_verified\":%u,\"slot_scan_failures\":%u,\"slot_scan_owned_us\":%llu,\"slot_changes\":%u,\"slot_rollbacks\":%u,\"slot_busy\":%u,\"slot_requests\":%u,\"client_quiet_faults\":%u,\"upstream_recoveries\":%u,\"sync_creating\":%s,\"sync_active\":%s,\"phase_acquiring\":%s,\"discipline_gap_max_us\":%llu,\"holdover_expiries\":%u,\"holdover_recoveries\":%u,\"gm_capable\":%s,\"source_eligible\":%s,\"admission_ms\":%u,\"coordinator\":%u,\"standby\":%u,\"hot_ready\":%s,\"hot_refusal\":%u,\"hello_map_refusals\":%u,\"hello_width_us\":%u,\"quality\":[%u,%u,%u,%u,%u],\"absolute_utc_qualified\":false}",
       R2_SOURCE_SHA,(unsigned long long)identity.boot,(unsigned long long)s.at,s.root,s.profile_rc?"RELATIVE_CAPTURE_FIT_RMS":s.serving?"GM_RADIO_BEAT":"FOLLOWER_DELIVERED_MAP",
-      s.precision.rms_ns,s.precision.rms_valid?"true":"false",s.precision.samples,s.precision.fit_valid?"true":"false",s.precision.correction_age_valid?"true":"false",s.precision.correction_age_ms,s.precision.map_valid?"true":"false",s.precision.locked?"true":"false",s.serving?p.trim_ppb:s.precision.trim_ppb,s.serving?p.raw_rate_ppb:s.precision.drift_ppb,(s.serving?p.rate_valid:s.precision.drift_valid)?"true":"false",s.precision.accepted,s.precision.rejected,s.precision.duplicates,s.precision.overflows,p.raw_rate_ppb,p.trim_ppb,p.rate_valid?"true":"false",p.prediction_rms_ns,s.precision.captured,s.precision.invalid,s.precision.train,s.precision.publications,s.precision.tx_reject[0],s.precision.tx_reject[1],s.precision.tx_reject[2],s.precision.tx_reject[3],s.precision.authorized?"true":"false",s.lease_expired,(unsigned long long)s.relay.start_delay_ticks,(unsigned long long)s.relay.publish_ticks,s.relay.stale_tx,s.relay.slot,s.relay.slot_scans,s.relay.slot_scan_verified,s.relay.slot_scan_failures,(unsigned long long)s.relay.slot_scan_owned_us,s.relay.slot_changes,s.relay.slot_rollbacks,s.relay.slot_busy,s.relay.slot_requests,s.relay.client_quiet_faults,s.relay.upstream_recoveries,s.relay.sync_creating?"true":"false",s.relay.sync_active?"true":"false",s.relay.phase_acquiring?"true":"false",(unsigned long long)(s.relay.discipline_gap_max_ticks/16),s.relay.holdover_expiries,s.relay.holdover_recoveries,s.gm_capable?"true":"false",s.source_eligible?"true":"false",s.admission_ms,s.coordinator,s.standby,s.hot_ready?"true":"false",s.hot_refusal,s.hello_map_refusals,s.hello_width_us,s.quality.priority1,s.quality.clock_class,s.quality.accuracy,s.quality.variance,s.quality.priority2);
+      s.precision.rms_ns,s.precision.rms_valid?"true":"false",s.precision.samples,s.precision.fit_valid?"true":"false",s.precision.correction_age_valid?"true":"false",s.precision.correction_age_ms,s.precision.map_valid?"true":"false",s.precision.locked?"true":"false",s.serving?p.trim_ppb:s.precision.trim_ppb,s.serving?p.raw_rate_ppb:s.precision.drift_ppb,(s.serving?p.rate_valid:s.precision.drift_valid)?"true":"false",s.precision.accepted,s.precision.rejected,s.precision.duplicates,s.precision.overflows,p.raw_rate_ppb,p.trim_ppb,p.rate_valid?"true":"false",p.prediction_rms_ns,s.precision.captured,s.precision.invalid,raw.rx.armed,raw.rx.completed,raw.rx.aborted,raw.rx.no_done,raw.rx.no_address,raw.rx.bad_crc,raw.rx.malformed,raw.rx.overflow,(unsigned long long)raw.rx.last_arm,(unsigned long long)raw.rx.last_complete,(unsigned long long)raw.rx.last_abort,s.precision.train,s.precision.publications,s.precision.tx_reject[0],s.precision.tx_reject[1],s.precision.tx_reject[2],s.precision.tx_reject[3],s.precision.authorized?"true":"false",s.lease_expired,(unsigned long long)s.relay.start_delay_ticks,(unsigned long long)s.relay.publish_ticks,s.relay.stale_tx,s.relay.slot,s.relay.slot_scans,s.relay.slot_scan_verified,s.relay.slot_scan_failures,(unsigned long long)s.relay.slot_scan_owned_us,s.relay.slot_changes,s.relay.slot_rollbacks,s.relay.slot_busy,s.relay.slot_requests,s.relay.client_quiet_faults,s.relay.upstream_recoveries,s.relay.sync_creating?"true":"false",s.relay.sync_active?"true":"false",s.relay.phase_acquiring?"true":"false",(unsigned long long)(s.relay.discipline_gap_max_ticks/16),s.relay.holdover_expiries,s.relay.holdover_recoveries,s.gm_capable?"true":"false",s.source_eligible?"true":"false",s.admission_ms,s.coordinator,s.standby,s.hot_ready?"true":"false",s.hot_refusal,s.hello_map_refusals,s.hello_width_us,s.quality.priority1,s.quality.clock_class,s.quality.accuracy,s.quality.variance,s.quality.priority2);
     if(n<0||n>=(int)sizeof(json)||reply_sequence==UINT32_MAX)return;
     n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
   if(r->op==R2_DIAG){
-    uint8_t bytes[64];char encoded[129];int rc=r->trace_page>=256?r2_health_crash_read(r->trace_page-256,bytes):r2_diag_read(r->trace_page/128,r->trace_page%128,bytes);
+    uint8_t bytes[64];char encoded[129];int rc;
+#ifdef R2_FAULT_DURABLE
+    int wd_result=r2_fault_watchdog_result();unsigned cpu_slot=r2_fault_cpu_slot(),wd_slot=r2_fault_watchdog_slot();
+#else
+    int wd_result=-ENOTSUP;unsigned cpu_slot=16,wd_slot=16;
+#endif
+#ifdef R2_FAULT_DURABLE
+    if(r->trace_page>=512&&r->trace_page<640)rc=r2_fault_flash_read(r->trace_page-512,bytes);
+    else
+#endif
+    rc=r->trace_page>=256?r2_health_crash_read(r->trace_page-256,bytes):r2_diag_read(r->trace_page/128,r->trace_page%128,bytes);
     for(unsigned i=0;i<64;i++)snprintf(encoded+2*i,3,"%02x",rc?0:bytes[i]);
-    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"runtime_state\":\"RAM_ONLY\",\"diag_state\":%d,\"crash_persist_result\":%d,\"chunk\":%u,\"hex\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,rc,r2_diag_state(),r2_diag_crash_result(),r->trace_page,encoded);
+    int n=snprintf(json,sizeof(json),"{\"source\":\"%s\",\"commit\":\"%s\",\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"result\":%d,\"runtime_state\":\"RAM_ONLY\",\"diag_state\":%d,\"crash_persist_result\":%d,\"fault_watchdog_result\":%d,\"fault_cpu_slot\":%u,\"fault_watchdog_slot\":%u,\"chunk\":%u,\"hex\":\"%s\"}",R2_SOURCE_SHA,R2_CHILD_COMMIT,identity.silicon,identity.unit,(unsigned long long)identity.boot,rc,r2_diag_state(),r2_diag_crash_result(),wd_result,cpu_slot,wd_slot,r->trace_page,encoded);
     if(n<0||n>=(int)sizeof(json)||reply_sequence==UINT32_MAX)return;
     n=r2_frame(frame,sizeof(frame),r->id,++reply_sequence,json);if(n>0)(void)r2_console_reply(frame,(size_t)n,arrival+R2_REPLY_MS);return;
   }
@@ -424,12 +516,9 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
     "\"platform_ready\":%s,\"boot_timeout\":%s,\"clock\":[%d,%d,%d,%d,%llu,%llu],"
     "\"bt\":[%d,%d,%s,%llu,%llu],\"usb_rc\":%d,\"dtr\":%s,"
     "\"maintenance\":[%u,%d,%llu],\"close\":[%d,%s,%llu],"
-    "\"ui\":[%u,%u,%u,%u,%u,%d,%u,%s,%s,%s,%u],\"ui_input\":[%llu,%u,%u,%s,%s,%s,%s],\"display_time\":[%s,%s,%lld],\"chip_temperature_qc\":%d,\"chip_temperature_valid\":%s,"
+    "\"ui\":[%u,%u,%u,%u,%u,%d,%u,%s,%s,%s,%u],\"ui_input\":[%llu,%u,%u,%s,%s,%s,%s],\"ui_logic\":[%u,%u],\"ui_close_result\":%d,\"display_time\":[%s,%s,%lld],\"chip_temperature_qc\":%d,\"chip_temperature_valid\":%s,"
     "\"ui_saver\":[%s,%u,%u],\"ui_saver_drawn\":[%s,%u],\"ui_lamps\":[%u,%u,%u,%u,%u,%u,%u,%u],\"profile\":[%u,%u,%u,%u,%u],"
-    "\"ui_holds_since_s\":[%u,%u],\"ui_active_since_s\":%u,"
-    "\"shadow_ui\":{\"state\":%u,\"active\":%s,\"elapsed_ms\":%llu,\"session\":%u,\"samples\":%u,\"skipped\":%u,\"missing\":%u,\"valid\":%s,\"mean_tenth_ns\":%lld,\"rms_ns\":%u,\"p95_ns\":%u,\"p99_ns\":%u,\"max_ns\":%u,\"approximate\":%s,\"startup\":[%u,%u,%u,%u,%u]},"
-    "\"io\":[%u,%u,%u,%u,%u,%u,%u,%u,%u],\"rejected\":%u,\"trace_lost\":%u,\"trace_count\":%u,\"trace_page\":%u,"
-    "\"rf\":\"%s\",\"time_service\":\"GNSS_CLOCK_V1\",\"precision\":\"UNKNOWN\",\"trace\":[",
+    "\"ui_holds_since_s\":[%u,%u],\"ui_active_since_s\":%u,",
 #ifdef R2_DC_PROFILE
     r2_dc_active()?"true":"false",
 #endif
@@ -441,12 +530,28 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
     p.bt_submit,p.bt_result,p.bt_done?"true":"false",(unsigned long long)p.bt_start,(unsigned long long)p.bt_end,
     io.usb_rc,io.dtr?"true":"false",(unsigned)maintenance.phase,maintenance.error,(unsigned long long)maintenance.deadline,
     p.close_result,p.close_done?"true":"false",(unsigned long long)p.close_end,
-    u.frames,u.missed,u.buttons,u.max_frame_ms,u.last_frame_ms,u.error,u.page,u.ready?"true":"false",u.stopped?"true":"false",u.analog?"true":"false",u.drawn_page,(unsigned long long)u.drawn_model_ms,u.drawn_role,u.poll_max_ms,u.drawn_scope?"true":"false",u.drawn_ble?"true":"false",u.drawn_pps?"true":"false",u.drawn_map?"true":"false",u.drawn_time?"true":"false",u.drawn_coarse?"true":"false",(long long)u.drawn_utc_us,u.temperature_qc,(u.temperature_valid&&u.ready&&k_uptime_get()-u.last_frame_ms<2500)?"true":"false",
+    u.frames,u.missed,u.buttons,u.max_frame_ms,u.last_frame_ms,u.error,u.page,u.ready?"true":"false",u.stopped?"true":"false",u.analog?"true":"false",u.drawn_page,(unsigned long long)u.drawn_model_ms,u.drawn_role,u.poll_max_ms,u.drawn_scope?"true":"false",u.drawn_ble?"true":"false",u.drawn_pps?"true":"false",u.drawn_map?"true":"false",u.logic_age_ms,u.logic_flags,r2_ui_close_result(),u.drawn_time?"true":"false",u.drawn_coarse?"true":"false",(long long)u.drawn_utc_us,u.temperature_qc,(u.temperature_valid&&u.ready&&k_uptime_get()-u.last_frame_ms<2500)?"true":"false",
     u.screensaver?"true":"false",u.screensaver_position,u.brightness_percent,u.drawn_screensaver?"true":"false",u.drawn_screensaver_position,u.drawn_lamps[0],u.drawn_lamps[1],u.drawn_lamps[2],u.drawn_lamps[3],u.drawn_lamps[4],u.drawn_lamps[5],u.drawn_lamps[6],u.drawn_lamps[7],service_profile[0],service_profile[1],service_profile[2],service_profile[3],service_profile[4],
-    u.holds.pps_since,u.holds.hot_since,u.holds.active_since,
-    u.shadow.state,u.shadow.active?"true":"false",(unsigned long long)u.shadow.elapsed_ms,u.shadow.session,u.shadow.samples,u.shadow.skipped,u.shadow.missing,u.shadow.valid?"true":"false",(long long)u.shadow.mean_tenth_ns,u.shadow.rms_ns,u.shadow.p95_ns,u.shadow.p99_ns,u.shadow.max_ns,u.shadow.approximate?"true":"false",u.shadow.warmup,u.shadow.warmup_skipped,u.shadow.warmup_missing,u.shadow.warmup_resets,u.shadow.settling_ms,
+    u.holds.pps_since,u.holds.hot_since,u.holds.active_since);
+  if(n<0 || (size_t)n>=sizeof(json)) return;
+#define SJ(kind,key,member) R2_JSON_FIELD(kind,key,0,struct r2_shadow_session_view,member)
+  static const struct r2_json_field shadow_fields[]={
+    SJ(R2_J_U8,"state",state),SJ(R2_J_BOOL,"active",active),SJ(R2_J_U64,"elapsed_ms",elapsed_ms),
+    SJ(R2_J_U32,"session",session),SJ(R2_J_U32,"samples",samples),SJ(R2_J_U32,"skipped",skipped),
+    SJ(R2_J_U32,"missing",missing),SJ(R2_J_BOOL,"valid",valid),SJ(R2_J_I64,"mean_tenth_ns",mean_tenth_ns),
+    SJ(R2_J_U32,"rms_ns",rms_ns),SJ(R2_J_U32,"p95_ns",p95_ns),SJ(R2_J_U32,"p99_ns",p99_ns),
+    SJ(R2_J_U32,"max_ns",max_ns),SJ(R2_J_BOOL,"approximate",approximate),
+    R2_JSON_ARRAY(R2_J_U32_ARRAY,5,"startup",0,struct r2_shadow_session_view,warmup)};
+#undef SJ
+  const void *shadow_bases[]={&u.shadow};
+  struct r2_json writer={.out=json,.capacity=sizeof json,.used=(size_t)n};
+  r2_json_text(&writer,"\"shadow_ui\":{");
+  r2_json_fields(&writer,shadow_fields,sizeof shadow_fields/sizeof shadow_fields[0],shadow_bases,1);
+  r2_json_format(&writer,"},\"io\":[%u,%u,%u,%u,%u,%u,%u,%u,%u],\"rejected\":%u,\"last_request\":%u,\"trace_lost\":%u,\"trace_count\":%u,\"trace_page\":%u,"
+    "\"rf\":\"%s\",\"time_service\":\"GNSS_CLOCK_V1\",\"precision\":\"UNKNOWN\",\"trace\":[",
     io.rx_bytes,io.tx_bytes,io.rx_overflow,io.command_drops,io.tx_drops,io.tx_expired,io.fifo_errors,io.usb_events,io.dtr_changes,
-    (unsigned)rejected,trace_lost,trace_count,r->trace_page,rf);
+    (unsigned)rejected,(unsigned)last_request,trace_lost,trace_count,r->trace_page,rf);
+  n=r2_json_result(&writer);
   if(n<0 || (size_t)n>=sizeof(json)) return;
   size_t used=(size_t)n;
   /* Eight records per page, including at maximum integer widths. */
@@ -522,40 +627,52 @@ static void hot_report(const struct r2_service_status *s,const struct r2_clock *
   }else next=now+1000;
 }
 #endif
-#ifdef R2_LORA
+#if defined(R2_LORA) && !defined(R2_GM7_NATIVE)
 /* Descriptive sender identity only; never timing selection or authority. */
 static void lora_ui_view(struct r2_ui_model *m){
  uint64_t emitter;char received[25];r2_lora_view_named(&m->lora,&emitter,received);
- if(m->lora.choice==RC8_SELECT_LORA||m->lora.display_held||m->lora.display_acquiring||
-    (m->ble_rx_supported&&!m->ble_rx_requested&&m->lora.requested&&!m->lora.transmitter)){
-  if(received[0])memcpy(m->upstream_name,received,sizeof m->upstream_name);
-  else if(emitter)snprintf(m->upstream_name,sizeof m->upstream_name,"%04x",(unsigned)(emitter&UINT16_MAX));
+ uint64_t now=m->lora.sampled_us/1000;if(now<m->sampled_ms)now=m->sampled_ms;
+ if(r2_ui_lora_primary(m,now)){
+  m->upstream_is_lora=true;
+  if(emitter)r2_ui_identity_name(m->upstream_name,emitter,received);
   else snprintf(m->upstream_name,sizeof m->upstream_name,"--");
  }
 }
 #endif
 #ifdef R2_GM7_NATIVE
-/* Keep temporary UI scratch out of main's unrelated command/reply frame. */
-static uint64_t __attribute__((noinline)) gm7_ui_publish(uint64_t now,bool platform_ready,bool bt_ready){
-      struct r2_ui_model m={.sampled_ms=now,.platform_ready=platform_ready,.bt_ready=bt_ready,.reset_kind=r2_watchdog_reset_kind()};
-      memcpy(m.unit,identity.unit,sizeof(m.unit));r2_time_snapshot(&m.clock,&m.queue_drops);
-#ifdef R2_NATIVE_BLE
-      r2_service_ui(&m);
-      if(m.role==R2_UI_GM){
-        int64_t utc;bool valid=m.gm_source_fresh&&r2_time_source_utc_now(m.clock.source_epoch,&utc);
-        m.clock.valid=m.coarse_valid=valid;
-        if(valid){m.clock.utc_us=utc;m.coarse_utc_us=(uint64_t)utc;m.coarse_at_us=(uint64_t)r2_time_now_us();}
-      }
-#endif
-#ifdef R2_DC_PROFILE
-      r2_dc_ui(&m);
-#endif
+/* Mandatory presentation logic reuses the timing loop's owned snapshots.
+ * No names, peer scans, calendar, RF comparison or renderer admission here. */
+static void __attribute__((noinline)) gm7_ui_logic(uint64_t now,bool platform_ready,bool bt_ready,
+ const struct r2_service_status *service,struct r2_clock *local){
+ /* This main-local scratch has already been consumed by timing owners. */
+ r2_clock_advance(local,r2_time_now_us());
+ struct r2_ui_model m={.sampled_ms=now,.platform_ready=platform_ready,.bt_ready=bt_ready,
+  .reset_kind=r2_watchdog_reset_kind(),.clock=local->view};
+ memcpy(m.unit,identity.unit,sizeof m.unit);
+ r2_time_ui_guard(&m.clock,&m.queue_drops);
+ r2_time_precision_snapshot(&m.pps_precision);
+ r2_service_ui_logic(&m,service);
+ if(m.role==R2_UI_GM){
+  int64_t utc;bool valid=m.gm_source_fresh&&r2_time_source_utc_now(m.clock.source_epoch,&utc);
+  m.clock.valid=m.coarse_valid=valid;
+  if(valid){m.clock.utc_us=utc;m.coarse_utc_us=(uint64_t)utc;m.coarse_at_us=(uint64_t)r2_time_now_us();}
+ }
+ uint64_t emitter=0;
 #ifdef R2_LORA
-      lora_ui_view(&m);
+ /* The owner projects its actual clock and original deadlines. Label lookup
+  * is optional; copying an authenticated cached name grants no time. */
+ r2_lora_view_named(&m.lora,&emitter,m.upstream_name);
+ if(r2_ui_lora_primary(&m,m.lora.sampled_us/1000))m.upstream_is_lora=true;
+ else m.upstream_name[0]=0;
 #endif
-      m.sampled_ms=k_uptime_get();r2_ui_publish(&m);return m.sampled_ms+20;
+ struct r2_ui_label_ids labels;r2_service_ui_label_ids(&labels,service);
+#ifdef R2_LORA
+ if(m.upstream_is_lora)labels.upstream=emitter;
+#endif
+ m.sampled_ms=k_uptime_get();r2_ui_publish_owned(&m,emitter,&labels);
 }
 #endif
+
 int main(void)
 {
   k_thread_priority_set(k_current_get(),7);
@@ -601,10 +718,13 @@ int main(void)
   bool normal_start_failed=false;
 #endif
 #endif
+ #ifndef R2_GM7_NATIVE
   uint64_t ui_due=0;
+ #endif
   for(;;) {
     uint64_t now=k_uptime_get(); if(heartbeat<UINT32_MAX) ++heartbeat;
     r2_health_beat();r2_watchdog_main_beat();
+    r2_ui_input_tick(now);
     r2_time_service();
 #ifdef R2_DC_PROFILE
     r2_dc_poll(platform_ready&&maintenance.phase==R2_IDLE&&!r2_ui_poweroff_requested());
@@ -623,6 +743,8 @@ int main(void)
     struct r2_clock local_clock;r2_time_copy(&local_clock);r2_service_clock(&local_clock);
     struct r2_service_status service;r2_service_snapshot(&service);
     r2_timing_sample(&service,now);
+    if(maintenance.phase==R2_IDLE&&!poweroff_requested&&!r2_ui_poweroff_requested())
+      r2_ble_causal_poll(identity.boot,now);
 #ifdef R2_CONTROLLER_DIAGNOSTICS
     /* Ordinary images retain the journal and explicit queries without the
      * unsolicited formatter/USB stream. Watchdog observation stays independent. */
@@ -707,6 +829,9 @@ int main(void)
     if((service.closing&&!service.profile_pending)||poweroff_requested||r2_ui_poweroff_requested()||maintenance.phase!=R2_IDLE)r2_diag_quiesce();
 #ifdef R2_LORA
     r2_lora_watchdog_poll();
+#if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
+    r2_lora_console_poll(identity.boot,now);
+#endif
 #endif
     r2_diag_sample(&service,&local_clock.view);
 #ifdef R2_RC_PROFILE
@@ -792,9 +917,36 @@ int main(void)
       event(12,rc);
     }
 #endif
-    if(now>=ui_due){
 #ifdef R2_GM7_NATIVE
-      ui_due=gm7_ui_publish(now,platform_ready,p.bt_done&&!p.bt_result&&!p.bt_submit);
+    /* Cheap source fencing/TZ learning is independent of optional projection.
+     * Main remains sole profile/model producer; no new profile-owner races. */
+    struct r2_ui_context ui_context={
+      .incarnation=service.profile_incarnation,
+      .root=service.root<4?service.identities[service.root]:0,
+      .boot=service.root_boot,.source_epoch=service.serving?service.local_source_epoch:service.source_epoch,
+      .train=service.precision.train,
+      .flags=(service.profile_rc?R2_UI_CONTEXT_RC:0)|
+        (service.profile_pending?R2_UI_CONTEXT_SWITCH:0)|
+        (service.serving?R2_UI_CONTEXT_SERVING:0)|
+        ((service.active&&!service.closing&&!service.error)?R2_UI_CONTEXT_LIVE:0)|
+        ((!service.active||service.closing||service.error)?R2_UI_CONTEXT_BLE_FAULT:0)|
+        ((maintenance.phase!=R2_IDLE||poweroff_requested||r2_ui_poweroff_requested())?R2_UI_CONTEXT_STOP:0)};
+    r2_ui_context_update(&ui_context);
+    r2_ui_source_hint(R2_UI_HINT_KNOWN|(service.serving?R2_UI_HINT_LOCAL:0)|
+      ((!service.serving&&service.follower_clock_valid&&!service.error&&!service.closing)?R2_UI_HINT_BLE_VALID:0)|
+      ((service.serving&&service.source_eligible&&
+        r2_ui_local_source_current(local_clock.view.source_available,local_clock.view.valid,local_clock.view.fix_active,local_clock.view.pps_present)&&
+        service.local_source_epoch==local_clock.view.source_epoch)?R2_UI_HINT_LOCAL_VALID:0));
+#ifdef R2_TZ_WIRE
+    if(now<=UINT64_MAX/1000&&now*1000<service.tz_until_us)
+      r2_ui_learn_tz(service.tz,service.serving&&service.source_eligible?R2_UI_TZ_LOCAL:R2_UI_TZ_NETWORK);
+#endif
+    if(r2_ui_logic_due((uint64_t)k_uptime_get(),service.service_until,service.follower_clock_valid)){
+#else
+    if(now>=ui_due){
+#endif
+#ifdef R2_GM7_NATIVE
+      gm7_ui_logic(now,platform_ready,p.bt_done&&!p.bt_result&&!p.bt_submit,&service,&local_clock);
 #else
       struct r2_ui_model m={.sampled_ms=now,.platform_ready=platform_ready,.bt_ready=p.bt_done&&!p.bt_result&&!p.bt_submit,.reset_kind=r2_watchdog_reset_kind()};
       memcpy(m.unit,identity.unit,sizeof(m.unit));r2_time_snapshot(&m.clock,&m.queue_drops);
@@ -841,12 +993,12 @@ int main(void)
       now=k_uptime_get();
       struct r2_request r;
       int rc=r2_parse(command.text,&r);
-      if(rc || !r2_bound(&r,identity.silicon,R2_SOURCE_SHA,identity.boot) ||
-         r.id<=last_request || now<command.arrival || now-command.arrival>=R2_REPLY_MS) {
+      if(rc || !r2_admit(&r,identity.silicon,R2_SOURCE_SHA,identity.boot,
+                         command.arrival,now,&last_request)) {
         if(rejected<UINT32_MAX) ++rejected;
         event(5,rc?rc:-EACCES);
       } else {
-        last_request=r.id; event(5,(int)r.op);
+        event(5,(int)r.op);
 #ifdef R2_NATIVE_BLE
         r2_diag_command(r.id,r.op,0,command.arrival);
 #endif

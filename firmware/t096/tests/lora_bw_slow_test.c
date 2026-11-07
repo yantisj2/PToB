@@ -18,14 +18,14 @@ int main(int argc,char **argv){
  if(mode==7){
   struct rc8_export m=source();r2_lora_source_publish(&m);uint32_t version=map_version,revision=(uint32_t)atomic_get(&source_revision);
   for(unsigned i=0;i<20;i++){r2_lora_source_publish(&m);assert(map_version==version&&(uint32_t)atomic_get(&source_revision)==revision);}
-  uint64_t phase,root,at;uint32_t epoch;struct r2_capture limit;uint32_t races=source_reads[3];
+  uint64_t phase,root,at;uint32_t epoch;struct r2_capture limit;uint32_t races=source_observation.tx_reads[3];
   during_projection=m;projection_hook=publish_during_projection;
-  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_READY&&limit.tick==m.until_tick&&source_reads[3]==races&&map_version==version);
+  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_READY&&limit.tick==m.until_tick&&source_observation.tx_reads[3]==races&&map_version==version);
   m.until_tick=now_us*16+16000000;during_projection=m;projection_hook=publish_during_projection;
-  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_READY&&limit.tick==m.until_tick&&source_reads[3]==races+1&&map_version==version+1);
-  version=map_version;races=source_reads[3];m.anchor_ns++;m.map_generation++;now_us++;
+  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_READY&&limit.tick==m.until_tick&&source_observation.tx_reads[3]==races+1&&map_version==version+1);
+  version=map_version;races=source_observation.tx_reads[3];m.anchor_ns++;m.map_generation++;now_us++;
   during_projection=m;projection_hook=publish_during_projection;
-  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_READY&&source_reads[3]==races+1&&map_version==version+1&&role.tx.maps[0].map_generation==m.map_generation);
+  assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_READY&&source_observation.tx_reads[3]==races+1&&map_version==version+1&&role.tx.maps[0].map_generation==m.map_generation);
   projection_hook=withdraw_during_projection;
   assert(source_now(&phase,&epoch,&root,&limit,&at)==SOURCE_ABSENT&&!(flags&SOURCE_PRESENT));
   puts("PASS exact duplicate DURING projection creates no false race; shortening/replacement/withdrawal still fence");return 0;

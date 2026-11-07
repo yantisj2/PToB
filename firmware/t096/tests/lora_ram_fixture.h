@@ -1,13 +1,17 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
  * Production owner with synthetic time/capture/storage/radio boundaries. */
 #include "lora_service.h"
+#include "rf_clock.h"
+#include "holdover.h"
 #include "lora_passive_core.h"
+#include "lora_receiver_watch.h"
 #include "lora_fallback.h"
 #include "lora_progress.h"
 #include "lora_hw.h"
 #include "lora_watchdog.h"
 #include "capture.h"
 #include "rc_shadow.h"
+#include "../src/bounded_json.c"
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -22,9 +26,9 @@ static void atomic_or(atomic_t *p,long v){*p|=v;}
 static void atomic_inc(atomic_t *p){++*p;}
 static bool atomic_cas(atomic_t *p,long a,long b){if(*p!=a)return false;*p=b;return true;}
 struct k_spinlock{int unused;};typedef int k_spinlock_key_t;
-static unsigned lock_depth;
+static unsigned lock_depth,lock_calls;
 static void (*unlock_hook)(void);
-static int k_spin_lock(struct k_spinlock *p){(void)p;++lock_depth;return 0;}
+static int k_spin_lock(struct k_spinlock *p){(void)p;++lock_depth;++lock_calls;return 0;}
 static void k_spin_unlock(struct k_spinlock *p,int k){(void)p;(void)k;assert(lock_depth);--lock_depth;
  if(!lock_depth&&unlock_hook){void (*hook)(void)=unlock_hook;unlock_hook=NULL;hook();}}
 struct k_thread{int priority;};
@@ -48,6 +52,12 @@ static int r2_diag_state(void){return 1;}
 static int r2_diag_lora(const uint32_t p[16],bool t,uint64_t *token){(void)p;(void)t;(void)token;return -EAGAIN;}
 static int r2_diag_record_result(uint64_t t){(void)t;return 0;}
 static bool r2_diag_busy(void){return false;}
+static unsigned console_notes,console_attempts;static char console_note[448];static bool console_busy;
+static int r2_console_note(const char *bytes,size_t size,uint64_t expiry){
+ ++console_attempts;assert(size<sizeof console_note&&expiry>now_us/1000);
+ if(console_busy)return -EAGAIN;
+ memcpy(console_note,bytes,size);console_note[size]=0;++console_notes;return 0;
+}
 static void r2_watchdog_lora(int e,uint32_t s,uint32_t g,uint32_t c,int j){(void)e;(void)s;(void)g;(void)c;(void)j;}
 static bool witness_enabled;static unsigned witness_published,witness_withdrawn;static struct rc_shadow_map witness;
 bool r2_shadow_enabled(void){return witness_enabled;}
@@ -134,7 +144,8 @@ int r2_lora_hw_passive_configure(enum r2_lora_passive_phy p,unsigned c){now_us+=
 int r2_lora_hw_rx_rearm(void){++rearms;return 0;}
 void r2_lora_hw_stop_begin(uint64_t d){fake_tx_capture_live=false;assert(d);++stops;}
 void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){*a=(struct r2_lora_hw_ack){!(stop_ack_missing&1),!(stop_ack_missing&2),!(stop_ack_missing&4),!(stop_ack_missing&8),false};}
-void r2_lora_hw_diag(struct r2_lora_hw_diag *h){memset(h,0,sizeof *h);}
+static struct r2_lora_hw_diag json_hw_fixture;
+void r2_lora_hw_diag(struct r2_lora_hw_diag *h){*h=json_hw_fixture;}
 void r2_lora_hw_watchdog_trip(int e){(void)e;r2_diag_scratch.lora.terminal=1;}
 static uint64_t charged_unlocked(const struct lp_checkpoint *s,uint64_t now){assert(!lock_depth);return lp_charged(s,now);}
 static void (*projection_hook)(void);

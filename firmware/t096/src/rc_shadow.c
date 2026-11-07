@@ -13,7 +13,15 @@
 #include <zephyr/sys/atomic.h>
 static struct k_spinlock lock;
 static struct rc_shadow_history history;
-static struct rc_shadow_record queue[RC_SHADOW_QUEUE],records[RC_SHADOW_RECORDS];
+/* The GPIO IRQ queues only capture evidence. Projection and zero/default
+ * record construction belong to the draining owner, outside the IRQ copy.
+ * Flatten capture's padding; preserve all tick/epoch/arrival/kind bits. */
+struct shadow_pending {
+ uint64_t tick,epoch;int64_t arrival_us;uint32_t sequence;enum r2_capture_kind kind;
+};
+_Static_assert(sizeof(struct shadow_pending)==32,"Lossless bounded PPS queue entry");
+static struct shadow_pending queue[RC_SHADOW_QUEUE];
+static struct rc_shadow_record records[RC_SHADOW_RECORDS];
 static unsigned qhead,qtail,qcount,rhead,rcount;
 /* Main owns NORMAL-only drain when BLE is parked. A mode transition may
  * overlap the old RC caller; serialize the complete bounded pop/evaluate/push
@@ -85,7 +93,7 @@ void r2_shadow_edge(struct r2_capture edge,int64_t arrival){
  if(edge.epoch==last_epoch&&edge.tick==last_edge){sat(&stats.duplicates);k_spin_unlock(&lock,key);return;}
  last_epoch=edge.epoch;last_edge=edge.tick;sat(&stats.edges);
  if(qcount==RC_SHADOW_QUEUE)sat(&stats.drops);
- else {queue[qhead]=(struct rc_shadow_record){.edge=edge,.arrival_us=arrival,.sequence=stats.edges,.association=R2_ASSOC_UNKNOWN};qhead=(qhead+1)%RC_SHADOW_QUEUE;++qcount;}
+ else {queue[qhead]=(struct shadow_pending){.tick=edge.tick,.epoch=edge.epoch,.kind=edge.kind,.arrival_us=arrival,.sequence=stats.edges};qhead=(qhead+1)%RC_SHADOW_QUEUE;++qcount;}
  k_spin_unlock(&lock,key);
 }
 #if defined(R2_BOUNDARY_FIELD) || defined(R2_SHADOW_FIELD_MAP) || defined(R2_SHADOW_TEST_BOTH)
@@ -122,9 +130,13 @@ static void shadow_poll(bool allow_field){
  if(polling){k_spin_unlock(&lock,poll_key);return;}
  polling=true;k_spin_unlock(&lock,poll_key);
  for(unsigned i=0;i<RC_SHADOW_QUEUE;i++){
-  struct rc_shadow_record r;bool have=false;
+  struct rc_shadow_record r={.association=R2_ASSOC_UNKNOWN};bool have=false;
   k_spinlock_key_t key=k_spin_lock(&lock);
-  if(qcount){r=queue[qtail];qtail=(qtail+1)%RC_SHADOW_QUEUE;--qcount;r.reason=rc_shadow_select(&history,r.edge,&r.map);have=true;}
+  if(qcount){
+   const struct shadow_pending *p=&queue[qtail];
+   r.edge=(struct r2_capture){p->tick,p->epoch,p->kind};r.arrival_us=p->arrival_us;r.sequence=p->sequence;
+   qtail=(qtail+1)%RC_SHADOW_QUEUE;--qcount;r.reason=rc_shadow_select(&history,r.edge,&r.map);have=true;
+  }
   k_spin_unlock(&lock,key);if(!have)break;
 #ifdef R2_PC_PROFILE
   if(r2_pc_witness_map(r.edge,&r.map))r.reason=RC_SHADOW_OK;

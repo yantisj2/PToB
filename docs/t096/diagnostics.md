@@ -1,5 +1,75 @@
 # T096 sync diagnostics
 
+## Fault-only reset retention and durable readout
+
+Native GM/RC images stage watchdog136B and CPU512B fault records in
+reset-surviving RAM. The fatal hook never writes flash. At the next startup,
+before LoRa/platform/Bluetooth starts, a dedicated owner can append pending
+evidence to the historical diagnostic area0xe1000..0xe3000. Operational clocks,
+maps, admissions, profiles, trains and airtime remain RAM-only; fault records
+never restore timing or a runtime role.
+
+The journal has sixteen512B slots. Only a completely erased slot is eligible.
+Occupied, foreign and torn records remain untouched. There is no automatic
+erase, cleanup or runtime writer. CPU schema7/8 retains original source, exact
+build binding, factory and crashed boot. Distinct watchdog context never
+invents a CPU exception frame:
+
+- Software capsules preserve terminal decisions or nonterminal context.
+  NO_SYNC is a recovery request, so its cause remains UNKNOWN.
+- BARE_HARDWARE_RESET observes the new boot and raw watchdog/CPU-lockup flags.
+  Prior fault boot, source, PC and software cause remain UNKNOWN. Mixed flags
+  stay ambiguous. Recognized UF2 maintenance does not create this observation.
+
+The existing previous-copy136B allocation becomes the distinct pending
+watchdog record. First pending CPU and watchdog evidence is protected until
+durable acknowledgement; later faults can be omitted while it remains pending.
+Immediate reset classification stays separate: older context is never the
+current reset's cause.
+
+One shared500ms startup budget covers both attempts. The owner writes508B,
+verifies every payload byte, writes the4B commit last and verifies it before
+acknowledging RAM. Full-record deduplication avoids repeating a committed
+record. Invalid data, IO failure, timeout or full storage keeps RAM pending.
+The write window is then permanently sealed. An already initialized controller
+ticker refuses the operation. The stock direct NVMC driver still has
+hardware-ready polling:500ms is checked around calls, not enforced by
+interrupting a blocked syscall. The existing hardware watchdog is the final
+bound for a stuck peripheral or CPU.
+
+Existing readouts retain their meanings: diag 0100–0107 exports CPU RAM;
+diag 0000–0007 exports the current-boot RAM event. The additive diag 0200–027f
+range reads exactly12864B journal chunks. Slot s, chunk c uses
+0x0200+8*s+c. Reads never clear evidence or accept arbitrary addresses.
+Replies expose crash_persist_result, fault_watchdog_result, fault_cpu_slot and
+fault_watchdog_slot. ENOENT means none pending, ENOSPC means no erased slot,
+and slot16 means none saved. Check capacity before claiming durable collection
+is available. Capacity recovery needs separately reviewed archival and exact-page
+erase; this firmware never removes old records to make room.
+
+Use tools/crash_decode.py with the exact original ELF for CPU data and
+tools/fault_context_decode.py for watchdog/reset context. Its --first-chunk
+selects the first exported slot chunk. The old136B capsule lacks a source SHA:
+source stays UNKNOWN until an exact build receipt identifies its binding.
+A bare observation's binding identifies the observing image, not an unknown
+earlier fault image. Current USB identity stays separate from stored evidence.
+
+RAM staging survives only while bytes remain at their expected address. Power
+loss, bootloader behavior or a changed image's RAM layout can destroy it before
+startup. CRC/schema/factory admission does not guarantee physical cross-image
+SRAM survival; offload pending evidence before an image change. Once a complete
+flash record is verified, later power loss does not depend on SRAM retention.
+A CPU that never reaches the fatal hook can have no CPU dump while its next
+boot still records the hardware reset with UNKNOWN detailed cause.
+
+Offline checks use the pinned dependency environment:
+
+    artifacts/deps/venv/bin/python firmware/t096/tools/fault_durable_tests.py --out artifacts/fault-host-01
+    artifacts/deps/venv/bin/python firmware/t096/tools/fault_boot_driver_tests.py --deps artifacts/deps --build artifacts/build-rc-01 --out artifacts/fault-driver-01
+
+Synthetic checks do not qualify physical NVMC timing, SRAM survival, fault
+reproduction, sustained operation or UTC accuracy.
+
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 GM7 schema7 `gm 00` through `gm 08` includes source/physical-boot binding.
@@ -9,6 +79,42 @@ legacy GS/GD meanings remain supported. See the
 [GM7 implementation guide](gm7-implementation.md) for current scope and limits.
 [Current passive LoRa diagnostics](lora-protocol.md#diagnostic-fields) have separate scope.
 Versioned records below retain historical meanings.
+
+## On-demand display and shadow PPS diagnostics
+
+The `clock` reply includes `ui_critical` and `shadow_pps` in ordinary GM/RC
+images. These snapshots are serialized on request. They add no log stream or
+runtime flash writes.
+
+In `ui_critical` v1, `normal` and `saver` each report eligible on/off events,
+on/off commits, on/off misses, unknown edges, and on/off cancellations, in that
+order. `seconds` reports eligible, committed, missed and cancelled digital
+seconds, then maximum submit and retirement delays in milliseconds. `scope`
+contains generation, context, page, population and pending bits (on 1, off 2,
+second 4). Keep pending, cancelled and unknown events separate from misses.
+Use same-boot counter deltas and retain source/page transitions. Delay maxima
+are cumulative; `late_gt100_ms` counts normal on/off, saver on/off and digital
+retirements over 100 ms. A region commit measures completed SPI work, not an
+optical observation, a whole-frame update or a timing accuracy bound.
+
+In `shadow_pps` v1, `window` identifies the session, initial sequence, cursor,
+sample count and context/hint/control revisions; `ticks` gives the initial
+capture tick and epoch. `counts` keeps session, samples, skipped, missing,
+P95/P99/max/RMS in nanoseconds, then warmup count, skips, missing, resets and
+settling milliseconds. `view` gives state, active, valid, approximate, elapsed
+milliseconds, signed mean in tenths of a nanosecond and current-scope flag.
+Collect the raw `shadow` cursor alongside the summary. Late reference
+association can leave the exact accepted set ambiguous even with matching
+window metadata. No local PPS or an unavailable independent reference means no
+precision result. A serving GM cannot compare its own clock against itself.
+
+The read-only `precision` reply includes cumulative `rx_capture` counts in this
+order: armed, completed, aborted, no-DONE, no-ADDRESS, bad-CRC, malformed and
+overflow. `rx_last` reports the last arm, completion and abort tuples, packed as
+event16/channel8/hook8/capture-epoch32. These are controller observation sites,
+not physical RF or accuracy proof. Compare their deltas with clock validity,
+correction age and original source permission; neither a capture nor an
+authenticated packet alone proves a usable timing correction.
 
 Version 0.15.56 adds a production RAM event journal for both GM and RC. Earlier
 versions expose `network`, `precision`, `rc-parent`, `clock`, `join`, health and
@@ -233,9 +339,16 @@ CRC failures, timeouts, partial tails, event gaps and final closure status.
 Capture artifacts stay under ignored `artifacts/`. Protect raw logs and real
 identity configurations; do not add them to the repository. Earlier firmware is
 sampled through its existing snapshots; it cannot supply the new event history.
-The deployed command protocol requires increasing request IDs across console
-owners; the collector uses the established millisecond seed and stops on
-exhaustion. A future host-session handshake should remove this limitation.
+Except for `status`, commands require strictly increasing nonzero 32-bit request
+IDs within a boot. `status` accepts a lower ID and reports `last_request`, without
+advancing that cursor. After validating the exact identity, source and boot, a
+new console owner uses that cursor for its next command. This permits reconnect
+and software maintenance without weakening replay protection for other commands.
+Bindings and original arrival deadlines are checked before consuming any ID.
+Request IDs never wrap; exhaustion requires a new boot. Older images require
+increasing IDs across console owners: the collector retains its established
+millisecond seed when the status reply has no cursor. A randomized lower seed
+can be silently rejected by those images even while USB is working.
 
 Host receive times correlate observations; they do not measure RF timing,
 independent output accuracy or UTC error. Query load can perturb scheduling.
@@ -1442,6 +1555,39 @@ role/mode16, local capture32; stopped64 and unavailable capture128 describe
 the reset context. The caller PC requires the exact installed ELF to decode.
 These cumulative counters survive estimator resets, not device reboots.
 
+`gm 09` also reports a `causal` object. `query_kernel_us` is the query's kernel
+time; `query_hf_tick` and `query_hf_epoch` are its paired capture coordinates.
+The physical and data deadlines are HF ticks in the published PT capture
+epoch. `hf_bounds_known` must be true before comparing them with the query.
+The physical deadline retains the existing1.5s matched-correction availability
+limit; the data deadline is the existing local deadline derived from a matched
+authenticated original/correction's signed expiry. Neither is renewed by a query.
+
+`pt_scope_until_kernel_us`, `current_grant_until_kernel_us` and
+`effective_until_kernel_us` use kernel microseconds. The effective deadline is
+the published bound narrowed by the current control grant. The `causes` array
+names current refusals, while `refusal_bits` retains their machine-readable
+mask. Fit/output/UTC labels refer to the explicitly timestamped PT publication;
+expiry labels use the query capture. A retained fit is not a received permission.
+
+The root/boot/epoch/train/capture fields identify the control owner, current PT
+grant and last progressing authenticated header separately from the published
+PT scope. Agreement fields are `null` when a binding is unknown. They describe
+transitions without assigning RF cause. Control flags are snapshot available1,
+failed2, stopped4, input stopped8, input fatal16, resuming32, serving64. All
+control/PT fields are copied under the existing service-to-PT lock order and
+formatted after unlocking. Raw signed-origin expiry is unavailable in this
+snapshot (`signed_origin_expiry_ns: null`); it must not be inferred from an
+unmatched UTC offset. LoRa return state remains a separate owner/sample and its
+receiver return dwell is distinct from the transmitter restart hold.
+
+The existing top-level `train` is the actual matcher/estimator train and may
+be zero during reacquisition. `pt_declared_train` and
+`pt_declared_capture_gen` retain the published scope's declared descriptor.
+A strict `grant_matches_pt: false` is not by itself a binding refusal: the
+existing same-parent identity/boot transition rule is separately reported as
+`binding_current`. The diagnostic never changes that rule.
+
 ### Crash capture after the one-shot callback repair (.197)
 
 The per-call source register witness is disabled. Normal crash capture remains
@@ -1451,3 +1597,23 @@ against the exact build ELF with `tools/crash_decode.py`. The offline DWARF
 trace is partial when saved registers lie outside the captured window; it never
 guesses missing frames. A delayed scheduler failure is a dropped control job,
 not a reason to halt or clear the receiver.
+
+
+### Producer-side direct BLE loss evidence
+
+Normal GM7 images retain bounded direct-follower timing events in RAM without console polling. `gm 0a` reports counters and the immutable first loss since physical boot; `gm 0b` shows the current episode onset, `gm 0c` the latest material cause/context change, and `gm 0d` the latest first acquisition or recovery. Cold ACQUIRING and first acquisition are separate from loss/recovery after usable BLE time. These describe the BLE timing channel; a LoRa watch or other clock source may continue. The separate RC relay owner is not newly instrumented.
+
+Loss follows actual native BLE readability, rather than every nonzero descriptive cause flag. The episode onset survives later fit/UTC/physical cascades and recovery until the next loss; the smaller first-loss summary survives later episodes and logical service restarts. Physical reboot clears both. Counters saturate and report coalescing/incident overwrite. The existing 29-record timing journal remains unchanged.
+
+An atomic replacement of an expired publication with a valid current one
+increments `atomic_refreshes`. It is not a loss/recovery episode. Earlier .303
+records could report a same-commit loss/recovery pair; that pair alone does not
+show a sustained interruption.
+
+Records keep producer sample and detection times separate. HF deadline ages require the same known local counter; signed origin creation/expiry and delivered-model source coordinates remain explicitly separate domains. Latest authenticated header metadata is not a new time grant. Unknown origin/capture/control-reason facts remain null. A full PT/control scope difference may be descriptive under the existing same-parent binding contract and does not automatically mean refusal. Comparable expired data/physical HF bounds identify the earlier crossing; mixed control/HF ordering can remain unknown.
+
+Ordinary images emit sparse best-effort `#R2_BLE_CAUSE` notes through the existing idle-only console queue: burst two, then at most one attempt per five seconds, with repeated observations coalesced. Detection sequence/time remain distinct from emission time. No healthy heartbeat notes are added, and note drains stop during maintenance or poweroff. Full record pages carry readable secondary causes. Notes may be dropped under backpressure; query the sticky records before any firmware reset. Capture and query paths format no serial text under timing-owner locks or ISR.
+
+The recorder is descriptive only, with a native checked 1,024-byte added mutable budget and original stack, reply-buffer, timing, permission and quality floors. It does not establish RF-cause attribution, continuous availability, UTC accuracy or a repaired timing policy.
+
+The fresh sample counter and the original publication counter are recorded separately. Deadline ages and model-source projections are null across a counter change. A known model source coordinate is a pure checked projection of the published delivered map at the sample tick; it is descriptive and grants no permission.

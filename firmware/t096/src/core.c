@@ -127,7 +127,9 @@ int r2_parse(const char *line, struct r2_request *out)
 #endif
   if(out->op==R2_GM_YIELD)return count==6?0:-EINVAL;
   if(out->op==R2_GM)return count==7&&hex(parts[6],2,&out->nonce)&&out->nonce<=
-#ifdef R2_GM7_NATIVE
+#ifdef R2_BLE_CAUSAL_EVENTS
+   13
+#elif defined(R2_GM7_NATIVE)
    9
 #else
    4
@@ -153,7 +155,15 @@ int r2_parse(const char *line, struct r2_request *out)
    out->seconds=(uint32_t)seconds;return 0;
   }
   if(out->op==R2_SHADOW||out->op==R2_WITNESS||out->op==R2_RADIO_AUDIT){uint64_t value;if(count!=7||!hex(parts[6],8,&value)||value>UINT32_MAX||(out->op==R2_WITNESS&&value>1))return -EINVAL;out->nonce=value;return 0;}
-  if (out->op == R2_DIAG) {uint64_t chunk=0;if(count!=7||!hex(parts[6],4,&chunk)||chunk>=264)return -EINVAL;out->trace_page=(unsigned)chunk;return 0;}
+  if (out->op == R2_DIAG) {
+   uint64_t chunk=0;if(count!=7||!hex(parts[6],4,&chunk))return -EINVAL;
+   bool valid=chunk<264;
+#ifdef R2_FAULT_DURABLE
+   valid=valid||(chunk>=512&&chunk<640); /* additive128x64B read-only journal */
+#endif
+   if(!valid)return -EINVAL;
+   out->trace_page=(unsigned)chunk;return 0;
+  }
   if (out->op == R2_BLE) return count==7 && hex(parts[6],8,&out->nonce) && out->nonce<=120 ? 0 : -EINVAL;
   if (out->op == R2_UI && count==6) {out->trace_page=R2_UI_PAGES;return 0;}
   if (out->op == R2_TRACE || out->op == R2_UI) {
@@ -168,6 +178,16 @@ bool r2_bound(const struct r2_request *r, const char *silicon, const char *sourc
 {
   return !strcmp(r->silicon,silicon) && !strcmp(r->source,source) &&
     ((boot && r->boot == boot) || (r->boot == 0 && r->op == R2_STATUS));
+}
+bool r2_admit(const struct r2_request *r,const char *silicon,const char *source,
+              uint64_t boot,uint64_t arrival,uint64_t now,uint32_t *last_request)
+{
+  if(!r||!last_request||!r->id||!r2_bound(r,silicon,source,boot)||
+     now<arrival||now-arrival>=R2_REPLY_MS)return false;
+  if(r->op==R2_STATUS)return true;
+  if(r->id<=*last_request)return false;
+  *last_request=r->id;
+  return true;
 }
 void r2_expire(struct r2_maint *m, uint64_t now)
 {

@@ -1,3 +1,4 @@
+#include "rf_clock.h"
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
  * One background owner, below all normal BLE/time owners. No BLE publication,
  * normal precision training, clock authority or allocation. Optional probes
@@ -1160,4 +1161,9 @@ int r2_lora_utc_request(uint64_t token,uint32_t delay_ms,bool override){
 }
 int r2_lora_utc_json(char *out,size_t capacity,int result){
  return snprintf(out,capacity,"{\"utc_job\":1,\"supported\":false,\"result\":%d,\"boot\":\"%016llx\"}",result?result:-ENOTSUP,(unsigned long long)physical_boot);
+}
+
+/* Legacy RC8 images do not publish the independent wire3 observer map. */
+void r2_lora_rf_clock(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){
+ (void)at;(void)now;if(out)*out=(struct r2_rf_clock_sample){0};
 }

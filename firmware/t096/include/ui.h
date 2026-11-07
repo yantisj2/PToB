@@ -23,6 +23,12 @@ static inline unsigned r2_ui_saver_next(unsigned current,uint32_t random){return
 #include "ui_pages.h"
 #include "shadow_session.h"
 #ifdef R2_LORA
+/* Presentation-only same-HF-tick comparison; original source deadlines bound it. */
+enum {R2_UI_RF_DELTA=1,R2_UI_RF_RATE=2,R2_UI_RF_ESTIMATE=4};
+struct r2_ui_rf_comparison {
+ uint64_t sampled_us,until_us;int64_t delta_ns,drift_ppb;uint8_t flags;
+};
+_Static_assert(sizeof(struct r2_ui_rf_comparison)==40,"Bounded RF comparison view");
 #include "lora_service.h"
 #endif
 /* Filled only by the owning service, never from advertised names or UI controls. */
@@ -42,6 +48,7 @@ struct r2_ui_model {
 #endif
 #ifdef R2_LORA
  struct r2_lora_view lora;
+ struct r2_ui_rf_comparison rf_comparison;
 #endif
 #ifdef R2_TZ_WIRE
  /* Coarse mesh metadata expiry in kernel uptime; presentation only. */
@@ -81,7 +88,13 @@ struct r2_ui_model {
  uint32_t ble_rx_age_ms;
  bool ble_reception_valid;
  bool rc_serving_clients; /* Display-only actual downstream service, never GM authority. */
+ /* Presentation label ownership; uses existing tail padding on native GM/RC. */
+ bool upstream_is_lora;
 };
+#if defined(CONFIG_ARM) && defined(R2_GM7_NATIVE) && defined(R2_LORA) && defined(R2_TZ_WIRE)
+_Static_assert(sizeof(struct r2_ui_model)==752,"UI label tag must use existing padding");
+_Static_assert(offsetof(struct r2_ui_model,upstream_is_lora)==750,"Native label padding offset");
+#endif
 #ifdef R2_TZ_WIRE
 /* Low bits identify the learned producer; remaining bits describe this draw. */
 enum {R2_UI_TZ_NETWORK=1,R2_UI_TZ_LORA=2,R2_UI_TZ_LOCAL=3,R2_UI_TZ_SOURCE_MASK=3,
@@ -98,7 +111,7 @@ struct r2_ui_status {
 #ifdef R2_TZ_WIRE
  struct r2_tz drawn_tz;uint8_t drawn_tz_flags;
 #endif
- uint8_t drawn_lamps[8]; uint64_t profile_flash_until;bool profile_target_rc;uint32_t profile_toggles; uint64_t drawn_model_ms;unsigned drawn_role;uint32_t poll_max_ms;bool drawn_scope,drawn_ble,drawn_pps,drawn_map;bool drawn_time,drawn_coarse,drawn_sync_grace;int64_t drawn_utc_us;uint32_t frames,missed,buttons,max_frame_ms,last_frame_ms; int error; uint8_t page,drawn_page; bool ready,stopped,analog,help,poweroff; bool screensaver,drawn_screensaver;uint8_t screensaver_position,drawn_screensaver_position,brightness_percent; int16_t temperature_qc; bool temperature_valid; struct r2_shadow_session_view shadow; struct r2_ui_sync_display sync_display; struct r2_ui_holds holds; struct r2_ui_menu menu;uint64_t menu_result_until;int menu_result;uint8_t menu_result_item;bool button_down,drawn_menu; };
+ uint8_t drawn_lamps[8]; uint64_t profile_flash_until;bool profile_target_rc;uint32_t profile_toggles; uint64_t drawn_model_ms;unsigned drawn_role;uint32_t poll_max_ms;bool drawn_scope,drawn_ble,drawn_pps,drawn_map;bool drawn_time,drawn_coarse,drawn_sync_grace;uint8_t logic_flags;int64_t drawn_utc_us;uint32_t frames,missed,buttons,max_frame_ms,last_frame_ms; int error; uint8_t page,drawn_page; bool ready,stopped,analog,help,poweroff; bool screensaver,drawn_screensaver;uint8_t screensaver_position,drawn_screensaver_position,brightness_percent; int16_t temperature_qc; bool temperature_valid; struct r2_shadow_session_view shadow; struct r2_ui_sync_display sync_display; struct r2_ui_holds holds;uint32_t logic_age_ms; struct r2_ui_menu menu;uint64_t menu_result_until;int menu_result;uint8_t menu_result_item;bool button_down,drawn_menu; };
 uint8_t r2_ui_menu_enabled(const struct r2_ui_model *);
 /* Volatile, bounded 120ms tap /2200ms hold for exact-device console checks.
  * Uses the physical debounce/gesture path; zero cancels pending injection. */
@@ -120,6 +133,8 @@ void r2_ui_display_tz_update(struct r2_ui_model *,struct r2_tz previous,uint8_t 
 struct r2_tz r2_ui_display_zone(const struct r2_ui_model *,uint64_t now_ms,int64_t utc_us,uint8_t *flags);
 #endif
 #ifdef R2_LORA
+/* Watch presentation only; independent RF clocks keep their own data. */
+bool r2_ui_lora_primary(const struct r2_ui_model *,uint64_t now_ms);
 /* Current learned baseline: positive excess, or zero inside its noise floor. */
 bool r2_ui_lora_tof_ns(const struct r2_ui_model *,uint64_t now_ms,uint32_t *);
 #endif
@@ -133,14 +148,103 @@ void r2_ui_reception(struct r2_ui_model *,const struct r2_link_quality_view *,ui
 void r2_ui_rf_lamps(uint8_t out[8],const struct r2_ui_model *,uint64_t now_ms);
 /* Both renderer and display consume R2_UI_FRAME_BYTES palette indices. */
 void r2_ui_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_status *s,uint64_t now);
+/* One UI caller; at most80 attempted pixels between ordinary-thread checks.
+ * false aborts pure scratch drawing and propagates to the owner immediately. */
+enum r2_ui_render_stage {R2_UI_RENDER_OPTIONAL,R2_UI_RENDER_PIXELS};
+typedef bool (*r2_ui_render_checkpoint_fn)(void *context,enum r2_ui_render_stage);
+bool r2_ui_render_try(uint8_t *,const struct r2_ui_model *,
+ const struct r2_ui_status *,uint64_t,r2_ui_render_checkpoint_fn,void *);
+enum r2_ui_tile {R2_UI_TILE_TIME,R2_UI_TILE_PPS,R2_UI_TILE_LOSS,R2_UI_TILE_RF,
+  R2_UI_TILE_LORA,R2_UI_TILE_CLEAR};
+struct r2_ui_rect {uint8_t x,y,w,h;};
+/* Prevalidated calendar offset, never a timing/TZ permission. */
+struct r2_ui_zone_cache {uint64_t first_us,until_us;struct r2_tz zone;uint8_t flags;};
+struct r2_ui_tile_view {int64_t utc_us;uint32_t edge;bool valid,coarse,pulse,analog;};
+void r2_ui_zone_cache_update(struct r2_ui_zone_cache *,const struct r2_ui_model *,uint64_t);
+bool r2_ui_tile_render(uint8_t *,const struct r2_ui_model *,const struct r2_ui_status *,
+ uint64_t,enum r2_ui_tile,const struct r2_ui_zone_cache *,struct r2_ui_tile_view *,
+ r2_ui_render_checkpoint_fn,void *);
+bool r2_ui_tile_render_rect(uint8_t *,const struct r2_ui_model *,const struct r2_ui_status *,
+  uint64_t,enum r2_ui_tile,const struct r2_ui_zone_cache *,struct r2_ui_tile_view *,
+  r2_ui_render_checkpoint_fn,void *,struct r2_ui_rect);
+bool r2_ui_local_pulse(const struct r2_ui_model *,uint64_t);
+/* On demand only. pps populations: normal0/saver1; fields: eligible on/off,
+ * committed on/off, missed on/off, unknown/cancelled. Latencies are successful
+ * SPI submit/completion evidence, never optical scan or independent accuracy. */
+struct r2_ui_critical_status {
+ uint32_t observed_edges,unknown_edges,unknown_seconds,resets;
+ uint32_t pps[2][9],pps_max_ms[2][4],seconds[4],seconds_max_ms[2],late_gt100_ms[5];
+ uint32_t jobs[8]; /* critical/background attempts, critical/background commits,
+                    errors, deadline/budget declines, stale submits, aborts */
+ /* Last returned attempt: elapsed_ms[31:16], stage[15:8],
+  * background[7], result[6:0]. Stages1 before driver,2 window,3 prepare,
+  * 4 expand,5 submit,8 last raster checkpoint. Results0 success,1 budget,
+  * 2 obsolete,3 expired,4 physical errno,5 post-return fence refusal.
+  * Diagnostic only; not a committed tile ACK or CPU attribution. */
+ uint32_t attempt,generation,context,edge;
+ int64_t rendered_utc_us;
+ uint64_t render_ms,submit_ms,retire_ms;
+ int64_t digital_utc_us;uint64_t digital_render_ms,digital_submit_ms,digital_retire_ms;
+ uint32_t fence[6]; /* last context/control/policy, digital context/control/policy */
+ uint8_t page,population,tile,pending;bool pulse,valid,digital_valid;
+};
+void r2_ui_critical_snapshot(struct r2_ui_critical_status *);
+/* Sole main clock-query owner only; bounded serialization scratch is static
+ * and nonreentrant. The snapshot getter above remains thread-safe. */
+bool r2_ui_critical_append(char *,size_t);
+/* Published at the existing UI summary cadence. Cursor bounds alone cannot
+ * reconstruct records whose reference association arrived after consumption. */
+struct r2_ui_shadow_window {
+ uint64_t start_tick,epoch;
+ uint32_t session,start_sequence,cursor,samples,context,hint,control;
+};
+
+/* Main-owned source summary: no projection, calendar or blocking UI lock.
+ * Revision fences obsolete visuals; it never supplies timing authority. */
+struct r2_ui_context {
+ uint64_t incarnation,root,boot;
+ uint32_t source_epoch,train;
+ uint8_t flags;
+};
+enum {R2_UI_CONTEXT_RC=1,R2_UI_CONTEXT_SWITCH=2,R2_UI_CONTEXT_STOP=4,R2_UI_CONTEXT_BLE_FAULT=8,R2_UI_CONTEXT_SERVING=16,R2_UI_CONTEXT_LIVE=32};
+void r2_ui_context_update(const struct r2_ui_context *);
+enum {R2_UI_HINT_KNOWN=1,R2_UI_HINT_LOCAL=2,R2_UI_HINT_BLE_VALID=4,R2_UI_HINT_LOCAL_VALID=8};
+void r2_ui_source_hint(unsigned);
+/* Same functional qualification used by the ordinary GM clock publisher.
+ * Physical GNSS/PPS may be usable while legacy association remains unknown. */
+static inline bool r2_ui_local_source_current(bool available,bool valid,bool fix,bool pps){
+ return available||(valid&&fix&&pps);
+}
+bool r2_ui_model_requested(uint64_t now_ms);
+/* Queued owner work is normal at main publication; execution/backlog defer UI. */
+static inline bool r2_ui_work_allowed(bool idle,bool switching,bool closing,
+ unsigned owner_state,uint32_t backlog,bool relay_pending,bool takeover_pending){
+ return idle&&!switching&&!closing&&owner_state<=1&&!backlog&&!relay_pending&&!takeover_pending;
+}
+#ifdef R2_TZ_WIRE
+void r2_ui_learn_tz(struct r2_tz,uint8_t source);
+#endif
 void r2_ui_publish(const struct r2_ui_model *m);
+struct r2_ui_label_ids {uint64_t root,upstream,coordinator;};
+void r2_ui_publish_owned(const struct r2_ui_model *,uint64_t lora_emitter,const struct r2_ui_label_ids *);
+enum {R2_UI_LOGIC_VALID=1,R2_UI_LOGIC_BLE=2,R2_UI_LOGIC_LORA=4,
+ R2_UI_LOGIC_GRACE=8,R2_UI_LOGIC_FRESH=16,R2_UI_LOGIC_GM=32,
+ R2_UI_LOGIC_HOLD=64,R2_UI_LOGIC_MAINTAINED=128};
+/* Main-owned, independent of LCD/render demand. The owner deadline is only
+ * used to request a new owned snapshot; it never renews old copied permission. */
+bool r2_ui_logic_due(uint64_t now_ms,uint64_t owner_until_us,bool owner_valid);
+
 void r2_ui_start(void);
+void r2_ui_input_tick(uint64_t now_ms);
 void r2_ui_stop(void);
 bool r2_ui_poweroff_requested(void);
 int r2_ui_close_result(void);
 int r2_ui_page(unsigned page);
 void r2_ui_snapshot(struct r2_ui_status *out);
+/* Same locked fault/frame counters, without optional logical-status projection. */
+void r2_ui_diag_snapshot(int *error,uint32_t *max_frame_ms,uint32_t *missed);
 bool r2_ui_shadow_requested(void);
+bool r2_ui_rf_requested(void);
 bool r2_ui_take_profile_toggle(void);
 #ifdef R2_LORA
 bool r2_ui_take_lora_toggle(void);
@@ -149,6 +253,17 @@ void r2_ui_profile_flash(bool rc);
 uint32_t r2_ui_stack_unused(void);
 int r2_display_init(void);
 int r2_display_frame(const uint8_t *fb);
+/* One completed command/row at a time. Callbacks own no live SPI DMA.
+ * PREPARE may refresh palette scratch; SUBMIT must accept that exact instant.
+ * Every attempt shares the supplied absolute deadline; no hidden renewal. */
+enum r2_display_stage {R2_DISPLAY_WINDOW,R2_DISPLAY_PREPARE,
+ R2_DISPLAY_EXPAND,R2_DISPLAY_SUBMIT,R2_DISPLAY_RETIRED};
+/* Every negative GPIO/SPI errno stays a real failure. */
+enum r2_display_result {R2_DISPLAY_OK=0,R2_DISPLAY_BUDGET_DECLINED=1,
+ R2_DISPLAY_OBSOLETE=2,R2_DISPLAY_EXPIRED=3};
+typedef bool (*r2_display_checkpoint_fn)(void *,enum r2_display_stage);
+int r2_display_region(const uint8_t *,unsigned x,unsigned y,unsigned w,unsigned h,
+ uint64_t deadline_ms,r2_display_checkpoint_fn,void *);
 int r2_display_button(void);
 int r2_display_off(void);
 int r2_display_brightness(uint8_t percent);

@@ -82,6 +82,7 @@ static uint8_t configured_frequency[4],configured_modulation[4];static unsigned 
 #endif
 static bool reject_settx,stop_before_settx_callback,stop_in_commit;
 static bool fail_cs_assert,fail_cs_release,fail_cs_config;
+static bool gain_bad_readback,gain_write_error;
 static bool stuck_cs_release;
 static bool expire_at_fem,delay_before_fem,spi_eagain_payload,invalid_capture,stuck_dio,abort_in_settx,done_in_settx,withhold_settx,abort_at_commit,expire_after_commit,busy_on_settx,busy_at_fem,ready_at_busy_deadline,cutoff_at_busy_deadline,error_at_busy_deadline;static uint64_t busy_since;static int settx_error;static unsigned irq_depth;static unsigned set_tx_commands,last_budget;
 static void preempt_cutoff(void);
@@ -185,16 +186,17 @@ static int spi_transceive_cb(const struct device *d,const struct spi_config *c,c
  if(c->cs.gpio.port)gpio_pin_set_dt(&c->cs.gpio,1);
  callback_op=a[0];
  if(a[0]==0x83&&reject_settx)return -EIO;
+ if(a[0]==0x0d&&a[1]==0x08&&a[2]==0xac&&gain_write_error)return -EIO;
  assert(n==rx->buffers->len&&n<=R2_LORA_HW_BYTES+3);memset(b,0,n);
  switch(a[0]){
  case 0x0d:regs[(a[1]<<8)|a[2]]=a[3];break;
- case 0x1d:b[3]=0x22;b[4]=regs[(a[1]<<8)|a[2]];break;
+ case 0x1d:b[3]=0x22;b[4]=gain_bad_readback&&a[1]==0x08&&a[2]==0xac?0x94:regs[(a[1]<<8)|a[2]];break;
  case 0x12:b[1]=irq_status_byte;b[2]=irq_flags>>8;b[3]=irq_flags;break;
  case 0x13:b[1]=0x22;b[2]=packet_length;b[3]=0;break;
  case 0x14:assert(n==5);b[1]=0x22;b[2]=packet_rssi;b[3]=packet_snr;b[4]=164;break;
  case 0x1e:b[2]=0x22;memcpy(b+3,payload,n-3);break;
  case 0x02:irq_flags=0;if(!stuck_dio)pins[21]=0;break;
- case 0x82:assert(a[1]==0&&a[2]==0&&a[3]==0);break;
+ case 0x82:assert(a[1]==0&&a[2]==0&&a[3]==0);assert(regs[0x08ac]==0x96&&pins[12]&&pins[30]&&!pins[41]);break;
  case 0x8e:assert(n==3&&a[1]==18&&a[2]==2);break;
  case 0x8c:programmed_length=a[4];break;
  case 0x83:++set_tx_commands;
@@ -417,6 +419,25 @@ int main(int argc,char **argv){
   r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;
  }
 #endif
+ if(mode>=105&&mode<=108){
+  if(mode>=107){
+   gain_bad_readback=mode==107;gain_write_error=mode==108;
+   assert(r2_lora_hw_start(4,true)==-EIO&&atomic_get(&fault)==-EIO);
+   assert(!pins[12]&&!pins[30]&&!pins[41]&&!pins[16]);closed();return 0;
+  }
+  assert(!r2_lora_hw_start(4,true));
+  assert(regs[0x08ac]==0x96&&pins[12]&&pins[30]&&!pins[41]);
+  if(mode==106){
+   assert(!r2_lora_hw_idle()&&!pins[12]);
+   assert(!r2_lora_hw_tx(payload,80,5)&&pins[12]&&pins[41]);
+   inject(1);struct r2_lora_hw_event event;assert(r2_lora_hw_take(&event)==1);
+   assert(!r2_lora_hw_rx_rearm());
+  }else{
+   inject(0x42);struct r2_lora_hw_event event;assert(!r2_lora_hw_take(&event));
+  }
+  assert(atomic_get(&phase)==2&&pins[12]&&!pins[41]&&regs[0x08ac]==0x96);
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;
+ }
  if(mode==1){alloc_fail=1;assert(r2_lora_hw_start(1,true)<0);assert(!submissions&&!route);closed();return 0;}
  if(mode==2){stop_at_attach=1;assert(r2_lora_hw_start(1,true)==-ECANCELED);assert(!submissions&&!pins[30]&&!pins[16]);closed();assert(!atomic_get(&fault));return 0;}
  if(mode==44){watchdog_at_attach=true;assert(r2_lora_hw_start(1,true)==-ECANCELED);

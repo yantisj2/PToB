@@ -22,6 +22,14 @@ import tty
 import zlib
 
 
+def request_cursor(status, legacy_cursor):
+    """Use the authenticated STATUS cursor; older firmware keeps its wall seed."""
+    cursor = status.get('last_request', legacy_cursor)
+    if type(cursor) is not int or not 0 <= cursor <= 0xffffffff:
+        raise ValueError('invalid request cursor')
+    return cursor
+
+
 class Frames:
     def __init__(self):
         self.header = self.payload = None
@@ -340,6 +348,8 @@ def capture(unit, config, out, seconds, rotate_bytes, stop=None, snapshot_interv
                     raise ValueError('runtime identity mismatch')
                 if op == 'status' and value.get('unit') != unit:
                     raise ValueError('unit mismatch')
+                if op == 'status':
+                    request = request_cursor(value, request)
                 boot = observed
                 timeout_streak = 0
                 if first_fault and op=='lora-diag':first_fault.observe(value)

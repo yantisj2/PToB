@@ -147,9 +147,10 @@ static void fault_registers(unsigned reason,const struct arch_esf *esf,unsigned 
 #endif
 #include "crash_record.h"
 #include "ptob_device.h"
-/* ONE512B current-boot record; cleared at boot. Existing256B
- * capsule/previous copy below are unchanged. Normal export never clears it. */
-volatile uint32_t r2_crash_record[R2_CRASH_WORDS];
+/* ONE512B fault-only retained record. Schema/factory/committed CRC are
+ * required at boot; original image tags remain diagnostic, never live state.
+ * Existing256B current-boot capsule stays BSS. Export never clears either. */
+volatile uint32_t r2_crash_record[R2_CRASH_WORDS] __noinit;
 _Static_assert(sizeof r2_crash_record==512,"One journal slot only");
 /* Reuses the original one-byte handoff state. Only a verified durable save
  * (or no prior valid record) permits the GM owner to reuse witness payload. */
@@ -228,7 +229,7 @@ static void crash_capture(unsigned reason,const struct arch_esf *esf,unsigned ma
 {
  /* Fatal-only, IRQs already masked. No locks, driver, allocator, formatting,
   * flash, stack walk, variable-size locals or record-sized automatic arrays. */
- if(r2_health_crash_pending())return; /* preserve first crash within this boot */
+ if(r2_health_crash_pending())return; /* preserve first valid pending crash, including a prior boot */
  /* IRQs are masked: freeze a completed/explicitly partial GM observation.
   * Pending previous crashes were returned above and are never overwritten.
   * RC/inactive/unavailable keeps the complete original192B thread window. */
@@ -299,14 +300,33 @@ static void crash_capture(unsigned reason,const struct arch_esf *esf,unsigned ma
  r2_crash_record[25]=flags;r2_crash_record[126]=r2_crash_crc(r2_crash_record);
  __DMB();r2_crash_record[127]=R2_CRASH_COMMIT;__DSB();
 }
+static bool crash_bound(void)
+{
+ if(!r2_crash_valid(r2_crash_record,true)||!r2_crash_silicon(r2_crash_record,PTOB_DEVICE_ID))return false;
+#ifndef R2_FAULT_DURABLE
+ for(unsigned i=0;i<8;i++){
+  uint32_t source=0,binding=0;
+  for(unsigned b=0;b<4;b++){
+   source|=((r2_crash_nibble(R2_SOURCE_SHA[i*8+b*2])<<4)|
+             r2_crash_nibble(R2_SOURCE_SHA[i*8+b*2+1]))<<(8*b);
+   binding|=((r2_crash_nibble(R2_WATCHDOG_BINDING[i*8+b*2])<<4)|
+              r2_crash_nibble(R2_WATCHDOG_BINDING[i*8+b*2+1]))<<(8*b);
+  }
+  if(r2_crash_record[8+i]!=source||r2_crash_record[16+i]!=binding)return false;
+ }
+#endif
+ /* Durable startup preserves original-image diagnostic provenance for its own
+  * matching ELF. These bytes never become current timing/profile authority. */
+ return true;
+}
 const volatile uint32_t *r2_health_crash_pending(void)
-{return !(r2_gm7_witness_state&R2_WITNESS_HANDOFF)&&r2_crash_valid(r2_crash_record,true)&&r2_crash_silicon(r2_crash_record,PTOB_DEVICE_ID)?r2_crash_record:NULL;}
+{return !(r2_gm7_witness_state&R2_WITNESS_HANDOFF)&&crash_bound()?r2_crash_record:NULL;}
 void r2_health_crash_saved(uint32_t crc)
 {if(r2_health_crash_pending()&&r2_crash_record[126]==crc){unsigned key=irq_lock();r2_gm7_witness_state|=R2_WITNESS_HANDOFF;irq_unlock(key);}}
 int r2_health_crash_read(unsigned chunk,uint8_t out[64])
 {
  if(chunk>=R2_CRASH_DIAG_CHUNKS)return -EINVAL;
- if(!r2_crash_valid(r2_crash_record,true)||!r2_crash_silicon(r2_crash_record,PTOB_DEVICE_ID))return -ENOENT;
+ if(!crash_bound())return -ENOENT;
  for(unsigned i=0;i<16;i++){
   uint32_t v=r2_crash_record[chunk*16+i];
   for(unsigned b=0;b<4;b++)out[i*4+b]=(uint8_t)(v>>(8*b));
@@ -322,8 +342,12 @@ int r2_health_crash_read(unsigned chunk,uint8_t out[64]){(void)chunk;(void)out;r
 void r2_health_init(uint64_t boot)
 {
 #if defined(R2_GM7_NATIVE) && defined(CONFIG_EXTRA_EXCEPTION_INFO)
- memset((void *)r2_crash_record,0,sizeof r2_crash_record);
- r2_gm7_witness_state=R2_WITNESS_HANDOFF;
+ uint64_t prior=(uint64_t)r2_crash_record[4]|((uint64_t)r2_crash_record[5]<<32);
+ bool pending=prior&&prior!=boot&&crash_bound();
+ if(!pending)memset((void *)r2_crash_record,0,sizeof r2_crash_record);
+ /* Retain the first valid crash across resets. This only protects diagnostic
+  * bytes from witness reuse; no saved clock/source/profile becomes live. */
+ r2_gm7_witness_state=pending?0:R2_WITNESS_HANDOFF;
 #endif
  /* Operational diagnostics never restore state after reset. */
  memset(previous,0,sizeof previous);memset((void *)r2_fault_capsule,0,sizeof r2_fault_capsule);boot_id=boot;timing_setup();detail_due=0;

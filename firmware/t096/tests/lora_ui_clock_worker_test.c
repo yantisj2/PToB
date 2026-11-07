@@ -1,13 +1,13 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
  * Actual UI worker/rendering with deterministic publisher preemption. */
-#define k_spin_lock base_spin_lock
+#define k_mutex_lock base_mutex_lock
 #define r2_display_frame base_display_frame
 #include "ui_service_fake.h"
 #undef r2_display_frame
-#undef k_spin_lock
+#undef k_mutex_lock
 static bool preempt,inside;
 static unsigned fraction,preemptions,drawn;
-static k_spinlock_key_t k_spin_lock(struct k_spinlock *l){
+static int k_mutex_lock(struct k_mutex *l,int wait){
  if(preempt&&!inside){
   inside=true;fake_now+=2;++preemptions;
   struct r2_ui_model m={.sampled_ms=fake_now,.unit="TEST",.platform_ready=true,.profile_supported=true,
@@ -15,7 +15,7 @@ static k_spinlock_key_t k_spin_lock(struct k_spinlock *l){
     .sampled_us=fake_now*1000+fraction,.utc_us=36642000000ULL+fake_now*1000+fraction,.until_us=12000000}};
   r2_ui_publish(&m);inside=false;
  }
- return base_spin_lock(l);
+ return base_mutex_lock(l,wait);
 }
 int r2_display_frame(const uint8_t *fb){
  unsigned dial=0;for(unsigned y=55;y<112;y++)for(unsigned x=5;x<75;x++)dial+=fb[y*80+x]==R2_UI_COLOR_LCD;

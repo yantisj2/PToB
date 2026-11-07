@@ -6,6 +6,7 @@
 union r2_diag_scratch r2_diag_scratch;
 #include "capture.h"
 #include "rc_shadow.h"
+#include "rf_clock.h"
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>

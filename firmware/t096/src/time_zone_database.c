@@ -18,7 +18,8 @@ static size_t record(uint16_t id){
  for(size_t i=0;i<n;i++,at+=6)if(u16(at)==id)return at;
  return 0;
 }
-bool r2_tz_db_offset(uint16_t id,uint64_t utc,int16_t *out){
+bool r2_tz_db_offset_span(uint16_t id,uint64_t utc,int16_t *out,
+ uint64_t *first_us,uint64_t *until_us){
  if(!out||!r2_tz_db_window(utc))return false;
  size_t r=record(id);if(!r)return false;
  unsigned cal=u16(r+2);if(cal>=u16(14))return false;
@@ -26,14 +27,21 @@ bool r2_tz_db_offset(uint16_t id,uint64_t utc,int16_t *out){
  int16_t offset=i16(h);unsigned first=u16(h+2),count=u16(h+4);
  size_t at=u16(20)+(size_t)first*6;
  if(!range(at,(size_t)count*6))return false;
- uint64_t second=utc/1000000;uint32_t previous=u32(4);
+ uint64_t second=utc/1000000;uint32_t previous=u32(4),span_first=previous,until=u32(8);
  for(unsigned i=0;i<count;i++,at+=6){
   uint32_t transition=u32(at);if(transition<=previous||transition>=u32(8))return false;
   previous=transition;
-  if(transition<=second)offset=i16(at+4);
+  if(transition<=second){offset=i16(at+4);span_first=transition;}
+  else if(until==u32(8))until=transition;
  }
  if(offset < -840 || offset > 840 || (id==1 && offset))return false;
- *out=offset;return true;
+ *out=offset;
+ if(first_us)*first_us=(uint64_t)span_first*1000000;
+ if(until_us)*until_us=(uint64_t)until*1000000;
+ return true;
+}
+bool r2_tz_db_offset(uint16_t id,uint64_t utc,int16_t *out){
+ return r2_tz_db_offset_span(id,utc,out,NULL,NULL);
 }
 const char *r2_tz_db_name(uint16_t id){
  size_t r=record(id);if(!r)return "Unknown";

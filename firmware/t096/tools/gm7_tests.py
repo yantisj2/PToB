@@ -95,7 +95,7 @@ try:
  # translation units, exchanging the complete production status structure.
  resume_fixture=(app/'tests/gm7_resume_service_test.c').read_text().replace('int main(int argc, char **argv)','int historical_resume_main(int argc, char **argv)')
  (out/'gm7_resume_fixture.inc').write_text(resume_fixture)
- snapshot=dispatcher[dispatcher.index('void r2_service_snapshot('):dispatcher.index('void r2_service_ui(')]
+ snapshot=dispatcher[dispatcher.index('static void ui_snapshot_profile('):dispatcher.index('bool r2_service_snapshot_try(')]
  snapshot_names={n:'dispatch_'+n for n in names};snapshot_names['r2_service_snapshot']='dispatcher_snapshot'
  (out/'gm7_dispatch_snapshot.inc').write_text(''.join(f'#define {k} {v}\n'for k,v in snapshot_names.items())+snapshot+''.join(f'#undef {k}\n'for k in snapshot_names))
  progress=resume.copy();progress[progress.index(str(app/'tests/gm7_resume_service_test.c'))]=str(app/'tests/gm7_resume_progress_test.c');progress[-1]=str(out/'resume-progress-test')

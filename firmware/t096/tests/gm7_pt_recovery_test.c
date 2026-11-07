@@ -7,6 +7,9 @@ static struct r2_source_clock local;
 static struct r2_radio_scope grant;
 static struct r2_group_client anchor;
 static bool running;
+static bool replay_record;
+static bool replay_query;
+static uint32_t replay_hash;
 static unsigned optin_unlocks;
 static void setup_pt(void){
  path=(struct r2_enrollment){.count=2,.identity={17,99},.group={.id=7,.epoch=1,.psk={1}}};
@@ -35,6 +38,7 @@ static void first_optin_probe(void){
  assert(!pt_input.gm7_managed&&pt_input.gm7_busy&&same(pt_input.grant,original));
 }
 static void expire_after_copy(void){fake_mutex_unlocked=NULL;fake_time=capture_us=grant.until_us;capture_tick=fake_time*16;}
+static void stop_after_query(void){fake_mutex_unlocked=NULL;r2_radio_service_withdraw();}
 static void drive_stream(unsigned samples){
   uint64_t base=1000000000;struct r2_enrollment receive_roster=enrollment;
   for(unsigned i=0;i<samples;i++){
@@ -47,12 +51,78 @@ static void drive_stream(unsigned samples){
    assert(!generic_encode(packet.ad,&p));enrollment=receive_roster;
    fake_time=capture_us=1000000+(uint64_t)i*62500+1000;capture_tick=(uint64_t)packet.raw+16000;queued=true;precision_step(fake_time);
    assert(!queued&&!error&&!pt_input.source_ready&&!pt_output.scope.gm);
+   if(replay_query){struct r2_gm7_follow_diagnostic d;r2_radio_service_gm7_follow_diagnostic(&d,fake_time);assert(d.data_until_tick==precision.data_until);}
+   if(replay_record){
+    const r2_servo_map_t *m=&precision.servo.output;
+    uint64_t values[]={pt_output.utc,pt_output.valid_until,pt_output.utc_valid,pt_output.view.map_valid,
+     precision.accepted,precision.rejected,precision.data_until,precision.last_available,precision.last_accepted,
+     m->delivery,(uint64_t)m->anchor,(uint64_t)(int64_t)m->rate,(uint64_t)(int64_t)m->phase,m->valid,
+     precision.servo.count,precision.servo.span,(uint64_t)precision.servo.rate,
+     pt_output.scope.root_identity,pt_output.scope.boot,pt_output.scope.source_epoch,precision.train,precision.remote_capture};
+    replay_hash=(replay_hash*16777619u)^r2_crc32(values,sizeof values);
+   }
   }
 }
 int main(int argc,char **argv){
  assert(argc==2);unsigned test=(unsigned)strtoul(argv[1],NULL,10);
  if(test>=100){char mode_text[16];snprintf(mode_text,sizeof mode_text,"%u",test-100);char *historical[]={argv[0],mode_text};return historical_radio_main(2,historical);}
  setup_pt();
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(test==90||test==91||test==92){
+  lora_needed=false;ble_needed=test!=91;replay_record=true;replay_query=test==92;
+  r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);
+  drive_stream(900);assert(precision.accepted>400&&pt_output.utc_valid&&!lora_publishes);
+  assert(ble_needed?(ble_observations>400&&observed_ble.qualified):!ble_observations);
+  printf("BLE_MODEL_REPLAY %08x accepted%u rejected%u until%llu observer%u\n",replay_hash,
+   precision.accepted,precision.rejected,(unsigned long long)pt_output.valid_until,ble_observations);
+  fake_time=capture_us+=2000000;capture_tick+=32000000;precision_step(fake_time);
+  assert(!pt_output.utc_valid&&!pt_output.view.map_valid);
+  puts("PASS identical realMAC900packet BLE model/UTC/permission trajectory with receiver observation ON/OFF; silence cannot extend original map life");return 0;
+ }
+#endif
+ if(test==29){
+  r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);drive_stream(900);
+  fprintf(stderr,"causal setup utc%d data%llu modeldata%llu physical%llu tick%llu scope%d/%d accepted%u\n",pt_output.utc_valid,(unsigned long long)pt_output.gm7.data_until,(unsigned long long)precision.data_until,(unsigned long long)pt_output.capture_until,(unsigned long long)capture_tick,pt_output.scope.follower,pt_output.scope.broadcast,precision.accepted);
+  assert(pt_output.utc_valid&&pt_output.gm7.data_until==precision.data_until&&pt_output.gm7.data_until<pt_output.capture_until);
+  struct r2_radio_precision saved=precision;struct r2_gm7_follow_diagnostic d;
+  r2_radio_service_gm7_follow_diagnostic(&d,fake_time);assert(!d.refusals&&d.utc_readable_now&&d.scope_equal&&d.binding_current);
+  ++grant.source_epoch;r2_radio_service_gm7_publish(grant,&anchor,&path,-1,fake_time,anchor.until);
+  r2_radio_service_gm7_follow_diagnostic(&d,fake_time);
+  assert(!d.scope_equal&&d.binding_current&&d.utc_readable_now&&!(d.refusals&R2_FOLLOW_BINDING));
+  --grant.source_epoch;r2_radio_service_gm7_publish(grant,&anchor,&path,-1,fake_time,anchor.until);
+  assert(!memcmp(&saved,&precision,sizeof saved));
+  /* Same query/capture observes data expiry while the unchanged physical
+   * map, causal fit, control permission and published UTC remain available. */
+  uint64_t delta=pt_output.gm7.data_until+1-capture_tick;capture_tick+=delta;fake_time=capture_us+=delta/16+1;
+  r2_radio_service_gm7_follow_diagnostic(&d,fake_time);
+  assert((d.refusals&(R2_FOLLOW_DATA_EXPIRED|R2_FOLLOW_EFFECTIVE_EXPIRED))==(R2_FOLLOW_DATA_EXPIRED|R2_FOLLOW_EFFECTIVE_EXPIRED));
+  assert(!(d.refusals&(R2_FOLLOW_PHYSICAL_EXPIRED|R2_FOLLOW_FIT|R2_FOLLOW_OUTPUT|R2_FOLLOW_BINDING))&&d.utc_at_sample&&d.map_at_sample&&!d.utc_readable_now);
+  uint64_t utc;assert(!r2_radio_service_client_clock(&utc,fake_time));
+  assert(!memcmp(&saved,&precision,sizeof saved));
+  capture_test_epoch=2;r2_radio_service_gm7_follow_diagnostic(&d,fake_time);
+  assert((d.refusals&R2_FOLLOW_COUNTER)&&!(d.refusals&(R2_FOLLOW_DATA_EXPIRED|R2_FOLLOW_PHYSICAL_EXPIRED))&&!d.utc_readable_now);
+  capture_test_epoch=1;capture_test_available=false;r2_radio_service_gm7_follow_diagnostic(&d,fake_time);
+  assert((d.refusals&R2_FOLLOW_CAPTURE)&&!(d.refusals&(R2_FOLLOW_DATA_EXPIRED|R2_FOLLOW_PHYSICAL_EXPIRED)));
+  capture_test_available=true;capture_tick=pt_output.capture_until;fake_time=capture_us+=2000000;
+  r2_radio_service_gm7_follow_diagnostic(&d,fake_time);assert(d.refusals&R2_FOLLOW_PHYSICAL_EXPIRED);
+  fake_mutex_unlocked=stop_after_query;r2_radio_service_gm7_follow_diagnostic(&d,fake_time);
+  assert(!d.stopped&&d.grant.root_identity==99&&pt_input.stopped);
+  r2_radio_service_gm7_follow_diagnostic(&d,fake_time);assert(d.stopped&&(d.refusals&R2_FOLLOW_STOPPED)&&(d.refusals&R2_FOLLOW_BINDING));
+  assert(!memcmp(&saved,&precision,sizeof saved));
+  puts("PASS actual PT single-capture dataexpiry vs physical/control/quality; captureunknown/epoch mismatch; atomic scope transition and no model/lease mutation");return 0;
+ }
+ if(test==30){
+  r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);drive_stream(200);
+  struct r2_radio_precision saved=precision;struct r2_gm7_follow_diagnostic d;uint64_t utc;
+  r2_radio_service_gm7_follow_diagnostic(&d,fake_time);
+  assert(d.utc_readable_now==r2_radio_service_client_clock(&utc,fake_time));
+  printf("CAUSAL200 utc%d data%llu physical%llu tick%llu refusals%u\n",d.utc_readable_now,(unsigned long long)d.data_until_tick,(unsigned long long)d.physical_until_tick,(unsigned long long)d.query_tick,d.refusals);
+  uint64_t delta=pt_output.capture_until+1-capture_tick;capture_tick+=delta;fake_time=capture_us+=delta/16+1;
+  r2_radio_service_gm7_follow_diagnostic(&d,fake_time);
+  assert((d.refusals&R2_FOLLOW_PHYSICAL_EXPIRED)&&!d.utc_readable_now&&!r2_radio_service_client_clock(&utc,fake_time));
+  assert(!memcmp(&saved,&precision,sizeof saved));
+  puts("PASS original200packet fixture retained: diagnostic agrees with original clock reader; originalphysicalexpiry still fences without model changes");return 0;
+ }
  if(test==28){
   publish_own(grant.until_us);unsigned initial=lora_withdraws;uint64_t sampled=fake_time;
   grant.until_us=fake_time+100;fake_time+=101;

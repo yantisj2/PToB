@@ -20,7 +20,7 @@ int main(int argc,char **argv){assert(argc==2);
   .clock={.pps_present=true,.pps_age_us=50000,.gps_age_us=-1,.rx_age_us=-1},
   .lora={.requested=true,.active=true,.choice=RC8_SELECT_LORA,.state=RC8_AVAILABLE,.sampled_us=1000000,.utc_us=36642000000ULL,.until_us=9000000,.display_until_us=17000000,.age_ms=4000,.link_samples=16,.link_rms_ns=8123,.fit_age_ms=4010,.rssi_valid=true,.rssi_half_dbm=-163,.rx_age_ms=20,.activity_age_ms=20,.activity_kind=1}};
  struct r2_ui_status s={0};r2_ui_render(fb,&m,&s,1000);
- text_at(36,20,"LOR",C_GREEN);text_at(26,122,"LOR RMS",C_DIM);text_at(10,147,"RC",C_DIM);
+ text_at(36,20,"LOR",C_GREEN);text_at(26,122,"FIT RMS",C_DIM);text_at(10,147,"RC",C_DIM);
  assert(fb[21*80+68]==C_BLUE); /* actual recent local GNSS PPS, not LoRa lock */
  for(unsigned i=0;i<3;i++)assert(fb[(153-2*i)*80+50+6*i]==C_BLUE);
  assert(fb[147*80+68]!=C_BLUE); /* -81.5dBm has three, not four, bars */
@@ -29,7 +29,7 @@ int main(int argc,char **argv){assert(argc==2);
  char provider[9];lora_header_name(provider,"1234567\xc3\xa9");assert(!strcmp(provider,"1234567"));
  s.page=1;r2_ui_render(fb,&m,&s,1000);text_at(7,(int)ui_rf_lamp_y(UI_RF_LORA,false)-10,"LORA RX",C_DIM);
  text_at(45,99,"TRACK",C_GREEN);assert(fb[(ui_rf_lamp_y(UI_RF_LORA,false)+2)*80+ui_rf_lamp_x(UI_RF_TIME)+2]==C_BLUE);
- s.page=2;r2_ui_render(fb,&m,&s,1000);text_at(10,4,"LOR TIMING",C_WHITE);text_at(4,33,"LOR RMS",C_DIM);text_at(4,77,"RSSI -81dBm",C_WHITE);
+ s.page=2;r2_ui_render(fb,&m,&s,1000);text_at(10,4,"LOR TIMING",C_WHITE);text_at(4,33,"FIT RMS",C_DIM);text_at(4,77,"RSSI -81dBm",C_WHITE);
  int64_t utc;bool coarse;struct r2_ui_model held=m;held.lora.state=RC8_EXPIRED;held.lora.choice=RC8_SELECT_NONE;held.lora.display_held=true;held.lora.until_us=1000000;held.lora.display_until_us=9000000;
  assert(r2_ui_display_time(&held,1000,&utc,&coarse)&&coarse&&r2_ui_analog(&held,1000));
  held.sampled_ms=8999;held.lora.sampled_us=8999000;held.lora.utc_us+=7999000;assert(r2_ui_analog(&held,8999));

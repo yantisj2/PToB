@@ -200,7 +200,9 @@ def main():
                'runtime_state':'RAM_ONLY','passive_wire_version':3,
                'secondary_lora_class':'RAM_FIXED500_30_300' if args.lora_fixed500_experiment else ('RAM_BW_SWEEP_30' if args.lora_passive_slow else 'RAM_BW_AB_4_12') if args.lora_bw_experiment else 'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
                'lora_passive_fast':args.lora_passive_fast}
+    if args.gm7:receipt['rc_check_site_encoding']='RC_CHECK_LINE12_EIO_V1'
     receipt['time_zone'] = tz
+    receipt['lora_rx_gain'] = 'SX1262_BOOSTED_08AC_96_READBACK_KCT8103L_RX_LNA_V1'
     if args.lora_bw_experiment:
         receipt['bandwidth_experiment'] = dict(schedule=7 if args.lora_passive_slow else 5,arm_us=600000000 if args.lora_passive_slow else 240000000,one_arm_per_boot=True,common_grid_phase_us=400000,
             default_on=False,precision_sf=7,precision_bandwidth_hz=[41667,500000],
@@ -219,6 +221,13 @@ def main():
         receipt['fixed500_runtime'] = dict(ble_return_dwell_us=30000000,deferred_fault_ms=300000,
             precharge_lead_us=4000000,meta_launch_late_us=3000000,operator_rearm=True,
             source_gap='EXACT_AUTHENTICATED_SCOPE_FUTURE_PRECISION',normal_export_authority=False)
+        receipt['fixed500_runtime'].update(context_change='FRESH_TRAIN_META_AFTER_QUIESCENCE',
+            unannounced_context_retry=True,train_indicator='COMPLETED_FOLLOW_CADENCE')
+        receipt['fixed500_runtime'].update(restart_hold_us=30000000,display_source_freshness='ORIGINAL_CAPTURE_INTERVAL')
+        receipt['fixed500_runtime'].update(ble_source_gate='FRESH_AUTHENTICATED_DELIVERED_ACQUISITION',
+            ble_source_quality_ns=1000,ble_source_phase_ns=1000,train_permission_indicator=True)
+        receipt['fixed500_runtime'].update(receiver_watch='BOOT_CONTEXT_CACHE_PHYSICAL_PAIR_OBSERVER_V1',
+            early_time_pairs=1,causal_error_pairs=2,observer_export_authority=False)
     receipt['gm7_controller'] = None if not args.gm7 else {
         'manifest_sha256':sha(APP/'cmake/gm7-controller.json'),
         'generator_sha256':sha(APP/'tools/gm7_controller_hooks.py')}
@@ -326,6 +335,12 @@ def main():
             raise ValueError('Watchdog binding mismatch')
         run([sys.executable,str(APP/'tools/uf2.py'),'pack',str(target/'zephyr.bin'),str(out/'t096.uf2'),'--address','0x26000'],'uf2.log')
         receipt['watchdog_binding_sha256']=binding
+        if args.gm7:
+            # Exact native preprocessing remains memory-only; no private CPP dump.
+            write(out/'receipt.json',receipt)
+            from rc_check_sites import generate
+            write(out/'rc_check_sites.json',generate(out))
+            receipt['rc_check_site_map_sha256']=sha(out/'rc_check_sites.json')
         receipt['compiled_sources']={}
         for c in json.loads((out/'target/compile_commands.json').read_text()):
             p=Path(c['file']).resolve()
@@ -334,7 +349,7 @@ def main():
                     receipt['compiled_sources'][prefix+'/'+str(p.relative_to(base))]=sha(p);break
             else:raise ValueError('Unexpected compiled source')
         receipt['artifacts']={str(p.relative_to(out)):sha(p) for p in out.rglob('*') if p.is_file()
-                              and (p.suffix in ['.elf','.bin','.hex','.map','.uf2','.su'] or p.name in ['.config','zephyr.dts','build_identity.h','ptob_device.h','ptob_registry.h','registry.json','device.json','registry_generator.py','r2_enrollment.h','compile_commands.json'])}
+                              and (p.suffix in ['.elf','.bin','.hex','.map','.uf2','.su'] or p.name in ['.config','zephyr.dts','build_identity.h','ptob_device.h','ptob_registry.h','registry.json','device.json','registry_generator.py','r2_enrollment.h','compile_commands.json','rc_check_sites.json'])}
         receipt['status']='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN'
         write(out/'receipt.json',receipt)
         from inspect_build import inspect

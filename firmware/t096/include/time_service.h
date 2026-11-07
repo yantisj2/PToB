@@ -12,6 +12,8 @@ void r2_time_service(void);
 void r2_time_stop(void);
 int r2_time_close_result(void);
 void r2_time_snapshot(struct r2_clock_view *out,uint32_t *drops);
+/* UI-only main-owner overlay; does not service or mutate the source clock. */
+void r2_time_ui_guard(struct r2_clock_view *out,uint32_t *drops);
 /* Callback ingress: bounded copy only; timestamps are original callback times,
  * not precise hardware captures. No parser, estimator, formatting or storage. */
 void r2_time_input_bytes(const uint8_t *data,size_t size,int64_t received);

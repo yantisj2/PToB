@@ -4,6 +4,7 @@
  * normal owner; RC7 has its own code, state, callbacks, queues and lifecycle.
  */
 #include "rc_dynamic_service.h"
+#include "rf_clock.h"
 #include "rc_shadow.h"
 #include "rc_unicast.h"
 #include "runtime_profile.h"
@@ -112,11 +113,14 @@ int r2_service_close_result(void) {
          : r2_switch_rc_active() ? r2_dynamic_service_close_result()
                                  : r2_normal_service_close_result();
 }
-void r2_service_snapshot(struct r2_service_status *out) {
-  if (r2_switch_rc_active())
-    r2_dynamic_service_snapshot(out);
-  else
-    r2_normal_service_snapshot(out);
+void r2_service_rf_clock(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){
+ if(!out)return;
+ *out=(struct r2_rf_clock_sample){0};
+ if(!configured||pending||failure||!rx_requested||rx_suspended)return;
+ if(r2_switch_rc_active())r2_dynamic_service_rf_clock(out,at,now);
+ else r2_normal_service_rf_clock(out,at,now);
+}
+static void ui_snapshot_profile(struct r2_service_status *out){
   out->profile_rc = r2_switch_rc_active();
   out->profile_target_rc = target;
   out->profile_changes = changes;
@@ -134,12 +138,24 @@ void r2_service_snapshot(struct r2_service_status *out) {
     out->error = failure;
   if(rx_suspended){out->normal=running;out->active=out->closing=false;out->closed=true;}
 }
-void r2_service_ui(struct r2_ui_model *m) {
-  m->ble_local_holdover=false;
+void r2_service_snapshot(struct r2_service_status *out){
+
   if (r2_switch_rc_active())
-    r2_dynamic_service_ui(m);
+    r2_dynamic_service_snapshot(out);
   else
-    r2_normal_service_ui(m);
+    r2_normal_service_snapshot(out);
+  ui_snapshot_profile(out);
+}
+bool r2_service_snapshot_try(struct r2_service_status *out,r2_ui_read_boundary_fn boundary,void *context){
+ bool ok=r2_switch_rc_active()?r2_dynamic_service_snapshot_try(out,boundary,context):r2_normal_service_snapshot_try(out,boundary,context);
+ if(ok)ui_snapshot_profile(out);
+ return ok;
+}
+
+void r2_service_ui_logic(struct r2_ui_model *m,const struct r2_service_status *s) {
+  m->ble_local_holdover=false;
+  if(r2_switch_rc_active())r2_dynamic_service_ui_logic(m,s);
+  else r2_normal_service_ui_logic(m,s);
   m->profile_supported = true;
   m->profile_rc = r2_switch_rc_active();
   m->profile_switching = pending;
@@ -160,6 +176,14 @@ void r2_service_ui(struct r2_ui_model *m) {
         m->gm7_peer_eligible_claim=false;
 #endif
   }
+}
+void r2_service_ui_details(struct r2_ui_model *m,const struct r2_service_status *s){
+  if(r2_switch_rc_active())r2_dynamic_service_ui_details(m,s);
+  else r2_normal_service_ui_details(m,s);
+}
+void r2_service_ui(struct r2_ui_model *m) {
+  struct r2_service_status s;r2_service_snapshot(&s);
+  r2_service_ui_logic(m,&s);r2_service_ui_details(m,&s);
 }
 static int transition(bool next, uint64_t arrival) {
   uint64_t now = now_us();
@@ -386,4 +410,21 @@ int r2_service_relay_cancel(uint64_t session) {
 uint32_t r2_service_stack_unused(void) {
   return r2_switch_rc_active() ? r2_dynamic_service_stack_unused()
                                : r2_normal_service_stack_unused();
+}
+
+bool r2_service_ui_details_try(struct r2_ui_model *m,const struct r2_service_status *out,
+ r2_ui_read_boundary_fn boundary,void *context){
+ return r2_switch_rc_active()?r2_dynamic_service_ui_details_try(m,out,boundary,context):
+  r2_normal_service_ui_details_try(m,out,boundary,context);
+}
+bool r2_service_ui_lock_probe(unsigned owner){
+ return owner==R2_UI_READ_GM?r2_normal_service_ui_lock_probe():
+  owner==R2_UI_READ_RC?r2_dynamic_service_ui_lock_probe():false;
+}
+bool r2_service_rf_clock_try(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now,
+ r2_ui_read_boundary_fn boundary,void *context){
+ if(!out)return false;
+ if(!configured||pending||failure||!rx_requested||rx_suspended){*out=(struct r2_rf_clock_sample){0};return true;}
+ return r2_switch_rc_active()?r2_dynamic_service_rf_clock_try(out,at,now,boundary,context):
+  r2_normal_service_rf_clock_try(out,at,now,boundary,context);
 }

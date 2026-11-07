@@ -15,6 +15,8 @@ void r2_dynamic_service_acquisition_snapshot(uint32_t out[20]);
 void r2_dynamic_service_gm_admission_snapshot(uint32_t out[7]);
 void r2_dynamic_service_connection_snapshot(uint32_t out[20]);
 void r2_dynamic_service_ui(struct r2_ui_model *);
+void r2_dynamic_service_ui_logic(struct r2_ui_model *,const struct r2_service_status *);
+void r2_dynamic_service_ui_details(struct r2_ui_model *,const struct r2_service_status *);
 void r2_dynamic_service_supervise(void);
 int r2_dynamic_service_name(const char *);
 int r2_dynamic_service_parent_target(uint64_t);
@@ -22,3 +24,7 @@ uint32_t r2_dynamic_service_stack_unused(void);
 int r2_service_restart(uint64_t arrival_ms);
 int r2_dynamic_service_holdover_json(char *,size_t,bool);
 int r2_dynamic_service_holdover_test(uint32_t);
+
+bool r2_dynamic_service_snapshot_try(struct r2_service_status *,r2_ui_read_boundary_fn,void *);
+bool r2_dynamic_service_ui_details_try(struct r2_ui_model *,const struct r2_service_status *,r2_ui_read_boundary_fn,void *);
+bool r2_dynamic_service_ui_lock_probe(void);

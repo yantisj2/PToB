@@ -1,5 +1,404 @@
 # T096 changelog
 
+## 0.15.326 — urgent display arbitration
+
+Allow already-urgent bounded time/PPS work to reach arbitration without an
+optional base-priority handoff. Keep recovery, shutdown and optional formatting
+at their original safe priority. Bounded normal-GM and Saver windows retained
+all eligible PPS on/off commits; qualified follower-load digital observations
+include over100ms tails. Earlier startup misses and source/page transitions
+remain separate. These windows do not establish endurance, optical scan timing,
+independent UTC accuracy or fleet acceptance. Serving GM remains excluded from
+independent shadow self-comparison.
+
+## 0.15.325 — bounded raster work and attempt evidence
+
+Use pixel-equivalent palette spans and shared clipping while retaining the
+80-attempted-pixel checkpoint bound, ordinary abort cleanup and original SPI
+ownership/deadlines. Add a bounded on-demand last-attempt stage/result scalar.
+The first image restored digital progress but still had excessive retirement
+lateness; that failed observation is retained rather than treated as acceptance.
+
+## 0.15.324 — critical regions and always-available PPS lab
+
+Separate front digital seconds, actual local PPS and urgent clock-loss work from
+opportunistic background strips, using one UI thread and the existing buffers.
+Mandatory clock/input logic, BLE analog-loss grace, separate LoRa HOLD and
+boot-local TZ behavior remain independent of frame throughput. Per-region
+completion never fabricates a whole-page or analog ACK. Initial hardware
+performance failure is retained.
+
+Keep the independent PPS lab in ordinary images. Flatten all eight pending IRQ
+records losslessly, retain completed raw witness records and populations, share
+integer moments/serialization work, and preserve the original1043-bin percentile
+semantics and tails. No runtime PPS flash write or clock-discipline feedback is
+introduced. Nonempty independent hardware comparison still requires an eligible
+nonself source; absent input and late-association ambiguity remain explicit.
+
+## 0.15.323 — read only the diagnostic data needed
+
+- Read the existing UI error, maximum frame duration and missed-frame counters
+  under the same mutex for fault diagnostics. Preserve their capture cadence
+  and record bytes while avoiding unrelated logical-status projection.
+- Read main-owned logic-due fields directly in main. Keep the exact context,
+  source-hint, cadence, expiry and held-clock decisions; the optional worker
+  continues to write only descriptive model names.
+- Retain all .322 reductions and .320 display correctness fixes. Offline
+  verification remains distinct from display throughput and hardware acceptance.
+
+## 0.15.322 — skip unchanged diagnostic and publication work
+
+- Bound passive-LoRa console snapshot/projection polling to once per second
+  independently of its existing state-change/minute note and retry intervals.
+  Essential event capture, watchdog observation and timing owners are unchanged.
+- Avoid the UI publication mutex for an unchanged main-owned context tuple;
+  actual context changes retain the same serialized flags/revision publication.
+- Skip the LoRa worker priority setter when its effective priority already
+  matches the required normal/drain priority. Real transitions and external
+  stop promotion retain the existing priorities and two-millisecond sleep.
+- Return the unsuccessful .321 global timeslice experiment to .320 configuration.
+  Preserve .320 descriptive-cache, fresh frame-commit and truthful close fixes.
+  Offline preparation does not establish CPU savings or display acceptance.
+
+## 0.15.320 — stable descriptions and truthful render/close state
+
+- Keep descriptive root/upstream/coordinator names by actual factory identity
+  in the existing model. Routine timing refresh, temporary metadata absence,
+  permission expiry, owner backlog and dropped frames do not erase learned
+  names. Actual source replacement switches to its alias or fresh trusted name;
+  independently selected LoRa names remain keyed to their emitter. Descriptions
+  grant no clock permission, and current logical time retains original expiry.
+- Evaluate the current owned model at a fresh time inside the frame commit
+  mutex. A higher-priority same-source publication after physical frame end no
+  longer falsely clears drawn time or suppresses completed analog acknowledgment.
+- Separate last optional draw error from actual display close result. A returned
+  synchronous draw failure closes successfully only after CS recovery and PWM
+  off succeed; init/GPIO/CS/PWM failures still block closure. Add on-demand
+  `ui_close_result` without new state or stream. Keep the SPI250ms deadline.
+- Offline preparation and native proofs remain distinct from field acceptance.
+
+## 0.15.319 — logical clock maintenance independent of frames
+
+- Maintain presentation source/time, original owner deadlines and logical hold
+  histories from the main timing loop, independent of optional render demand,
+  owner backlog, LCD initialization and frame errors. Names, peer detail,
+  RF comparisons, calendar and SPI remain optional worker work at priority9.
+- Same-context clock renewals do not alone cancel frames. Completed analog
+  pixels can seed the existing500ms visual-loss history only against a current
+  owned projection with unchanged source/control/policy generation.
+- Add compact on-demand `ui_logic:[age_ms,flags]`. This describes the current
+  logical snapshot; existing `ui_input[0]` remains the last completed frame's
+  model timestamp. Neither field establishes UTC/output accuracy.
+- Offline preparation only; hardware acceptance remains separate. Original
+  SPI250ms deadline, timing policies, input rules and fault retention remain.
+
+
+## 0.15.318 — independent input sampling
+
+Sample the unchanged button/debounce/menu rules on a bounded20ms main tick.
+Heavy visual projection and rendering remain opportunistic. Preserve GPIO
+sampling through LCD initialization/render errors, original virtual-control
+readiness, wallclock help/menu/grace policies and SPI ownership/deadline.
+The317 qualified-load menu-tap failure is retained; this candidate requires
+its own runtime canary.
+
+
+
+## 0.15.317 — balanced UI opportunities
+
+Use the existing priority9 GM workqueue yield boundaries for UI progress.
+Main, precision, supervision and urgent LoRa drain retain precedence; explicit
+UI phase yields occur outside SPI ownership. Admit coalesced visual models
+while owner work is queued, and defer during execution/backlog/transitions.
+The earlier all-idle admission and priority12 choice failed the316 hardware
+canary. Preserve that failure and all existing source, grace, DMA and deadline
+guards. Fresh same-revision RC owner-projected display HOLD keeps only its own
+original deadline and existing analog policy. This candidate remains unqualified
+until its own runtime canary.
+
+
+## 0.15.316
+
+- Coalesce optional GM/RC visual models at display cadence and defer them while
+  radio/control work or a profile transition is pending. Preserve the main
+  thread's existing profile ownership and input wallclock deadlines.
+- Run the display worker below timing and LoRa owners. Calculate visual
+  histories and drawn predicates outside its mutex, discard obsolete renders,
+  and retain the original SPI deadline and owned-buffer retirement.
+- Fence cached source permissions independently of optional model work; hints
+  only withdraw availability. Preserve BLE visual loss grace, independent RC
+  LoRa HOLD, and boot-local timezone preference. Read poweroff/closure through
+  small atomic views.
+- Offline synthetic/native checks establish code and resource bounds; physical
+  stability, timing accuracy and endurance remain unqualified.
+
+## 0.15.315 — identify the first failed RC check
+
+A failure-only four-byte scalar records the check site after the original EIO
+decision. Accepted watchdog context carries that typed site in existing detail
+bits; the build retains a source-bound compiler map for offline decoding.
+Missing metadata stays unknown. Fault, reset, admission and expiry decisions are
+unchanged. No new fault slot, runtime flash write or periodic stream is added.
+The scalar advances owner provenance only after the existing join/reset admission
+gates. A delayed old winner cannot relabel a new owner, and the copied status carries
+the same diagnostic generation so a cross-owner read remains unknown. A rare
+configure mutex protects only the original final status/name publication. Provenance exhaustion
+keeps annotation unknown until reboot; it never blocks a fault or reset.
+
+
+## 0.15.314 — thread-only UI synchronization
+
+Replace the UI state spinlock with a priority-inheriting thread mutex so model,
+hold and calendar calculations leave radio interrupts enabled. Display I/O,
+sleeping and timing/source permission remain outside this synchronization change.
+This candidate derives from 0.15.310 and preserves its durable CPU/watchdog fault
+capture. It does not include the pending LoRa, USB or fault-detail candidates.
+Hardware stability and the cause of the observed backend/controller faults remain
+unqualified; offline checks are recorded with the local candidate artifacts.
+
+## 0.15.310 — GM BLE failure retires the LoRa watch
+
+After a GM-profile BLE source loss or authenticated replacement, discard the
+old LoRa timing/display maps while retaining receive activity, authenticated
+META/TZ and replay floors. Remain in BLE acquisition/election until a fresh
+normal BLE clock, qualified local GM takeover or an explicit RC switch. RC
+fallback and HOLD remain unchanged. The GM precision page always shows native
+BLE/GM timing; the separate RF page still observes both radios. This adds no
+LoRa election authority or clock/lease extension.
+
+## 0.15.309 — boot-only durable fault records
+
+Append pending CPU and distinct watchdog/reset context before radio startup.
+Sixteen512B diagnostic slots preserve occupied/torn/foreign data with no erase
+or runtime writer. Verified commit/readback acknowledges RAM; full-record
+deduplication avoids repeated saves. Full storage keeps RAM pending and reports
+failure. Bare observations preserve raw reset flags with unknown prior context,
+without fabricating a CPU frame. Add bounded read-only0200–027f journal chunks
+and CPU/watchdog result/slot fields. Operational timing/profiles stay volatile;
+cross-image SRAM survival and a hard500ms driver-call timeout are not guaranteed.
+
+## 0.15.308 — fault-only reset evidence
+
+Retain the existing bounded watchdog and CPU crash records in reset-surviving
+RAM. CRC, schema, exact source/private build and factory checks gate diagnostic
+readout; prior boot identity stays explicit. The first valid pending CPU record
+is preserved across resets. RAM survival is conditional; no flash writer,
+operational clock/profile restoration or watchdog policy change is included.
+The separate 256B fault capsule remains current-boot only.
+
+## 0.15.307 — restore historical BLE analog eligibility
+
+Restore the pre-LoRa BLE dial rules by removing the later local-hold analog
+exception. The original 500ms anti-flicker interval and all map, scope,
+qualification and render-time expiry rules remain unchanged. LoRa display and
+HOLD rules are unchanged. Cached BLE UTC can no longer keep the dial visible
+for the 120s observation window after native timing is lost.
+
+## 0.15.306
+
+Restore BLE acquisition presentation when the independent LoRa watch is only
+estimated or held. Qualified LoRa still observes the existing BLE return dwell.
+The RF page again shows BLE-minus-LoRa DELTA ns and delivered-rate PPB from a
+single hardware capture, including provisional values marked EST. Unknown rates
+and expired clocks remain explicit. These read-only projections run only while
+the RF page is visible and add no timing or source authority.
+
+## 0.15.305
+
+Keep authenticated CONTROL scope separate from independently published precision
+timing scope. Ordinary precision refreshes no longer overwrite CONTROL identity
+and trigger repeated merge withdrawals. Real source/context replacements and
+withdrawals retain their fences. Distinguish atomic snapshot refreshes from
+sustained reception outages in the bounded causal history.
+
+## 0.15.303
+
+Allow the new causal-history read-only pages through the actual bounded command parser. Capture-enabled GM7 accepts pages0–13; ordinary GM7 remains0–9 and legacy GM remains0–4. Boot/source/factory binding and reply limits are unchanged.
+
+
+## 0.15.302
+
+Add bounded producer-side loss, cause/context change and recovery evidence for the GM7 direct BLE timing channel. A first-loss-since-boot summary and per-episode onset survive recovery and timing-journal overwrite. Read-only pages and sparse idle-only console notes expose original HF/kernel/source bounds and authenticated origin context. Timing models, permission/quality gates, radio/PHY and maintenance policy remain unchanged; this is diagnostic visibility, not a stability or UTC qualification.
+
+
+## 0.15.300 — coherent follower refusal diagnostics
+
+`gm 09` describes the current control scope, PT input grant, published clock
+scope and progressing authenticated header at one query capture. Readable
+causes distinguish capture continuity, physical map life, matched signed data
+permission, control binding and published estimator state. Kernel microseconds
+and HF ticks/epochs remain explicitly separate; unavailable signed-origin
+expiry and the separately sampled LoRa return owner are marked as such.
+
+One descriptive 8-byte deadline accompanies the existing PT publication. It
+never enters clock reads, source exports, leases, selection or model updates.
+Query formatting runs after the existing service/PT locks are released. Radio,
+capture ISR, authentication, physical life, permission and quality policies
+remain unchanged. These diagnostics establish no independent UTC accuracy.
+
+## 0.15.298 — separate BLE observation from LoRa transmission exports
+
+The fixed500 direct GM7 receive owner observes its existing authenticated,
+qualified BLE clock and original permission deadline directly. It no longer constructs a hypothetical
+LoRa transmission export on every BLE worker pass. Actual transmitter exports,
+source leases, delivered maps and physical map life retain their existing gates.
+
+Unknown and nonbroadcast parent paths cannot enter this direct observer.
+The local return observer binds the immediate parent and root identities/boots,
+source epoch, transport train and both capture generations. RX OFF or disabled
+service fences observation and avoids receiver-only work; late observations cannot
+readmit it. This local scope is not a wire context or timing authority.
+
+Actual-owner tests retain return hysteresis and real withdrawal. A900-packet
+authenticated producer replay compares the complete BLE model, UTC and permission
+trajectory with observation enabled and disabled. Physical reception and source
+availability still require their separate hardware checks.
+
+## 0.15.297 — BLE return ownership and reception diagnostics
+
+Apply the fixed500 receiver's30s qualified BLE return dwell only while LoRa
+owns the watch. Once the common owner has selected a valid BLE clock, a
+separate LoRa-export quality refusal no longer sends that clock back through
+the return dwell. Actual common-clock loss or expiry still selects fallback
+immediately and requires a fresh qualified return. The actual owner regression
+retains both cases, including refusal, export withdrawal and real clock loss.
+
+The read-only precision reply exposes cumulative capture outcomes and last
+event tuples to distinguish controller reception, CRC and capture failures from
+clock-permission expiry. This adds no timing authority or freshness extension.
+Host checks establish the selection behavior; physical BLE stability remains a
+separate measured requirement.
+
+## 0.15.296 — early receiver time and durable field display
+
+Fixed500 RX displays its first authenticated physical pair immediately and
+measures causal prediction error from pair two. PRED RMS uses the latest eight
+known pre-update errors; diagnostic totals retain the complete context
+population. Acquisition and held state stay in the analog area, with the
+original digital clock and measured-error footer intact. Pair/error ages expose
+missing receptions instead of hiding time behind the qualified-fit requirement.
+
+Separate the boot-local authenticated META/TZ cache and human observer from
+live timing grants. Same-context authenticated pairs remain observable after
+META expiry; cached metadata cannot renew precision, shadow PPS or export
+authority. Same-context META refresh preserves observer history. Genuine context
+replacement, OFF, capture discontinuity, withdrawal and faults fence timing and
+require fresh admission. Long RF gaps retain an advancing estimated digital
+watch, source description and aged errors. The original qualified receiver,
+transmitter behavior, airtime, stack and mutable-memory ceilings remain bounded
+by their existing contracts. Host tests and previews do not qualify hardware
+accuracy or field performance.
+
+## 0.15.295 — causal LoRa clock-error visibility
+
+Label the overlapping LoRa sample statistic FIT RMS. It is not the error of
+the delivered clock at a future packet. Console `pair_prediction` reports a
+separate signed error of the previously delivered map at the next accepted
+physical SYNC event, measured before the new FOLLOW updates the fit or map.
+The original context, capture and physical/META deadlines still apply. Unknown
+predictions and clipped signed values are explicit. This instrumentation changes
+no clock discipline, timing selection, train schedule or source authority.
+
+The RX measurement reuses role-exclusive diagnostic storage, preserving the
+existing static RAM budgets and the meaning of TX-only source-window fields.
+
+## 0.15.294 — independent receiver displays and reconnectable USB maintenance
+
+Keep the qualified LoRa diagnostic clock visible alongside BLE on the RF page
+in both GM and RC, without changing the selected primary source or feeding the
+LoRa witness into BLE. Acquisition shows WAIT META, WAIT PAIR, actual fit span
+and pair count, or PAIR GAP. Learned source identities use the full registry
+binding before the hexadecimal fallback. RF-page help opens at1.5s, with the
+ordinary menu still at2s. Waking the screensaver consumes that button gesture.
+
+Receive lamps use actual CRC-valid decoded payload events, with separate timing
+and unknown indicators. Idle publications, header/carrier events and invalid
+captures cannot keep a lamp blinking; activity ages from the original event.
+
+Read-only STATUS now accepts a lower request ID and reports the accepted cursor
+without advancing it. Exact bindings and deadlines still apply, and all other
+commands retain strictly increasing IDs. New console owners resume from that
+cursor. This removes silent replay rejection caused by lower host-session seeds
+and allows normal software maintenance after reconnecting.
+
+## 0.15.293 — fixed500 source availability independent of strict BLE lock
+
+Keep fixed500 LoRa running on a fresh authenticated delivered BLE map when the
+strict200ns PLL badge reacquires. The source must still pass its existing1us
+acquisition quality, delivered RMS strictly below1us, remaining phase at most1us,
+current control/capture binding and original expiry, with no servo fault.
+The strict BLE lock indication and ordinary passive profiles retain their gates.
+These are engineering source gates, not measured absolute UTC bounds.
+
+The TX mast requires a recent completed FOLLOW, a matching current context,
+current send permission and an already reserved pair or enough pair budget.
+Restart events turn it orange immediately. Console and compact diagnostics name
+the source gate (`BLE_QUALITY`, unavailable BLE map, unready GNSS, capture or
+scope loss), retaining the30s hold and source-event diagnostics without new RAM.
+Host regressions reproduce an unchanged source with150..260ns quality changes,
+retain its export, and reject1us quality, excessive phase, fault and expiry.
+Restoring only the strict BLE badge gate fails that same counterexample.
+
+## 0.15.292 — fixed500 restart hold-down and source-valid TX indication
+
+After source withdrawal, source/capture replacement or an active-source stop,
+fixed500 TX drains and waits30s after the last event before restarting.
+Further events restart that wait; no RF is admitted during it. The same
+authenticated source resumes its existing train/grid, while a changed wire
+context starts a fresh authenticated META/train. Original source expiry,
+physical closure, replay floors and airtime accounting still apply.
+
+The TX mast follows the source's original capture-valid interval instead of a
+100ms worker-poll heuristic. Ordinary worker preemption cannot turn an otherwise
+valid active train orange. Actual source expiry and missing completed pairs
+still do. Console notes add `RESTART_HOLD` and its remaining milliseconds;
+compact diagnostics include the hold, source-event counts and last withdrawal
+call site for exact-image diagnosis. Host checks cover repeated events, zero RF
+during the hold, same-train continuity, original expiry and delayed worker polls.
+These offline checks do not establish the cause or resolution of field outages.
+
+## 0.15.291 — LoRa source isolation, context recovery and train visibility
+
+Use the current precision-owner grant when fencing an own-GNSS LoRa source.
+An older published GM result must not let local GNSS loss withdraw an already
+selected BLE follower. Local GNSS loss, reacquisition and source generations on
+a follower do not change its upstream LoRa context. Ordinary fresh maps, brief
+same-scope source returns and transmitter capture rebinding preserve its train.
+
+Fixed500 source identity/boot/parent/kind or authenticated source-epoch changes
+start a fresh train and META after actual quiescent closure, instead of waiting
+for the retired train's300s META grid. Failed unannounced META attempts remain
+eligible for bounded recovery. Source authentication, original RF/capture and
+finish gates, replay floors, airtime debt and the90s/h cap remain mandatory.
+The new train's ordinary META cadence remains300s; no historical catch-up burst.
+
+Passive images emit nonblocking `#R2_LORA` console state changes at most once per
+second and steady status once per minute while a console is connected. Reports
+include completed-pair age, source stream/epoch, META wait, no source, cap,
+stalled train and faults. `lora-diag` adds `train_active`, `last_pair_us` and
+`pair_age_ms`; an unknown pair age is4294967295. The clock and screensaver TX
+mast stays orange while requested but waiting, unsynced, stalled or faulted.
+It becomes blue only after a real FOLLOW completion in the current context,
+within normal cadence. Source-ready and radio-enabled alone cannot make it blue.
+
+Host regression coverage includes context recovery, a missed recovery META,
+same-source continuity, local GNSS isolation, cap refusal, console behavior and
+both rendered faces. These are offline checks; the reported intermittent field
+outage still needs a bounded sender/receiver capture after an authorized update.
+
+## 0.15.290 — boosted LoRa reception
+
+Enable SX1262 boosted receive gain (`0x08ac = 0x96`) after every radio reset,
+with matching readback required before RF enable. Select the T096 KCT8103L
+external LNA during reception (`CSD=1, CTX=0`); the prior `CTX=1` path bypassed
+that LNA. Transmission retains `CTX=1`, automatic DIO2/CPS switching and18dBm
+chip drive targeting nominal28dBm board output. Existing hardware cutoffs,
+capture/source fences and stop/drain behavior remain. Production-driver host
+checks cover RX/rearm, RX→TX→RX, gain-write failure and mismatched readback.
+These are offline fixes; physical reception, gain, power and range remain
+unmeasured for this revision. RSSI is the radio's reading after the front end,
+without a calibrated antenna-input correction.
+
 ## 0.15.289 — fixed500 META processing after HeaderValid
 
 Fixed500 META allows its787,456us full packet airtime in addition to the

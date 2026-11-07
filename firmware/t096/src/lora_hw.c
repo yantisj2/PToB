@@ -24,6 +24,8 @@
 #define CSD_PIN NRF_GPIO_PIN_MAP(0, 12)
 /* SX1262 drive into the T096 external PA; nominal board output ~28dBm. */
 #define TX_CHIP_DBM 18
+#define RX_GAIN_REG 0x08acu
+#define RX_GAIN_BOOSTED 0x96u
 #define TIMING_CUTOFF_US 360000u
 #define DIAGNOSTIC_CUTOFF_US 450000u
 #define BUSY_MS 30u
@@ -449,9 +451,9 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
       irq_unlock(key);
       return -EAGAIN;
     }
-    /* Official Heltec bypass RX: CSD=1,CTX=1,DIO2(CPS)=0. In TX DIO2=1.
+    /* T096 KCT8103L: RX LNA CSD=1,CTX=0; TX CSD=1,CTX=1,DIO2(CPS)=1.
      * Chip drive is18dBm; nominal PA output is28dBm, not measured power. */
-    rc = gpio_pin_set_dt(&ctx, 1);
+    rc = gpio_pin_set_dt(&ctx, transmit ? 1 : 0);
     if (!rc && transmit) {
       wd.launch_us=(uint32_t)now;wd.launch_ms=(uint32_t)(now/1000u);
       atomic_clear(&cutoff_expired);
@@ -641,6 +643,14 @@ int r2_lora_hw_start(uint32_t gen, bool receive) {
   uint8_t v;
   if (!(rc = reg_write(0x08e7, 0x38)) && !(rc = reg_read(0x08d8, &v)))
     rc = reg_write(0x08d8, v | 0x1e);
+  /* Semtech boosted RX gain. Reapply after each reset; this owner never
+   * sleeps the chip. Check actual readback before enabling the RF path. */
+  if (!rc)
+    rc = reg_write(RX_GAIN_REG, RX_GAIN_BOOSTED);
+  if (!rc)
+    rc = reg_read(RX_GAIN_REG, &v);
+  if (!rc && v != RX_GAIN_BOOSTED)
+    rc = -EIO;
   if (!rc && !(rc = reg_read(0x0889, &v)))
     rc = reg_write(0x0889, v & ~4u);
   if (!rc && !(rc = reg_read(0x0736, &v)))

@@ -142,17 +142,40 @@ hash and preserves a private build snapshot.
 
 ## Optional LoRa configuration
 
+The radio selects SX1262 boosted RX gain (`0x08ac = 0x96`) with startup readback
+and enables the KCT8103L external LNA for reception (`CSD=1, CTX=0`). TX retains
+`CSD=1, CTX=1` and DIO2/CPS control, with18dBm chip drive targeting nominal28dBm
+board output. This is configuration, not measured gain or RF power. RSSI is
+read at the radio after the front end; no calibrated LNA correction is applied.
+The [board reference](https://github.com/meshtastic/firmware/blob/develop/variants/nrf52840/heltec_mesh_node_t096/variant.h)
+records the distinct LNA/bypass/TX states; the
+[Semtech reference driver](https://github.com/Lora-net/sx126x_driver/blob/master/src/sx126x.c)
+defines boosted gain. Both owners reapply gain on reset and use no RX sleep cycle.
+Recheck physical endpoint calibration after changing the receive front end;
+host gain checks do not qualify an earlier timing correction for that path.
+
 The separately authorized `--lora-fixed500-experiment` requires
 `--lora-passive-slow` and matched normal GM/RC images. It selects experimental
 schedule8: one922.4MHz/SF11/BW500/CR4/8 PHY, preamble12, explicit header/CRC,
 30s SYNC/FOLLOW,300s META and no DISC. It boots requested ON; RX is continuous.
 It rejects other lab modes and manual UTC jobs/cap overrides. Reservations
 use actual packet costs plus10ms each under90s/h accounting; nominal steady
-traffic reserves79.061952s/h. Strict META slots stay on their original grid;
-hard source-context turnover waits for the next scheduled META and missed slots
-do not create catch-up bursts. A brief return of the exact same authenticated
-source scope can resume future precision slots without another META. A scheduled META may proceed without its pair if
+traffic reserves79.061952s/h. Normal META stays300s within a train. A real
+source-context turnover drains the old transaction and starts a fresh train
+with new META after a30s restart hold; an unannounced context retries after a missed launch. Missed
+slots do not create catch-up bursts. Ordinary map refreshes, local GNSS changes
+while following another GM, and a brief return of the exact same authenticated
+source preserve the train and future precision slots. Source withdrawal,
+source/capture replacement and active-source stops impose30s without RF after
+the last event; additional events restart that hold. Routine formula refreshes
+do not impose a hold. A scheduled META may proceed without its pair if
 only META fits the remaining cap. Physical faults still inhibit the service.
+Fixed500 BLE export uses a current authenticated delivered map with original
+control/capture/source expiry. It requires the existing1us acquisition-quality
+gate, delivered RMS strictly below1us, remaining commanded phase at most1us and
+no servo fault. The strict200ns BLE PLL badge is reported independently; its
+reacquisition alone does not interrupt this sparse train. Ordinary passive
+profiles still require their existing BLE lock. No RMS-to-UTC bound is implied.
 
 This is an experimental candidate, not the normal LoRa default or an RF
 authorization. All packets use HeaderValid capture confirmed by CRC/RxDone;
@@ -176,6 +199,11 @@ fault or cap. Normal periodic META remains300s with no automatic catch-up.
 Declared faults and eligible TX no-progress request watchdog recovery after300s;
 the existing30s parent-watchdog period still bounds the subsequent physical reset.
 RX silence/source absence/cap refusal do not start that no-progress timer.
+Fixed500 builds include a separate boot-context receiver observer. It exposes
+first-pair estimated time, pair-two causal error and cached META/TZ through RF
+gaps while the original strict receiver keeps its live-grant deadlines. The
+receipt binds this display-only behavior explicitly; native inspection requires
+the compiled and linked implementation within the existing memory/stack limits.
 Read the changelog and exact private deployment scope before hardware work.
 Run its actual owner/core/driver synthetic checks offline:
 
@@ -204,6 +232,10 @@ receivers; earlier schedule2 images reject its packets. The7s SYNC offset
 and700-unit delay validator remain. The [soak guide](lora-soak.md)
 separates ordinary reception qualification from [manual UTC jobs](lora-utc-diagnostic.md).
 
+Fault-only diagnostics can append before radio startup to a separate16-slot
+journal, preserving occupied/torn/foreign records with no erase or runtime
+writer. See [durable readout and limits](diagnostics.md#fault-only-reset-retention-and-durable-readout).
+
 All mutable operational state is RAM-only. Physical boot starts zero airtime,
 a fresh random seed and clean cursor/serial/pending/fault state. Service/profile/
 source changes within the boot retain accounting and cooldowns. No ledger
@@ -215,6 +247,12 @@ RF mode, antenna and authorization before any separately scoped transmission;
 see [range/compliance considerations](lora-protocol.md#range-and-fcc-compliance-considerations).
 
 `lora` queries detailed role/source/radio state; `lora-diag` is compact.
+Passive images also report bounded `#R2_LORA` state changes and minute status
+on a connected console. Completed-pair age distinguishes a live train from
+enabled hardware. The analog TX mast is orange while enabled and waiting;
+blue requires current source permission and a recent completed timing pair.
+It also requires matching context, current send permission and reserved or
+available pair budget. The source gate is named in notes and compact diagnostics.
 `lora 00/01` or the menu changes the configured role's volatile request. An ON
 request proves neither RF activity nor valid time. A 2 s hold opens the menu;
 taps move and another hold selects. [Button controls](../../firmware/t096/README.md#button-controls).

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
+#include "ui_read.h"
 #include "../protocol/time_zone.h"
 #include "service_backend_alias.h"
 #define R2_FIELD_CLIENT_WINDOW_US 450000u /* explicit FIELD450_QUIET500_V1 treatment */
@@ -71,6 +72,7 @@ struct r2_service_status {
  unsigned self,coordinator,root,standby,members,phase;
  int error;
  uint8_t lamps[8];
+ uint16_t rc_check_generation; /* Diagnostic stamp in existing status padding. */
  struct r2_link_quality_view reception; /* Existing selected timing-parent delivery. */
  bool normal;
  bool configured,active,closing,closed,serving,follower,follower_clock_valid;
@@ -79,6 +81,17 @@ struct r2_service_status {
  struct r2_tz tz;uint64_t tz_until_us; /* Uses existing status tail alignment. */
 #endif
 };
+#if defined(CONFIG_ARM) && defined(R2_GM7_NATIVE) && defined(R2_TZ_WIRE) && !defined(R2_GM7_MODEL)
+_Static_assert(sizeof(struct r2_service_status)==1296&&
+ offsetof(struct r2_service_status,rc_check_generation)==1244&&
+ offsetof(struct r2_service_status,reception)==1248,"Reuse native status padding without growth");
+#endif
+/* Descriptive factory keys only; unknown fields never grant source validity. */
+static inline void r2_service_ui_label_ids(struct r2_ui_label_ids *out,const struct r2_service_status *s){
+ out->root=s->root<4?s->identities[s->root]:0;
+ out->upstream=s->relay.selected&&s->relay.parent_identity?s->relay.parent_identity:out->root;
+ out->coordinator=s->coordinator<4?s->identities[s->coordinator]:0;
+}
 /* Before bt_enable. Provisioned identity and keys are not discovery inputs. */
 int r2_service_configure(const struct r2_identity *id,const struct r2_enrollment *enrollment);
 /* Main clock owner publishes an immutable copy. Worker never runs GNSS/parser. */
@@ -90,7 +103,14 @@ int r2_service_run(uint64_t arrival_ms);
 void r2_service_stop(void);
 int r2_service_close_result(void);
 void r2_service_snapshot(struct r2_service_status *out);
+/* Optional UI reads only; unavailable mutex leaves output unusable. */
+bool r2_service_snapshot_try(struct r2_service_status *,r2_ui_read_boundary_fn,void *);
+bool r2_service_ui_details_try(struct r2_ui_model *,const struct r2_service_status *,
+ r2_ui_read_boundary_fn,void *);
+bool r2_service_ui_lock_probe(unsigned owner);
 void r2_service_ui(struct r2_ui_model *out);
+void r2_service_ui_logic(struct r2_ui_model *,const struct r2_service_status *);
+void r2_service_ui_details(struct r2_ui_model *,const struct r2_service_status *);
 void r2_service_supervise(void);
 
 int r2_service_preflight(uint32_t seconds,uint64_t arrival_ms);

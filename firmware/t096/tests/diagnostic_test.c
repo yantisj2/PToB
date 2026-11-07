@@ -16,6 +16,7 @@ static uint8_t storage[16384] __aligned(4);static bool closed;
 static struct r2_service_status radio_status;
 void r2_service_snapshot(struct r2_service_status *s){*s=radio_status;}
 void r2_ui_snapshot(struct r2_ui_status *s){memset(s,0,sizeof(*s));s->max_frame_ms=17;}
+void r2_ui_diag_snapshot(int *error,uint32_t *max_frame_ms,uint32_t *missed){*error=0;*max_frame_ms=17;*missed=0;}
 uint32_t r2_ui_stack_unused(void){return 1024;}
 int64_t k_uptime_get(void){return now;}
 void r2_platform_snapshot(struct r2_platform *p){memset(p,0,sizeof(*p));p->close_done=closed;}

@@ -294,17 +294,33 @@ FRESHNESS_UNKNOWN. Rejected packets cannot clear, replace or renew accepted
 state.
 
 Fitting retains at most 16 points, spaced at least 20 s apart within 300 s, and
-needs four points spanning 180 s. LOR RMS is overlapping relative fit residual,
-not UTC accuracy or an uncertainty bound. A cold slow watch may show amber ACQ
+needs four points spanning 180 s. FIT RMS is overlapping relative fit residual,
+not delivered-clock prediction error, UTC accuracy or an uncertainty bound. A cold slow watch may show amber ACQ
 from its first authenticated physical pair using nominal local rate. This frozen
 map's reference cannot be moved or renewed by untrained packets. A trained fit
 replaces it. The last trained map can continue as advancing amber HOLD while
 local capture remains continuous; its reference age keeps increasing. Same
 emitter factory/physical boot source turnover can retain that frozen display
-while a fresh fit trains. OFF, profile/source selection, different emitter or
+while a fresh fit trains. Changing the preferred display input preserves the
+independent same-context LoRa map. OFF, a profile transition, different emitter or
 boot, authenticated TIME_INVALID, capture discontinuity and terminal faults
 clear the map. ACQ/HOLD grant no timing, RF or export authority and cannot pass
 a fresh-reception gate. Their total uncertainty remains unknown.
+
+Fixed500 receivers additionally retain a separate human observer. Its first
+authenticated physical pair supplies estimated digital time; the second can
+measure the prior prediction. Early rate learning never grants qualified-fit
+permission. After META expiry, a previously admitted observer can accept
+same-context MAC-verified two-step packets under the original capture,
+monotonic UTC, cursor floor/window and FOLLOW deadline checks. This does not
+renew the META lease, qualified timing, shadow PPS or serving authority. Lost
+pairs retain an advancing display and actual reference/error ages. Refreshing
+the same META context retains history; genuine context replacement, OFF,
+counter discontinuity, authenticated TIME_INVALID and terminal faults fence it
+until fresh authenticated admission. Descriptive META/TZ remain cached for the
+boot and cannot readmit timing on their own. A new physical pair can replace an
+aged reference; a poll or cached META cannot. The original strict receiver and
+its deadlines remain separate.
 
 Authenticated selected TZ can be learned before UTC and cached for the boot.
 Known geographic IDs use pinned calendars at displayed UTC. Valid changed
@@ -349,6 +365,86 @@ operation must avoid harmful interference and accept interference under
 approved power or range claim is made here.
 
 ## Diagnostic fields
+
+Passive images emit `#R2_LORA` console notes for state changes, at most1Hz,
+with a60s steady-state heartbeat. They use the existing DTR-only nonblocking
+note path and never displace a queued command reply. `NO_SOURCE`, `META_WAIT`,
+`TRAIN_WAIT`, `TX_STALLED`, `RESTART_HOLD`, `AIRTIME_CAP` and `FAULT` distinguish causes;
+`ACTIVE` requires a completed current-context FOLLOW within normal cadence.
+Notes retain stream/epoch, pair age, completion/refusal/lateness counts, charge
+and context-reset count. Fixed500 notes include `hold_ms` and the last source
+withdrawal call site. A lost/disconnected USB console cannot retain a note;
+explicit diagnostics remain available and fault evidence keeps its own policy.
+
+`lora-diag.train_active` reports that same transmitter progress criterion.
+`last_pair_us` is the last completed TX FOLLOW or accepted RX pair in monotonic
+microseconds; zero is unknown. `pair_age_ms` is4294967295 when unknown. The
+analog clock/saver TX mast is orange while TX is requested but cannot meet the
+live-train criterion, blue while it does, and absent when TX is OFF. It is
+display status, never new source or RF authority.
+Blue also requires matching current context, send permission and reserved or
+available pair budget; a restart event turns it orange immediately. It reports
+sender progress, not receiver acknowledgement on this one-way link.
+
+Receiver `pair_prediction` is `[known, error_ns, clipped]`. It compares the
+previously delivered clock against the next accepted physical pair, before
+that pair changes the fit or delivered map. Positive error means the accepted
+pair's time is ahead of the old clock. The projection checks its original
+context, capture and physical/META deadlines at the physical SYNC event. The
+measurement grants no new timing authority. Unknown measurements are explicit;
+errors outside the signed32-bit range saturate with `clipped=true`. Retain
+`event_tick`, `event_ns`, accepted count and context to determine the actual
+pair interval, which can include loss. A small overlapping FIT RMS alone does
+not establish sub-microsecond prediction or HOLD performance. These are
+relative packet-clock observations, not independent output or UTC measurements.
+
+Fixed500 `PRED RMS` uses the latest eight known pre-update packet-clock errors.
+It begins with the first known error, normally at pair two, and remains visible
+with its original error age during RF loss. The first pair has unknown error,
+not zero error. The observer never supplies a UTC uncertainty bound.
+`link_fit` retains the original strict physical-link fit statistic separately.
+The fixed500 `watch` array in `lora` and `lora-diag` contains these 18 values:
+
+| Index | Meaning |
+| --- | --- |
+| 0–2 | META cached, observer available, observer reason |
+| 3–5 | Accepted physical pairs, current-admission predictions, latest-eight RMS ns |
+| 6–9 | Total context predictions, full RMS ns, maximum ns, errors ≥1 µs |
+| 10–11 | Last measured error age ms, last physical pair age ms |
+| 12–13 | Observer fit points, fit span ms |
+| 14–17 | Last physical capture tick, corrected source UTC ns, local monotonic µs, capture epoch |
+
+Unknown ages and RMS use `UINT32_MAX`; an absent physical reference uses zero.
+Reason0 is admitted,2 context replaced,3 authenticated withdrawal,
+4 counter discontinuity,5 stopped and7 fault. Cached description and observer availability
+are independent. Preserve missing predictions, clipped errors and all physical
+intervals when assessing the complete population.
+
+Fixed500 accepts a fresh authenticated delivered BLE clock independently of the
+strict200ns PLL badge. Existing1us acquisition quality, delivered RMS below1us,
+remaining phase at most1us, no servo fault and original control/capture/source
+expiry remain mandatory. This prevents a precision-badge reacquisition from
+revoking otherwise eligible timing. It does not change BLE lock, ordinary
+passive profiles, source authentication or any RF gate. These empirical quality
+statistics are not absolute UTC bounds. `source_gate` names `READY`, `NO_SCOPE`,
+`GNSS_NOT_READY`, `BLE_MAP_UNAVAILABLE`, `BLE_QUALITY`, `CAPTURE_UNAVAILABLE`,
+`SCOPE_REVOKED` or `SOURCE_UNAVAILABLE` in notes and compact diagnostics.
+
+For fixed500, map refreshes, same-source permission returns and local GNSS
+changes on a BLE follower preserve the train. The wire context consists of
+emitter/boot, root/boot, parent/boot, kind and authenticated source epoch;
+the sender's local capture generation is not part of that context. An actual
+context replacement requires new authenticated META. After safe closure the
+sender waits30s after the last restart event, then starts a fresh train,
+retaining seed/cursor/serial floors and all airtime debt. Its normal300s META
+cadence starts from that train. Source withdrawal, source/capture replacement
+and active-source stops restart this hold; routine formula refreshes do not.
+The same authenticated context resumes its existing train after the hold.
+`restart_hold_ms`, `source_event_counts` (withdrawal, scope/capture change,
+same-context resume, hard-context retirement) and `source_withdraw_pc` retain
+the diagnostic causes; the call site requires the exact installed ELF. Source
+absence, cap exhaustion and physical faults still inhibit RF; recovery grants
+no permission to send without a valid source or exceed the cap.
 
 RX activity and TX permission are distinct. `lora-diag.tx_gate` reports
 independent inhibition bits: 1 not TX-capable, 2 RC profile, 4 service

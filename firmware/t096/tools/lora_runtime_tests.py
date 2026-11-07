@@ -46,12 +46,13 @@ def main():
  for fraction in [0,1,499,999]:subprocess.run([str(clockworker),str(fraction)],check=True)
  main=(APP/'src/main.c').read_text()
  helper=main[main.index('static void lora_ui_view('):main.index('\n#endif',main.index('static void lora_ui_view('))]
- gm=main[main.index('static uint64_t __attribute__((noinline)) gm7_ui_publish('):main.index('\n#endif\nint main(void)',main.index('static uint64_t __attribute__((noinline)) gm7_ui_publish('))]
+ gm_start=main.index('static void __attribute__((noinline)) gm7_ui_logic(')
+ gm=main[gm_start:main.index('\n#endif\n\nint main(void)',gm_start)]
  normal=main[main.index('      struct r2_ui_model m=',main.index('    if(now>=ui_due)')):main.index('\n#endif\n    }',main.index('    if(now>=ui_due)'))]
  normal=normal.replace('ui_due=m.sampled_ms+20;','(void)(m.sampled_ms+20);')
  name=main[main.index('    if(r2_lora_source_needed()){'):main.index('\n    r2_lora_control(',main.index('    if(r2_lora_source_needed()){'))]
  (a.out/'main_lora_ui_under_test.h').write_text(helper+'\n'+gm+'\nstatic void normal_ui_publish(uint64_t now,bool platform_ready){\n'+normal+'\n}\nstatic void publish_lora_name(void){\n'+name+'\n}\n')
- mainui=a.out/'mainui';subprocess.run([*flags,'-DR2_LORA=1','-DR2_NATIVE_BLE=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_main_ui_test.c'),'-o',str(mainui)],check=True);subprocess.run([str(mainui)],check=True)
+ mainui=a.out/'mainui';subprocess.run([*flags,'-DR2_LORA=1','-DR2_NATIVE_BLE=1','-I'+str(a.out.resolve()),str(APP/'tests/lora_main_ui_test.c'),*[str(APP/'src'/s)for s in ('ui_render.c','precision.c','clock.c','nmea.c')],'-o',str(mainui)],check=True);subprocess.run([str(mainui)],check=True)
  front3=a.out/'front3';subprocess.run([*flags,'-DR2_LORA=1',str(APP/'tests/lora_front3_test.c'),str(APP/'src/precision.c'),'-o',str(front3)],check=True);subprocess.run([str(front3),str(a.out)],check=True)
  (a.out/'runtime.log').write_text(''.join(logs))
  (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FAKE_BOUNDARIES_ONLY',modes=125,probe_modes=55,json_hw_fields=15,json_launch_fields=5,json_payload_limit=3072-96,json_nonzero_abort_fields=[9,7,0x83],source_parity=True,source_hashes={str(x.relative_to(APP)):hashlib.sha256(x.read_bytes()).hexdigest()for x in [APP/'src/lora_service.c',APP/'src/lora_source.c',APP/'include/lora_service.h',APP/'include/lora_watchdog.h',APP/'src/rc_shadow.c',APP/'include/rc_shadow.h',APP/'include/shadow_settle.h',APP/'tests/shadow_worker_test.c',APP/'tests/shadow_session_test.c',APP/'src/lora_rc8_policy.c',APP/'include/lora_rc8_policy.h',APP/'tests/lora_service_test.c',APP/'tests/lora_probe_test.c',APP/'tests/lora_source_test.c',APP/'src/main.c',APP/'src/ui_render.c',APP/'src/ui_service.c',APP/'legacy_ui/legacy.h',APP/'legacy_ui/draw.inc',APP/'tests/lora_ui_test.c',APP/'tests/lora_ui_clock_worker_test.c',APP/'tests/lora_main_ui_test.c',APP/'tests/lora_front3_test.c',Path(__file__)]}),indent=2)+'\n')

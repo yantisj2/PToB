@@ -1,8 +1,10 @@
+#include "rf_clock.h"
 /* SPDX-License-Identifier: Apache-2.0
  * Public periodic advertising/sync lifecycle, serialized with connected BLE.
  * Callbacks publish lifecycle facts only. Exact captured PDU bytes supply time.
  */
 #include "radio_service.h"
+#include "ble_causal_events.h"
 #ifdef R2_GM7_NATIVE
 #include "gm7_timing.h"
 #include "gm7_controller.h"
@@ -28,6 +30,9 @@
 #ifdef R2_LORA
 #include "lora_source.h"
 #include "lora_service.h"
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+#include "lora_fallback.h"
+#endif
 #endif
 #include <errno.h>
 #include <zephyr/bluetooth/bluetooth.h>
@@ -85,6 +90,9 @@ static atomic_t error;
 static struct {
  uint64_t root,boot,tick,counter_epoch;
  uint32_t source,train,capture,publication;
+#ifdef R2_BLE_CAUSAL_EVENTS
+ uint64_t created_ns,expires_ns;int64_t utc_offset_ns;
+#endif
 } gm7_direct;
 
 #endif
@@ -106,6 +114,10 @@ struct pt_output {
  struct {
   r2_servo_map_t map;
   uint64_t counter_epoch,last_correction,evaluated_tick;
+  uint64_t data_until; /* Descriptive copy only; never a grant/read input. */
+#ifdef R2_BLE_CAUSAL_EVENTS
+  uint64_t origin_created_ns,origin_expires_ns; /* Descriptive, role/reset fenced. */
+#endif
   union {
    struct {uint64_t first_tx_lo,first_tx_hi,first_tx_derived_end_hi,last_tx;
     int32_t tx_phase_us;bool first_tx_observed_complete;};
@@ -127,7 +139,11 @@ struct pt_output {
 };
 #if defined(R2_GM7_NATIVE) && UINTPTR_MAX == UINT32_MAX
 _Static_assert(sizeof(struct pt_input)==1128,"GM7 marker uses input padding only");
-_Static_assert(sizeof(struct pt_output)==728,"Retain PT output allocation");
+#ifdef R2_BLE_CAUSAL_EVENTS
+_Static_assert(sizeof(struct pt_output)==752,"300 snapshot plus16B descriptive matched origin");
+#else
+_Static_assert(sizeof(struct pt_output)==736,"Original728B plus8B descriptive data deadline");
+#endif
 #endif
 /* Thread-only mailbox. Never acquired by ISR or Bluetooth callbacks.
  * Service -> PT is the only nested mutex order; PT never acquires service. */
@@ -193,6 +209,12 @@ static struct k_thread pt_thread;
 static void precision_owner(void *,void *,void *);
 static uint64_t service_now(void){return k_ticks_to_us_floor64(k_uptime_ticks());}
 static bool same(struct r2_radio_scope,struct r2_radio_scope);
+#ifdef R2_BLE_CAUSAL_EVENTS
+static bool causal_binding_locked(const struct pt_output *,uint64_t);
+static bool causal_available_locked(const struct pt_output *,struct r2_radio_scope,struct r2_capture,uint64_t,bool,bool);
+static void causal_locked(const struct pt_output *,struct r2_radio_scope,struct r2_capture,
+ uint64_t,uint64_t,bool,bool,bool,uint32_t,uint32_t,uint32_t);
+#endif
 #ifdef R2_GM7_NATIVE
 /* pt_lock held. Also used at the PT export/commit boundary, not only readers. */
 static bool gm7_bound_locked(struct pt_output *out,uint64_t now){
@@ -252,7 +274,9 @@ static void output_read(struct pt_output *out,uint64_t now){
 void r2_radio_service_source(const struct r2_source_clock *source,bool ready,uint32_t epoch){
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
 #ifdef R2_LORA
- bool withdraw_own=!ready&&pt_output.scope.gm;
+ /* Use the current selected grant. The last published result can still be
+  * GM during a handoff to FOLLOW; its local GNSS is no longer TX authority. */
+ bool withdraw_own=!ready&&pt_input.grant.gm&&!pt_input.grant.follower;
 #endif
  pt_input.source=*source;pt_input.source_ready=ready;pt_input.source_epoch=epoch;(void)k_mutex_unlock(&pt_lock);
 #ifdef R2_LORA
@@ -261,15 +285,28 @@ void r2_radio_service_source(const struct r2_source_clock *source,bool ready,uin
 #endif
 }
 void r2_radio_service_activate(void){(void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.stopped=false;handoff.root=0;handoff.pending=handoff.valid=false;(void)k_mutex_unlock(&pt_lock);}
-void r2_radio_service_withdraw(void){
+static void withdraw_at(uint32_t reason,uint32_t generation,uint32_t caller_pc,bool known){
+ (void)reason;(void)generation;(void)caller_pc;(void)known;
 #ifdef R2_GM7_NATIVE
  atomic_inc(&follow_stops);
- atomic_set(&follow_stop_pc,(uint32_t)(uintptr_t)__builtin_return_address(0));
+ atomic_set(&follow_stop_pc,caller_pc);
 #endif
 #ifdef R2_GM7_NATIVE
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
  if(pt_input.gm7_managed){
+#ifdef R2_BLE_CAUSAL_EVENTS
+  struct r2_capture at={0};uint64_t sampled=service_now();bool paired=r2_capture_now_at(&at,&sampled);
+  uint64_t detected=service_now();
+  bool bound=causal_binding_locked(&pt_output,detected);
+  /* A deadline already expired before this call remains the episode onset;
+   * the actual retirement is then only a subsequent material cause. */
+  causal_locked(&pt_output,pt_output.scope,at,sampled,detected,paired,bound,false,UINT32_MAX,0,0);
+#endif
   pt_input.stopped=true;
+#ifdef R2_BLE_CAUSAL_EVENTS
+  causal_locked(&pt_output,pt_output.scope,at,sampled,service_now(),paired,false,true,
+    known?reason:UINT32_MAX,generation,caller_pc);
+#endif
 #ifdef R2_LORA
   r2_lora_source_withdraw();
 #endif
@@ -282,6 +319,12 @@ void r2_radio_service_withdraw(void){
 #endif
  (void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.stopped=true;(void)k_mutex_unlock(&pt_lock);
 }
+void r2_radio_service_withdraw(void){withdraw_at(UINT32_MAX,0,(uint32_t)(uintptr_t)__builtin_return_address(0),false);}
+#ifdef R2_BLE_CAUSAL_EVENTS
+void r2_radio_service_gm7_withdraw_cause(uint32_t reason,uint32_t generation){
+ withdraw_at(reason,generation,(uint32_t)(uintptr_t)__builtin_return_address(0),true);
+}
+#endif
 static void fault(int rc) {
   if(rc)atomic_cas(&error,0,rc);
 }
@@ -769,6 +812,9 @@ static void precision_step(uint64_t now){
           gm7_direct.tick=physical.tick;gm7_direct.counter_epoch=physical.epoch;
           gm7_direct.source=p.source_epoch;gm7_direct.train=p.train;
           gm7_direct.capture=p.capture_epoch;gm7_direct.publication=p.publication;
+#ifdef R2_BLE_CAUSAL_EVENTS
+          gm7_direct.created_ns=p.created_ns;gm7_direct.expires_ns=p.expires_ns;gm7_direct.utc_offset_ns=p.utc_offset_ns;
+#endif
         }
         (void)k_mutex_unlock(&pt_lock);
         if(same_sender&&p.source_epoch==scope.source_epoch&&
@@ -862,6 +908,15 @@ static void precision_step(uint64_t now){
 #ifdef R2_GM7_NATIVE
  out.gm7.counter_epoch=current.epoch;
  out.gm7.evaluated_tick=current.tick;
+ out.gm7.data_until=scope.follower&&scope.broadcast?precision.data_until:0;
+#ifdef R2_BLE_CAUSAL_EVENTS
+ out.gm7.origin_created_ns=out.gm7.origin_expires_ns=0;
+#ifdef R2_LORA
+ if(scope.broadcast&&scope.follower&&precision.last_accepted&&same(precision.scope,scope)&&precision.local_epoch==current.epoch){
+  out.gm7.origin_created_ns=precision.origin_created_ns;out.gm7.origin_expires_ns=precision.origin_expires_ns;
+ }
+#endif
+#endif
  if(scope.follower&&!scope.gm){
   const r2_servo_clock_t *c=&precision.servo;
   out.gm7.follow=(struct r2_gm7_follow_stats){.count=c->count,
@@ -900,11 +955,17 @@ static void precision_step(uint64_t now){
   * without HCI, crypto, callbacks or the GM service lock. Stop/grant changes use
   * this same lock, so no old in-flight PT job can republish after withdrawal. */
  bool export_locked=false;
+#ifdef R2_BLE_CAUSAL_EVENTS
+ struct r2_radio_scope causal_scope=out.scope;bool causal_bound=true;
+#endif
 #ifdef R2_GM7_NATIVE
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
  if(in.gm7_managed||pt_input.gm7_managed){
   export_locked=true;
   if(in.gm7_managed!=pt_input.gm7_managed||!gm7_bound_locked(&out,service_now())){
+#ifdef R2_BLE_CAUSAL_EVENTS
+   causal_bound=false;
+#endif
    out.scope.gm=out.scope.follower=false;out.acquisition=false;
    out.context.passive=false;out.bootstrap.source=false;out.view.authorized=false;
    out.view.map_valid=out.view.locked=false;out.utc_valid=out.context.source=false;
@@ -934,16 +995,44 @@ static void precision_step(uint64_t now){
 #ifdef R2_LORA
  /* Immutable exports originate here, where the real source and delivered
   * follower map are owned. Local GNSS is never consulted for a follower. */
- if(r2_lora_source_needed()
 #ifdef R2_LORA_FIXED500_EXPERIMENT
-    ||r2_lora_ble_needed()
+ /* A receiver observes its current BLE clock, not a hypothetical LoRa TX
+  * export. GM7 broadcast following is direct PA: its decoder rejects relay
+  * depth. Other owners must supply their actual parent; lineage is not one. */
+ if(r2_lora_ble_needed()){
+  bool qualified=paired&&!in.stopped&&scope.broadcast&&scope.follower&&!scope.gm&&out.utc_valid&&
+   out.view.authorized&&out.view.map_valid&&out.view.fit_valid&&!precision.servo.fault&&
+   out.view.rms_valid&&out.view.rms_ns<R2_SERVO_ATTEMPT_GATE_NS&&
+   r2_servo_attempt_quality(&precision.servo)&&
+   r2_servo_pll_phase_remaining(&precision.servo,current.tick)<=R2_SERVO_ATTEMPT_GATE_NS&&
+   sampled<out.valid_until;
+  struct lp_ble_scope observed={.parent=scope.root_identity,.parent_boot=scope.boot,
+   .root=scope.root_identity,.root_boot=scope.boot,.source_epoch=scope.source_epoch,
+   .train=precision.train,.parent_capture_epoch=precision.remote_capture,.capture_epoch=current.epoch};
+  r2_lora_ble_observe(qualified?&observed:NULL,qualified?out.valid_until:0,precision.rejected,sampled);
+  r2_lora_source_status(qualified?R2_LORA_SOURCE_READY:
+   !paired||in.stopped?R2_LORA_SOURCE_CAPTURE:
+   !scope.broadcast||!scope.follower||scope.gm?R2_LORA_SOURCE_SCOPE:
+   !out.utc_valid||!out.view.map_valid||!out.view.fit_valid?R2_LORA_SOURCE_BLE_MAP:R2_LORA_SOURCE_BLE_QUALITY);
+ }
 #endif
-   ){
+ if(r2_lora_source_needed()){
  struct rc8_export lora={0};
  struct rc8_scope lscope={.emitter=in.roster.identity[service_self],.emitter_boot=1,.stream=1,
   .root=scope.root_identity,.root_boot=scope.boot,.parent=scope.follower?scope.root_identity:0,.parent_boot=scope.follower?scope.boot:0,.source_epoch=scope.source_epoch,.scale=RC8_UTC,
   .kind=scope.gm?RC8_OWN_GM:RC8_SELECTED_BLE};
  bool lvalid=false;
+ bool follower_export=out.view.locked;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ /* The strict200 PLL badge is a precision claim, not a source lease. A
+  * fresh authenticated delivered clock remains usable for sparse LoRa while
+  * that badge reacquires. Keep the existing1us acquisition quality and phase
+  * limits; never export an expired, faulted or unconverged delivered map. */
+ follower_export=out.view.authorized&&out.view.map_valid&&out.view.fit_valid&&
+  !precision.servo.fault&&out.view.rms_valid&&out.view.rms_ns<R2_SERVO_ATTEMPT_GATE_NS&&
+  r2_servo_attempt_quality(&precision.servo)&&
+  r2_servo_pll_phase_remaining(&precision.servo,current.tick)<=R2_SERVO_ATTEMPT_GATE_NS;
+#endif
  uint64_t export_until=scope.broadcast?out.valid_until:scope.until_us;
  if(paired&&!in.stopped&&sampled<export_until&&export_until-sampled<=(UINT64_MAX-current.tick)/16){
   if(scope.gm&&in.source_ready&&in.source_epoch==r2_radio_local_epoch(scope)){
@@ -958,7 +1047,7 @@ static void precision_step(uint64_t now){
 #endif
    if(lvalid)lora.scope.source_epoch=lscope.source_epoch;
   }
-  else if(scope.follower&&out.utc_valid&&out.view.locked&&out.valid_until>sampled&&r2_radio_precision_map(&precision,&delivered)){
+  else if(scope.follower&&out.utc_valid&&follower_export&&out.valid_until>sampled&&r2_radio_precision_map(&precision,&delivered)){
    uint64_t limit=current.tick+(out.valid_until-sampled)*16;
    if(scope.broadcast){
     /* Freeze the BLE-only LoRa cap in capture coordinates. Re-pairing the
@@ -978,8 +1067,12 @@ static void precision_step(uint64_t now){
   }
  }
 #ifdef R2_LORA_FIXED500_EXPERIMENT
- uint64_t ble_until=lvalid&&lora.until_tick>current.tick?sampled+(lora.until_tick-current.tick)/16:0;
- r2_lora_ble_observe(lvalid?&lora.scope:NULL,ble_until,precision.rejected,sampled);
+ r2_lora_source_status(lvalid?R2_LORA_SOURCE_READY:
+  !paired||in.stopped?R2_LORA_SOURCE_CAPTURE:
+  !scope.gm&&!scope.follower?R2_LORA_SOURCE_SCOPE:
+  scope.gm?R2_LORA_SOURCE_GNSS:
+  !out.utc_valid||!out.view.map_valid||!out.view.fit_valid?R2_LORA_SOURCE_BLE_MAP:
+  !follower_export?R2_LORA_SOURCE_BLE_QUALITY:R2_LORA_SOURCE_UNAVAILABLE);
 #endif
  if(lvalid)r2_lora_source_publish(&lora);else r2_lora_source_withdraw();
  struct rc8_quality lquality={.known=RC8_Q_ROLE|RC8_Q_HOP|(scope.follower?RC8_Q_LOCK:0),
@@ -994,6 +1087,22 @@ static void precision_step(uint64_t now){
  }else r2_lora_source_withdraw();
 #endif
  if(!export_locked)(void)k_mutex_lock(&pt_lock,K_FOREVER);
+#ifdef R2_BLE_CAUSAL_EVENTS
+ uint64_t causal_detected=service_now();
+ /* Observe the still-published clock before replacing it, including the last
+  * PT step that clears scope on natural expiry and then goes idle. */
+ bool new_bound=causal_bound&&causal_binding_locked(&out,causal_detected);
+ bool old_bound=causal_binding_locked(&pt_output,causal_detected);
+ /* Readers hold this same lock: a readable atomic replacement is one
+  * publication, not an observable old-expiry LOSS followed by RECOVERY. */
+ if(!causal_available_locked(&out,causal_scope,current,causal_detected,paired,new_bound))
+  causal_locked(&pt_output,pt_output.scope,current,sampled,causal_detected,paired,
+   old_bound,false,UINT32_MAX,0,0);
+ else if(!causal_available_locked(&pt_output,pt_output.scope,current,causal_detected,paired,old_bound))
+  r2_ble_causal_atomic_refresh();
+ causal_locked(&out,causal_scope,current,sampled,causal_detected,paired,
+   new_bound,false,UINT32_MAX,0,0);
+#endif
  pt_output=out;
  if(native_owned&&!native_close_until&&(!same(native_grant,out.scope)||(!out.scope.gm&&!out.scope.follower)))native_close_until=now+2000000;
  refresh_anchor|=request_refresh;require_anchor|=request_anchor;
@@ -1284,6 +1393,70 @@ void r2_radio_service_tick_reference(struct r2_radio_scope scope,const struct r2
  tick_owned(scope,source,utc,now,reference);
  gm_radio_publish();
 }
+/* UI-only scalar extraction: do not put another full PT publication on the
+ * main stack. Current binding and every original map/permission bound are
+ * checked under the existing PT mutex; projection never changes the owner. */
+static bool ui_radio_rf_copy(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now,bool try_only){
+ if(!out)return true;
+ *out=(struct r2_rf_clock_sample){0};
+#ifdef R2_GM7_NATIVE
+ if(!at.epoch||at.kind!=R2_CAPTURE_NOW)return true;
+ r2_servo_map_t map={0};int64_t offset=0,value=0;bool follower=false;
+ if(try_only){if(k_mutex_lock(&pt_lock,K_NO_WAIT))return false;}
+ else (void)k_mutex_lock(&pt_lock,K_FOREVER);
+ const struct r2_radio_scope *g=&pt_input.grant,*s=&pt_output.scope;
+ bool live=!pt_input.stopped&&!atomic_get(&error)&&now>=pt_input.at&&now<g->until_us;
+ if(live&&g->gm&&!g->follower&&g->root==service_self&&g->root_identity&&g->boot&&
+    pt_input.source_ready&&pt_input.source_epoch==r2_radio_local_epoch(*g)&&
+    pt_input.source.utc_bound&&pt_input.source.utc_source_epoch==pt_input.source_epoch&&
+    r2_source_utc_read(&pt_input.source,at,pt_input.source_epoch,&value)){
+  const struct r2_source_clock *source=&pt_input.source;
+  for(unsigned i=0;i<source->count;i++){
+   const struct r2_source_map *m=&source->maps[(source->head+R2_SOURCE_MAP_HISTORY-1-i)%R2_SOURCE_MAP_HISTORY];
+   if(at.tick<m->from)continue;
+   if(at.tick<m->until&&m->rate_q16>=UINT64_C(15990000)*65536&&m->rate_q16<=UINT64_C(16010000)*65536){
+    /* One division avoids compounding integer-ppb rounding. The original
+     * source map bounds rate and phase so this signed numerator fits64 bits. */
+    int64_t nominal=INT64_C(16000000)*65536;
+    int64_t correction=((nominal-(int64_t)m->rate_q16)*INT64_C(1000000000)-nominal*m->phase_ppb)/(int64_t)m->rate_q16;
+    uint64_t room=(m->until-at.tick)/16;room=room>room/500+1?room-room/500-1:0;
+    uint64_t until=room>UINT64_MAX-now?UINT64_MAX:now+room;
+    *out=(struct r2_rf_clock_sample){.time_ns=(uint64_t)value,.root=g->root_identity,.boot=g->boot,
+     .source_epoch=g->source_epoch,.train=g->publication_epoch,.rate_ppb=(int32_t)correction,
+     .fresh_until_us=until<g->until_us?until:g->until_us,.available=true,.fresh=true,.utc=true,.rate_valid=true};
+   }
+   break;
+  }
+ }else if(live&&s->broadcast&&s->follower&&!s->gm&&g->follower&&!g->gm&&
+    s->root_identity&&s->root_identity==g->root_identity&&s->boot&&s->boot==g->boot&&
+    now>=pt_output.sampled&&now<s->until_us&&now<pt_output.valid_until&&
+    pt_output.utc_valid&&pt_output.gm7.retained&&pt_output.capture_epoch==at.epoch&&
+    pt_output.gm7.counter_epoch==at.epoch&&at.tick>=pt_output.capture_tick&&at.tick<pt_output.capture_until&&
+    pt_output.gm7.data_until&&at.tick<pt_output.gm7.data_until){
+  map=pt_output.gm7.map;offset=pt_output.gm7.utc_offset_ns;follower=true;
+  uint64_t until=pt_output.valid_until;if(s->until_us<until)until=s->until_us;if(g->until_us<until)until=g->until_us;
+  *out=(struct r2_rf_clock_sample){.root=s->root_identity,.boot=s->boot,.source_epoch=s->source_epoch,
+   .train=s->publication_epoch,.fresh_until_us=until};
+ }
+ (void)k_mutex_unlock(&pt_lock);
+ if(follower&&offset>=0&&r2_servo_mapped(&map,at.tick,&value)&&value>=0&&value<=INT64_MAX-offset){
+  int64_t elapsed=0;if(!r2_math_elapsed(at.tick-map.delivery,&elapsed))return true;
+  uint64_t consumed=(uint64_t)elapsed/1000000;
+  uint64_t magnitude=map.phase<0?(uint64_t)(-(map.phase+1))+1:(uint64_t)map.phase;
+  int32_t slew=consumed<magnitude?(map.phase<0?-1000:1000):0;
+  out->time_ns=(uint64_t)(value+offset);out->rate_ppb=map.rate+slew;
+  out->available=out->fresh=out->utc=out->rate_valid=now<out->fresh_until_us;
+ }
+ if(out->fresh_until_us<=now)out->fresh=false;
+#else
+ (void)at;(void)now;
+#endif
+
+ return true;
+}
+void r2_radio_service_rf_clock(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){(void)ui_radio_rf_copy(out,at,now,false);}
+bool r2_radio_service_rf_clock_try(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){return ui_radio_rf_copy(out,at,now,true);}
+
 void r2_radio_service_view(struct r2_radio_precision_view *out,uint64_t now){struct pt_output s;output_read(&s,now);*out=s.view;}
 void r2_radio_service_client(const struct r2_group_client *c,const struct r2_enrollment *r,uint64_t now){
  (void)now;if(!c||!r||!r->group.id)return;(void)k_mutex_lock(&pt_lock,K_FOREVER);pt_input.client=*c;pt_input.roster=*r;(void)k_mutex_unlock(&pt_lock);
@@ -1327,6 +1500,80 @@ int r2_radio_service_reset(uint32_t generation){
 uint32_t r2_radio_service_profile_flushes(void){(void)k_mutex_lock(&pt_lock,K_FOREVER);uint32_t count=reset_flushes;(void)k_mutex_unlock(&pt_lock);return count;}
 
 #ifdef R2_GM7_NATIVE
+
+#ifdef R2_BLE_CAUSAL_EVENTS
+/* Pure equivalent of the native read binding, without clipping a publication. */
+static bool causal_binding_locked(const struct pt_output *o,uint64_t now){
+ if(!pt_input.gm7_managed)return true;
+ bool identity=o->scope.follower&&!o->scope.gm&&pt_input.grant.follower&&!pt_input.grant.gm&&
+  o->scope.root_identity==pt_input.grant.root_identity&&o->scope.boot==pt_input.grant.boot;
+ bool current=!pt_input.stopped&&!atomic_get(&error)&&(identity||same(o->scope,pt_input.grant))&&
+  (!o->scope.gm||(pt_input.source_ready&&pt_input.source_epoch==r2_radio_local_epoch(o->scope)));
+ return current&&now>=o->sampled&&now<o->scope.until_us&&now<pt_input.grant.until_us;
+}
+/* Same predicate for final publication selection and its descriptive record. */
+static bool causal_available_locked(const struct pt_output *o,struct r2_radio_scope evaluated,
+ struct r2_capture at,uint64_t detected,bool paired,bool bound){
+ bool counter=paired&&at.kind==R2_CAPTURE_NOW&&at.epoch==o->capture_epoch;
+ return evaluated.follower&&!evaluated.gm&&evaluated.broadcast&&bound&&pt_input.gm7_managed&&
+  !pt_input.stopped&&!atomic_get(&error)&&o->utc_valid&&counter&&detected>=o->sampled&&
+  detected<o->scope.until_us&&detected<o->valid_until&&detected<pt_input.grant.until_us&&
+  at.tick>=o->capture_tick&&at.tick<o->capture_until;
+}
+/* pt_lock held. Only coherent publication/current-grant metadata is read;
+ * CONTROL callers never inspect the PT-owned mutable precision estimator. */
+static void causal_locked(const struct pt_output *o,struct r2_radio_scope evaluated,struct r2_capture at,
+ uint64_t sampled,uint64_t detected,bool paired,bool bound,bool retired,uint32_t reason,uint32_t generation,uint32_t pc){
+ bool direct=evaluated.follower&&!evaluated.gm&&evaluated.broadcast;
+ bool counter=paired&&at.kind==R2_CAPTURE_NOW&&at.epoch==o->capture_epoch;
+ bool header=gm7_direct.root&&gm7_direct.boot&&gm7_direct.counter_epoch;
+ uint32_t raw=o->gm7.follow.flags;
+ int64_t model_source_ns=0;
+ bool model_known=counter&&o->gm7.retained&&r2_servo_mapped(&o->gm7.map,at.tick,&model_source_ns)&&model_source_ns>=0;
+ struct r2_ble_causal_record r={.sample_us=sampled,.commit_us=detected,.tick=at.tick,.epoch=at.epoch,
+  .root=evaluated.root_identity,.boot=evaluated.boot,.source=evaluated.source_epoch,
+  .train=evaluated.publication_epoch,.capture=evaluated.remote_capture_epoch,
+  .physical_until=o->capture_until,.data_until=o->gm7.data_until,.last_accepted=o->gm7.last_correction,
+  .scope_until=o->scope.until_us,.effective_until=o->valid_until<pt_input.grant.until_us?o->valid_until:pt_input.grant.until_us,
+  .grant_root=pt_input.grant.root_identity,.grant_boot=pt_input.grant.boot,.grant_source=pt_input.grant.source_epoch,
+  .grant_train=pt_input.grant.publication_epoch,.grant_capture=pt_input.grant.remote_capture_epoch,.grant_until=pt_input.grant.until_us,
+  .header_root=gm7_direct.root,.header_boot=gm7_direct.boot,.header_tick=gm7_direct.tick,.header_epoch=gm7_direct.counter_epoch,
+  .header_source=gm7_direct.source,.header_train=gm7_direct.train,.header_capture=gm7_direct.capture,.header_publication=gm7_direct.publication,
+  .header_created=gm7_direct.created_ns,.header_expires=gm7_direct.expires_ns,.header_offset=gm7_direct.utc_offset_ns,
+  .matched_created=o->gm7.origin_created_ns,.matched_expires=o->gm7.origin_expires_ns,
+  .publication_epoch=o->capture_epoch,.model_source_ns=model_source_ns,
+  .rms_ns=o->view.rms_ns,.quality_bins=o->view.samples,.reason=reason,.generation=generation,.caller_pc=pc};
+ bool equal=same(evaluated,pt_input.grant);
+ bool available=causal_available_locked(o,evaluated,at,detected,paired,bound);
+ r.flags=(available?R2_BLE_AVAILABLE:0)|(direct?R2_BLE_FOLLOWING:0)|(counter?R2_BLE_CAPTURED:0)|
+  (pt_input.gm7_managed?R2_BLE_MANAGED:0)|(pt_input.stopped?R2_BLE_STOPPED:0)|(bound?R2_BLE_BOUND:0)|
+  (equal?R2_BLE_SCOPE_EQUAL:0)|(header?R2_BLE_HEADER_KNOWN:0)|
+  (o->gm7.origin_expires_ns>o->gm7.origin_created_ns&&o->gm7.last_correction?R2_BLE_MATCHED_KNOWN:0)|
+  (model_known?R2_BLE_MODEL_KNOWN:0)|(reason!=UINT32_MAX?R2_BLE_REASON_KNOWN:0)|(retired?R2_BLE_RETIRED:0)|
+  (paired&&at.kind==R2_CAPTURE_NOW?R2_BLE_SAMPLE_KNOWN:0)|(raw&2?R2_BLE_OUTPUT_VALID:0)|(raw&4?R2_BLE_SERVO_FAULT:0);
+ if(header&&gm7_direct.root==r.root&&gm7_direct.boot==r.boot&&gm7_direct.source==r.source&&gm7_direct.train==r.train&&gm7_direct.capture==r.capture)r.flags|=R2_BLE_HEADER_MATCHES;
+ if(!direct)r.why|=R2_FOLLOW_UNSUPPORTED;
+ if(pt_input.stopped)r.why|=R2_FOLLOW_STOPPED;
+ if(!pt_input.gm7_managed)r.why|=R2_FOLLOW_UNMANAGED;
+ if(atomic_get(&error))r.why|=R2_FOLLOW_OWNER_ERROR;
+ if(!bound)r.why|=R2_FOLLOW_BINDING;
+ if(!paired||at.kind!=R2_CAPTURE_NOW)r.why|=R2_FOLLOW_CAPTURE;
+ if(paired&&at.kind==R2_CAPTURE_NOW&&!counter)r.why|=R2_FOLLOW_COUNTER;
+ if(detected<o->sampled||(counter&&at.tick<o->capture_tick))r.why|=R2_FOLLOW_BACKWARD;
+ if(o->scope.until_us&&detected>=o->scope.until_us)r.why|=R2_FOLLOW_SCOPE_EXPIRED;
+ if(pt_input.grant.until_us&&detected>=pt_input.grant.until_us)r.why|=R2_FOLLOW_GRANT_EXPIRED;
+ if(direct&&counter){
+  if(!o->capture_until)r.why|=R2_FOLLOW_PHYSICAL_MISSING;else if(at.tick>=o->capture_until)r.why|=R2_FOLLOW_PHYSICAL_EXPIRED;
+  if(!o->gm7.data_until)r.why|=R2_FOLLOW_DATA_MISSING;else if(at.tick>=o->gm7.data_until)r.why|=R2_FOLLOW_DATA_EXPIRED;
+ }
+ if(direct){if(!(raw&1))r.why|=R2_FOLLOW_FIT;if(!(raw&2))r.why|=R2_FOLLOW_OUTPUT;if(raw&4)r.why|=R2_FOLLOW_SERVO_FAULT;if(!o->utc_valid)r.why|=R2_FOLLOW_PT_UTC;}
+ if(o->valid_until&&detected>=o->valid_until)r.why|=R2_FOLLOW_EFFECTIVE_EXPIRED;
+ if(retired)r.why|=R2_BLE_WHY_RETIRED;
+ if(!equal)r.why|=R2_BLE_WHY_SCOPE_DIFFERENT;
+ r2_ble_causal_observe(&r);
+}
+#endif
+
 void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *out,uint64_t now){
  if(!out)return;
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
@@ -1340,6 +1587,53 @@ void r2_radio_service_gm7_follow_diagnostic(struct r2_gm7_follow_diagnostic *out
  if(pt_output.scope.follower&&!pt_output.scope.gm)out->stats=pt_output.gm7.follow;
  out->scope_resets=atomic_get(&follow_scope_resets);out->scope_reset_bits=atomic_get(&follow_scope_bits);
  out->stops=atomic_get(&follow_stops);out->stop_pc=atomic_get(&follow_stop_pc);
+ out->grant=pt_input.grant;out->managed=pt_input.gm7_managed;
+ out->stopped=pt_input.stopped;out->owner_error=atomic_get(&error);
+ out->physical_until_tick=pt_output.capture_until;out->data_until_tick=pt_output.gm7.data_until;
+ out->rms_ns=pt_output.view.rms_ns;out->quality_bins=pt_output.view.samples;
+ out->utc_at_sample=pt_output.utc_valid;out->map_at_sample=pt_output.view.map_valid;
+ out->header_root=gm7_direct.root;out->header_boot=gm7_direct.boot;
+ out->header_tick=gm7_direct.tick;out->header_epoch=gm7_direct.counter_epoch;
+ out->header_source=gm7_direct.source;out->header_train=gm7_direct.train;
+ out->header_capture=gm7_direct.capture;out->header_publication=gm7_direct.publication;
+ struct r2_capture query={0};uint64_t query_us=service_now();
+ out->paired=r2_capture_now_at(&query,&query_us);
+ out->query_us=query_us;out->query_tick=query.tick;out->query_epoch=query.epoch;
+ struct pt_output checked=pt_output;
+ out->binding_current=out->managed&&gm7_bound_locked(&checked,query_us);
+ out->effective_until_us=checked.valid_until;out->scope_equal=same(pt_output.scope,pt_input.grant);
+ out->current=out->managed&&!out->stopped&&!out->owner_error&&
+  pt_output.scope.follower&&!pt_output.scope.gm&&out->scope_equal&&
+  query_us>=pt_output.sampled&&query_us<pt_output.scope.until_us;
+ bool direct=pt_output.scope.follower&&!pt_output.scope.gm&&pt_output.scope.broadcast;
+ uint32_t why=0;
+ if(!direct)why|=R2_FOLLOW_UNSUPPORTED;
+ if(out->stopped)why|=R2_FOLLOW_STOPPED;
+ if(!out->managed)why|=R2_FOLLOW_UNMANAGED;
+ if(out->owner_error)why|=R2_FOLLOW_OWNER_ERROR;
+ if(!out->binding_current)why|=R2_FOLLOW_BINDING;
+ if(!out->paired)why|=R2_FOLLOW_CAPTURE;
+ bool counter=out->paired&&query.epoch==pt_output.capture_epoch;
+ if(out->paired&&!counter)why|=R2_FOLLOW_COUNTER;
+ if(query_us<pt_output.sampled||(counter&&query.tick<pt_output.capture_tick))why|=R2_FOLLOW_BACKWARD;
+ if(pt_output.scope.until_us&&query_us>=pt_output.scope.until_us)why|=R2_FOLLOW_SCOPE_EXPIRED;
+ if(pt_input.grant.until_us&&query_us>=pt_input.grant.until_us)why|=R2_FOLLOW_GRANT_EXPIRED;
+ if(direct&&counter){
+  if(!pt_output.capture_until)why|=R2_FOLLOW_PHYSICAL_MISSING;
+  else if(query.tick>=pt_output.capture_until)why|=R2_FOLLOW_PHYSICAL_EXPIRED;
+  if(!pt_output.gm7.data_until)why|=R2_FOLLOW_DATA_MISSING;
+  else if(query.tick>=pt_output.gm7.data_until)why|=R2_FOLLOW_DATA_EXPIRED;
+ }
+ if(direct){
+  if(!(out->stats.flags&1))why|=R2_FOLLOW_FIT;
+  if(!(out->stats.flags&2))why|=R2_FOLLOW_OUTPUT;
+  if(out->stats.flags&4)why|=R2_FOLLOW_SERVO_FAULT;
+  if(!pt_output.utc_valid)why|=R2_FOLLOW_PT_UTC;
+ }
+ if(checked.valid_until&&query_us>=checked.valid_until)why|=R2_FOLLOW_EFFECTIVE_EXPIRED;
+ out->refusals=why;
+ out->utc_readable_now=direct&&checked.utc_valid&&counter&&query_us>=pt_output.sampled&&
+  query_us<checked.valid_until&&query.tick>=pt_output.capture_tick&&query.tick<pt_output.capture_until;
  (void)k_mutex_unlock(&pt_lock);
 }
 void r2_radio_service_gm7_timing(struct r2_gm7_timing *out,uint64_t now){

@@ -1,3 +1,6 @@
+#include "precision_servo.h"
+static unsigned rms_calls;
+#define r2_servo_rms_floor(...) (rms_calls++,r2_servo_rms_floor(__VA_ARGS__))
 #include "shadow_session.h"
 #include <assert.h>
 #include <stdio.h>
@@ -43,5 +46,47 @@ int main(void){
  assert(!r2_shadow_settle_observe(&settle,&r,true)&&settle.first==r.edge.tick&&settle.resets==1);
  r.sequence=12;r.edge.tick+=16000000;r.phase_ns=1640000;
  assert(!r2_shadow_settle_observe(&settle,&r,true)&&settle.resets==1); /* Phase magnitude never gates startup. */
+  /* Populations never mix parent epochs, trains, BLE/local-HOLD or LoRa
+   * calibration. Normal map revisions/accepted counts are the same source. */
+  struct rc_shadow_population population;rc_shadow_population_set(&population,&r.map);
+  struct rc_shadow_map other=r.map;other.accepted++;other.lo++;other.active++;
+  assert(rc_shadow_population_same(&population,&other));
+  for(unsigned field=0;field<9;field++){
+   other=r.map;
+   switch(field){case 0:other.root++;break;case 1:other.root_boot++;break;
+    case 2:other.parent++;break;case 3:other.parent_boot++;break;
+    case 4:other.root_epoch++;break;case 5:other.parent_epoch++;break;
+    case 6:other.train++;break;case 7:other.lora_delay_ns++;break;default:other.lora=false;other.local_hold=true;}
+   assert(!rc_shadow_population_same(&population,&other));
+   struct r2_shadow_settle changed=settle;r.map=other;r.sequence++;r.edge.tick+=16000000;
+   assert(!r2_shadow_settle_observe(&changed,&r,true)&&changed.resets==settle.resets+1);
+   rc_shadow_population_set(&population,&r.map);settle=changed;
+  }
+  assert(sizeof(struct r2_shadow_settle)==104&&sizeof(struct rc_shadow_population)==56);
+ /* One-pass ranks must match the retained four-rank implementation at every
+  * small-N/interpolation and histogram-tail boundary, without losing signs. */
+ memset(&s,0,sizeof s);s.entered=true;assert(r2_shadow_session_begin(&s,1,1,1,0));
+ struct r2_shadow_session_view cached={0},fresh;uint32_t random=0x5912a0b7;
+ const int64_t edges[]={INT64_MIN,-500000001,-500000000,-1024,-1023,-1,0,1,1023,1024,2047,2048,500000000,500000001,INT64_MAX};
+ for(unsigned i=1;i<=6000;i++){
+  random^=random<<13;random^=random>>17;random^=random<<5;
+  int64_t phase=i-1<sizeof edges/sizeof edges[0]?edges[i-1]:
+   (i%17?((int64_t)(random%2049)-1024):(int64_t)(random%1000000001)-500000000);
+  r2_shadow_session_sample(&s,i,i+1,1,i%23!=0,phase);s.elapsed_ms=i*1000;
+  r2_shadow_session_view(&s,&fresh);
+  bool approximate=false;
+  assert(fresh.p95_ns==(s.samples?r2_shadow_percentile(&s,95,&approximate):0));
+  assert(fresh.p99_ns==(s.samples?r2_shadow_percentile(&s,99,&approximate):0));
+  assert(fresh.approximate==approximate);
+  r2_shadow_session_refresh(&s,&cached);assert(!memcmp(&cached,&fresh,sizeof fresh));
+  unsigned calculated=rms_calls;s.elapsed_ms++;s.missing++;
+  r2_shadow_session_refresh(&s,&cached);assert(rms_calls==calculated&&cached.elapsed_ms==s.elapsed_ms&&cached.missing==s.missing);
+  r2_shadow_session_view(&s,&fresh);assert(!memcmp(&cached,&fresh,sizeof fresh));
+ }
+ /* Reentry with the same numerical count cannot retain an old session's
+  * cached moments; startup metadata remains independent of that cache. */
+ s.session++;s.samples=0;s.max_ns=0;s.sum=0;s.squares_hi=0;s.squares_lo=0;
+ cached.warmup=7;r2_shadow_session_refresh(&s,&cached);
+ assert(!cached.valid&&!cached.mean_tenth_ns&&!cached.rms_ns&&!cached.p95_ns&&!cached.p99_ns&&!cached.approximate&&cached.warmup==7);
  puts("PASS full-second dwell, actual start boundary, invalid/reference/epoch exclusions, all-session mean and tails, navigation/GM stop, fresh reentry, bounded2000sample quantiles");
 }

@@ -192,6 +192,13 @@ void r2_time_snapshot(struct r2_clock_view *out,uint32_t *lost)
   k_spin_unlock(&lock,key);
 }
 
+void r2_time_ui_guard(struct r2_clock_view *out,uint32_t *lost)
+{
+ k_spinlock_key_t key=k_spin_lock(&lock);*lost=drops;out->input_error=r2_gnss_input_error();
+ if(pending){out->source_available=out->fix_active=false;out->reason=pending;out->state=R2_TIME_HOLDOVER;}
+ k_spin_unlock(&lock,key);
+}
+
 void r2_time_copy(struct r2_clock *out) { *out=clock_state; }
 
 void r2_time_source_snapshot(struct r2_source_clock *out){*out=source;}

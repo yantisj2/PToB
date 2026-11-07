@@ -1,4 +1,4 @@
-/* Actual RC7 UI binding: lamps are transport evidence, independent of maps. */
+/* Actual RC7 logical UI binding: lamps are transport evidence, independent of maps. */
 #include "ble_service.h"
 #include "precision.h"
 #include <assert.h>
@@ -11,9 +11,9 @@ bool r2_uc_serving_clients(void){return uc_serving;}
 static unsigned node=1,parent_index=0;
 static struct {struct {uint64_t id;unsigned depth;} node[4];} routes;
 static uint64_t mono_us(void){return current;}
-void r2_service_snapshot(struct r2_service_status *s){*s=fixture;}
-void r2_time_precision_snapshot(struct r2_pps_precision_view *p){memset(p,0,sizeof(*p));}
+static bool hold_read(uint64_t *utc,uint32_t *age){(void)utc;(void)age;return false;}
 #include "rc_ui_binding_under_test.h"
+void r2_service_ui(struct r2_ui_model *m){r2_service_ui_logic(m,&fixture);}
 int main(void){
  routes.node[0].id=UINT64_C(0x1000000000000001);
  fixture.active=true;fixture.lamps[1]=1;fixture.lamps[5]=2;

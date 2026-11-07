@@ -7,6 +7,7 @@
 #include "app.h"
 #include "time_service.h"
 #include "ui.h"
+#include "../src/bounded_json.c"
 void r2_time_precision_snapshot(struct r2_pps_precision_view *out)
 {*out=(struct r2_pps_precision_view){.epoch=UINT64_MAX,.age_us=INT64_MAX,.samples=UINT32_MAX,.drift_ppb=INT32_MIN,.trim_ppb=INT32_MAX,.fit_rms_ns=UINT32_MAX,.prediction_rms_ns=UINT32_MAX};}
 static unsigned ui_stops,time_stops,platform_closes;
@@ -40,6 +41,7 @@ void r2_radio_capture_stats(struct r2_radio_capture_stats *s){memset(s,0xff,size
 bool r2_radio_service_closed(void){return false;}
 uint32_t r2_radio_service_idle_discards(void){return UINT32_MAX;}
 #include "rc_shadow.h"
+void r2_shadow_manual(bool on){(void)on;}
 bool r2_radio_audit_read(uint32_t after,struct r2_radio_audit_record *q,struct r2_radio_audit_status *s){memset(q,0xff,sizeof *q);q->disciplined=true;memset(s,0xff,sizeof *s);return true;}
 void r2_service_snapshot(struct r2_service_status *s){memset(s,0xff,sizeof(*s));s->profile_rc=s->profile_pending=s->profile_target_rc=true;s->profile_rc=!gm_diagnostic_reply;s->transport_fault.bridge_pending=s->standby_authorized=s->takeover_pending=s->field_profile=s->gm_capable=s->source_eligible=s->hot_ready=s->normal=s->configured=s->active=s->closing=s->closed=s->serving=s->follower=s->follower_clock_valid=s->peer_delivery_confirmed=s->relay_pending=true;s->precision.fit_valid=s->precision.correction_age_valid=s->precision.rms_valid=s->precision.map_valid=s->precision.locked=s->precision.authorized=true;s->relay.sync_creating=s->relay.sync_active=s->relay.phase_acquiring=s->relay.recovery_grace_active=s->relay.holdover_bound_known=s->relay.window_recovering=s->relay.held_time=s->relay.selected=s->relay.active=s->relay.map_valid=s->relay.phase_admitted=s->relay.quiet=true;}
 void r2_ble_gm_diagnostics(uint32_t out[R2_GM_TRANSPORT_WORDS]){for(unsigned i=0;i<R2_GM_TRANSPORT_WORDS;i++)out[i]=UINT32_MAX;}
@@ -137,6 +139,7 @@ int main(void) {
    request.trace_page=page;captured[0]=0;reply(&request,1,INT_MIN);
    assert(captured[0] && strstr(captured,"R2 END ffffffff") && strlen(captured)<R2_REPLY_BYTES);
    assert(strstr(captured,"18446744073709551615,4294967295,-2147483648"));
+   assert(strstr(captured,"\"last_request\":4294967295"));
  }
  request.op=R2_CLOCK;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"POSIX_UTC_ESTIMATE")&&strstr(captured,"R2 END ffffffff"));
  request.op=R2_MENU;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"\"open\":true")&&strstr(captured,"\"drawn\":true")&&strstr(captured,"\"ble_rx_requested\":false")&&strstr(captured,"R2 END ffffffff"));
@@ -148,7 +151,13 @@ int main(void) {
  assert(strstr(captured,"\"gm_transport\":[4294967295,")&&strstr(captured,"\"gm_radio\":[4294967295,")&&strstr(captured,"R2 END ffffffff"));
  request.op=R2_ROUTE;captured[0]=0;reply(&request,1,0);
  assert(strstr(captured,"\"unit\":\"TC-03\"")&&strstr(captured,"source_projection_revision")&&strstr(captured,"upstream_identity")&&strstr(captured,"accepted_corrections")&&strstr(captured,"R2 END ffffffff"));
- request.op=R2_PRECISION;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"absolute_utc_qualified")&&strstr(captured,"source_eligible")&&strstr(captured,"hot_ready")&&strstr(captured,"quality")&&strstr(captured,"R2 END ffffffff"));
+ request.op=R2_PRECISION;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"\"rx_capture\":[4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295]")&&strstr(captured,"\"rx_last\":[18446744073709551615,18446744073709551615,18446744073709551615]")&&strstr(captured,"absolute_utc_qualified")&&strstr(captured,"source_eligible")&&strstr(captured,"hot_ready")&&strstr(captured,"quality")&&strstr(captured,"R2 END ffffffff"));
+ unsigned precision_request,precision_sequence,precision_size,precision_crc;
+ assert(sscanf(captured,"R2 %x %x %u %x",&precision_request,&precision_sequence,&precision_size,&precision_crc)==4);
+ const char *precision_payload=strchr(captured,'\n');assert(precision_payload);++precision_payload;
+ assert(precision_request==UINT32_MAX&&precision_payload[precision_size]=='\n'&&
+        r2_crc32(precision_payload,precision_size)==precision_crc&&strlen(captured)<R2_REPLY_BYTES);
+ printf("PRECISION maximum-width JSON%u framed%zu capacity%u; source binding and CRC PASS\n",precision_size,strlen(captured),(unsigned)R2_REPLY_BYTES);
  request.op=R2_NETWORK;captured[0]=0;reply(&request,1,0);assert(strstr(captured,"service_receipts")&&strstr(captured,"R2 END ffffffff"));
  assert(strstr(captured,"\"management_until_us\":18446744073709551615")&&strstr(captured,"\"last_hot_withdrawal_reason\":4294967295")&&strstr(captured,"\"rx_queue_peak\":4294967295"));
  assert(strlen(captured)<R2_REPLY_BYTES);
@@ -162,16 +171,24 @@ int main(void) {
  last_request=rejected=trace_count=trace_lost=heartbeat=0;maintenance=(struct r2_maint){0};
  startup_decided=platform_ready=true;fake_now=1000;dequeue_case=true;
  if(!setjmp(completed))r2_application_entry();
- assert(last_request==1&&rejected==0&&strstr(captured,"R2 END 00000001"));
+ assert(last_request==0&&rejected==0&&strstr(captured,"R2 END 00000001")&&strstr(captured,"\"last_request\":0"));
 #ifdef R2_NATIVE_BLE
  assert(normal_starts==1);puts("Actual main starts normal BLE despite diagnostic init/arm failure PASS");
  assert(!ui_stops&&!time_stops&&!platform_closes);
  puts("Actual main retains UI/time/platform after contained normal service fault PASS");
 #endif
  puts("Actual main accepts RX arriving after loop-start sample; original age gate retained PASS");
+ delivered=false;last_request=123;captured[0]=0;
+ if(!setjmp(completed))r2_application_entry();
+ assert(last_request==123&&!rejected&&strstr(captured,"\"last_request\":123"));
+ puts("Actual main accepts low STATUS without advancing the boot cursor PASS");
  delivered=false;dequeue_verb="yield";last_request=0;captured[0]=0;
  if(!setjmp(completed))r2_application_entry();
  char unsupported[40];snprintf(unsupported,sizeof unsupported,"\"result\":%d",-ENOTSUP);
  assert(last_request==1 && strstr(captured,unsupported));
  puts("Actual non-GM7 native/DC main rejects YIELD with ENOTSUP PASS");
+ delivered=false;captured[0]=0;
+ if(!setjmp(completed))r2_application_entry();
+ assert(last_request==1&&rejected==1&&!captured[0]);
+ puts("Actual main refuses replayed non-STATUS command PASS");
 }

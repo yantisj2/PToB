@@ -21,8 +21,10 @@ void r2_health_init(uint64_t boot);
 void r2_health_beat(void);
 void r2_health_operation(unsigned lane,unsigned operation,int result);
 void r2_health_console(void);
-/* Single retained512B record; normal boot writer only. Never clear on export.
- * saved() marks this boot's pending handoff after actual flash verification. */
+/* Fault-only retained512B record, original source/private build tags, factory bound.
+ * Header words4/5 identify the crashed boot, distinct from the current reply.
+ * Retention is conditional on RAM survival; no flash writer or timing restore.
+ * Export never clears it. saved() is called only after a verified durable startup handoff. */
 const volatile uint32_t *r2_health_crash_pending(void);
 void r2_health_crash_saved(uint32_t retained_crc);
 int r2_health_crash_read(unsigned chunk,uint8_t out[64]);

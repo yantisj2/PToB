@@ -7,12 +7,43 @@
 #include "rc_shadow.h"
 #include <errno.h>
 typedef int atomic_t;
-static int atomic_get(atomic_t *v){return *v;}
+#ifdef R2_UI_SCHEDULE_FIXTURE
+static void ui_schedule_atomic(atomic_t *,int);
+#endif
+static int atomic_get(atomic_t *v){int value=*v;
+#ifdef R2_UI_SCHEDULE_FIXTURE
+ ui_schedule_atomic(v,value);
+#endif
+ return value;}
 static int atomic_cas(atomic_t *v,int a,int b){if(*v!=a)return 0;*v=b;return 1;}
 static int atomic_set(atomic_t *v,int n){int old=*v;*v=n;return old;}
-struct k_spinlock {int unused;};typedef int k_spinlock_key_t;
-static int k_spin_lock(struct k_spinlock *l){return 0;}
-static void k_spin_unlock(struct k_spinlock *l,int k){}
+/* Exercise the production thread mutex with host pthread serialization. */
+#include <pthread.h>
+struct k_mutex {pthread_mutex_t native;};
+#define K_MUTEX_DEFINE(n) struct k_mutex n={PTHREAD_MUTEX_INITIALIZER}
+#define K_FOREVER (-1)
+#ifdef R2_UI_DIAG_WORK_FIXTURE
+static unsigned ui_mutex_calls;
+#endif
+#ifdef R2_UI_SCHEDULE_FIXTURE
+static void ui_schedule_lock(void);
+#endif
+static int k_mutex_lock(struct k_mutex *l,int wait){assert(wait==K_FOREVER);
+#ifdef R2_UI_DIAG_WORK_FIXTURE
+ ++ui_mutex_calls;
+#endif
+#ifdef R2_UI_SCHEDULE_FIXTURE
+ ui_schedule_lock();
+#endif
+ return pthread_mutex_lock(&l->native);}
+#ifdef R2_UI_SCHEDULE_FIXTURE
+static void ui_schedule_unlock(void);
+#endif
+static int k_mutex_unlock(struct k_mutex *l){int rc=pthread_mutex_unlock(&l->native);
+#ifdef R2_UI_SCHEDULE_FIXTURE
+ ui_schedule_unlock();
+#endif
+ return rc;}
 #define K_THREAD_STACK_DEFINE(n,s) char n[s]
 #define K_THREAD_STACK_SIZEOF(n) sizeof(n)
 #define K_NO_WAIT 0
@@ -25,6 +56,7 @@ static uint8_t retained[R2_UI_FRAME_BYTES];static const uint8_t *retained_fb;sta
 static uint64_t first_saver;static unsigned saver_positions;static bool dim_seen,awake_after_dim;
 static unsigned random_calls;static uint64_t random_at[32];
 static unsigned sync_grace_frames;static bool sync_long_expired,sync_recovered;
+static uint64_t first_help,first_menu,input_help_at,input_menu_at;static bool help_release_seen;
 #ifdef R2_LORA
 static unsigned lora_consumptions;static uint64_t lora_consumed_at;static bool fake_lora_requested=true;
 #endif
@@ -39,8 +71,65 @@ static struct r2_ui_model sync_model(uint64_t now){
  return m;
 }
 static uint32_t sys_rand32_get(void){assert(random_calls<32);random_at[random_calls]=fake_now;++random_calls;return 1;}
+#ifdef R2_UI_SCHEDULE_FIXTURE
+static void ui_schedule_poll(void);
+static void ui_schedule_frame(void);
+static void ui_schedule_yield(void);
+#endif
+static unsigned yield_calls;
+static void k_yield(void){
+ ++yield_calls;
+#ifdef R2_UI_SCHEDULE_FIXTURE
+ ui_schedule_yield();
+#endif
+}
 static int64_t k_uptime_get(void){return fake_now;}
-static void k_sleep(unsigned ms){fake_now+=ms;
+#ifdef R2_UI_LOGIC_FIXTURE
+static void ui_logic_main(void);
+#endif
+static void input_main_advance(uint64_t ms){
+ uint64_t end=fake_now+ms;
+ while(fake_now<end){uint64_t step=end-fake_now>20?20:end-fake_now;
+  fake_now+=step;
+#ifndef R2_INPUT_BASELINE
+  r2_ui_input_tick(fake_now);
+#ifdef R2_UI_LOGIC_FIXTURE
+  ui_logic_main();
+#endif
+#ifdef R2_UI_MAIN_PRODUCER_FIXTURE
+  ui_schedule_poll();
+#endif
+#ifndef R2_UI_SCHEDULE_FIXTURE
+  struct r2_ui_status sampled;r2_ui_snapshot(&sampled);
+  if(sampled.help&&!input_help_at)input_help_at=fake_now;
+  if(sampled.menu.open&&!input_menu_at)input_menu_at=fake_now;
+#endif
+#endif
+ }
+}
+
+static unsigned physical_button_reads;
+static unsigned paused_input_page,paused_menu_item;static bool error_input_injected,input_tap_queued;static uint64_t physical_pulse_begin;
+static void k_sleep(unsigned ms){
+#ifdef R2_INPUT_FAST_FIXTURE
+ if((mode==57||mode==61)&&frame_calls==1&&!input_tap_queued){
+  input_main_advance(220); /* Pulse begins just before the next render demand. */
+  assert(!r2_ui_press(1));input_tap_queued=true;
+ }
+ if(mode==58&&frame_calls==1&&!error_input_injected){
+  error_input_injected=true;physical_pulse_begin=fake_now+20;input_main_advance(600);
+  struct r2_ui_status paused;r2_ui_snapshot(&paused);paused_input_page=paused.page;
+ }
+#endif
+ input_main_advance(ms);
+#ifdef R2_UI_SCHEDULE_FIXTURE
+ ui_schedule_poll();return;
+#endif
+ if(mode==54||mode==55){
+  struct r2_ui_model m={.sampled_ms=fake_now,.platform_ready=true,.profile_supported=true,.unit="TEST"};r2_ui_publish(&m);
+  if(mode==54&&fake_now>=2300&&fake_now<2800){struct r2_ui_status s;r2_ui_snapshot(&s);assert(s.page==1&&s.help&&!s.menu.open);help_release_seen=true;}
+  if(fake_now>=4000)r2_ui_stop();return;
+ }
 #ifdef R2_LORA
  if(mode>=42){
   if((mode==48||mode==49)&&r2_ui_take_lora_toggle()){
@@ -98,12 +187,35 @@ static void k_sleep(unsigned ms){fake_now+=ms;
  if(mode==1||fake_now>=(mode==8||mode==11?23000:mode>=4?6500:3300))r2_ui_stop();}
 static void k_thread_create(struct k_thread *t,char *stack,size_t size,void (*fn)(void*,void*,void*),void *a,void *b,void *c,int p,int opts,int delay){entry=fn;priority=p;}
 static void k_thread_name_set(struct k_thread *t,const char *n){}
-int r2_display_init(void){++init_calls;fake_now+=330;return 0;}
+int r2_display_init(void){++init_calls;
+#ifdef R2_UI_INIT_ADVANCE
+ R2_UI_INIT_ADVANCE(330);
+#else
+ input_main_advance(330);
+#endif
+ return mode==59?-EIO:0;}
 int r2_display_frame(const uint8_t *fb){if(frame_calls<64)starts[frame_calls]=fake_now;++frame_calls;
- struct r2_ui_status s;r2_ui_snapshot(&s);if(s.screensaver){if(!first_saver)first_saver=fake_now;saver_positions|=1u<<s.screensaver_position;}
- fake_now+=mode>=16?26:100;if(mode==3||mode==6||(mode==7&&frame_calls==1)){memcpy(retained,fb,sizeof(retained));retained_fb=fb;return -ETIMEDOUT;}return 0;}
-int r2_display_brightness(uint8_t percent){assert(percent==50||percent==100);if(percent==50)dim_seen=true;else if(dim_seen)awake_after_dim=true;return 0;}
+#ifdef R2_UI_SCHEDULE_FIXTURE
+ ui_schedule_frame();
+#endif
+ struct r2_ui_status s;r2_ui_snapshot(&s);if(s.help&&!first_help)first_help=fake_now;if(s.menu.open&&!first_menu)first_menu=fake_now;if(s.screensaver){if(!first_saver)first_saver=fake_now;saver_positions|=1u<<s.screensaver_position;}
+ input_main_advance(mode>=16?26:100);if(mode==3||mode==6||((mode==7||mode==58)&&frame_calls==1)){memcpy(retained,fb,sizeof(retained));retained_fb=fb;return -ETIMEDOUT;}return 0;}
+#ifndef R2_UI_TEST_BASE9
+#define R2_UI_TEST_BASE9() do{}while(0)
+#endif
+int r2_display_brightness(uint8_t percent){R2_UI_TEST_BASE9();assert(percent==50||percent==100);if(percent==50)dim_seen=true;else if(dim_seen)awake_after_dim=true;return 0;}
 int r2_display_button(void){
+ ++physical_button_reads;
+ if(mode==60)return -ENODEV;
+ if(mode==58)return physical_pulse_begin&&fake_now>=physical_pulse_begin&&fake_now<physical_pulse_begin+120;
+ if(mode==59)return fake_now>=500&&fake_now<620;
+ if(mode==62)return fake_now>=500&&fake_now<2700;
+ if(mode==57||mode==61)return 0;
+#ifdef R2_UI_SCHEDULE_FIXTURE
+ return 0;
+#endif
+ if(mode==54)return (fake_now>=500&&fake_now<2200)||(fake_now>=3000&&fake_now<3120);
+ if(mode==55)return fake_now>=500&&fake_now<2700;
 #ifdef R2_LORA
  if(mode>=42){
   if(mode==49)return(fake_now>=500&&fake_now<2200)||(fake_now>=3000&&fake_now<4700);
@@ -113,16 +225,20 @@ int r2_display_button(void){
 if(mode==16)return (fake_now>=360800&&fake_now<365400)||(fake_now>=366000&&fake_now<366200);if(mode>=17)return 0;if(mode==14)return fake_now>=500&&fake_now<2700;if(mode==15)return fake_now>=500&&fake_now<6000;if(mode>=8)return mode==10&&fake_now>=1000&&fake_now<1160;if(mode==4)return fake_now>=500&&fake_now<3200;
  if(mode==5||mode==6)return fake_now>=500&&fake_now<6000;
  return (fake_now>=1000&&fake_now<1160)||(fake_now>=1800&&fake_now<2860);}
-int r2_display_off(void){++off_calls;if(retained_fb)buffer_changed=memcmp(retained,retained_fb,sizeof(retained))!=0;return mode==3||mode==6?-ETIMEDOUT:0;}
+int r2_display_off(void){R2_UI_TEST_BASE9();++off_calls;if(retained_fb)buffer_changed=memcmp(retained,retained_fb,sizeof(retained))!=0;return mode==3||mode==6?-ETIMEDOUT:0;}
 
 int r2_display_recover(void){
+ R2_UI_TEST_BASE9();
+#ifdef R2_UI_TEST_RECOVER
+ R2_UI_TEST_RECOVER();
+#endif
  if(!retained_fb)return 0;
  buffer_changed|=memcmp(retained,retained_fb,sizeof(retained))!=0;
  if(mode!=7||fake_now<1800)return -EAGAIN;
  retained_fb=NULL;return 0;
 }
 
-int r2_display_temperature(int16_t *quarter_c){*quarter_c=92;return 0;}
+int r2_display_temperature(int16_t *quarter_c){R2_UI_TEST_BASE9();*quarter_c=92;return 0;}
 static bool witness_enabled;
 void r2_shadow_enable(bool enabled){witness_enabled=enabled;assert(!enabled||mode!=9);}
 bool r2_shadow_read(uint32_t after,struct rc_shadow_record *r,struct rc_shadow_status *st){
@@ -135,5 +251,8 @@ bool r2_shadow_read(uint32_t after,struct rc_shadow_record *r,struct rc_shadow_s
  if(mode==27&&sequence==13)r->phase_ns=-500;
  if(mode==32&&sequence>=8)r->map.train=2;
  if(mode==33&&sequence>=8)r->map.parent_epoch=2;
+#ifdef R2_UI_SHADOW_RECORD
+ R2_UI_SHADOW_RECORD(r);
+#endif
  return true;
 }
