@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "license": "MIT",
+  "paper_license": "CC-BY-4.0",
+  "author": "Jonathan Yantis",
+  "title": "Passive Precision Time over BLE: V14 Service and Profile Release Candidate",
+  "edition_date": "2026-11-06",
+  "status": "APPROVED_FOR_PUBLIC_DRAFT_REVIEW",
+  "approval": "Approved, update for public review and replace the old paper leaving the old one in the repo history. Push the changes to GitHub.",
+  "publication_scope": "Public review of the BLE service and profile release candidate on GitHub main.",
+  "author_review": {
+    "revision": "d6614c004b9e3129f5dd3224c8797e3e6e0d0d77",
+    "manifest": {
+      "path": "papers/editions/v14-rc-2026-11-06.json",
+      "bytes": 10169,
+      "sha256": "bcc9fc9f07814bc6fdcb60464ae49bfb730e8f80564f98613395a9ba4678868a"
+    }
+  },
+  "previous_proposal": {
+    "edition_date": "2026-10-30",
+    "revision": "a44e8a7ccde6e21aaea71f970155b21bbd072946",
+    "manifest": {
+      "path": "papers/editions/v14-sig-2026-10-30.json",
+      "bytes": 8723,
+      "sha256": "ffed6623bad6a3fe6c9e5ef00ec21abf2dab300483cc883b6c31e095cded724d"
+    },
+    "files": [
+      {
+        "path": "papers/ptob-v14-sig-proposal.tex",
+        "bytes": 27384,
+        "sha256": "ed19fd66ad886b7300134984c5d5c6c24add68b6938a7f0b6ba5a6e870fa236e"
+      },
+      {
+        "path": "papers/ptob-v14-sig-proposal.pdf",
+        "bytes": 56213,
+        "sha256": "c8db9ea9b166ea2b5e42b2bc33c0a90e924436cb97b8500b4b93314d41cacef2"
+      }
+    ]
+  },
+  "reference_source_revision": "645fc454f7f6d0a75bac5172b66ae67ffe0c75c8",
+  "protocol_profile": {
+    "reference_target_source": "T096 0.15.326",
+    "gm": "GM7v4+S2+C1+TZ1, G7V4 revision 4",
+    "root_timing": "GR3 revision 3, 190-byte AD, G1 timing engine",
+    "relay_timing": "RC7 revision 7/profile 5, 190-byte AD",
+    "admission": "JOIN revision 5 and RQ revision 8/profile 5",
+    "wire_change_since_2026_10_30": "None; the new edition documents the selected byte bindings, authentication and current source policies."
+  },
+  "page_count": 9,
+  "files": [
+    {
+      "path": "papers/ptob-v14-sig-proposal.tex",
+      "bytes": 31652,
+      "sha256": "520f81510599d6b1eab7d69f996f60baa1c14be9aabb3a435270a81cb9ef2e21"
+    },
+    {
+      "path": "papers/ptob-v14-sig-proposal.pdf",
+      "bytes": 61843,
+      "sha256": "58db05711986232d10e2b8bacf7c206355882e6ed29f244c12491d54e7ea7f7f"
+    }
+  ],
+  "evidence_cutoff_date": "2026-10-29",
+  "evidence_scope": "The same October 29 direct and relay observations accompany this edition. Physical failover, relay availability and calibrated output remain open.",
+  "build": {
+    "compiler": "Tectonic 0.17.0",
+    "bundle_sha256": "6ffe055852f8faf66c0acbe1a7fb27f87b869a90bad1204f3bf4d9683f597c7c",
+    "command": "SOURCE_DATE_EPOCH=1794024000 tectonic --outdir artifacts/papers papers/ptob-v14-sig-proposal.tex"
+  },
+  "review": {
+    "editorial_changes": "Public review label, scope wording and reviewer instructions.",
+    "all_pages_visually_inspected": true,
+    "pages_inspected": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "rendering": "Poppler pdftoppm, 115 dpi",
+    "qualification": "Protocol and offline checks are recorded in the author review manifest."
+  }
+}

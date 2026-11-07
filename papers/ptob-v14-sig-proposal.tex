@@ -2,25 +2,25 @@
 \usepackage[margin=0.85in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage{mathptmx,amsmath,booktabs,array,ragged2e,xcolor,microtype,hyperref,fancyhdr}
-\hypersetup{colorlinks=true,urlcolor=blue!45!black,citecolor=blue!45!black,linkcolor=black,pdfauthor={Jonathan Yantis},pdftitle={Passive Precision Time over BLE: V14 Candidate Service and Profile Proposal}}
+\hypersetup{colorlinks=true,urlcolor=blue!45!black,citecolor=blue!45!black,linkcolor=black,pdfauthor={Jonathan Yantis},pdftitle={Passive Precision Time over BLE: V14 Service and Profile Release Candidate}}
 \setlength{\parindent}{1em}\setlength{\parskip}{4pt}\setlength{\headheight}{14pt}\setlength{\emergencystretch}{2em}
 \widowpenalty=10000\clubpenalty=10000
-\pagestyle{fancy}\fancyhf{}\fancyhead[L]{\small PToB V14: candidate service/profile}\fancyhead[R]{\small 30 October 2026}\fancyfoot[C]{\small\thepage}
+\pagestyle{fancy}\fancyhf{}\fancyhead[L]{\small PToB V14 public review}\fancyhead[R]{\small 6 November 2026}\fancyfoot[C]{\small\thepage}
 \newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
 \newcommand{\must}{\textsc{must}}\newcommand{\mustnot}{\textsc{must not}}\newcommand{\should}{\textsc{should}}\newcommand{\code}[1]{\texttt{#1}}\newcommand{\page}{\clearpage}
 \begin{document}\thispagestyle{plain}
 \begin{center}
-{\LARGE\bfseries Passive Precision Time over BLE\\V14 Candidate Service\\and Profile Proposal\par}
+{\LARGE\bfseries Passive Precision Time over BLE\\V14 Service and Profile Release Candidate\par}
 \vspace{8pt}Jonathan Yantis\par
-{\small Bluetooth SIG-facing discussion draft --- 30 October 2026}
+{\small\bfseries Public review draft --- 6 November 2026}
 \end{center}
 \begin{abstract}
-Passive Precision Time over BLE (PToB) proposes a common clock service for heterogeneous Bluetooth Low Energy listeners. Complete periodic advertisements identify physical timing events; subsequent corrections let receivers discipline their own clocks without a transaction for every timestamp. Grandmasters use authenticated broadcast discovery, independent source qualification and a designated HOT successor. Relay clocks regenerate timing through causal local maps while preserving root provenance. Four authenticated coarse metadata bytes convey the serving source's time zone and effective civil-time offset, without changing precision timestamps. This proposal defines the service, GM7 succession, timing and trust boundaries, wire-profile selection and conformance work needed for interoperable adoption. Precision, failover availability and energy performance require separate implementation and measurement evidence.
+Passive Precision Time over BLE (PToB) transfers shared time to heterogeneous Bluetooth Low Energy receivers. Periodic advertisements identify physical transmissions; later corrections let receivers discipline local clocks without a transaction for each timestamp. This release candidate pins the implemented BLE wire profile: G7V4 grandmaster control, GR3 root and RC7/profile 5 relay timing, JOIN5 and revision 8 relay admission, and coarse civil-time metadata. It defines when a source may serve, when a HOT successor may take over, and when a receiver must withdraw time. Byte compatibility, physical failover, and calibrated output accuracy are separate review gates.
 \end{abstract}
 \section{Purpose, scope and roles}
 The service lets an endpoint identify a time source, maintain a local clock between observations, report provenance and withdraw unavailable time. Receivers may range from coarse callback consumers to hardware timestamping instruments. Packet resolution alone makes no accuracy promise.
 
-This is a proposal for discussion, not an adopted specification, SIG submission or qualified product. \must, \mustnot\ and \should\ express candidate requirements. The reference profile is GM7v4+S2+C1+TZ1 with G1/GR3 root timing and RC7/profile5 relay timing. Versioned contracts and public reference codecs define the detailed byte bindings \cite{gm7,tz,wire}. Implementation support and physical qualification remain distinct.
+\must, \mustnot\ and \should\ express candidate requirements. The reference is the T096 0.15.326 source snapshot identified in the edition manifest. Its GM profile is \code{GM7v4+S2+C1+TZ1}: G7V4 wire, ordinary broadcast following, full mesh birth and authenticated time-zone metadata. G1 names the timing engine; GR3 names the selected root wire. V14 identifies the service edition, independent of wire revision and firmware version \cite{gm7,tz,wire}.
 \begin{center}\small
 \begin{tabular}{@{}L{0.19\linewidth}L{0.73\linewidth}@{}}\toprule
 Role & Function and authority\\\midrule
@@ -30,11 +30,13 @@ COLD / following GM & Receives mesh time and maintains its own source; has no fa
 Relay clock (RC) & Follows one authenticated parent and regenerates downstream timing; receives no GM election or HOT authority.\\
 Client / leaf & Consumes an admitted source. Capture capability determines its timing tier; a parent constraint remains binding.\\
 \bottomrule\end{tabular}\end{center}
-A device's capabilities, selected profile, current role, functional clock availability and precision quality \must\ remain separately observable. A fitted clock or display label cannot create independent-source eligibility. A role or source transition fences affected authority, captures and maps before replacement service.
+A device's role, functional clock availability and precision quality \must\ remain separately observable. Source transitions fence authority, captures and maps before replacement service. This BLE candidate leaves LoRa/RC8, connected RC9 bridging, and USB or wired time delivery to separate contracts.
+
+The time scale is a POSIX UTC estimate with an authenticated source-coordinate mapping. Leap/TAI handling and wired PTP/gPTP translation need separate scale, delay and uncertainty contracts. Civil time never replaces UTC event identity.
 
 \page
 \section{GM7 election, following and failover}
-GM control uses authenticated connectionless ANNOUNCE (ANN), STATUS and WITHDRAW records. ANN names the ACTIVE source and one preferred successor. Each following GM retains its own GNSS/PPS source, listens to the selected GM's timing and reports independent eligibility and actual shadow preparation in ordinary STATUS. A qualified nominee echoes HOT in its next STATUS. These ordinary broadcasts carry GM coordination and nomination \cite{gm7}.
+GM control uses authenticated extended advertisements. ANNOUNCE (ANN) names the ACTIVE source and its nominee, if any. A following GM listens to the selected source's GR3 train while its own GNSS/PPS continues. It reports independent eligibility and actual shadow preparation in STATUS; a qualified nominee echoes HOT in ordinary STATUS. GM following needs no JOIN, GATT, nonce or ANN-based receive lease. An ACTIVE GM still uses JOIN for ordinary clients \cite{gm7}.
 
 Eligibility precedes ranking. The reference source requires 60 seconds of continuous independent GNSS/PPS qualification. Ordinary initial election then requires 30 seconds of quiet observation plus deterministic backoff up to 500 ms: a healthy cold start normally takes about 90 seconds plus backoff. A GM lacking its own qualified source may follow time but \mustnot\ originate it. Rank eligible candidates lexicographically by priority1, clock class, accuracy, variance, priority2 and stable identity, with boot identity resolving incarnation ties. Preference alone is never HOT confirmation.
 
@@ -49,16 +51,16 @@ WITHDRAW / source fault & Stop positive output immediately; attempt three immuta
 No usable HOT & An independently qualified COLD GM uses ordinary 30 s quiet election plus backoff. Held remote time cannot create source eligibility.\\
 Fresh selected contact & Advancing ANN, authenticated self-ACTIVE ROLE or direct timing header inhibits silence-only takeover. Duplicate/reordered traffic does not renew liveness.\\
 \bottomrule\end{tabular}\end{center}
-GM following continues across control loss. Actual authenticated timing scope, physically matched corrections and their original expiry bound delivered time; a remembered listening identity grants no map. Map loss alone is not transmitter failure. The 3 s objective requires physical qualification.
+GM following continues across control loss. Actual matched corrections, fit freshness and original source expiry bound delivered time. The receiver converts the correction's remaining grant to its captured RX coordinate, rounding down. An advancing selected direct header can establish liveness before a match is usable; it cannot train the clock. A remembered listening identity grants no map. The 3 s objective requires physical qualification.
 
 \subsection*{Mesh lineage and convergence}
-At first valid serving reservation, sample full 64-bit functional UTC as mesh birth and record the founder. Commit ACTIVE only after successful bounded ANN transmission; track actual RF completion separately. A possibly exposed claim retains its lineage even if completion fails. Successors inherit birth/founder and advance the leader term; boot, source epoch, capture generation and train remain separate scopes \cite{birth}.
+At first valid serving reservation, sample full 64-bit functional UTC microseconds as mesh birth and record the founder. Commit ACTIVE only after successful bounded ANN transmission; track actual RF completion separately. A possibly exposed claim retains its lineage even if completion fails. Successors inherit birth/founder and advance the leader term; boot, source epoch, capture generation and train remain separate scopes \cite{birth}.
 
 When ACTIVE meshes meet, earlier birth wins; exact-birth ties use founder, then term/identity/boot ordering. The newer mesh stops positive output before following. The older ACTIVE keeps its service and nominee. Disconnected partitions can serve separate independently eligible sources; convergence does not promise consensus across absent links. Birth is a functional ordering value, not proof of calibrated UTC.
 
 \page
 \section{Periodic timing and relay regeneration}
-Timing uses LE periodic advertising, with complete application records at a nominal 62.5 ms interval (16 Hz). Acquisition uses extended-advertising discovery; synchronization is distinct from connecting. An application record may span controller reports or link-layer fragments, so adapters \must\ deliver bounded whole records and preserve their event identity.
+Timing uses LE periodic advertising, with complete application records at a nominal 62.5 ms interval (16 Hz). Acquisition uses extended-advertising discovery; synchronization is distinct from connecting. This uses periodic advertising without responses \cite{blecore}. An application record may span controller reports or link-layer fragments, so adapters \must\ deliver bounded whole records and preserve their event identity.
 
 An original publication identifies a physical transmission without predicting its own future TX timestamp. A later record carries zero, one or two corrections naming earlier publications, periodic events and physical data channels (0--36). The receiver matches a correction to the saved physical RX capture of that exact original. Callback arrival, follow-up RX and worker processing time are different events and \mustnot\ replace that capture.
 
@@ -76,41 +78,78 @@ An RC disciplines its own counter and originates a downstream train. Each correc
 RC7 authenticates a dynamic bounded path of root and at most two relay transmitters, including identities, boots, trains, capture epochs and slots. It rejects loops, incompatible scope and invalid parent/depth relationships. A leaf does not acquire relay or GM authority through admission. Root position zero and nominal RC positions at 15.625, 31.250 and 46.875 ms are scheduling policy, not PAwR response slots or proof of actual controller placement. Missed preparation advances by whole frames. Port-specific TX estimates require an explicit timing tier and uncertainty \cite{wire}.
 
 \subsection*{Validity and continuity}
-Functional availability, local discipline age, inherited age, independent source permission, admission/demand and precision quality are separate quantities. RC7 renews local context around 300 s with at most a 360 s lease; these durations do not make timing fresh for minutes. The root source envelope is bounded to at most 1.65 s. Each consumer also applies its actual correction, fitter and profile expiry limits.
+Functional availability, local discipline age, inherited age, independent source permission, admission/demand and precision quality are separate. T096 starts same-parent renewal at 240 s for direct and relay bindings, with at most a 360 s lease. The root source envelope is at most 1.65 s. Each consumer also applies its actual correction, fitter and profile expiry limits.
 
-Holdover needs a declared oscillator model, elapsed age and supported error budget. It \mustnot\ renew root permission or GM entitlement. Unknown capture, path, reference or rate uncertainty propagates as UNKNOWN. Reboot, source/counter epoch change, revoked permission or arithmetic fault fences affected output. Within a continuous valid scope, delivered time is monotonic; reacquisition discontinuities are explicit. TZ presence has its own metadata lease and cannot extend any timing lifetime.
+Holdover needs a declared model, elapsed age and supported error budget. The T096 RC's local BLE HOLD estimate has unknown bounds and no relay, USB observation, or source authority \cite{hold}. A receiver may keep acquiring the same authenticated direct train during a permission gap while withdrawing timing output; a context change requires fresh admission \cite{recovery}. Reboot, source/counter epoch change, revocation or arithmetic fault fences affected output. Within a continuous valid scope, delivered time is monotonic; reacquisition discontinuities are explicit.
 
 \page
-\section{Wire profile and authentication}
-The selected profile uses the following explicit discriminators and sizes. Counts are complete application records; GM body sizes exclude its four-byte manufacturer AD wrapper. The development manufacturer value is \code{0xffff}; production identifiers and interoperable service/bearer assignments require SIG-facing work. Detailed layouts, codecs and public synthetic fixtures are cited rather than duplicated here \cite{wire,tz}.
+\section{BLE wire profile and authentication}
+Lengths below include the four-byte manufacturer-specific AD framing where present. A framed record starts with length (record bytes minus one), type \code{ff}, and development company value \code{ff ff}. JOIN has no AD prefix. Relay control uses an AD-shaped record over the connected exchange. Numeric offsets are zero-based; half-open slices are written $[a:b)$ \cite{wire,tz}.
+
 \begin{center}\small
-\begin{tabular}{@{}L{0.22\linewidth}L{0.28\linewidth}L{0.42\linewidth}@{}}\toprule
-Record & Selected revision / bytes & Purpose\\\midrule
-Root timing & GR3, version 3; 190-byte AD & Root envelope, physical originals and corrections; 16 MHz wire units.\\
-Relay timing & RC7, version 7/profile 5; 190-byte AD & Regenerated TX nanoseconds, map generations, cumulative age and authenticated path.\\
-GM control & G7V4, revision 4; 182-byte body / 186-byte AD & ANN, STATUS, WITHDRAW; complete lineage, nominee and four-byte TZ.\\
-GM observations & G7V4, revision 4; ROLE 168 / GNSS 156 body bytes & Bounded role/source diagnostics; neither record grants timing or HOT authority.\\
-Direct client admission & JOIN revision 5; 168 bytes & Authenticated membership, coarse bootstrap/renewal and TZ.\\
-Relay admission & Coarse revision 8; 216 bytes & Local request/response, path and bounded demand/source context, TZ.\\
-Relay capability & Coarse revision 8; 148-byte AD & Discovery, existing admission challenge and current TZ.\\
+\begin{tabular}{@{}L{0.17\linewidth}L{0.30\linewidth}L{0.45\linewidth}@{}}\toprule
+Record & Selected wire / size & BLE bearer and discriminator\\\midrule
+Root timing & GR3 v3; 190 bytes & Periodic AD: \code{GR}, revision 3 at bytes 4--6.\\
+Relay timing & RC7 v7/profile 5; 190 bytes & Periodic AD: \code{RC}, revision 7 at 4--6; profile at 172.\\
+GM control & G7V4 rev. 4; 182 body / 186 AD & Extended AD: ANN, STATUS, WITHDRAW; YIELD is an ANN flag.\\
+GM observations & G7V4 rev. 4; ROLE 168 body / 172 AD, GNSS 156 body / 160 AD & Extended AD: descriptive ROLE and GNSS; self-ACTIVE ROLE can select a listening identity.\\
+Direct admission & JOIN5; 168 bytes & Connected GATT record; decimal 14 at byte 0, revision 5 at 2.\\
+Relay control & RQ rev. 8/profile 5; 216 bytes & Connected GATT request/response; \code{RQ}, revision at 6, profile at 8.\\
+Relay capability & RQ rev. 8/profile 5; 148 bytes & Extended AD; same header, kind 1 at byte 7.\\
 \bottomrule\end{tabular}\end{center}
-GM control uses big-endian integers in its existing fields; TZ is explicitly little-endian. G1/GR3, RC7 and JOIN fields use their declared little-endian layouts. Signed values use two's complement. Do not serialize native structures or infer a decoder from length alone. Exact framing, version/profile, kind, reserved zeros and group epoch are mandatory. A 16 MHz unit is 62.5 ns representation, not a physical oscillator or accuracy requirement; RC nanoseconds likewise specify representation.
 
-The G7V4 body begins with magic (bytes 0--3), revision (4), kind (5), exact body length (6--7), flags (8--9), reserved zero (10--11), group ID (12--19) and key epoch (20--23). ANN/STATUS/WITHDRAW retain the full source/lineage fields; timing epoch is at 158--161, TZ at 162--165 and final tag at 166--181. ROLE/GNSS carry no TZ extension.
+All tags use the first 16 bytes of HMAC-SHA256 with a 32-byte group PSK, over an eight-byte ASCII domain (no terminator), then context, then the authenticated input. Context is byte \code{01}, little-endian u64 group ID and little-endian u32 key epoch. Precision and JOIN fields are little-endian; GM integers are big-endian except TZ. Signed integers use two's complement.
 
-All selected coarse records use a provisioned 32-byte group PSK and HMAC-SHA256 truncated to its first 16 bytes. For eight-byte ASCII domain $D$, group context $C$ and complete pre-tag body $B$,
-\[
-\mathrm{tag}=\mathrm{first}_{16}\bigl(\mathrm{HMAC\!\!\!-SHA256}(K,D\Vert C\Vert B)\bigr),
-\]
-where $C$ is context-version byte 1, u64 little-endian group ID and u32 little-endian key epoch. Domains are \code{PTOBTZ04} (GM), \code{PTOBTZJ5} (JOIN), \code{PTOBTZR8} (relay control) and \code{PTOBTZC8} (capability). Precision keeps its own packet/origin/path authentication; a valid coarse tag cannot authorize a precision sample. GR3 origin coverage is start 14, length 60, i.e. bytes [14:74].
+\begin{center}\small
+\begin{tabular}{@{}L{0.20\linewidth}L{0.18\linewidth}L{0.54\linewidth}@{}}\toprule
+Authentication & Domain & Input and tag position\\\midrule
+GR3 origin / packet & \code{PTOBG3O3} / \code{PTOBG3R3} & AD $[14:74)$, tag at 74 / AD $[0:174)$, tag at 174.\\
+RC7 origin / path & \code{RC7ORIGN} / \code{RC7PATHS} & AD $[12:72)$, tag at 72 / canonical admitted path, yielding a 16-byte path MAC.\\
+RC7 packet & \code{RC7PACKT} & Path MAC followed by AD $[0:174)$; tag at 174.\\
+GM / JOIN5 & \code{PTOBTZ04} / \code{PTOBTZJ5} & GM body before its tag / record $[0:152)$, tag at 152.\\
+RQ control / cap. & \code{PTOBTZR8} / \code{PTOBTZC8} & Record $[0:200)$, tag at 200 / AD $[0:132)$, tag at 132.\\
+\bottomrule\end{tabular}\end{center}
 
-A receiver \must\ select the complete profile explicitly and reject incompatible coarse revisions. Equal packet size or valid precision bytes do not admit a mismatched coarse source. Version changes need explicit discriminators, domains and new vectors; reserved bits cannot silently acquire meaning.
+GR3 correction slots start at 136 and 155, each 19 bytes: u32 publication, u16 event, u8 channel, u64 TX in 16 MHz ticks and u32 generation. RC7 slots start at 118 and 145, each 27 bytes: u32 publication, u16 event, u8 channel, u32 generation, u32 cumulative age in microseconds, u64 TX and u32 bound in nanoseconds. Correction count is at byte 7 in both; unused slots are zero. Valid precision bytes do not admit a source using an incompatible coarse revision.
+
+The RC7 path MAC input is 89 bytes: u32 source epoch, u8 depth, and three 28-byte nodes. Each node is u64 ID, u64 boot, u32 train, u32 capture epoch, u8 slot, u8 role and two zero bytes. Unused nodes are all zero. The admitted path is required to verify the timing packet.
+
+\page
+\section{G7V4 grandmaster record}
+Every G7V4 body begins with magic at 0--3, revision 4 at 4, kind at 5, exact big-endian u16 body length at 6--7, flags at 8--9, zero at 10--11, u64 group ID at 12--19 and u32 key epoch at 20--23. Body offsets below exclude the AD prefix; add four for an AD offset. The entire pre-tag body, including its header, is authenticated \cite{wire,tz}.
+
+\begin{center}\small
+\begin{tabular}{@{}L{0.21\linewidth}L{0.22\linewidth}L{0.48\linewidth}@{}}\toprule
+Kind & Body / tag start & Effect\\\midrule
+1 ANN & 182 bytes / 166 & ACTIVE lineage and nominee; may carry YIELD.\\
+2 STATUS & 182 bytes / 166 & Eligibility and preparation; nominated member can confirm HOT.\\
+3 WITHDRAW & 182 bytes / 166 & Terminal notice for that serving claim. No positive source grant.\\
+6 ROLE & 168 bytes / 152 & Reports role and blockers. Self-ACTIVE can select identity and lineage.\\
+7 GNSS & 156 bytes / 140 & Reports local source quality and known/unknown state.\\
+\bottomrule\end{tabular}\end{center}
+
+\subsection*{ANN, STATUS and WITHDRAW body}
+\begin{center}\small
+\begin{tabular}{@{}L{0.15\linewidth}L{0.77\linewidth}@{}}\toprule
+Body bytes & Fields in byte order\\\midrule
+24--55 & Four u64: sender ID, sender boot, sequence, sent UTC in microseconds.\\
+56--75 & Five u32: observation maximum age and source-valid interval (microseconds), source, capture and train generations.\\
+76--81 & Four u8: priority1, clock class, accuracy, priority2; u16 variance.\\
+82--121 & Five u64: mesh birth UTC in microseconds, founder, term, ACTIVE ID, ACTIVE boot.\\
+122--145 & Three u64: HOT nominee ID, nominee boot, YIELD UTC in microseconds.\\
+146--161 & u32 shadow generation, u64 sender monotonic microseconds, u32 timing epoch.\\
+162--181 & Four TZ bytes (little-endian zone and offset), then 16-byte tag.\\
+\bottomrule\end{tabular}\end{center}
+Flag masks are 1 ELIGIBLE, 2 SHADOW, 4 HOT, 8 YIELD and 16 CAPABLE. ANN and WITHDRAW must name the sending ACTIVE incarnation and carry full lineage. STATUS is the only kind that can set CAPABLE or echo HOT; a HOT echo identifies the sender's own boot and requires eligibility and shadow readiness. YIELD is valid only on ANN, with a named nominee and a stop boundary exactly 750 ms after the original UTC sample. WITHDRAW has zero flags. Maximum observation ages are 2.75 s for ANN, 4.5 s for STATUS and 1 s for WITHDRAW. Only ANN carries a positive source-valid field (at most 1.5 s); it does not grant GM receive permission.
+
+\subsection*{ROLE and GNSS body}
+Both kinds have zero header flags and no TZ field. Bytes 24--95 contain nine u64 values: sender, boot, sequence, sample monotonic microseconds, birth UTC microseconds, founder, term, ACTIVE ID and boot. Timing epoch and lifetime in microseconds are u32 at 96 and 100. ROLE then carries nominee ID/boot at 104--119, generations at 120--135, role/known/blockers at 136--139 and three sampled durations at 140--151. GNSS carries generations at 104--115, known/value masks at 116--119 and quality, ages and UTC error at 120--139. Observation limits are 4.5 s and 30 s, respectively; neither kind grants a timing map or HOT authority.
 
 \page
 \section{Admission, receiver behavior and trust}
-Timing broadcasts require no per-timestamp transaction. Receivers \must\ discover local meshes, separate trusted credentials from runtime mesh selection, and authenticate admission afresh after context changes. The shared PSK establishes membership/integrity; every holder can originate statements. Public decoding alone provides neither trusted discipline, individual attestation, secrecy nor keyless verification.
+Receivers \must\ discover local meshes, keep trusted credentials separate from runtime mesh selection and authenticate admission afresh after context changes. A valid shared-key tag authenticates group membership and integrity. Any key holder can originate statements, so the tag provides no individual attestation or keyless verification. Payloads are readable on air.
 
-Ordinary clients use direct JOIN or relay-local admission; GMs follow broadcast-selected timing. JOIN binds identities, boots, fresh nonces and forward sequences in a bounded exchange. Coarse extraction retains source uncertainty and subtracts the entire causal RTT (at most 250 ms). Its replay anchor \mustnot\ train the precision estimator. Relay admission binds path, parent boot, challenge, nonce, publication floor and bounded source context \cite{wire}.
+Ordinary clients use direct JOIN or relay-local admission; GMs follow broadcast-selected timing. The T096 GATT transport writes complete records without response and requires an ATT MTU of at least 226 for group control. JOIN binds identities, boots, fresh nonces and forward sequences. The exchange state expires after 5 s; source-bearing extraction separately requires RTT below 250 ms. Coarse midpoint uncertainty includes half the RTT, the independent source bound and a drift/quantization margin. Remaining permission subtracts the full RTT plus those guards. The replay anchor \mustnot\ train the precision estimator. Relay admission binds the path, parent boot, challenge, nonce, publication floor and bounded source context \cite{wire}.
 
 Demand and output availability are independent: an authenticated request can start acquisition while timing is unavailable. A not-ready response grants no timing. Renewing same-scope context preserves still-valid captures/maps when resources allow but \mustnot\ reset source age or resurrect expired output. Ordinary source advertisements and current usable source evidence, not a long demand lease, determine whether an ACTIVE GM can admit clients.
 
@@ -124,13 +163,11 @@ Demand and output availability are independent: an authenticated request can sta
 \end{enumerate}
 For ordinary GM7 broadcasts, original receipt time bounds local observation lifetime; polling, duplicate copies and delayed processing cannot extend it. Authentication and retained floors cannot prove the age of a previously unseen recording or advancing recorded stream. This first-contact replay limitation is explicit, including after eviction from bounded peer memory. Durable replay across arbitrary state loss, key rotation/revocation, compromise recovery, asymmetric public verification and delay-attack resistance need production security-profile work.
 
-Clock maps, management observations and radio ownership have different lifetimes. Capture callbacks use bounded work and storage; queue overflow must be observable and cannot fabricate captures or precision. Supported controller reservations, actual drain and no-double-output fences govern serving transitions. Diagnostic collection ending \mustnot\ stop healthy service. Explicit stop, fault containment and update drain remain bounded operations.
-
-The time scale is a POSIX UTC estimate with an authenticated source-coordinate mapping. Leap/TAI handling and any wired PTP/gPTP gateway need an explicit separate scale, delay and uncertainty contract. Local civil time never replaces UTC event identity.
+Capture callbacks use bounded work and storage. Report queue overflow without fabricating captures. Serving transitions require valid controller reservations, actual drain and guards against duplicate output. Ending diagnostic collection \mustnot\ stop healthy service. Explicit stop, fault containment and update drain remain bounded.
 
 \page
 \section{Time zones and daylight-saving support}
-The serving GM publishes one atomic pair in authenticated coarse metadata:
+The serving GM publishes one atomic pair in authenticated coarse metadata. TZ starts at GM body byte 162 (AD byte 166), JOIN byte 148, relay control byte 196 and relay capability byte 128. These are metadata offsets; the tag follows the four-byte pair.
 \begin{center}\small
 \begin{tabular}{@{}L{0.12\linewidth}L{0.24\linewidth}L{0.54\linewidth}@{}}\toprule
 Bytes & Field & Meaning\\\midrule
@@ -166,21 +203,24 @@ Precision and resources & Named output/reference points, calibration and uncerta
 Security and lifecycle & Current admission, key/epoch/boot changes, bounded inventories, compromise/revocation and replay limits, diagnostic independence, explicit stop and fault/resource closure.\\
 \bottomrule\end{tabular}\end{center}
 
-Reference implementations and offline tests support review of these mechanisms. Physical GM failover, sustained relay availability, cross-vendor interoperability, constrained listening and calibrated UTC/output bounds remain open qualification work. Report every population with its denominator, invalid/missing observations and failures. Internal clock agreement, fractional PPS phase and independently measured output remain distinct metrics. Unknown uncertainty stays unknown.
+The edition manifest binds the source snapshot, wire fixtures and offline checks. In the October 29 T096 0.15.209 campaign, all three direct receivers showed the correct route and a valid locked map in 116/116 samples each. In a separate 600 s relay window, one leaf lost its route and map in 20/116 samples; the route failed the 99\% gate \cite{auto}. These windows do not qualify this snapshot or the HOT path. Physical failover, sustained relay availability, cross-vendor interoperability, constrained listening and calibrated UTC/output bounds remain open. Report denominators, invalid/missing observations and failures; keep internal fit, relative PPS and independent output measurements separate.
 
 The proposed SIG work item is a passive clock-service/profile family with explicit event association, causal publication, authenticated authority separation and interoperable quality reporting. The production profile must settle assigned identifiers, discoverable service/capability definitions, connected-record fragmentation/MTU behavior, controller timestamp/scheduling support and security lifecycle. Claimed listening or energy tiers need measured acquisition, recovery and steady-service budgets.
 
-Boundary-clock regeneration describes the architecture; IEEE PTP/gPTP media, BMCA, TSN, wired gateway behavior and Bluetooth product qualification require their own applicable specifications and tests. This discussion draft supplies concrete protocol behavior for review without claiming standards adoption or a universal accuracy tier.
+Public reviewers are invited to compare the G7V4 field and tag boundaries against an independent decoder and to check the separation of liveness and timing permission in each takeover case. Report the decoder, wire revision and reproducible test case with each finding.
 
 \paragraph{Attribution and rights.} Jonathan Yantis is the author and responsible reviewer. OpenAI Codex assisted source review, drafting, wire checks, compilation and visual QA. This manuscript is licensed CC BY 4.0; public reference code and ordinary repository documentation retain their declared licenses.
 
 \page
 \begin{thebibliography}{9}\small\raggedright
-\bibitem{gm7} J. Yantis, \emph{GM7 implementation scope and compatibility}. Current T096 behavior, read with source 0.15.209 and its changelog. \path{docs/t096/gm7-implementation.md}; \path{firmware/t096/protocol/gm7_owner.h} and \path{gm7_owner.c}. Source identity is bound in the edition manifest.
+\bibitem{gm7} J. Yantis, \emph{GM7 implementation scope and compatibility}. \path{docs/t096/gm7-implementation.md} describes the selected wire and coordination design at 0.15.209. The 0.15.326 source snapshot in this edition pins \path{firmware/t096/protocol/gm7_owner.c}, \path{firmware/t096/src/gm7_service.c}, and the current changelog.
 \bibitem{birth} J. Yantis, \emph{GM7 mesh-birth contract C1}. \path{protocol/gm7_birth_c1/README.md}. Logical initiation, possible RF exposure, successful completion and inherited lineage.
-\bibitem{wire} J. Yantis, \emph{Public timing and admission reference codecs}. \path{firmware/t096/protocol/}: \path{group_precision.c}, \path{relay_codec.c}, \path{rc_dynamic.h}, \path{rc_dynamic.c}, \path{group_join.h}, \path{group_join.c}, \path{gm7_codec.h}, \path{gm7_codec.c} and \path{group_auth.c}. Exact profiles and synthetic test fixtures, not hardware acceptance.
+\bibitem{wire} J. Yantis, \emph{Public timing and admission reference codecs}. \path{firmware/t096/protocol/}: \path{group_precision.c}, \path{rc_dynamic.c}, \path{group_join.c}, \path{gm7_codec.c}, \path{group_auth.c}, and \path{ble_transport.c}. Renewal policy: \path{firmware/t096/include/rc_admission_policy.h}. Exact profiles and synthetic test fixtures, not hardware acceptance.
 \bibitem{tz} J. Yantis, \emph{Coarse time zone extension v1}. \path{protocol/time-zone-v1/README.md} and \path{vectors.json}; \path{docs/time-zones.md}. Four-byte metadata, selected coarse revisions, authentication and dynamic lease/ordering policy.
 \bibitem{zones} J. Yantis, \emph{PToB time zone registry and generator}. \path{tools/time_zones/README.md}; append-only IDs in \path{tools/time_zones/zones.json}. Input versions, licenses and calendar/geography limits accompany the generator.
 \bibitem{auto} J. Yantis, \emph{T096 GM automatic time zones}. \path{docs/t096/auto-time-zone-plan.md}. Current selector/calendar modes, receive lifecycle and separately scoped validation results. Receiver ports: \path{docs/esp32-time-zones.md}.
+\bibitem{hold} J. Yantis, \emph{T096 BLE holdover policy and checks}. \path{docs/t096/holdover.md}. Local estimated time, continuity and authority limits.
+\bibitem{recovery} J. Yantis, \emph{N30 and W12 dual timing state machines}. \path{docs/n30/dual-timing-state-machines.md}. Permission withdrawal, acquisition retention and fresh authentication on rebind.
+\bibitem{blecore} Bluetooth SIG, \emph{Bluetooth Core Specification}, v7.0, Vol. 6, Part B, Section 4.4.2.12, \href{https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v7.0/out/en/low-energy-controller/linklayer-ll--specification.html}{Periodic advertising}. Bearer terminology; no Bluetooth adoption of PToB is implied.
 \end{thebibliography}
 \end{document}

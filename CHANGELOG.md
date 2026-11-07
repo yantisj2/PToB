@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-06 — V14 BLE release candidate approved for public review
+
+- Publish the approved draft at the existing V14 PDF and LaTeX paths.
+  Record the approval and final file hashes. Link the superseded proposal
+  and author review copy by Git revision.
+- Keep archived wire and evidence checks tied to their original revisions.
+
 ## 2026-11-06 — V14 BLE release candidate for author review
 
 - Prepare the V14 BLE service/profile paper for author review, preserving the

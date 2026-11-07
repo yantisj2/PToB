@@ -2,6 +2,12 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
+The **6 November 2026 [V14 service and profile release candidate](../papers/ptob-v14-sig-proposal.pdf)**
+is approved for public review on GitHub. Its
+[publication manifest](../papers/editions/v14-rc-2026-11-06-publication.json) binds the source and PDF
+to the approval and archived review copy. The physical failover, relay
+availability and output accuracy gates remain open.
+
 The **4 November 2026 [sparse LoRa timing paper](../papers/lora-sparse-timing/sparse-one-way-lora-clock-transfer.pdf)**
 is approved for public draft review. Its [approval record](../papers/lora-sparse-timing/publication.json)
 binds the unchanged reviewed seven-page manuscript under descriptive PDF/LaTeX

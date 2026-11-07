@@ -150,8 +150,8 @@ The awake timing information and power scheduling pilot retains its
 **19 October 2026** edition. The
 USB/chrony and White Rabbit papers retain their **15–17 October** editions.
 The main viability synthesis is **approved for public draft review**.
-The V14 service/profile paper has a **6 November release candidate for author
-review**; its companion boundary-clock study retains its **12 October** edition.
+The V14 service/profile release candidate is **approved for public review,
+6 November 2026**. Its companion boundary-clock study retains its **12 October** edition.
 All remain discussion/research drafts, without standards
 adoption or firmware qualification. Earlier import receipts retain their original
 byte identities; later editions are recorded separately.
@@ -274,21 +274,17 @@ website deployment or manuscript submission accompanied this import.
 
 | Draft | Read | Edit |
 | --- | --- | --- |
-| Passive Precision Time over BLE: V14 Service and Profile Release Candidate | [PDF](ptob-v14-release-candidate.pdf) | [LaTeX](ptob-v14-release-candidate.tex) |
-| Passive Precision Time over BLE: V14 Candidate Service and Profile Proposal | [PDF](ptob-v14-sig-proposal.pdf) | [LaTeX](ptob-v14-sig-proposal.tex) |
+| Passive Precision Time over BLE: V14 Service and Profile Release Candidate | [PDF](ptob-v14-sig-proposal.pdf) | [LaTeX](ptob-v14-sig-proposal.tex) |
 | Passive Precision Time over BLE: V14 Boundary Clocks, Causal Timestamping, and Prospective One-Relay Validation | [PDF](ptob-v14-preprint.pdf) | [LaTeX](ptob-v14-preprint.tex) |
 
-The **6 November 2026 release candidate** is for author review before public
-review. It pins the T096 0.15.326 BLE source snapshot and specifies G7V4
-control and observations, GR3 root timing, RC7/profile 5 relay timing, JOIN5
-and revision 8 relay admission/capability. It separates GM liveness, timing
-permission, and HOT eligibility. The [edition manifest](editions/v14-rc-2026-11-06.json)
-binds the source, PDF, codec inputs and offline checks. Public review approval
-and physical qualification are separate.
-
-The **30 October 2026 author-review proposal** and its
-[edition manifest](editions/v14-sig-2026-10-30.json) remain unchanged. Run
-`python3 tools/verify_v14_proposal.py` for offline identity and coarse-wire checks.
+The **6 November 2026 release candidate** is approved for public review.
+It pins T096 0.15.326 and specifies G7V4 grandmaster control and observations,
+GR3 root timing, RC7/profile 5 relay timing, JOIN5 and revision 8 relay
+admission and capability. The [public review manifest](editions/v14-rc-2026-11-06-publication.json)
+binds the approved source/PDF and author review checkpoint. The
+[30 October proposal](https://github.com/yantisj2/PToB/blob/a44e8a7ccde6e21aaea71f970155b21bbd072946/papers/ptob-v14-sig-proposal.pdf) is available in Git history.
+Run `python3 tools/verify_v14_proposal.py` to check the publication, archived
+editions, and coarse wire fixtures.
 
 The unchanged **12 October boundary-clock study** has evidence cutoff
 **2026-10-12T18:26:44.293859Z**, with specification
@@ -392,7 +388,6 @@ tectonic --outdir artifacts/papers papers/ptob-proposal.tex
 tectonic --outdir artifacts/papers papers/ptob-preprint.tex
 tectonic --outdir artifacts/papers papers/oscillator-pll-research-20261003.tex
 tectonic --outdir artifacts/papers papers/ptob-v14-sig-proposal.tex
-tectonic --outdir artifacts/papers papers/ptob-v14-release-candidate.tex
 tectonic --outdir artifacts/papers papers/ptob-v14-preprint.tex
 tectonic --outdir artifacts/papers papers/usb-macos-time-transfer-preprint.tex
 tectonic --outdir artifacts/papers papers/white-rabbit-study-20261015.tex
@@ -404,8 +399,8 @@ tectonic --outdir artifacts/papers papers/ptob-bluetooth-timecode-preprint.tex
 Tectonic may download its public TeX bundle on first use. Inspect the generated
 PDFs before replacing the checked-in copies. Different TeX engines or bundle
 versions may change pagination or PDF bytes. The October 2 manuscripts and V14
-boundary-clock preprint retain original exports. The V14 proposal PDF matches
-its 30 October source. The oscillator/PLL PDF was regenerated during migration
+boundary-clock preprint retain original exports. The V14 release candidate PDF
+matches its 6 November public review source. The oscillator/PLL PDF was regenerated during migration
 to match its existing amended source.
 
 ## Cite a draft
@@ -425,7 +420,7 @@ Jonathan Yantis. *Passive Precision Time over BLE: V14 Candidate Service and
 Profile Proposal.* Author-review discussion draft, 30 October 2026.
 
 Jonathan Yantis. *Passive Precision Time over BLE: V14 Service and Profile
-Release Candidate.* Author review copy, 6 November 2026.
+Release Candidate.* Public review draft, 6 November 2026.
 
 Jonathan Yantis. *Passive Precision Time over BLE: V14 Boundary Clocks, Causal
 Timestamping, and Prospective One-Relay Validation.* Research preprint, draft,

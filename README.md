@@ -149,8 +149,11 @@ shadow-only. [Source, selected data and reproduction](papers/mcxo-holdover-durat
 accompany the approved MCXO-inspired study. Canonical LaTeX and compact,
 checksummed evidence are prepared for GitHub publication.
 
-The **30 October author-review [V14 SIG proposal](papers/ptob-v14-sig-proposal.pdf)**
-describes GM7 succession, RC7 paths and TZ/DST; it adds no hardware qualification.
+**Public review draft, 6 November 2026.**
+[Passive Precision Time over BLE: V14 Service and Profile Release Candidate](papers/ptob-v14-sig-proposal.pdf)
+specifies G7V4 grandmaster control, GR3 root timing, RC7/profile 5 relay
+timing and authenticated admission. The [edition and approval record](papers/editions/v14-rc-2026-11-06-publication.json)
+identifies the reference source and the remaining physical qualification gates.
 
 **Public review draft, 26 October 2026:**
 [PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons](papers/indoor-ips/main.pdf)

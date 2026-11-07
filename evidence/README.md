@@ -59,8 +59,10 @@ and recomputes seven PLL capture populations from the included derived samples.
 The V14 command checks its [separate receipt](../papers/imports/v14-2026-10-13.json),
 recomputes both PPS populations/diagnostic deltas and verifies the frozen RC1
 tables/examples using the preserved proposal's hash-checked Git revision.
-It also checks the [current V14 proposal](../papers/editions/v14-sig-2026-10-30.json)
-and coarse TZ known answers; include the recorded history when cloning.
+It also checks the [V14 public review edition](../papers/editions/v14-rc-2026-11-06-publication.json)
+and coarse TZ known answers. Include the recorded history when cloning. The
+[12 October RC1 proposal](https://github.com/yantisj2/PToB/blob/9614cc23ead214d9197521091a7d98fdace2eb52/papers/ptob-v14-sig-proposal.pdf)
+is the manuscript for the frozen evidence.
 The original [verification record](v14/2026-10-12/verification-2026-10-13.json)
 retains its dated checks, separate from historical C, raw extraction and hardware.
 The v12 model has its own [standalone test instructions](v12/model/README.md).

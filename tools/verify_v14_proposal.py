@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the current V14 proposal edition and public coarse-wire known answers.
+"""Verify the public V14 edition, archived manuscripts and coarse-wire fixtures.
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 Standard library only. No network, private inputs, devices or firmware execution.
@@ -20,34 +20,58 @@ def require(ok, message):
         raise ValueError(message)
 
 
-def main():
-    edition = json.loads((ROOT/'papers/editions/v14-sig-2026-10-30.json').read_text())
-    for entry in edition['files'] + edition['cited_local_sources']:
-        path = (ROOT/entry['path']).resolve()
-        require(path.is_relative_to(ROOT), 'Path escapes repository')
+def verified_bytes(entry, revision=None):
+    path = (ROOT/entry['path']).resolve()
+    require(path.is_relative_to(ROOT), 'Path escapes repository')
+    if revision is None:
         data = path.read_bytes()
-        # A later documentation/code edit does not revise this reviewed snapshot.
-        # Current manuscript/PDF outputs must always match in place.
-        if entry in edition['cited_local_sources'] and hashlib.sha256(data).hexdigest() != entry['sha256']:
-            revision = edition['base_repository_commit']
-            require(re.fullmatch(r'[0-9a-f]{40}', revision), 'Full source revision required')
-            try:
-                data = subprocess.check_output(['git', 'show', revision+':'+entry['path']],
-                                               cwd=ROOT, stderr=subprocess.PIPE)
-            except (FileNotFoundError, subprocess.CalledProcessError) as exc:
-                raise ValueError('Cited snapshot unavailable; include Git history '+revision) from exc
-        require(len(data) == entry['bytes'] and
-                hashlib.sha256(data).hexdigest() == entry['sha256'],
-                'Edition identity: '+entry['path'])
-    require(edition['status'] == 'AUTHOR_REVIEW_DRAFT_NOT_PUBLISHED', 'Review status')
-    require(edition['page_count'] <= edition['previous_edition']['page_count'], 'Page budget')
-    require(edition['review']['all_pages_visually_inspected'], 'Visual review incomplete')
-    tex = (ROOT/'papers/ptob-v14-sig-proposal.tex').read_text()
+    else:
+        require(re.fullmatch(r'[0-9a-f]{40}', revision), 'Full source revision required')
+        try:
+            data = subprocess.check_output(['git', 'show', revision+':'+entry['path']],
+                                           cwd=ROOT, stderr=subprocess.PIPE)
+        except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+            raise ValueError('Archived source unavailable; include Git history '+revision) from exc
+    require(len(data) == entry['bytes'] and hashlib.sha256(data).hexdigest() == entry['sha256'],
+            'Edition identity: '+entry['path'])
+    return data
+
+
+def main():
+    publication = json.loads((ROOT/'papers/editions/v14-rc-2026-11-06-publication.json').read_text())
+    require(publication['status'] == 'APPROVED_FOR_PUBLIC_DRAFT_REVIEW', 'Review status')
+    require(publication['review']['all_pages_visually_inspected'], 'Visual review incomplete')
+    prepared = publication['author_review']
+    receipt = verified_bytes(prepared['manifest'])
+    require(receipt == verified_bytes(prepared['manifest'], prepared['revision']),
+            'Archived preparation manifest')
+    edition = json.loads(receipt)
+    require(publication['page_count'] == edition['page_count'], 'Page budget')
+    require(publication['title'] == edition['title'], 'Approved title')
+    for entry in edition['files']:
+        verified_bytes(entry, prepared['revision'])
+    for entry in edition['cited_local_sources']:
+        verified_bytes(entry, edition['base_repository_commit'])
+
+    previous = edition['previous_edition']
+    receipt = verified_bytes(previous['manifest'])
+    require(receipt == verified_bytes(previous['manifest'], previous['revision']), 'Archived October manifest')
+    october = json.loads(receipt)
+    for entry in october['files']:
+        verified_bytes(entry, previous['revision'])
+    for entry in october['cited_local_sources']:
+        verified_bytes(entry, october['base_repository_commit'])
+
+    published = {entry['path']: entry for entry in publication['files']}
+    source = 'papers/ptob-v14-sig-proposal.tex'
+    pdf = 'papers/ptob-v14-sig-proposal.pdf'
+    require(set(published) == {source, pdf}, 'Public manuscript paths')
+    tex = verified_bytes(published[source]).decode()
+    require(verified_bytes(published[pdf]).startswith(b'%PDF-'), 'PDF signature')
+    require('Public review draft' in tex and 'Pending approval' not in tex, 'Public cover')
     cites = {key for group in re.findall(r'\\cite\{([^}]+)\}', tex) for key in group.split(',')}
-    require(cites <= set(re.findall(r'\\bibitem\{([^}]+)\}', tex)), 'Unresolved citation')
-    require(not re.search(r'\b(previous|historical|superseded|legacy|RC1|RC5|GC17)\b', tex,
-                          re.IGNORECASE), 'Design history belongs outside the proposal')
-    require(not re.search(r'/Users/|/dev/cu\.|/Volumes/|(?:[0-9a-f]{2}:){5}[0-9a-f]{2}',
+    require(cites == set(re.findall(r'\\bibitem\{([^}]+)\}', tex)), 'Unresolved citation')
+    require(not re.search(r'/Users/|/dev/cu\.|/Volumes/|\.internal/|(?:[0-9a-f]{2}:){5}[0-9a-f]{2}',
                           tex, re.IGNORECASE), 'Private path or factory identifier')
     require(r'\input{' not in tex and r'\include{' not in tex, 'Standalone source required')
 
@@ -78,9 +102,8 @@ def main():
             require(wire[6] == 8 and wire[8] == 5, 'RC coarse revision/profile')
         else:
             require(wire[0] == 14 and wire[2] == 5, 'JOIN discriminator/revision')
-    print('PASS: current V14 source/PDF/source pins; four independent coarse-wire HMAC/TZ known answers; '
-          'citations, standalone source, current-design scope and named privacy checks. '
-          'No hardware, failover or accuracy qualification.')
+    print('PASS: public V14 source and PDF, archived editions and source pins, '
+          'citations, and four independent coarse-wire HMAC/TZ known answers.')
 
 
 if __name__ == '__main__':

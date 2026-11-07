@@ -13,8 +13,8 @@ current research synthesis. Its [LaTeX source](../papers/ptob-viability-preprint
 and [publication approval](../papers/editions/viability-2026-10-30-publication.json)
 preserve the reviewed edition and its limits.
 
-For the current protocol proposal, read the **30 October author-review
-[V14 SIG draft](../papers/ptob-v14-sig-proposal.pdf)** and
+For the current protocol design, read the **6 November public review
+[V14 release candidate](../papers/ptob-v14-sig-proposal.pdf)** and
 [V14 research status](V14_RESEARCH_STATUS.md). The
 [V14-RC1 specification](V14_CLOCK_SPEC_RC1.md) is a frozen 12 October reference;
 paper editions, wire revisions and physical evidence retain separate identities.

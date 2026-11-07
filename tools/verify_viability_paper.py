@@ -43,6 +43,15 @@ def main():
         path = (ROOT / item['path']).resolve()
         require(path.is_relative_to(ROOT), 'repository-contained input')
         raw = path.read_bytes()
+        # The V14 citation is pinned to its old edition. The current verifier
+        # can evolve while its reviewed copy remains bound to the viability edition.
+        if digest(raw) != item['sha256']:
+            archived = {
+                'papers/ptob-v14-sig-proposal.tex': edition['base_repository_commit'],
+                'tools/verify_viability_paper.py': '5bedce84e7fc72442ebb9c845f81c6f781b77eac',
+            }.get(item['path'])
+            if archived:
+                raw = subprocess.check_output(['git', 'show', archived + ':' + item['path']], cwd=ROOT)
         require(len(raw) == item['bytes'] and digest(raw) == item['sha256'], item['path'])
     previous = edition['previous_edition']
     for item in previous['files']:

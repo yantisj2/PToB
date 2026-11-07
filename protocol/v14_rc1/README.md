@@ -2,7 +2,7 @@
 
 Frozen 12 October 2026 at historical specification checkpoint `7995249`.
 Read the [specification](../../docs/V14_CLOCK_SPEC_RC1.md),
-[proposal](../../papers/ptob-v14-sig-proposal.pdf), and
+[original RC1 proposal](https://github.com/yantisj2/PToB/blob/9614cc23ead214d9197521091a7d98fdace2eb52/papers/ptob-v14-sig-proposal.pdf), and
 [research status](../../docs/V14_RESEARCH_STATUS.md) together. This is a portable
 specification candidate, without current firmware or hardware qualification.
 

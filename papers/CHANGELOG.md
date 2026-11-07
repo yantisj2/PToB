@@ -1,5 +1,11 @@
 # Manuscript history
 
+## 2026-11-06 — V14 BLE service and profile public review
+
+- Publish the approved release candidate at the existing manuscript paths.
+  Update the cover and reviewer instructions. Preserve the October proposal and
+  the November author review copy in Git with their edition manifests.
+
 ## 2026-11-04 — sparse LoRa timing paper approved for public review
 
 - Record author approval for public draft review and feature *Sparse One-Way

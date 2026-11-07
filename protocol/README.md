@@ -1,9 +1,10 @@
 # Protocol contracts
 
-Start with the **30 October 2026 author-review [V14 SIG proposal](../papers/ptob-v14-sig-proposal.pdf)**
-for the current service/profile design: GM7 succession, RC7 dynamic paths and
-TZ/DST metadata. Its [edition manifest](../papers/editions/v14-sig-2026-10-30.json)
-binds the reviewed source/PDF; it is not an adopted standard or hardware qualification.
+The [V14 release candidate](../papers/ptob-v14-sig-proposal.pdf) is open for
+public review as of 6 November 2026. It specifies G7V4 grandmaster control,
+GR3 and RC7 timing, authenticated admission and civil-time metadata. Its
+[public review manifest](../papers/editions/v14-rc-2026-11-06-publication.json) pins the reference source
+and records the physical qualification limits.
 
 The [T096 GM7 implementation guide](../docs/t096/gm7-implementation.md) describes
 source **0.15.209**, profile **GM7v4+S2+C1+TZ1**. Root timing uses GR3; relay timing

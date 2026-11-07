@@ -66,10 +66,10 @@ holdover arithmetic, bibliography keys, and edition/source/PDF identity. This
 standard-library check does not implement a vendor protocol or qualify hardware
 or interoperability. See the [paper catalogue](../papers/README.md).
 
-Run `python3 tools/verify_v14_proposal.py` with Python 3.9+ for the current
-30 October author-review source/PDF identities, cited source pins and four
-independent coarse TZ wire/HMAC known answers. This does not execute firmware
-or qualify failover, RF delivery or accuracy.
+Run `python3 tools/verify_v14_proposal.py` with Python 3.9+ to verify the V14
+public review source and PDF, archived review copies, cited source pins and
+four independent coarse TZ wire/HMAC known answers. Include the recorded Git
+history when cloning. The checks cover document identity and wire fixtures.
 
 Run `python3 tools/verify_v14.py` from the repository root with Python 3.9+ to
 also check the immutable V14 import hashes, both separate PPS-phase populations,
