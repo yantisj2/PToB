@@ -135,6 +135,7 @@ struct r2_tz r2_ui_display_zone(const struct r2_ui_model *,uint64_t now_ms,int64
 #ifdef R2_LORA
 /* Watch presentation only; independent RF clocks keep their own data. */
 bool r2_ui_lora_primary(const struct r2_ui_model *,uint64_t now_ms);
+bool r2_ui_lora_train_current(const struct r2_ui_model *,uint64_t now_ms);
 /* Current learned baseline: positive excess, or zero inside its noise floor. */
 bool r2_ui_lora_tof_ns(const struct r2_ui_model *,uint64_t now_ms,uint32_t *);
 #endif

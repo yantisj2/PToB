@@ -18,10 +18,17 @@ def function(body,name):
 def setup(body):
  start=body.index('case NRF_USBD_COMMON_EVT_SETUP: {');end=body.index('\n\tdefault:',start)
  return 'static void accept_setup(void) {struct usbd_event evt={0};bool put_evt=false;switch(NRF_USBD_COMMON_EVT_SETUP){'+body[start:end]+'default:assert(0);}\nif(put_evt){struct usbd_event *e=usbd_evt_alloc();e->evt_type=evt.evt_type;e->evt=evt.evt;usbd_evt_put(e);}}\n'
+def reset_handlers(body):
+ start=body.index('case NRF_USBD_COMMON_EVT_RESET:');end=body.index('case NRF_USBD_COMMON_EVT_SOF:',start)
+ irq='static void accept_reset(void) {struct usbd_event evt={0};bool put_evt=false;switch(NRF_USBD_COMMON_EVT_RESET){'+body[start:end]+'default:assert(0);}\nif(put_evt){struct usbd_event *e=usbd_evt_alloc();e->evt_type=evt.evt_type;usbd_evt_put(e);}}\n'
+ start=body.index('case USBD_EVT_RESET:');end=body.index('case USBD_EVT_SOF:',start)
+ worker='static void process_reset(void) {struct nrf_usbd_ctx *ctx=get_usbd_ctx();switch(USBD_EVT_RESET){'+body[start:end]+'default:assert(0);}}\n'
+ return irq+worker
 cases=[]
 for name,body in [('stock',stock),('fixed',fixed)]:
- src=(app/'tests/usb_ep0_fake.h').read_text()+setup(body)+function(common,'ev_setup_handler')
- src+='\n'.join(function(body,f) for f in ['usbd_work_process_setup','usbd_work_process_recvreq','usbd_work_process_ep_events','usbd_event_transfer_ctrl','usb_dc_ep_write','usb_dc_ep_read_wait','usb_dc_ep_read_continue'])
+ src=(app/'tests/usb_ep0_fake.h').read_text()+setup(body)+reset_handlers(body)+function(common,'ev_setup_handler')
+ if name=='fixed':src+=function(body,'hfxo_ready')
+ src+='\n'.join(function(body,f) for f in ['usbd_work_process_pwr_events','usbd_work_process_setup','usbd_work_process_recvreq','usbd_work_process_ep_events','usbd_event_transfer_ctrl','usb_dc_ep_write','usb_dc_ep_read_wait','usb_dc_ep_read_continue'])
  src+=function(common,'nrf_usbd_common_irq_handler')
  src+=(app/'tests/usb_ep0_test.c').read_text();(a.out/(name+'.c')).write_text(src)
  cmd=[(__import__('os').environ.get('CC') or __import__('shutil').which('clang')),'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-unused-variable','-Wno-unused-function','-fsanitize=address,undefined','-fno-sanitize-recover=all',str(a.out/(name+'.c')),'-o',str(a.out/name)]

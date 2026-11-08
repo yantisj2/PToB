@@ -157,10 +157,11 @@ host gain checks do not qualify an earlier timing correction for that path.
 The separately authorized `--lora-fixed500-experiment` requires
 `--lora-passive-slow` and matched normal GM/RC images. It selects experimental
 schedule8: one922.4MHz/SF11/BW500/CR4/8 PHY, preamble12, explicit header/CRC,
-30s SYNC/FOLLOW,300s META and no DISC. It boots requested ON; RX is continuous.
+30s SYNC/FOLLOW,360s META and no DISC. It boots requested ON; RX is continuous.
 It rejects other lab modes and manual UTC jobs/cap overrides. Reservations
 use actual packet costs plus10ms each under90s/h accounting; nominal steady
-traffic reserves79.061952s/h. Normal META stays300s within a train. A real
+traffic reserves77.467040s/h. Normal META is due360s after the last confirmed
+announcement slot. A real
 source-context turnover drains the old transaction and starts a fresh train
 with new META after a30s restart hold; an unannounced context retries after a missed launch. Missed
 slots do not create catch-up bursts. Ordinary map refreshes, local GNSS changes
@@ -195,7 +196,7 @@ An available LoRa/HOLD watch remains selected through fleeting BLE returns;
 BLE needs30 continuous qualified seconds on the same admitted scope. Explicit
 transmitter OFF/ON can start a fresh initial META/stream/grid, retaining per-boot
 airtime debt and replay floors. It cannot bypass a pending physical transaction,
-fault or cap. Normal periodic META remains300s with no automatic catch-up.
+fault or cap. An unconfirmed META stays due on the next eligible30s slot.
 Declared faults and eligible TX no-progress request watchdog recovery after300s;
 the existing30s parent-watchdog period still bounds the subsequent physical reset.
 RX silence/source absence/cap refusal do not start that no-progress timer.

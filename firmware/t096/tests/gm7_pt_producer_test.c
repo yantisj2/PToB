@@ -40,7 +40,7 @@ int main(int argc,char **argv){
   puts("PASS actual fullwidth GM09/cause labels/source/CRC shared-buffer frame and original bounds");return 0;
  }
  struct gm7_source s;struct r2_source_clock map;struct r2_clock clock;
- assert(source_read(&s,&map,&clock,&b)&&s.physical_ready);
+ assert(!source_read(&s,&map,&clock,&b)&&s.physical_ready);
  if(test==1)input.fatal=true;
  if(test==2)input.stopped=true;
  if(test==3)resource_fault=true;

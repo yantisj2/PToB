@@ -5,6 +5,11 @@
 #include <stdint.h>
 #define R2_LORA_HW_BYTES 128u
 #define R2_LORA_HW_LAUNCH_MARGIN_US 1000u
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+/* Software observation of completed TX only. RF admission uses its original
+ * physical budget and FOLLOW/slot deadlines. */
+#define R2_LORA_FIXED500_TX_OBSERVE_US 7000000u
+#endif
 enum r2_lora_hw_kind {R2_LORA_HW_NONE,R2_LORA_HW_RX_DONE,R2_LORA_HW_TX_DONE};
 /* kind reports validated completion; tick is TX BUSY preamble-start or RX
  * first HeaderValid, NOT the completion or callback time. */

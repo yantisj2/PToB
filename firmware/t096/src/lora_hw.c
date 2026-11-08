@@ -333,8 +333,27 @@ static int transfer(size_t n) {
     return fail(rc);
   atomic_set(&dma_inflight, 1);
   stage(R2_LORA_STAGE_DMA);
+  bool set_tx = dma_tx[0] == 0x83 && atomic_get(&phase) == 4;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  /* SPI1 is private to this owner. Keep the four-byte async submission
+   * together across thread scheduling. IRQs and all completion waits
+   * remain outside this scheduling constraint. */
+  bool scheduled_tx = set_tx && wd.launch_finish;
+  if (scheduled_tx)
+    k_sched_lock();
+#endif
+  if (set_tx) {
+    /* Start the local precommit budget at SPI submission. Waiting to run or
+     * for BUSY still consumes the original RF finish and source bounds. */
+    wd.precommit_us = (uint32_t)now_us();
+    wd.precommit_ms = k_uptime_get_32();
+  }
   rc = spi_transceive_cb(spi, &spi_config, &tx_buffers, &rx_buffers, spi_done,
                          NULL);
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  if (scheduled_tx)
+    k_sched_unlock();
+#endif
   if (rc) {
     atomic_clear(&dma_inflight);
     count(&counters.spi_error);
@@ -444,8 +463,14 @@ static int enable_fem(bool transmit, uint32_t budget, uint64_t latest_finish,
       irq_unlock(key);
       return -EAGAIN;
     }
-    if (transmit &&
-        (uint32_t)((uint32_t)now - wd.precommit_us) > budget) {
+    bool check_precommit = transmit;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+    /* A scheduled packet has an absolute finish and a capture-domain source
+     * bound, both checked above. Worker delay after the software submit stamp
+     * cannot consume an extra packet-length window before NSS commits. */
+    check_precommit = transmit && !latest_finish;
+#endif
+    if (check_precommit && (uint32_t)((uint32_t)now - wd.precommit_us) > budget) {
       if (deferred)
         *deferred = true;
       irq_unlock(key);
@@ -763,6 +788,11 @@ int r2_lora_hw_passive_configure(enum r2_lora_passive_phy phy,unsigned channel){
 #endif
   if(!atomic_get(&running)||atomic_get(&fault))return -ECANCELED;
   if(atomic_get(&phase)!=1||atomic_get(&dma_inflight)||atomic_get(&latched))return -EBUSY;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  /* Both logical packet types use the same frequency and modulation. The
+   * first configuration after hardware start still programs both registers. */
+  if(passive_phy){passive_phy=(uint8_t)phy;return 0;}
+#endif
   /* SX1262 SetRfFrequency units=32MHz/2^25; round nearest. The regional
    * 64-channel raster is902.4MHz+400kHz*i; rendezvous is915MHz. */
   uint64_t hz=
@@ -912,13 +942,11 @@ static int launch_tx(uint32_t gen,uint32_t budget,uint64_t latest_finish,atomic_
   if(!capture_live())return tx_capture_failure(serial);
   int rc=arm_edge(gen,4);rc=tx_state_result(rc,serial);
   if (!rc) {
-    /* Precommit has its own original finite bound, equal to the existing
-     * frame window. RF stays inhibited until completed SetTx bytes commit.
+    /* SetTx SPI submission starts the finite precommit budget. RF stays
+     * inhibited until the completed bytes commit inside the original slot.
      * BUSY30ms/DMA10ms/owner-stall guards remain independently unchanged. */
     wd.launch_budget = budget;
     wd.launch_finish = latest_finish;
-    wd.precommit_us = (uint32_t)now_us();
-    wd.precommit_ms = k_uptime_get_32();
     wd.command_committed = 0;
     uint64_t before = now_us();
     if (latest_finish && (before >= latest_finish ||
@@ -1082,7 +1110,12 @@ int r2_lora_hw_take(struct r2_lora_hw_event *out) {
       out->end_since_enable_us=nrfx_timer_capture_get(&cutoff,NRF_TIMER_CC_CHANNEL1);
       if(!out->end_since_enable_us||out->end_since_enable_us>wd.launch_budget)return fail(-ESTALE);
       uint64_t observed=now_us();uint32_t since=(uint32_t)((uint32_t)observed-wd.launch_us);
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+      if(since>R2_LORA_FIXED500_TX_OBSERVE_US||since<out->end_since_enable_us||observed<since||
+         (uint32_t)((observed-since)/1000)!=wd.launch_ms)return fail(-ESTALE);
+#else
       if(since>2000000u||since<out->end_since_enable_us||observed<since)return fail(-ESTALE);
+#endif
       out->end_local_us=observed-since+out->end_since_enable_us;
 #endif
       out->kind = R2_LORA_HW_TX_DONE;

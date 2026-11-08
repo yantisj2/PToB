@@ -29,7 +29,8 @@ static inline int atomic_set(atomic_t *p,int v){int old=*p;*p=v;return old;}
 static inline void atomic_clear(atomic_t *p){*p=0;}
 static inline bool atomic_cas(atomic_t *p,int old,int v){if(*p!=old)return false;*p=v;return true;}
 enum {UART_RX_RDY,UART_RX_BUF_REQUEST,UART_RX_BUF_RELEASED,UART_RX_STOPPED,UART_RX_DISABLED,UART_TX_DONE,UART_TX_ABORTED};
-struct uart_event {int type;union {struct {uint8_t *buf;size_t offset,len;} rx;struct {uint8_t *buf;} rx_buf;struct {const uint8_t *buf;size_t len;} tx;} data;};
+enum {UART_ERROR_OVERRUN=1,UART_ERROR_PARITY=2,UART_ERROR_FRAMING=4,UART_BREAK=8};
+struct uart_event {int type;union {struct {uint8_t *buf;size_t offset,len;} rx;struct {uint8_t *buf;} rx_buf;struct {const uint8_t *buf;size_t len;} tx;struct {int reason;} rx_stop;} data;};
 static int64_t now;
 static unsigned init_calls,enable_calls,disable_calls,received_bytes,faults,pps_calls;
 static int levels[4],start_rc;

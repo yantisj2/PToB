@@ -45,7 +45,7 @@
 #define GM_TIME_BLOCKED (GM_BLE_LOST|GM_TIME_CLEAR)
 #define RESTART_HOLD_US UINT64_C(30000000)
 #define SOURCE_GATE_SHIFT 16u
-#define SOURCE_GATE_MASK (7u<<SOURCE_GATE_SHIFT)
+#define SOURCE_GATE_MASK (15u<<SOURCE_GATE_SHIFT)
 #define WORKER_PRIORITY 11
 /* Main/GNSS7, BLE precision8 and GM owner9 always run first. RF deadlines
  * never promote packet preparation above the clocks that supply its time. */
@@ -93,7 +93,11 @@
 #endif
 #if defined(R2_LORA_PASSIVE_SLOW) || defined(R2_LORA_BW_EXPERIMENT)
 #define STAGED_PACKETS 1
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+#define PAIR_PREPARE_LEAD_US LP_SYNC_OFFSET_US
+#else
 #define PAIR_PREPARE_LEAD_US UINT64_C(1500000)
+#endif
 #endif
 #define REBOOT_CONTROL_GUARD_US UINT64_C(4000000)
 #ifdef R2_LORA_FIXED500_EXPERIMENT
@@ -179,6 +183,7 @@ _Static_assert(sizeof(source_observation)==16,"role-exclusive packet and predict
  * hard context retirements. Counts describe causes, never clock authority. */
 static uint32_t source_events[4];
 static uint32_t source_withdraw_pc;
+static atomic_t ble_holdovers;
 static void source_note(unsigned index){
  k_spinlock_key_t key=k_spin_lock(&lock);
  if(source_events[index]<UINT32_MAX)++source_events[index];
@@ -622,11 +627,25 @@ void r2_lora_source_status(enum r2_lora_source_gate gate){
  atomic_val_t old=atomic_get(&flags),next;
  do{next=(old&~SOURCE_GATE_MASK)|((unsigned)gate<<SOURCE_GATE_SHIFT);}
  while(!atomic_cas(&flags,old,next)&&(old=atomic_get(&flags),true));
+ if(gate==R2_LORA_SOURCE_BLE_HOLDOVER&&(old&SOURCE_GATE_MASK)!=(next&SOURCE_GATE_MASK))
+  atomic_inc(&ble_holdovers);
+}
+bool r2_lora_source_hold(const struct rc8_scope *scope,struct r2_capture at){
+ if(!r2_lora_source_needed()||scope->kind!=RC8_SELECTED_BLE||at.kind!=R2_CAPTURE_NOW)return false;
+ k_spinlock_key_t key=k_spin_lock(&lock);
+ const struct rc8_export *map=&role.tx.maps[0];
+ const struct rc8_scope *bound=&map->scope;
+ bool live=(atomic_get(&flags)&SOURCE_PRESENT)&&!stop_deadline&&map->valid&&map->authenticated&&
+  bound->kind==RC8_SELECTED_BLE&&bound->root==scope->root&&bound->root_boot==scope->root_boot&&
+  bound->parent==scope->parent&&bound->parent_boot==scope->parent_boot&&bound->source_epoch==scope->source_epoch&&
+  at.epoch==map->capture_epoch&&at.tick>=map->from_tick&&at.tick<map->until_tick;
+ k_spin_unlock(&lock,key);return live;
 }
 static const char *source_gate_name(atomic_val_t f){
  static const char *const names[]={"READY","NO_SCOPE","GNSS_NOT_READY","BLE_MAP_UNAVAILABLE",
-  "BLE_QUALITY","CAPTURE_UNAVAILABLE","SCOPE_REVOKED","SOURCE_UNAVAILABLE"};
- return names[((unsigned)f&SOURCE_GATE_MASK)>>SOURCE_GATE_SHIFT];
+  "BLE_QUALITY","CAPTURE_UNAVAILABLE","SCOPE_REVOKED","SOURCE_UNAVAILABLE","BLE_HOLDOVER"};
+ unsigned gate=((unsigned)f&SOURCE_GATE_MASK)>>SOURCE_GATE_SHIFT;
+ return gate<sizeof names/sizeof names[0]?names[gate]:"SOURCE_UNAVAILABLE";
 }
 #endif
 void r2_lora_quality_publish(const struct rc8_scope *s,const struct rc8_quality *q){(void)s;(void)q;}
@@ -785,7 +804,11 @@ static void begin_stop(int error){
 }
 static bool physical(const struct r2_lora_hw_event *h,uint64_t *event){
  struct r2_capture at;uint64_t us;if(!h->capture_epoch||!r2_capture_now_at(&at,&us)||at.epoch!=h->capture_epoch||at.tick<h->tick)return false;
- uint64_t age=(at.tick-h->tick+15)/16;if(age>2000000||age>us)return false;
+ uint32_t limit=2000000;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(h->kind==R2_LORA_HW_TX_DONE)limit=R2_LORA_FIXED500_TX_OBSERVE_US;
+#endif
+ uint64_t age=(at.tick-h->tick+15)/16;if(age>limit||age>us)return false;
  *event=us-age;return true;
 }
 static unsigned precision_phy(uint32_t cursor){
@@ -1026,7 +1049,7 @@ void __attribute__((noinline)) r2_lora_console_poll(uint64_t boot,uint64_t now_m
  uint64_t last=diagnostics.last_us,charged=diagnostics.charged,next=diagnostics.next_slot;
  uint8_t pending=diagnostics.pending,stage=diagnostics.stage;
  int error=diagnostics.error;atomic_val_t f=atomic_get(&flags);
- bool context=role.tx.context_ready,fh_disabled=diagnostics.fh_disabled;
+ bool context=transmitter&&role.tx.context_ready,fh_disabled=diagnostics.fh_disabled;
  uint32_t hold_ms=0,source_pc=0;
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  if((f&RESTART_HELD)&&retry_at_us>now)hold_ms=(uint32_t)((retry_at_us-now+999)/1000);
@@ -1310,8 +1333,19 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   uint64_t at=role.tx.reservation.slot_us+LP_SYNC_OFFSET_US;
 #ifdef STAGED_PACKETS
   if(owner.prepared_kind!=LP_SYNC&&now+PAIR_PREPARE_LEAD_US>=at){
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+   /* SYNC has no UTC payload. Stage it once the slot is reserved and the
+    * prior control packet is done. Only launch needs packet-sized authority. */
+   uint64_t prepare_start=mono();
+#endif
    int rc=tune(precision_phy(role.tx.reservation.cursor),lp_channel(t->order,role.tx.reservation.cursor),false);if(rc)return rc;
    rc=send_pair(LP_SYNC,0,limit);if(rc)return rc;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+   uint64_t elapsed=mono()-prepare_start;
+   r2_diag_scratch.lora.attempt.prepare_us=elapsed>UINT32_MAX?UINT32_MAX:(uint32_t)elapsed;
+   if(r2_diag_scratch.lora.attempt.prepare_max_us<r2_diag_scratch.lora.attempt.prepare_us)
+    r2_diag_scratch.lora.attempt.prepare_max_us=r2_diag_scratch.lora.attempt.prepare_us;
+#endif
 #ifdef R2_LORA_BW_EXPERIMENT
    return 0; /* Next poll qualifies a fresh original grant after staging. */
 #else
@@ -1321,6 +1355,16 @@ static int __attribute__((noinline)) transmit(uint64_t now){
 #endif
   if(now<at)return 0;
   due_lateness(LP_SYNC,at,now);
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  /* Use the fixed-channel launch pad only if the staged packet still fits.
+   * A missed, unlaunched SYNC leaves the next grid slot available. */
+  if(now>at+LP_LAUNCH_PAD_US-R2_LORA_HW_LAUNCH_MARGIN_US){
+   inc(&owner.late);
+   lp_tx_cancel(t,true);
+   owner.stage=owner.prepared_kind=0;
+   return 0;
+  }
+#else
   if(now>at+LP_LAUNCH_LATE_US){inc(&owner.late);
 #ifdef STAGED_PACKETS
  /* DTS already advertised a future SYNC. Preserve pending/stage until
@@ -1339,6 +1383,7 @@ static int __attribute__((noinline)) transmit(uint64_t now){
  r2_lora_request(false);
 #endif
  return 0;}
+#endif
 #ifdef STAGED_PACKETS
   if(fenced()||revision!=(uint32_t)atomic_get(&source_revision))return -ECANCELED;
 #ifndef R2_LORA_BW_EXPERIMENT
@@ -1405,13 +1450,14 @@ static int __attribute__((noinline)) transmit(uint64_t now){
   if(rc)lp_tx_fault(t);
   return rc;
  }
- /* A fresh context may skip DISC slots while awaiting META. Select that
-  * future slot BEFORE applying the precharge lead; a stale next_slot must
-  * not defer its RAM reservation until the RF deadline itself. */
+ /* Select the next on-grid slot before applying the precharge lead. Fixed500
+  * can announce on any ordinary slot when its last META is overdue. */
  uint64_t target=t->durable.next_slot_us,skipped=0;
  if(now>target&&now-target>LP_LAUNCH_LATE_US)skipped=(now-target+LP_BEAT_US-1)/LP_BEAT_US;
+#ifndef R2_LORA_FIXED500_EXPERIMENT
  uint64_t index=(uint64_t)t->durable.slot+skipped;
  if(!role.tx.context_ready&&index%LP_META_BEATS)skipped+=LP_META_BEATS-index%LP_META_BEATS;
+#endif
  target+=skipped*LP_BEAT_US;
 #if defined(R2_LORA_PASSIVE_SLOW) && !defined(R2_LORA_FIXED500_EXPERIMENT)
  target=t->durable.next_slot_us;
@@ -2000,12 +2046,15 @@ static void __attribute__((noinline)) service_step(void){
   * eligible TX no-progress, not missing RX packets or absent upstream time.
   * Original urgent/DMA/frozen-owner watchdog handling remains unchanged. */
  bool declared=atomic_get(&faulted)||owner.error||(transmitter&&role.tx.core.durable.fh_disabled);
- uint32_t cost=(!role.tx.context_ready||role.tx.core.durable.slot%LP_META_BEATS==0)?
-  lp_duration(LP_META):lp_duration(LP_SYNC)+lp_duration(LP_FOLLOW);
- bool eligible=transmitter&&(f&REQUESTED)&&owner.active&&!owner.stopping&&role.tx.core.ready&&
-  source_ready_at_us&&now>=source_ready_at_us&&now-source_ready_at_us<100000&&
-  diagnostics.charged<=LP_CAP_US&&cost<=LP_CAP_US-diagnostics.charged&&
-  !(r2_diag_scratch.lora.attempt.valid&32);
+ bool eligible=false;
+ if(transmitter){
+  uint32_t cost=(!role.tx.context_ready||role.tx.core.durable.slot>=role.tx.core.next_meta_index)?
+   lp_duration(LP_META):lp_duration(LP_SYNC)+lp_duration(LP_FOLLOW);
+  eligible=(f&REQUESTED)&&owner.active&&!owner.stopping&&role.tx.core.ready&&
+   source_ready_at_us&&now>=source_ready_at_us&&now-source_ready_at_us<100000&&
+   diagnostics.charged<=LP_CAP_US&&cost<=LP_CAP_US-diagnostics.charged&&
+   !(r2_diag_scratch.lora.attempt.valid&32);
+ }
  uint32_t completed=owner.sent[0]+owner.sent[1]+owner.sent[2]+owner.sent[3];
  if(lp_progress_poll(&progress_watch,k_uptime_get_32(),(f&ALLOWED)!=0,declared,eligible,completed)&&
     !r2_diag_scratch.lora.terminal)r2_lora_hw_watchdog_trip(declared?-EIO:-ETIMEDOUT);
@@ -2030,7 +2079,7 @@ static void worker(void *a,void *b,void *c){
 void r2_lora_init(uint64_t f,uint64_t boot,uint64_t tx,const struct r2_group_config *g){
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  memset(&ble_return,0,sizeof ble_return);memset(source_events,0,sizeof source_events);
- source_withdraw_pc=0;
+ source_withdraw_pc=0;atomic_set(&ble_holdovers,0);
  memset(&progress_watch,0,sizeof progress_watch);source_ready_at_us=0;
 #endif
 #if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
@@ -2162,6 +2211,9 @@ int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
   uint64_t boot,sampled,pair_age,capture_epoch,event_us,event_tick,event_ns,physical_until,meta_until,charged;
   uint32_t tx_gate,hold_ms,source_pc,retries,owed,pending,fh_disabled,reference_age;
   uint32_t link_fit[2],received[4],hw_errors[5],manual_jobs,manual_serial,manual_stream;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  uint32_t ble_holdovers;
+#endif
   int32_t result,priorities[3];const char *source_gate;
   bool tx,requested,active,fault,inhibited,train_active,trained,time_valid;
   bool display_available,display_held,display_acquiring,manual_active;
@@ -2174,6 +2226,9 @@ int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
   .hw_errors={h.crc_bad,h.overflow,h.spi_error,h.cutoffs,h.invalid_capture},
   .manual_jobs=manual_jobs,.manual_serial=manual_serial,.manual_stream=manual_stream,
   .result=result,.priorities={k_thread_priority_get(&worker_thread),WORKER_PRIORITY,DRAIN_PRIORITY},.source_gate=source_gate,
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  .ble_holdovers=(uint32_t)atomic_get(&ble_holdovers),
+#endif
   .tx=tx,.requested=v.requested,.active=v.active,.fault=v.fault,.inhibited=inhibited,
   .train_active=tx&&v.active&&v.requested&&!v.fault&&v.time_valid&&v.state==RC8_AVAILABLE,
   .trained=!tx&&d.trained,.time_valid=v.time_valid,.display_available=display_available,
@@ -2194,6 +2249,9 @@ int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
   XJ(R2_J_BOOL,"train_active",train_active),DJ(R2_J_U64,"last_pair_us",last_us),XJ(R2_J_U64,"pair_age_ms",pair_age),
   XJ(R2_J_U32,"restart_hold_ms",hold_ms),XJ(R2_J_U32,"source_withdraw_pc",source_pc),
   {"source_event_counts",0,3,R2_J_U32_ARRAY|(4<<4)},XJ(R2_J_STRING,"source_gate",source_gate),
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  XJ(R2_J_U32,"ble_holdovers",ble_holdovers),
+#endif
   DJ(R2_J_HEX64,"emitter",emitter),DJ(R2_J_HEX64,"emitter_boot",boot),DJ(R2_J_U32,"stream",stream),DJ(R2_J_U32,"source_epoch",source_epoch),
   XJ(R2_J_U64,"capture_epoch",capture_epoch),DJ(R2_J_U32,"serial",serial),DJ(R2_J_U32,"cursor",cursor),
   XJ(R2_J_U64,"event_mono_us",event_us),XJ(R2_J_U64,"event_tick",event_tick),XJ(R2_J_U64,"event_ns",event_ns),

@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT */
 #include "gm7_clock.h"
+#include <errno.h>
 #include <hal/nrf_rtc.h>
 #include <hal/nrf_timer.h>
 #include <limits.h>
@@ -36,7 +37,7 @@ void r2_gm7_clock_publish(uint64_t extended, uint32_t raw, uint64_t epoch,
                    __ATOMIC_RELAXED);
   __atomic_store_n(&serial, s + 2, __ATOMIC_RELEASE);
 }
-static bool reference(uint64_t *ticks, uint32_t *raw, uint32_t *epoch) {
+static int reference(uint64_t *ticks, uint32_t *raw, uint32_t *epoch) {
   for (unsigned attempt = 0; attempt < 2; attempt++) {
     uint32_t before = __atomic_load_n(&serial, __ATOMIC_ACQUIRE);
     if (before & 1)
@@ -53,21 +54,22 @@ static bool reference(uint64_t *ticks, uint32_t *raw, uint32_t *epoch) {
      * with the existing1s extension watchdog and hardware watchdog reset this
      * prevents a stalled HF extender aliasing a full TIMER3 wrap. */
     if (((nrf_rtc_counter_get(NRF_RTC1) - guard) & 0xffffffu) > 32768u)
-      return false;
+      return -ESTALE;
     if (!e || e != __atomic_load_n(&allowed_epoch, __ATOMIC_ACQUIRE))
-      return false;
+      return -ESTALE;
     *ticks = ((uint64_t)hi << 32) | lo;
     *raw = r;
     *epoch = e;
-    return true;
+    return 0;
   }
-  return false;
+  return -EAGAIN;
 }
-static bool current_counter(uint64_t *ticks, uint32_t *raw, uint32_t *epoch) {
+static int current_counter(uint64_t *ticks, uint32_t *raw, uint32_t *epoch) {
   uint64_t base;
   uint32_t reference_raw, e;
-  if (!reference(&base, &reference_raw, &e))
-    return false;
+  int result = reference(&base, &reference_raw, &e);
+  if (result)
+    return result;
   /* CC2 is the existing software NOW channel, never a physical edge. This
    * reader samples without extending the counter. CC5 stays END-only. */
   nrf_timer_task_trigger(NRF_TIMER3, NRF_TIMER_TASK_CAPTURE2);
@@ -75,16 +77,16 @@ static bool current_counter(uint64_t *ticks, uint32_t *raw, uint32_t *epoch) {
            delta = current - reference_raw;
   if (delta > 16000000 || base > UINT64_MAX - delta ||
       e != __atomic_load_n(&allowed_epoch, __ATOMIC_ACQUIRE))
-    return false;
+    return -ESTALE;
   *ticks = base + delta;
   *raw = current;
   *epoch = e;
-  return true;
+  return 0;
 }
 bool r2_gm7_clock_event(uint32_t raw, uint32_t epoch, uint64_t *ticks) {
   uint64_t current;
   uint32_t current_raw, e;
-  if (!ticks || !current_counter(&current, &current_raw, &e) || e != epoch)
+  if (!ticks || current_counter(&current, &current_raw, &e) || e != epoch)
     return false;
   uint32_t age = current_raw - raw;
   /* Queue age is against the CURRENT counter, independently of the age of
@@ -94,13 +96,19 @@ bool r2_gm7_clock_event(uint32_t raw, uint32_t epoch, uint64_t *ticks) {
   *ticks = current - age;
   return true;
 }
-bool r2_gm7_clock_now(uint64_t *us, uint32_t *epoch) {
+int r2_gm7_clock_sample(uint64_t *us, uint32_t *epoch) {
   uint64_t ticks;
   uint32_t raw;
-  if (!us || !epoch || !current_counter(&ticks, &raw, epoch))
-    return false;
+  if (!us || !epoch)
+    return -EINVAL;
+  int result = current_counter(&ticks, &raw, epoch);
+  if (result)
+    return result;
   *us = ticks / 16;
-  return true;
+  return 0;
+}
+bool r2_gm7_clock_now(uint64_t *us, uint32_t *epoch) {
+  return !r2_gm7_clock_sample(us, epoch);
 }
 
 bool r2_gm7_clock_start(uint32_t raw, uint32_t epoch, unsigned phy,

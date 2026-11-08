@@ -428,17 +428,28 @@ revoking otherwise eligible timing. It does not change BLE lock, ordinary
 passive profiles, source authentication or any RF gate. These empirical quality
 statistics are not absolute UTC bounds. `source_gate` names `READY`, `NO_SCOPE`,
 `GNSS_NOT_READY`, `BLE_MAP_UNAVAILABLE`, `BLE_QUALITY`, `CAPTURE_UNAVAILABLE`,
-`SCOPE_REVOKED` or `SOURCE_UNAVAILABLE` in notes and compact diagnostics.
+`SCOPE_REVOKED`, `SOURCE_UNAVAILABLE` or `BLE_HOLDOVER` in notes and compact
+diagnostics.
 
 For fixed500, map refreshes, same-source permission returns and local GNSS
-changes on a BLE follower preserve the train. The wire context consists of
+changes on a BLE follower preserve the train. After natural expiry of the
+upstream BLE map, the transmitter may retain the last qualified delivered fit
+on the same authenticated source and capture domains. `BLE_HOLDOVER` reports
+this use of the already-admitted LoRa copy, capped at five seconds past its
+original bounds. Repeated snapshots do not extend it. Explicit withdrawal,
+changed admission or capture, or exhaustion of those bounds closes the copy.
+The BLE clock keeps its original expiry. `ble_holdovers` counts entries in
+`lora-diag`. The wire context consists of
 emitter/boot, root/boot, parent/boot, kind and authenticated source epoch;
 the sender's local capture generation is not part of that context. An actual
 context replacement requires new authenticated META. After safe closure the
 sender waits30s after the last restart event, then starts a fresh train,
-retaining seed/cursor/serial floors and all airtime debt. Its normal300s META
-cadence starts from that train. Source withdrawal, source/capture replacement
+retaining seed/cursor/serial floors and all airtime debt. Fixed500 META is due
+every360s from its last confirmed slot. A skipped or unsuccessful META remains
+due on the next eligible30s slot. Source withdrawal, source/capture replacement
 and active-source stops restart this hold; routine formula refreshes do not.
+Fixed500 SYNC can launch up to 2.7 seconds after its target. Its captured
+completion and the FOLLOW deadline still fit within the 15-second frame.
 The same authenticated context resumes its existing train after the hold.
 `restart_hold_ms`, `source_event_counts` (withdrawal, scope/capture change,
 same-context resume, hard-context retirement) and `source_withdraw_pc` retain

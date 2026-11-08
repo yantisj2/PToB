@@ -1022,6 +1022,7 @@ static void precision_step(uint64_t now){
   .root=scope.root_identity,.root_boot=scope.boot,.parent=scope.follower?scope.root_identity:0,.parent_boot=scope.follower?scope.boot:0,.source_epoch=scope.source_epoch,.scale=RC8_UTC,
   .kind=scope.gm?RC8_OWN_GM:RC8_SELECTED_BLE};
  bool lvalid=false;
+ bool lhold=false;
  bool follower_export=out.view.locked;
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  /* The strict200 PLL badge is a precision claim, not a source lease. A
@@ -1067,14 +1068,26 @@ static void precision_step(uint64_t now){
   }
  }
 #ifdef R2_LORA_FIXED500_EXPERIMENT
- r2_lora_source_status(lvalid?R2_LORA_SOURCE_READY:
+ /* Natural data/map expiry does not revoke the separately bounded LoRa copy.
+  * Keep only the prior admitted formula on the exact managed root, train
+  * and capture domains. Stop/control changes fence it under this same lock. */
+ bool ble_expired=scope.broadcast&&scope.follower&&service_now()>=out.valid_until;
+ if(ble_expired)lvalid=false;
+ if(!lvalid&&export_locked&&paired&&!in.stopped&&scope.broadcast&&scope.follower&&!scope.gm&&
+    ble_expired&&out.view.authorized&&precision.servo.fit_valid&&precision.servo.output.valid&&!precision.servo.fault&&
+    precision.last_accepted&&precision.data_until&&
+    same(scope,pt_output.scope)&&scope.remote_capture_epoch==pt_output.scope.remote_capture_epoch&&
+    scope.remote_capture_epoch==precision.remote_capture&&
+    current.epoch==pt_output.capture_epoch)
+  lhold=r2_lora_source_hold(&lscope,current);
+ r2_lora_source_status(lvalid?R2_LORA_SOURCE_READY:lhold?R2_LORA_SOURCE_BLE_HOLDOVER:
   !paired||in.stopped?R2_LORA_SOURCE_CAPTURE:
   !scope.gm&&!scope.follower?R2_LORA_SOURCE_SCOPE:
   scope.gm?R2_LORA_SOURCE_GNSS:
   !out.utc_valid||!out.view.map_valid||!out.view.fit_valid?R2_LORA_SOURCE_BLE_MAP:
   !follower_export?R2_LORA_SOURCE_BLE_QUALITY:R2_LORA_SOURCE_UNAVAILABLE);
 #endif
- if(lvalid)r2_lora_source_publish(&lora);else r2_lora_source_withdraw();
+ if(lvalid)r2_lora_source_publish(&lora);else if(!lhold)r2_lora_source_withdraw();
  struct rc8_quality lquality={.known=RC8_Q_ROLE|RC8_Q_HOP|(scope.follower?RC8_Q_LOCK:0),
   .values=(scope.follower&&out.view.locked?RC8_Q_LOCK:0),.role=scope.gm?1:scope.follower?2:0,.hop=scope.follower?1:0};
  if(out.view.correction_age_valid){lquality.known|=RC8_Q_CORRECTION_AGE;lquality.correction_age_ms=out.view.correction_age_ms;}

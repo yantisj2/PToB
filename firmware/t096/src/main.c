@@ -134,6 +134,9 @@ static void __attribute__((noinline)) clock_reply(const struct r2_request *r,uin
   const void *bases[]={&identity,&t,&q,&context};
   struct r2_json writer;r2_json_init(&writer,json,sizeof json);r2_json_text(&writer,"{");
   r2_json_fields(&writer,fields,sizeof fields/sizeof fields[0],bases,4);
+#ifdef R2_GM7_NATIVE
+  r2_json_format(&writer,",\"gnss_rx_rearms\":%u",r2_gnss_rx_rearms());
+#endif
   r2_json_format(&writer,
     ",\"source_pps\":[%llu,%llu,%llu,%llu,%llu,%d,%u,%s],\"rmc\":[%u,%u],\"aid\":[%u,%u,%u,%u,%d,%s,%llu],"
 #ifdef R2_DC_PROFILE

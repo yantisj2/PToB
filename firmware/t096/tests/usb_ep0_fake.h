@@ -9,12 +9,20 @@
 #define __ASSERT(x,...) assert(x)
 #define LOG_DBG(...) ((void)0)
 #define LOG_ERR(...) ((void)0)
+#define __fallthrough __attribute__((fallthrough))
+#define IS_ENABLED(x) 0
 #define K_FOREVER -1
+#define K_MSEC(ms) (ms)
 #define USB_DC_EP_CONTROL 0
 #define USB_DC_EP_BULK 1
 #define USB_DC_EP_SETUP 1
 #define USB_DC_EP_DATA_IN 2
 #define USB_DC_EP_DATA_OUT 3
+#define USB_DC_RESET 4
+#define USB_DC_CONNECTED 5
+#define USB_DC_DISCONNECTED 6
+#define USB_DC_SUSPEND 7
+#define USB_DC_RESUME 8
 #define USB_SREQ_SET_ADDRESS 5
 #define USB_REQTYPE_GET_TYPE(x) ((x)&0x60)
 #define USB_REQTYPE_TYPE_STANDARD 0
@@ -23,6 +31,7 @@
 #define NRF_USBD_EPIN_CHECK(x) ((x)&0x80)
 #define NRF_USBD_EPOUT_CHECK(x) (!NRF_USBD_EPIN_CHECK(x))
 #define NRF_USBD_COMMON_EVT_SETUP 1
+#define NRF_USBD_COMMON_EVT_RESET 2
 #define NRF_USBD_COMMON_EP_OK 0
 #define NRF_USBD_COMMON_EP_ABORTED 1
 #define NRF_USBD_COMMON_EP_WAITING 2
@@ -44,10 +53,13 @@ struct nrf_usbd_ep_ctx {
  bool read_complete,read_pending,write_in_progress,trans_zlp;
 };
 enum {EP_EVT_SETUP_RECV,EP_EVT_RECV_REQ,EP_EVT_RECV_COMPLETE,EP_EVT_WRITE_COMPLETE};
-enum {USBD_EVT_EP};
+enum {USBD_EVT_EP,USBD_EVT_RESET};
+enum {USBD_ATTACHED,USBD_POWERED,USBD_DETACHED,USBD_SUSPENDED,USBD_RESUMED};
+enum {NRFX_POWER_USB_STATE_DISCONNECTED,NRFX_POWER_USB_STATE_CONNECTED,NRFX_POWER_USB_STATE_READY};
+struct usbd_pwr_event {int state;};
 struct usbd_ep_event {uint32_t generation;struct nrf_usbd_ep_ctx *ep;int evt_type;};
 struct usbd_event {int evt_type;union {struct usbd_ep_event ep_evt;} evt;};
-struct nrf_usbd_ctx {struct usb_setup_packet setup;int drv_lock;uint16_t ctrl_read_len;uint32_t ep0_generation,ep0_active_generation,ep0_diagnostics[6];};
+struct nrf_usbd_ctx {struct usb_setup_packet setup;int drv_lock;uint16_t ctrl_read_len;uint32_t ep0_generation,ep0_active_generation,ep0_diagnostics[6];void (*status_cb)(int,const uint8_t *);struct {int notify;} hfxo_cli;bool ready;};
 typedef struct {int type;union {struct {uint8_t ep;unsigned status;} eptransfer;} data;} nrf_usbd_common_evt_t;
 struct fake_regs {uint8_t BMREQUESTTYPE,BREQUEST,WVALUEL,WVALUEH,WINDEXL,WINDEXH,WLENGTHL,WLENGTHH;uint32_t EVENTS_SOF,INTENSET,EVENTS_EPDATA,EPDATASTATUS,EVENTS_EP0DATADONE,EVENTS_USBRESET,EVENTS_USBEVENT,EVENTS_EP0SETUP;};
 static struct fake_regs regs;
@@ -68,6 +80,25 @@ static void stack_callback(uint8_t ep,int status);
 static inline struct nrf_usbd_ctx *get_usbd_ctx(void){return &usbd_ctx;}
 static bool dev_attached(void){return true;}
 static bool dev_ready(void){return true;}
+static bool usb_enabled;
+static unsigned usb_starts,usb_power_state;
+static int64_t usb_now_ms,usb_hfxo_ready_ms;
+static int64_t k_uptime_get(void){return usb_now_ms;}
+static void k_sleep(int ms){usb_now_ms+=ms;}
+static int sys_notify_fetch_result(const int *notify,int *result){
+ (void)notify;
+ if(usb_now_ms<usb_hfxo_ready_ms)return -EAGAIN;
+ *result=0;return 0;
+}
+static bool nrf_usbd_common_is_enabled(void){return usb_enabled;}
+static void nrf_usbd_common_enable(void){usb_enabled=true;}
+static void nrf_usbd_common_disable(void){assert(usb_enabled);usb_enabled=false;}
+static void nrf_usbd_common_start(bool sof){(void)sof;assert(usb_enabled);++usb_starts;}
+static void nrf_usbd_common_suspend(void){}
+static unsigned nrfx_power_usbstatus_get(void){return usb_power_state;}
+static void usbd_enable_endpoints(struct nrf_usbd_ctx *ctx){(void)ctx;}
+static int hfxo_start(struct nrf_usbd_ctx *ctx){(void)ctx;return 0;}
+static int hfxo_stop(struct nrf_usbd_ctx *ctx){(void)ctx;return 0;}
 static unsigned irq_lock(void){return irq_depth++;}
 static void irq_unlock(unsigned key){assert(irq_depth==key+1);irq_depth=key;}
 static void k_mutex_lock(int *p,int timeout){assert(!irq_depth);(void)p;(void)timeout;if(inject_mutex){inject_mutex=false;ev_setup_handler();}}
@@ -96,6 +127,7 @@ static nrf_usbd_common_ep_status_t nrf_usbd_common_ep_status_get(unsigned ep,uin
 static struct usbd_event *usbd_evt_alloc(void){assert(!irq_depth);assert(allocated<256);struct usbd_event *e=&events[allocated++];memset(e,0,sizeof *e);e->evt.ep_evt.generation=usbd_ctx.ep0_generation;return e;}
 static void usbd_evt_put(struct usbd_event *e){assert(tail<256);queued[tail++]=(unsigned)(e-events);}
 static void usbd_work_schedule(void){}
+static int eps_ctx_init(void){endpoints[0].write_in_progress=false;return 0;}
 static void m_event_handler(const nrf_usbd_common_evt_t *e){assert(e->type==NRF_USBD_COMMON_EVT_SETUP);accept_setup();}
 int usb_dc_ep_write(uint8_t,const uint8_t *,uint32_t,uint32_t *);
 int usb_dc_ep_read_wait(uint8_t,uint8_t *,uint32_t,uint32_t *);

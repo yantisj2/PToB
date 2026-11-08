@@ -265,6 +265,9 @@ bool r2_ui_logic_due(uint64_t now,uint64_t owner_until,bool owner_valid){
  if(now<logic_due_ms&&!changed&&!near)return false;
  logic_due_ms=now+20;return true;
 }
+#ifdef R2_UI_CRITICAL
+enum {UI_SIGNATURE_LORA_TX_ACTIVE=1u<<25};
+#endif
 static uint32_t logical_signature(const struct r2_ui_model *m,uint64_t now){
  int64_t utc;bool coarse;
  uint32_t bits=(r2_ui_display_time(m,now,&utc,&coarse)?1u:0)|
@@ -277,6 +280,10 @@ static uint32_t logical_signature(const struct r2_ui_model *m,uint64_t now){
  bits|=(r2_ui_lora_primary(m,now)?2048u:0)|((uint32_t)m->lora.choice<<12)|
    ((uint32_t)(m->lora.time_valid!=0)<<15)|((uint32_t)m->lora.state<<16)|
    ((uint32_t)m->lora.transmitter<<24);
+#ifdef R2_UI_CRITICAL
+ if(m->lora.transmitter&&m->lora.requested&&r2_ui_lora_train_current(m,now))
+  bits|=UI_SIGNATURE_LORA_TX_ACTIVE;
+#endif
 #endif
  return bits;
 }
@@ -423,6 +430,19 @@ void r2_ui_publish_owned(const struct r2_ui_model *m,uint64_t emitter,const stru
  /* A newer publication wins. No retry or stale-model history replay. */
  if(model_serial==serial&&m->sampled_ms>=model.sampled_ms&&
     (uint32_t)atomic_get(&context_revision)==revision&&(uint32_t)atomic_get(&source_hint)==projection_hint){
+#ifdef R2_UI_CRITICAL
+  /* Wake before urgent tiles observe this publication. The background
+   * worker may be busy draining urgent jobs or finishing an old strip. */
+  if(status.screensaver&&(!r2_ui_saver_allowed(&next,now)||
+     revision!=model_context||projection_hint!=model_hint||next.role!=model.role||
+     next.upstream_is_lora!=model.upstream_is_lora||
+     ((logic_signature&~signature)&UI_SIGNATURE_LORA_TX_ACTIVE)||
+     (next.upstream_is_lora&&emitter!=model_lora_emitter))){
+   control_change();status.screensaver=false;status.screensaver_position=0;
+   status.page=0;status.help=false;input_idle_since=now;
+   atomic_set(&model_requested,1);
+  }
+#endif
   if(switching&&!m->profile_switching&&status.menu.open)status.menu_result_until=m->sampled_ms+1500;
   if(logic_signature!=signature||model_lora_emitter!=emitter){
    if((logic_signature&2u)&&!(signature&2u)){logic_bad_at=now;logic_bad_policy=logic_revision;}
@@ -499,7 +519,13 @@ static bool shadow_selected(unsigned page){
   rc=((unsigned)atomic_get(&context_flags)&R2_UI_CONTEXT_RC)!=0;
  return page==R2_UI_SHADOW_PAGE||(rc&&page==R2_UI_PRECISION_PAGE);
 }
-int r2_ui_page(unsigned page){if(page>=R2_UI_PAGES)return -EINVAL;unsigned k=ui_take();control_change();status.page=page;input_idle_since=k_uptime_get();status.help=false;status.menu.open=false;if(r2_ui_witness_page(&model,page)){status.screensaver=false;status.screensaver_position=0;}if(!shadow_selected(page)){status.shadow.active=false;status.shadow.state=R2_SHADOW_OFF;}ui_drop(k);return 0;}
+int r2_ui_page(unsigned page){
+ if(page>=R2_UI_PAGES)return -EINVAL;
+ unsigned key=ui_take();control_change();status.page=page;input_idle_since=k_uptime_get();
+ status.help=false;status.menu.open=false;status.screensaver=false;status.screensaver_position=0;
+ if(!shadow_selected(page)){status.shadow.active=false;status.shadow.state=R2_SHADOW_OFF;}
+ ui_drop(key);return 0;
+}
 bool r2_ui_shadow_requested(void){
  unsigned key=ui_take();bool gm=model.scope_active&&model.role==R2_UI_GM;
  if(model_context!=(uint32_t)atomic_get(&context_revision)){

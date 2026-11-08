@@ -18,6 +18,8 @@
 #define LOG_ERR(...) ((void)0)
 struct k_work {int unused;};struct k_sem {unsigned value,gives;};
 static int USB_WORK_Q,submit_result=1,read_result;static unsigned submissions;
+static int read_wait_result;
+static unsigned read_wait_count,read_wait_bytes;
 static void (*lock_hook)(void);
 static unsigned irq_lock(void){if(lock_hook){void (*f)(void)=lock_hook;lock_hook=NULL;f();}return 0;}
 static void irq_unlock(unsigned k){(void)k;}
@@ -30,11 +32,15 @@ enum usb_dc_ep_cb_status_code {USB_DC_EP_DATA_IN,USB_DC_EP_DATA_OUT};
 static int usb_dc_ep_read_continue(uint8_t ep){(void)ep;return read_result;}
 static unsigned usb_dc_ep_mps(uint8_t ep){(void)ep;return 64;}
 static int usb_write(uint8_t ep,uint8_t *p,size_t n,uint32_t *out){(void)ep;(void)p;*out=(uint32_t)n;return 0;}
-static int usb_dc_ep_read_wait(uint8_t ep,uint8_t *p,size_t n,uint32_t *out){(void)ep;(void)p;(void)n;*out=0;return 0;}
+static int usb_dc_ep_read_wait(uint8_t ep,uint8_t *p,size_t n,uint32_t *out){
+ (void)ep;(void)p;(void)n;++read_wait_count;
+ if(read_wait_result)return read_wait_result;
+ *out=read_wait_bytes;return 0;
+}
 #include R2_USB_TRANSFER_BODY
 static unsigned callbacks[3];
 static void callback(uint8_t ep,int size,void *p){(void)ep;(void)size;assert((uintptr_t)p<3);++callbacks[(uintptr_t)p];}
-static void reset(void){memset(ut_data,0,sizeof ut_data);memset(callbacks,0,sizeof callbacks);for(unsigned i=0;i<ARRAY_SIZE(ut_data);i++)ut_data[i].sem.value=1;submit_result=1;read_result=0;submissions=0;lock_hook=NULL;}
+static void reset(void){memset(ut_data,0,sizeof ut_data);memset(callbacks,0,sizeof callbacks);for(unsigned i=0;i<ARRAY_SIZE(ut_data);i++)ut_data[i].sem.value=1;submit_result=1;read_result=read_wait_result=0;submissions=read_wait_count=read_wait_bytes=0;lock_hook=NULL;}
 static void inject_active(void){ut_data[1].ep=1;ut_data[1].status=-EBUSY;ut_data[1].sem.value=0;}
 int main(void){
  reset();ut_data[0].ep=1;ut_data[0].status=-ECANCELED;ut_data[0].sem.value=0;ut_data[0].cb=callback;ut_data[0].priv=(void *)0;
@@ -77,5 +83,18 @@ int main(void){
  usb_cancel_transfer(2);assert(callbacks[2]==1&&ut_data[0].sem.gives==1);
  assert(!usb_transfer(2,bytes,sizeof bytes,USB_TRANS_READ,callback,(void *)2));
  assert(usb_transfer_is_busy(2)&&!usb_transfer_is_busy(3));
+#ifdef FIXED
+ reset();read_wait_result=-EIO;
+ usb_transfer_ep_callback(1,USB_DC_EP_DATA_OUT);
+ assert(read_wait_count==1&&!usb_transfer_is_busy(1));
+ reset();read_wait_bytes=1;
+ usb_transfer_ep_callback(1,USB_DC_EP_DATA_OUT);
+ assert(read_wait_count==64&&!usb_transfer_is_busy(1));
+ reset();uint8_t multi[128]={0};
+ assert(!usb_transfer(2,multi,sizeof multi,USB_TRANS_READ,callback,(void *)2));
+ read_wait_bytes=64;read_result=-EIO;
+ usb_transfer_ep_callback(2,USB_DC_EP_DATA_OUT);
+ assert(read_wait_count==1&&callbacks[2]==1&&!usb_transfer_is_busy(2));
+#endif
  puts("PASS actual transfer ownership/start/cancel/callback/semaphore/interleaving cases");return 0;
 }

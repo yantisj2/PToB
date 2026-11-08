@@ -23,6 +23,12 @@ void r2_lora_quality_publish(const struct rc8_scope *s,const struct rc8_quality 
 #ifdef R2_LORA_FIXED500_EXPERIMENT
 static enum r2_lora_source_gate source_gate;
 void r2_lora_source_status(enum r2_lora_source_gate gate){source_gate=gate;}
+static bool lora_hold_available;
+static unsigned lora_hold_queries;
+bool r2_lora_source_hold(const struct rc8_scope *scope,struct r2_capture at){
+ assert(scope->kind==RC8_SELECTED_BLE&&at.kind==R2_CAPTURE_NOW);++lora_hold_queries;
+ return lora_hold_available;
+}
 static bool ble_needed;static unsigned ble_observations;static struct lp_ble_return observed_ble;
 bool r2_lora_ble_needed(void){return ble_needed;}
 bool r2_lora_ble_shadow_allowed(void){return true;}

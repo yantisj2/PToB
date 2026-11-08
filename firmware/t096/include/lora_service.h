@@ -52,9 +52,14 @@ void r2_lora_control(bool profile_rc,bool allowed,enum rc8_selected normal_sourc
 #ifdef R2_LORA_FIXED500_EXPERIMENT
 enum r2_lora_source_gate {R2_LORA_SOURCE_READY,R2_LORA_SOURCE_SCOPE,
  R2_LORA_SOURCE_GNSS,R2_LORA_SOURCE_BLE_MAP,R2_LORA_SOURCE_BLE_QUALITY,
- R2_LORA_SOURCE_CAPTURE,R2_LORA_SOURCE_REVOKED,R2_LORA_SOURCE_UNAVAILABLE};
+ R2_LORA_SOURCE_CAPTURE,R2_LORA_SOURCE_REVOKED,R2_LORA_SOURCE_UNAVAILABLE,
+ R2_LORA_SOURCE_BLE_HOLDOVER};
 /* Diagnostic only, stored in spare owner flag bits; grants no RF authority. */
 void r2_lora_source_status(enum r2_lora_source_gate);
+/* Read-only check of an already-published fixed500 holdover permission. The
+ * PT owner has verified the same live control/train binding under its lock. */
+struct r2_capture;
+bool r2_lora_source_hold(const struct rc8_scope *,struct r2_capture);
 /* Qualified BLE observation only; never a LoRa clock/authority input. */
 bool r2_lora_ble_needed(void);
 struct lp_ble_scope;

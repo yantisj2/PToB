@@ -540,6 +540,19 @@ const char *r2_ui_servo_state(const struct r2_ui_model *m,uint64_t now)
 #endif
  return ble_servo_state(m,now);
 }
+#ifdef R2_LORA
+bool r2_ui_lora_train_current(const struct r2_ui_model *m,uint64_t now)
+{
+ if(now<m->sampled_ms||now-m->sampled_ms>2500||!m->lora.active||m->lora.fault||
+    !m->lora.time_valid||m->lora.state!=RC8_AVAILABLE)return false;
+#if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
+ return m->lora.age_ms<LP_CADENCE_BOUND_US/1000&&
+  now-m->sampled_ms<LP_CADENCE_BOUND_US/1000-m->lora.age_ms;
+#else
+ return true;
+#endif
+}
+#endif
 bool r2_ui_saver_allowed(const struct r2_ui_model *m,uint64_t now)
 {
 #ifdef R2_LORA
@@ -840,11 +853,7 @@ static bool __attribute__((noinline)) render_snapshot(ui_snapshot_t *s,
  s->lora_enabled=model_fresh&&m->lora.requested;s->lora_active=model_fresh&&m->lora.active&&!m->lora.fault;
  s->lora_fault=model_fresh&&m->lora.fault;
  s->lora_tx_mode=s->lora_enabled&&m->lora.transmitter;
- s->lora_locked=s->lora_active&&m->lora.time_valid&&m->lora.state==RC8_AVAILABLE;
-#if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
- s->lora_locked=s->lora_locked&&m->lora.age_ms<LP_CADENCE_BOUND_US/1000&&
-  now-m->sampled_ms<LP_CADENCE_BOUND_US/1000-m->lora.age_ms;
-#endif
+ s->lora_locked=r2_ui_lora_train_current(m,now);
  int64_t lora_utc=0;bool lora_fresh=lora_input_current(m,now)&&(!m->lora.metadata_cached||m->lora.rx_age_ms<35000);
  bool lora_observed=lora_observer_current(m,now);
  bool observer_fresh=m->lora.metadata_cached&&lora_observed&&m->lora.context_known&&

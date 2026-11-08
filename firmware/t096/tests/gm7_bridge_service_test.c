@@ -54,9 +54,13 @@ int main(int argc, char **argv) {
       cycle(&service_work);
       assert(status.closed && !status.active && !status.error && !fake_irq_key);
     }
+  } else if (mode == 1) {
+    intrinsic_latency = 101; /* No relaxed100us enclosure, even masked. */
+    cycle(&service_work);
+    assert(status.cycles==1&&status.active&&!status.error&&!atomic_get(&stopping));
+    cycle(&service_work);
+    assert(status.cycles==2&&status.active&&!status.error&&!fake_irq_key);
   } else {
-    if (mode == 1)
-      intrinsic_latency = 101; /* No relaxed100us enclosure, even masked. */
     if (mode == 2)
       r2_gm7_clock_invalidate();
     if (mode == 3) {

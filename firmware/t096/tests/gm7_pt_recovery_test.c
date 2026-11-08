@@ -39,9 +39,9 @@ static void first_optin_probe(void){
 }
 static void expire_after_copy(void){fake_mutex_unlocked=NULL;fake_time=capture_us=grant.until_us;capture_tick=fake_time*16;}
 static void stop_after_query(void){fake_mutex_unlocked=NULL;r2_radio_service_withdraw();}
-static void drive_stream(unsigned samples){
+static void drive_stream_range(unsigned first,unsigned samples){
   uint64_t base=1000000000;struct r2_enrollment receive_roster=enrollment;
-  for(unsigned i=0;i<samples;i++){
+  for(unsigned i=first;i<samples;i++){
    uint64_t ns=base+(uint64_t)i*62500000;
    struct r2_precision_packet p={.root=0,.boot=77,.source_epoch=8,.train=9,.publication=i+1,.capture_epoch=4,.flags=1,
     .created_ns=ns-1000000,.expires_ns=base+(i/16+1)*UINT64_C(1000000000)+450000000,.utc_offset_ns=INT64_C(1792800000000000000)};
@@ -63,6 +63,7 @@ static void drive_stream(unsigned samples){
    }
   }
 }
+static void drive_stream(unsigned samples){drive_stream_range(0,samples);}
 int main(int argc,char **argv){
  assert(argc==2);unsigned test=(unsigned)strtoul(argv[1],NULL,10);
  if(test>=100){char mode_text[16];snprintf(mode_text,sizeof mode_text,"%u",test-100);char *historical[]={argv[0],mode_text};return historical_radio_main(2,historical);}

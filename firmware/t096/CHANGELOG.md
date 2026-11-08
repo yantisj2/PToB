@@ -1,5 +1,110 @@
 # T096 changelog
 
+## 0.15.338 — keep delayed fixed500 SYNC inside the slot
+
+Give the staged fixed500 SYNC up to 2.7 seconds of launch slack within
+the existing 15-second frame. Continuous fixed-channel receivers
+authenticate the actual captured pair. The source lease, FOLLOW interval
+and airtime accounting still gate RF.
+
+The .338 native build and host regressions passed. A separate 47-minute
+local run on .337 recorded 90 received pairs, eight META announcements,
+four missed slots and nine brief BLE expiries bridged by LoRa holdover.
+Both devices stayed on their original boots during that run. Six USB
+reopens and 160 control requests succeeded. The operator ended the run
+early. Hardware behavior on .338 and absolute holdover error remain open.
+
+## 0.15.337 — wait for the USB crystal before connecting
+
+On USB attach, wait for both VBUS readiness and the asynchronous crystal
+request before enabling the pull-up. Keep that wait bounded on the USB worker.
+A detach arriving after a canceled attach leaves the controller disabled.
+
+## 0.15.336 — consume late fixed500 transmit completions
+
+Recognize a captured TxDone after a delayed worker poll. Validate the
+hardware airtime and the original launch epoch before reconstructing the
+completion time. FOLLOW still uses its original RF and source deadlines.
+
+## 0.15.335 — recover transient GNSS UART line errors
+
+On native GM7 images, invalidate the local GNSS source when the UART reports
+a line error and rearm RX after the driver acknowledges disable and releases
+both DMA buffers. Preserve the capture domain for independently admitted BLE
+and LoRa timing. Missing drain acknowledgments, exhausted recovery and
+driver failures still use the existing terminal recovery path.
+
+## 0.15.334 — recover a missed GM7 clock bracket
+
+Skip a GM7 worker cycle when the local clock bracket is temporarily
+unavailable. Retry with a fresh bracket on the next cycle and keep all
+original timing deadlines. A capture fault or a changed counter generation
+still stops the owner. An explicit stop still drains without a bracket.
+
+Start USB on an already-ready VBUS after a warm reset, including when the
+original power-ready interrupt has already been consumed.
+
+## 0.15.333 — fixed500 bounded boundary-clock continuity
+
+When upstream BLE timing naturally expires, keep the last qualified LoRa
+clock fit through its existing bounded holdover on the same authenticated
+source, train and capture. A fresh qualified correction replaces the fit.
+Control withdrawal, context changes and expired holdover still fence RF.
+The original BLE timing deadlines stay in effect.
+
+Stage fixed500 SYNC as soon as its reservation and radio state permit.
+Program the fixed RF parameters once per hardware start. The original
+physical launch and completion deadlines still apply.
+
+## 0.15.332 — recover the next fixed500 precision slot
+
+Allow a staged SYNC to use the remaining part of its original physical
+launch pad. When that pad is exhausted before SetTx, retire the unlaunched
+pair and retain the next slot without restarting the radio. Preserve the
+reservation debit and the existing restart rules for source loss or an
+ambiguous hardware launch.
+
+## 0.15.331 — bounded fixed500 SetTx submission
+
+Keep the four-byte scheduled SetTx submission together across thread
+rescheduling. Interrupts remain enabled, completion waits remain preemptible,
+and the physical source and finish deadlines still gate the NSS commit.
+
+## 0.15.330 — fixed500 META retry and USB recovery
+
+Use a 360-second META interval in fixed500. A skipped or unsuccessful META
+stays due on the next eligible 30-second slot. Successful completion sets the
+next due slot. The precision grid, receive lease, and rolling airtime cap
+remain in effect.
+
+Use the original finish and source deadlines to decide whether a completed
+scheduled SetTx transfer can still launch. An unscheduled command retains its
+local precommit deadline.
+
+Retire the old EP0 generation at the USB RESET interrupt so a following SETUP
+survives deferred reset processing. Bound orphan bulk OUT draining to one
+packet and release the transfer slot when an OUT rearm fails.
+
+## 0.15.329 — LoRa SetTx precommit timing
+
+Start the local SetTx precommit budget at SPI submission. A worker delayed
+before submission can still use its original slot if the source and finish
+checks admit the complete packet. Preserve the bounded abort and radio drain
+for expired submissions.
+
+## 0.15.328 — screensaver wake on LoRa TX interruption
+
+Wake when the active LoRa timing train drops out, including when BLE or local
+GNSS still supplies valid time to the clock face. Use the same completed-train
+and cadence checks as the LoRa TX icon.
+
+## 0.15.327 — screensaver wake on clock events
+
+Exit the screensaver before scheduling urgent display updates when clock
+eligibility is lost or the timing source changes. Return to the front clock
+and restart the five-minute idle interval. Explicit page selections wake
+directly to the requested page.
+
 ## 0.15.326 — urgent display arbitration
 
 Allow already-urgent bounded time/PPS work to reach arbitration without an

@@ -26,16 +26,76 @@
  
  	return ev;
  }
-@@ -688,6 +693,8 @@
- 		break;
+@@ -551,6 +556,28 @@
+ 	return 0;
+ }
  
++/* USBPULLUP advertises a live device. Both the PHY regulator and the
++ * asynchronous crystal request must be ready before connecting. This runs
++ * on the dedicated USB worker, with no DMA active and a finite wait. */
++static bool hfxo_ready(struct nrf_usbd_ctx *ctx)
++{
++	int64_t deadline = k_uptime_get() + 20;
++
++	while (nrfx_power_usbstatus_get() == NRFX_POWER_USB_STATE_READY) {
++		int result;
++		int rc = sys_notify_fetch_result(&ctx->hfxo_cli.notify, &result);
++
++		if (!rc) {
++			return result >= 0;
++		}
++		if (rc != -EAGAIN || k_uptime_get() >= deadline) {
++			break;
++		}
++		k_sleep(K_MSEC(1));
++	}
++	return false;
++}
++
+ static void usbd_enable_endpoints(struct nrf_usbd_ctx *ctx)
+ {
+ 	struct nrf_usbd_ep_ctx *ep_ctx;
+@@ -675,19 +702,22 @@
+ 
+ 	switch (pwr_evt->state) {
+ 	case USBD_ATTACHED:
++		if (nrfx_power_usbstatus_get() == NRFX_POWER_USB_STATE_DISCONNECTED) {
++			break;
++		}
+ 		if (!nrf_usbd_common_is_enabled()) {
+ 			LOG_DBG("USB detected");
+ 			nrf_usbd_common_enable();
+ 			err = hfxo_start(ctx);
+ 			__ASSERT_NO_MSG(err >= 0);
+ 		}
+-
+-		/* No callback here.
+-		 * Stack will be notified when the peripheral is ready.
+-		 */
+-		break;
+-
++		/* VBUS can be READY already after a warm reset. No new POWER
++		 * edge is guaranteed. The same guard handles a duplicate READY. */
++		__fallthrough;
  	case USBD_POWERED:
-+        if (ctx->ready || !nrf_usbd_common_is_enabled() ||
-+            nrfx_power_usbstatus_get() != NRFX_POWER_USB_STATE_READY) break;
++		if (ctx->ready || !nrf_usbd_common_is_enabled() || !hfxo_ready(ctx)) {
++			break;
++		}
  		usbd_enable_endpoints(ctx);
  		nrf_usbd_common_start(IS_ENABLED(CONFIG_USB_DEVICE_SOF));
  		ctx->ready = true;
-@@ -770,6 +777,11 @@
+@@ -701,7 +731,9 @@
+ 
+ 	case USBD_DETACHED:
+ 		ctx->ready = false;
+-		nrf_usbd_common_disable();
++		if (nrf_usbd_common_is_enabled()) {
++			nrf_usbd_common_disable();
++		}
+ 		err = hfxo_stop(ctx);
+ 		__ASSERT_NO_MSG(err >= 0);
+ 
+@@ -770,6 +802,11 @@
  
  	struct nrf_usbd_ctx *ctx = get_usbd_ctx();
  
@@ -47,7 +107,7 @@
  	if (usb_reqtype_is_to_device(usbd_setup) && usbd_setup->wLength) {
  		ctx->ctrl_read_len = usbd_setup->wLength;
  		/* Allow data chunk on EP0 OUT */
-@@ -777,6 +789,7 @@
+@@ -777,6 +814,7 @@
  	} else {
  		ctx->ctrl_read_len = 0U;
  	}
@@ -55,7 +115,7 @@
  }
  
  static inline void usbd_work_process_recvreq(struct nrf_usbd_ctx *ctx,
-@@ -793,10 +806,18 @@
+@@ -793,10 +831,18 @@
  	ep_ctx->read_complete = false;
  
  	k_mutex_lock(&ctx->drv_lock, K_FOREVER);
@@ -74,7 +134,7 @@
  	if (err != NRFX_SUCCESS) {
  		LOG_ERR("nRF USBD transfer error (OUT): 0x%02x", err);
  	}
-@@ -810,6 +831,24 @@
+@@ -810,6 +856,24 @@
  	struct nrf_usbd_ep_ctx *ep_ctx = ep_evt->ep;
  
  	__ASSERT_NO_MSG(ep_ctx);
@@ -99,7 +159,7 @@
  
  	switch (ep_evt->evt_type) {
  	case EP_EVT_SETUP_RECV:
-@@ -833,7 +872,14 @@
+@@ -833,7 +897,14 @@
  			 * no ZLP required.
  			 */
  			k_mutex_lock(&ctx->drv_lock, K_FOREVER);
@@ -114,7 +174,7 @@
  			k_mutex_unlock(&ctx->drv_lock);
  		}
  		ep_ctx->cfg.cb(ep_ctx->cfg.addr,
-@@ -870,6 +916,9 @@
+@@ -870,6 +941,9 @@
  		break;
  
  		case NRF_USBD_COMMON_EP_ABORTED: {
@@ -124,7 +184,24 @@
  			LOG_DBG("Endpoint 0x%02x write aborted",
  				p_event->data.eptransfer.ep);
  		}
-@@ -1107,6 +1156,19 @@
+@@ -1071,10 +1145,15 @@
+ 		evt.evt.pwr_evt.state = USBD_RESUMED;
+ 		put_evt = true;
+ 		break;
+-	case NRF_USBD_COMMON_EVT_RESET:
++	case NRF_USBD_COMMON_EVT_RESET: {
++		struct nrf_usbd_ctx *ctx = get_usbd_ctx();
++		/* Retire the old control generation at the hardware event. A
++		 * SETUP accepted after RESET must survive the deferred worker. */
++		if (++ctx->ep0_generation == 0) { ++ctx->ep0_generation; }
+ 		evt.evt_type = USBD_EVT_RESET;
+ 		put_evt = true;
+ 		break;
++	}
+ 	case NRF_USBD_COMMON_EVT_SOF:
+ 		if (IS_ENABLED(CONFIG_USB_DEVICE_SOF)) {
+ 			evt.evt_type = USBD_EVT_SOF;
+@@ -1107,6 +1186,19 @@
  		nrf_usbd_common_setup_t drv_setup;
  
  		nrf_usbd_common_setup_get(&drv_setup);
@@ -144,7 +221,7 @@
  		if ((drv_setup.bRequest != USB_SREQ_SET_ADDRESS)
  		    || (USB_REQTYPE_GET_TYPE(drv_setup.bmRequestType)
  			!= USB_REQTYPE_TYPE_STANDARD)) {
-@@ -1145,25 +1207,38 @@
+@@ -1145,25 +1237,35 @@
  
  static inline void usbd_reinit(void)
  {
@@ -175,7 +252,9 @@
 +    ctx->ready = false;
 +    irq_unlock(key);
 +    nrfx_power_usbevt_disable();
-+    nrf_usbd_common_disable();
++    if (nrf_usbd_common_is_enabled()) {
++        nrf_usbd_common_disable();
++    }
 +    nrf_usbd_common_uninit();
 +    usbd_evt_flush();
 +    if (ctx->status_cb) ctx->status_cb(USB_DC_DISCONNECTED, NULL);
@@ -193,26 +272,11 @@
 +    if (ctx->attached && nrfx_power_usbstatus_get() != NRFX_POWER_USB_STATE_DISCONNECTED) {
 +        struct usbd_pwr_event event = {.state = USBD_ATTACHED};
 +        usbd_work_process_pwr_events(&event);
-+        if (nrfx_power_usbstatus_get() == NRFX_POWER_USB_STATE_READY &&
-+            nrf_usbd_common_is_enabled()) {
-+            event.state = USBD_POWERED;
-+            usbd_work_process_pwr_events(&event);
-+        }
 +    }
  }
  
  /**
-@@ -1234,6 +1309,9 @@
- 			break;
- 		case USBD_EVT_RESET:
- 			LOG_DBG("USBD reset event");
-+            unsigned int key = irq_lock();
-+            if (++ctx->ep0_generation == 0) ++ctx->ep0_generation;
-+            irq_unlock(key);
- 			k_mutex_lock(&ctx->drv_lock, K_FOREVER);
- 			eps_ctx_init();
- 			k_mutex_unlock(&ctx->drv_lock);
-@@ -1463,7 +1541,13 @@
+@@ -1463,7 +1565,13 @@
  
  	switch (ep_ctx->cfg.type) {
  	case USB_DC_EP_CONTROL:
@@ -226,7 +290,7 @@
  		break;
  	case USB_DC_EP_BULK:
  	case USB_DC_EP_INTERRUPT:
-@@ -1648,12 +1732,25 @@
+@@ -1648,12 +1756,25 @@
  	}
  
  	k_mutex_lock(&ctx->drv_lock, K_FOREVER);
@@ -252,7 +316,7 @@
  		k_mutex_unlock(&ctx->drv_lock);
  		return -EAGAIN;
  	}
-@@ -1686,6 +1783,7 @@
+@@ -1686,6 +1807,7 @@
  	if ((ep_ctx->cfg.type == USB_DC_EP_CONTROL)
  	    && (nrf_usbd_common_last_setup_dir_get() != ep)) {
  		nrf_usbd_common_setup_clear();
@@ -260,7 +324,7 @@
  		k_mutex_unlock(&ctx->drv_lock);
  		return 0;
  	}
-@@ -1700,13 +1798,15 @@
+@@ -1700,13 +1822,15 @@
  			*ret_bytes = 0;
  		}
  		result = -EIO;
@@ -277,7 +341,7 @@
  	k_mutex_unlock(&ctx->drv_lock);
  	return result;
  }
-@@ -1803,6 +1903,7 @@
+@@ -1803,6 +1927,7 @@
  			ev->evt_type = USBD_EVT_EP;
  			ev->evt.ep_evt.ep = ep_ctx;
  			ev->evt.ep_evt.evt_type = EP_EVT_RECV_REQ;
@@ -285,7 +349,7 @@
  			usbd_evt_put(ev);
  			usbd_work_schedule();
  		}
-@@ -1932,3 +2033,11 @@
+@@ -1932,3 +2057,11 @@
  }
  
  SYS_INIT(usb_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);

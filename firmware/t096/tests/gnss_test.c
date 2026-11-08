@@ -13,7 +13,8 @@ int r2_capture_start(const struct gpio_dt_spec *p,int64_t at){return 0;}
 void r2_capture_poll(int64_t at){}
 bool r2_capture_pps(struct r2_capture *out,int64_t at){return false;}
 bool r2_capture_now(struct r2_capture *out){return false;}
-int r2_capture_stop(void){return 0;}
+static unsigned capture_stops;
+int r2_capture_stop(void){++capture_stops;return 0;}
 void r2_time_input_bytes(const uint8_t *p,size_t n,int64_t at){assert(n<=64&&at==now);received_bytes+=(unsigned)n;}
 static int ui_close;static unsigned ui_stops;
 void r2_ui_stop(void){++ui_stops;}
@@ -42,6 +43,38 @@ int main(int argc,char **argv)
  }
  pending_worker(NULL,NULL,NULL);assert(init_calls==1&&enable_calls==1);
  if(failure){r2_gnss_poll(++now);assert(faults&&r2_gnss_close_result()<0&&levels[1]==0&&levels[2]==0);puts("R2 actual GNSS start failure remains fenced PASS");return 0;}
+#ifdef R2_GM7_NATIVE
+ if(!strncmp(argv[1],"rx_",3)){
+   struct uart_event line_error={.type=UART_RX_STOPPED,.data.rx_stop.reason=UART_ERROR_FRAMING};
+   event(UART_RX_BUF_REQUEST,NULL,0,0);
+   rx_callback(&fake_uart,&line_error,NULL);
+   assert(faults==1&&!r2_gnss_input_error()&&!capture_stops);
+   event(UART_RX_RDY,rx[0],0,24);assert(!received_bytes);
+   if(!strcmp(argv[1],"rx_timeout")){
+     now+=100000;r2_gnss_poll(now);
+     assert(r2_gnss_input_error()==-ETIMEDOUT&&enable_calls==1&&capture_stops==1&&levels[1]==1);
+     puts("PASS GNSS rearm deadline is anchored to UART stop; missing DMA release cannot rearm or power off");return 0;
+   }
+   if(!strcmp(argv[1],"rx_stop"))r2_gnss_stop();
+   event(UART_RX_DISABLED,NULL,0,0);r2_gnss_poll(++now);assert(enable_calls==1);
+   event(UART_RX_BUF_RELEASED,rx[0],0,0);r2_gnss_poll(++now);assert(enable_calls==1);
+   event(UART_RX_BUF_RELEASED,rx[1],0,0);r2_gnss_poll(++now);
+   if(!strcmp(argv[1],"rx_stop")){
+     assert(enable_calls==1&&capture_stops==1&&!r2_gnss_close_result());
+     puts("PASS explicit stop wins over GNSS rearm");return 0;
+   }
+   assert(enable_calls==2&&!capture_stops&&r2_gnss_rx_rearms()==1&&levels[1]==1);
+   event(UART_RX_RDY,rx[0],0,24);assert(received_bytes==24);
+   if(!strcmp(argv[1],"rx_window"))now+=60000000;
+   for(unsigned i=0;i<3;i++){
+     rx_callback(&fake_uart,&line_error,NULL);
+     event(UART_RX_BUF_RELEASED,rx[0],0,0);event(UART_RX_DISABLED,NULL,0,0);r2_gnss_poll(++now);
+   }
+   if(!strcmp(argv[1],"rx_window"))assert(!r2_gnss_input_error()&&!capture_stops&&r2_gnss_rx_rearms()==4);
+   else assert(r2_gnss_input_error()==-EIO&&capture_stops==1&&r2_gnss_rx_rearms()==3);
+   puts("PASS UART line fault rearms after both releases; original PPS/counter stays live and repeated errors are bounded");return 0;
+ }
+#endif
  if(!strcmp(argv[1],"ui_wait")||!strcmp(argv[1],"ui_fault")){
    ui_close=-EAGAIN;event(UART_RX_STOPPED,NULL,0,0);r2_gnss_poll(++now);assert(!ui_stops);
    event(UART_RX_DISABLED,NULL,0,0);event(UART_RX_BUF_RELEASED,rx[0],0,0);r2_gnss_poll(++now);

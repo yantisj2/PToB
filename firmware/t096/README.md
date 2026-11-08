@@ -114,8 +114,9 @@ See the [build guide](../../docs/t096/build.md#optional-lora-configuration) for
 selection and the [soak guide](../../docs/t096/lora-soak.md) for measured checks.
 
 The matched fixed500 setup selects schedule8: a single922.4MHz/SF11/BW500/CR4/8
-PHY,30s precision pairs and300s META with no DISC. Its nominal guarded airtime
-is79.061952s/h under a90s/h engineering cap. RX stays continuous. An available
+PHY,30s precision pairs and360s META with no DISC. Missed META remains due on
+the next eligible precision slot. Nominal guarded airtime is77.467040s/h under
+a90s/h engineering cap. RX stays continuous. An available
 LoRa/HOLD watch in RC remains selected until BLE has been fresh and qualified on the
 same authenticated scope for30 continuous seconds. Loss, expiry, refusal or a
 context change restarts that dwell while fallback is selected. Once BLE owns

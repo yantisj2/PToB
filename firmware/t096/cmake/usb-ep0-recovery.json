@@ -1,8 +1,8 @@
 {
-  "revision": "RC_USB_EP0_SETUP_RETIRE_POWER_REPLAY_V2",
+  "revision": "RC_USB_EP0_SETUP_RESET_FENCE_POWER_REPLAY_V5",
   "upstream_commit": "7823374e872145b5bd018bfe447839eb36042611",
   "path": "drivers/usb/device/usb_dc_nrfx.c",
   "original": "7134b8da13a380f19b0426e1f693ec55b134308f681b4994f31b6bfa3c02d535",
-  "fixed": "4e4ecb1295a82e2330d5c85ce56097d031a58ed56022bbd38763274e25dfaaee",
-  "patch_sha256": "08e13f9dfd3b0135a4c8ab9e5c3520657f740a38a7bb99854f3e644847e95285"
+  "fixed": "b07c30f01a246d025d8241fb06c1b1cfb61ede8d3d08bf7c717d8bd1a41b72b3",
+  "patch_sha256": "e1aa952f48df99a78a29787a9d6622fe8c5075c032dba596eb79579de3d382ce"
 }

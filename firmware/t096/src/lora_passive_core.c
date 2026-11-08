@@ -31,7 +31,7 @@ bool lp_tx_rearm(struct lp_tx *t,uint64_t now,uint64_t first){
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  if(!t||!t->ready||first<now||t->durable.pending||t->unlaunched||t->durable.fh_disabled||
     t->durable.cursor>UINT32_MAX-2||t->durable.serial==UINT32_MAX)return false;
- t->durable.next_slot_us=first;t->durable.slot=0;t->durable.owed=0;
+ t->durable.next_slot_us=first;t->durable.slot=0;t->durable.owed=0;t->next_meta_index=0;
  t->slot_us=t->sync_end_us=0;t->pair=t->unlaunched=t->manual=false;t->reserved_control=0;
  return true;
 #else
@@ -86,6 +86,9 @@ bool lp_tx_restore(struct lp_tx *t,const struct lp_checkpoint *s,lp_save_fn save
  if(!t)return false;
  /* May restore from t->durable itself; never erase that input before reading. */
  t->ready=t->pair=t->manual=false;t->slot_us=t->sync_end_us=0;t->save=NULL;t->storage=NULL;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ t->next_meta_index=0;
+#endif
  if(!save||!trusted||!checkpoint_valid(s))return false;
  t->durable=*s;t->save=save;t->storage=storage;
  if(t->durable.schedule!=LP_SCHEDULE){t->durable.schedule=LP_SCHEDULE;t->durable.owed=0;}
@@ -104,13 +107,13 @@ static bool reserve_control(struct lp_tx *t,uint64_t now,struct lp_reservation *
  now/1000>UINT32_MAX-4000||t->durable.slot==UINT32_MAX||t->durable.serial==UINT32_MAX)return false;
  if(manual&&(t->save||t->durable.owed||now>UINT64_MAX-LP_FRAME_END_US-1000000||
     now+LP_FRAME_END_US+1000000>t->durable.next_slot_us))return false;
- /* No catch-up: skip missed slots on the original phase and META distribution. */
+ /* Skip missed precision slots. An unconfirmed META stays due on the grid. */
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  uint64_t slot=t->durable.next_slot_us,skipped=(now-slot)/LP_BEAT_US;
  if(skipped>UINT32_MAX-t->durable.slot)return false;
  uint32_t index=t->durable.slot+(uint32_t)skipped;slot+=skipped*LP_BEAT_US;
  if(now-slot>50000)return false;
- unsigned control=index%LP_META_BEATS?0:LP_META;
+ unsigned control=index>=t->next_meta_index?LP_META:0;
  if(force_meta&&control!=LP_META)return false;
  struct lp_checkpoint s=t->durable;
  s.slot=index+1;s.owed=0;s.next_slot_us=slot+LP_BEAT_US;s.schedule=LP_SCHEDULE;
@@ -234,6 +237,12 @@ bool lp_tx_has_deferred(const struct lp_tx *t){
 }
 void lp_tx_control_complete(struct lp_tx *t){
  if(t)t->unlaunched=false;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(t&&t->reserved_control==LP_META){
+  uint32_t index=t->durable.slot-1;
+  t->next_meta_index=index>UINT32_MAX-LP_META_BEATS?UINT32_MAX:index+LP_META_BEATS;
+ }
+#endif
 #ifdef R2_LORA_PASSIVE_SLOW
  if(t&&!t->manual)t->durable.owed&=(uint8_t)~LP_OWED_META;
 #else

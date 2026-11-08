@@ -13,7 +13,7 @@ static bool read_source(struct gm7_source *s,struct r2_source_clock *m,
 #ifdef R2_SOURCE_ORDER_LEGACY
  return source_read(s,m,c,*b);
 #else
- return source_read(s,m,c,b);
+ return !source_read(s,m,c,b);
 #endif
 }
 int main(int argc,char **argv){
@@ -48,8 +48,8 @@ int main(int argc,char **argv){
   assert(gm7_bridge_to_hf(b,original_until,&converted)&&s.until_us==converted);
   uint64_t utc;assert(!source_phase(&s,b,&utc));assert(bridge(&b)&&source_phase(&s,b,&utc));
  }else if(test==6||test==7){
-  if(test==6)fake_clock_epoch=5;else fake_hf_valid=false;
-  assert(!read_source(&s,&map,&c,&b)&&resource_fault&&!memcmp(&b,&original,sizeof b));
+  if(test==6)fake_clock_epoch=5;else fake_hf_unavailable_at=fake_hf_reads+1;
+  assert(!read_source(&s,&map,&c,&b)&&resource_fault==(test==6)&&!memcmp(&b,&original,sizeof b));
  }else if(test==8){
   r2_source_clock_invalidate(&functional_source);input.translated_epoch=3;
   input.translated_at_us=(int64_t)fake_kernel+1;input.translated_utc_us=INT64_C(1792800000000000)+(int64_t)fake_hf;

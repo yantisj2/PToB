@@ -26,6 +26,31 @@ int main(int argc,char **argv){
  }
  r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);drive_stream(500);
  assert(pt_output.utc_valid&&pt_output.gm7.retained);
+ if(mode>=3){
+  assert(lora_publishes&&source_gate==R2_LORA_SOURCE_READY&&precision.data_until<pt_output.capture_until);
+  unsigned published=lora_publishes,withdrawn=lora_withdraws;
+  uint64_t delta=precision.data_until-capture_tick;
+  capture_tick+=delta;fake_time=capture_us+=delta/16+1;
+  lora_hold_available=true;precision_step(fake_time);
+  uint64_t utc;
+  assert(!pt_output.utc_valid&&!r2_radio_service_client_clock(&utc,fake_time));
+  assert(source_gate==R2_LORA_SOURCE_BLE_HOLDOVER&&lora_hold_queries==1);
+  assert(lora_publishes==published&&lora_withdraws==withdrawn);
+  if(mode==5){
+   unsigned first=(unsigned)((fake_time-1001000)/62500+1);
+   drive_stream_range(first,first+12);
+   assert(pt_output.utc_valid&&source_gate==R2_LORA_SOURCE_READY&&lora_publishes>published&&lora_withdraws==withdrawn);
+   assert(same(pt_output.scope,active_scope)&&precision.remote_capture==4);
+   puts("PASS first fresh authenticated replacement restores the same LoRa train after bounded holdover");return 0;
+  }
+  if(mode==3)lora_hold_available=false;
+  else if(mode==4)++capture_test_epoch;
+  else r2_radio_service_withdraw();
+  capture_tick+=16000;fake_time=capture_us+=1000;precision_step(fake_time);
+  assert(lora_hold_queries==(mode==3?2:1)&&lora_publishes==published&&lora_withdraws>withdrawn);
+  assert(source_gate!=R2_LORA_SOURCE_BLE_HOLDOVER);
+  puts("PASS signed data expiry retains only existing LoRa map; expiry, capture change and explicit stop withdraw");return 0;
+ }
  struct r2_capture at={capture_tick,1,R2_CAPTURE_NOW};int64_t expected;
  assert(r2_servo_mapped(&pt_output.gm7.map,at.tick,&expected));expected+=pt_output.gm7.utc_offset_ns;
  struct pt_input before=pt_input;struct pt_output old=pt_output;

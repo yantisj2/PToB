@@ -193,7 +193,7 @@ static struct k_work_q owner_queue;
 static uint64_t kernel_now(void) {
   return k_ticks_to_us_floor64(k_uptime_ticks());
 }
-static bool bridge(struct gm7_bridge *b) {
+static int read_bridge(struct gm7_bridge *b) {
   /* Single-core, no zero-latency IRQs: pair the software clocks without a
    * scheduler/IRQ gap or a competing CC2 capture. The HF reader is bounded,
    * read-only and never waits/requests a clock. Restore even a nested key
@@ -201,11 +201,34 @@ static bool bridge(struct gm7_bridge *b) {
    * fail. */
   unsigned int key = irq_lock();
   b->kernel_lo = kernel_now();
-  bool valid = r2_gm7_clock_now(&b->hf, &b->epoch);
-  if (valid)
+  int result = r2_gm7_clock_sample(&b->hf, &b->epoch);
+  if (!result)
     b->kernel_hi = kernel_now();
   irq_unlock(key);
-  return valid && gm7_bridge_valid(*b);
+  if (result)
+    return result;
+  if (b->kernel_hi < b->kernel_lo)
+    return -ESTALE;
+  return gm7_bridge_valid(*b) ? 0 : -EAGAIN;
+}
+static bool bridge(struct gm7_bridge *b) {
+  return !read_bridge(b);
+}
+/* An unavailable bracket grants no new timing work. Preserve the existing
+ * owner's deadlines and retry on its next cycle unless the capture driver
+ * has faulted or a different counter generation was actually observed. */
+static int active_bridge(struct gm7_bridge *b) {
+  b->epoch = 0;
+  int result = read_bridge(b);
+  if ((b->epoch && b->epoch != clock_epoch) || r2_capture_error())
+    return -ESTALE;
+  return result;
+}
+static bool continue_bridge(struct gm7_bridge *b) {
+  int result = active_bridge(b);
+  if (result == -ESTALE)
+    resource_fault = true;
+  return !result;
 }
 static uint64_t hf_read(void *context) {
   (void)context;
@@ -235,7 +258,7 @@ static void fence(unsigned reason, uint64_t now) {
   r2_radio_service_withdraw();
 #endif
 }
-static __attribute__((noinline)) bool source_read(struct gm7_source *s,
+static __attribute__((noinline)) int source_read(struct gm7_source *s,
                                                   struct r2_source_clock *map,
                                                   struct r2_clock *clock,
                                                   struct gm7_bridge *b) {
@@ -258,14 +281,14 @@ static __attribute__((noinline)) bool source_read(struct gm7_source *s,
    * as future. Its original timestamps and freshness horizons stay unchanged.
    * Return the same bridge for subsequent source/owner decisions. */
   struct gm7_bridge fresh;
-  bool paired = bridge(&fresh) && fresh.epoch == clock_epoch;
-  if (paired)
+  int result = active_bridge(&fresh);
+  if (!result)
     *b = fresh;
   (void)k_mutex_unlock(&lock);
-  if (!paired) {
+  if (result == -ESTALE)
     resource_fault = true;
-    return false;
-  }
+  if (result)
+    return result;
 
   if (clock->view.mono_us >= 0 &&
       b->kernel_hi >= (uint64_t)clock->view.mono_us) {
@@ -279,8 +302,9 @@ static __attribute__((noinline)) bool source_read(struct gm7_source *s,
   }
   struct r2_capture current = {0};
   bool captured = r2_capture_now(&current) && current.epoch == b->epoch;
-  if (gm7_source_snapshot(s, clock, map, current, b->kernel_hi))
-    return false;
+  result = gm7_source_snapshot(s, clock, map, current, b->kernel_hi);
+  if (result)
+    return result;
 #ifdef R2_LORA_PASSIVE_SLOW
   if(identity==(uint64_t)R2_LORA_TRANSMITTER_FACTORY)s->quality.priority1=1;
   else if(identity==(uint64_t)R2_LORA_BACKUP_TRANSMITTER_FACTORY)s->quality.priority1=2;
@@ -296,7 +320,7 @@ static __attribute__((noinline)) bool source_read(struct gm7_source *s,
    * bridge. A coarse fallback instead belongs to the original kernel sample. */
   s->sampled_us = s->physical_ready ? current.tick / 16 : b->hf;
   s->gnss_healthy &= live;
-  return true;
+  return 0;
 }
 static bool source_phase(const struct gm7_source *s, struct gm7_bridge b,
                          uint64_t *utc) {
@@ -1138,14 +1162,19 @@ static void cycle(struct k_work *work) {
         queued > UINT32_MAX ? UINT32_MAX : (uint32_t)queued;
   (void)k_mutex_unlock(&lock);
   struct gm7_bridge b;
-  if (!bridge(&b) || b.epoch != clock_epoch) {
+  int bridge_result = active_bridge(&b);
+  if (bridge_result == -EAGAIN && !atomic_get(&stopping))
+    goto finished;
+  if (bridge_result) {
     phase_known = false;
     r2_radio_service_withdraw();
     r2_gm7_controller_cancel(0);
     r2_gm7_controller_precision(false, 0, 0, 0);
     gm7_owner_stop(&owner, UINT64_MAX);
-    resource_fault = true;
-    status.error = -ESTALE;
+    if (bridge_result == -ESTALE) {
+      resource_fault = true;
+      status.error = bridge_result;
+    }
     r2_service_stop();
     r2_gm7_controller_scan(false, false, 0);
     r2_ble_stop();
@@ -1264,17 +1293,17 @@ static void cycle(struct k_work *work) {
   struct r2_clock clock;
   struct r2_source_clock map;
   struct gm7_source source;
-  if (!source_read(&source, &map, &clock, &b)) {
-    fence(GM7_R_SOURCE, b.hf);
+  int source_result = source_read(&source, &map, &clock, &b);
+  if (source_result) {
+    if (source_result != -EAGAIN)
+      fence(GM7_R_SOURCE, b.hf);
     goto finished;
   }
   /* Capture may have been delayed by other work. Use a contemporary same-domain
    * coordinate for phase, while retaining the source's actual sample and its
    * original expiry for owner freshness/dwell. */
-  if (!bridge(&b) || b.epoch != clock_epoch) {
-    resource_fault = true;
+  if (!continue_bridge(&b))
     goto finished;
-  }
   if (r2_gm7_capture_overflows() != overflow_seen) {
     overflow_seen = r2_gm7_capture_overflows();
     /* Optional control observations may be lost under owner delay. Count the
@@ -1341,10 +1370,8 @@ static void cycle(struct k_work *work) {
     frame=utc/GM7_FRAME_US;phase=utc%GM7_FRAME_US;
     frame_start=b.hf>=phase?b.hf-phase:0;
   }
-  if (!bridge(&b) || b.epoch != clock_epoch) {
-    resource_fault = true;
+  if (!continue_bridge(&b))
     goto finished;
-  }
   gm7_owner_update(&owner, &source, &prep, b.hf);
 #ifdef R2_LORA_PASSIVE_SLOW
   if(!gm7_owner_output(&owner,b.hf))r2_lora_gm_admission(false,0,false,0,0);
@@ -1422,10 +1449,8 @@ static void cycle(struct k_work *work) {
     takeover_bound = 0; /* Resumed contact cancels this silence-only deadline. */
     r2_radio_service_activate();
   }
-  if (!bridge(&b) || b.epoch != clock_epoch) {
-    resource_fault = true;
+  if (!continue_bridge(&b))
     goto finished;
-  }
   r2_gm7_controller_precision(
       owner.serving && aligned, (uint32_t)(frame_start % 62500),
       owner.source.until_us,
@@ -1486,10 +1511,8 @@ static void cycle(struct k_work *work) {
       b.hf-owner.selected_contact >= GM7_BLACKOUT_US-GM7_CLOSURE_LEAD_US;
   if (!owner.serving && !owner.reserved &&
       ((owner.initial_due && !owner.armed) || hot_local_phase)) {
-    if (!bridge(&b) || b.epoch != clock_epoch) {
-      resource_fault = true;
+    if (!continue_bridge(&b))
       goto finished;
-    }
     aligned = source.physical_ready && b.hf < source.until_us &&
               source_phase(&source, b, &utc);
     if (aligned) {

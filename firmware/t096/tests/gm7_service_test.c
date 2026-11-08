@@ -102,12 +102,17 @@ bool r2_capture_now(struct r2_capture *c) {
   return fake_hf_valid;
 }
 #ifndef R2_GM7_REAL_CLOCK
-bool r2_gm7_clock_now(uint64_t *us, uint32_t *epoch) {
+int r2_gm7_clock_sample(uint64_t *us, uint32_t *epoch) {
   fake_hf += fake_hf_read_advance;
   fake_kernel += fake_hf_read_advance;
   *us = fake_hf;
   *epoch = fake_clock_epoch;
-  return fake_hf_valid && ++fake_hf_reads != fake_hf_unavailable_at;
+  if (!fake_hf_valid)
+    return -ESTALE;
+  return ++fake_hf_reads == fake_hf_unavailable_at ? -EAGAIN : 0;
+}
+bool r2_gm7_clock_now(uint64_t *us, uint32_t *epoch) {
+  return !r2_gm7_clock_sample(us, epoch);
 }
 bool r2_gm7_clock_bounds(uint32_t raw, uint32_t epoch, unsigned prefix,
                          unsigned chain, uint64_t *lo, uint64_t *hi) {
@@ -740,7 +745,7 @@ static void functional_map_refresh(void) {
                          .epoch = 4,
                          .kernel_lo = fake_kernel,
                          .kernel_hi = fake_kernel};
-  assert(source_read(&source, &copy, &copied, &b) &&
+  assert(!source_read(&source, &copy, &copied, &b) &&
          !memcmp(&copy, &functional_source, sizeof copy));
   fake_raw.utc_association++;
   r2_service_clock(&c);
@@ -1416,7 +1421,7 @@ static void terminal_faults(void) {
   setup(true);
   healthy_input();
   struct gm7_source actual;struct r2_source_clock local_map;struct r2_clock local_clock;struct gm7_bridge b;
-  assert(bridge(&b)&&source_read(&actual,&local_map,&local_clock,&b));
+  assert(bridge(&b)&&!source_read(&actual,&local_map,&local_clock,&b));
   owner.source=actual;owner.last_utc=actual.utc_us;owner.last_utc_at=fake_hf;
   fake_overflow=1;
   cycle(&service_work);
@@ -1619,10 +1624,39 @@ static void worker_stage_accounting(void){
  status.supervision=saved;
  puts("PASS seven existing GM owner wall-time bins, maxima, saturation and clock regression");
 }
+#ifndef R2_GM7_REAL_CLOCK
+static void transient_clock_bracket(void){
+  for(unsigned missed=1;missed<=3;++missed){
+    setup(true);tick_to(fake_hf+500000);healthy_input();
+    uint64_t permission=owner.source.until_us;
+    uint32_t generation=owner.event_generation,cycles=status.cycles;
+    fake_hf_unavailable_at=missed;
+    cycle(&service_work);
+    assert(!resource_fault&&!status.error&&!atomic_get(&stopping)&&owner.serving);
+    assert(owner.event_generation==generation&&owner.source.until_us==permission);
+    assert(status.cycles==cycles&&!fake_submit_count);
+    cycle(&service_work);
+    assert(!status.error&&!atomic_get(&stopping)&&owner.serving&&status.cycles>cycles);
+  }
+  setup(true);healthy_input();fake_hf_unavailable_at=1;r2_service_stop();
+  cycle(&service_work);
+  assert(status.closed&&!status.active&&!status.error);
+  setup(true);healthy_input();++fake_clock_epoch;
+  cycle(&service_work);
+  assert(status.closed&&status.error==-ESTALE&&resource_fault);
+  setup(true);healthy_input();fake_capture_error=-ESTALE;
+  cycle(&service_work);
+  assert(status.closed&&status.error==-ESTALE&&resource_fault);
+  puts("PASS GM7 skips missed brackets without renewing authority, resumes in-domain, and drains on explicit stop or real capture loss");
+}
+#endif
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
   worker_stage_accounting();
+#ifndef R2_GM7_REAL_CLOCK
+  transient_clock_bracket();
+#endif
   hot_survives_leader_reboot();
   hot_survives_dead_stream();
   promoted_map_keeps_source_dwell();

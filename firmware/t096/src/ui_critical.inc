@@ -483,7 +483,8 @@ static void worker(void *a,void *b,void *c){
  }
  unsigned key=ui_take();status.error=rc;if(brightness)status.brightness_percent=brightness;ui_drop(key);
  uint64_t due=k_uptime_get(),saver_since=0,saver_period=0;
- key=ui_take();input_changed=input_last_poll=input_idle_since=due;ui_drop(key);
+ key=ui_take();input_changed=input_last_poll=input_idle_since=due;
+ uint32_t observed_control=control_serial;ui_drop(key);
  atomic_set(&input_ready,atomic_get(&stop_requested)?0:1);
  while(!atomic_get(&stop_requested)){
   /* Urgent arbitration contains only the already bounded try-copy/scalars.
@@ -501,6 +502,7 @@ static void worker(void *a,void *b,void *c){
   struct ui_job job={.m=&m,.s=&s,.background=false};
    if(!job_copy(&job,true)){atomic_set(&ui_worker_phase,UI_READY);k_sleep(K_MSEC(1));continue;}
   uint64_t now=k_uptime_get();
+  if(job.control!=observed_control){observed_control=job.control;due=now;}
   unsigned bits=(unsigned)atomic_get(&ui_critical_dirty);
   if(bits&&!rc){
     job.bit=bits&UI_CLEAR?UI_CLEAR:bits&UI_TIME?UI_TIME:bits&UI_PULSE?UI_PULSE:UI_LOSS;
@@ -552,17 +554,28 @@ static void worker(void *a,void *b,void *c){
    uint64_t idle=job.idle_since;
    unsigned interval=s.page==1&&!s.screensaver?125:250;
    if((unsigned)atomic_get(&model_interval)!=interval)atomic_set(&model_interval,(int)interval);
-   bool saver=!s.menu.open&&!job.stable&&!job.wake_press&&now>=idle&&
-    now-idle>=R2_UI_IDLE_MS&&r2_ui_saver_allowed(&m,now);
-   uint64_t period=saver&&now>=saver_since?(now-saver_since)/R2_UI_SAVER_MOVE_MS:0;
-   uint32_t random=saver&&s.screensaver&&period!=saver_period?sys_rand32_get():0;
-   key=ui_take();
-   if(control_serial==job.control){
-     if(saver!=status.screensaver){control_change();status.screensaver=saver;saver_since=now;saver_period=0;status.screensaver_position=0;atomic_set(&model_requested,1);}
-     if(saver&&s.screensaver&&period!=saver_period){control_change();status.screensaver_position=r2_ui_saver_next(status.screensaver_position,random);saver_period=period;atomic_set(&model_requested,1);}
-    s=status;
+   bool allowed=r2_ui_saver_allowed(&m,now);
+   /* Eligibility can expire between publications. Leave the transition to
+    * main and never cache a normal page under a saver layout. */
+   if(s.screensaver&&!allowed){
+    atomic_set(&ui_worker_phase,UI_READY);k_sleep(K_MSEC(1));continue;
    }
-    ui_drop(key);if(!optional_enter()||!job_current(&job))continue;
+   bool enter=!s.screensaver&&allowed&&!s.menu.open&&!job.stable&&!job.wake_press&&
+    now>=idle&&now-idle>=R2_UI_IDLE_MS;
+   uint64_t period=s.screensaver?(now-saver_since)/R2_UI_SAVER_MOVE_MS:0;
+   bool move=s.screensaver&&period!=saver_period;
+   if(enter||move){
+    uint32_t random=move?sys_rand32_get():0;
+    key=ui_take();
+    if(job_current(&job)&&input_idle_since==idle){
+     control_change();status.screensaver=true;
+     if(enter){saver_since=now;saver_period=0;status.screensaver_position=0;}
+     else {saver_period=period;status.screensaver_position=r2_ui_saver_next(status.screensaver_position,random);}
+     atomic_set(&model_requested,1);
+    }
+    ui_drop(key);continue;
+   }
+   if(!job_current(&job))continue;
    transmitter_age(&m,now,s.page==1&&!s.screensaver?125:250);
    bool details=optional_details(&m,job.context,job.hint,0);
    if(!optional_enter())continue;

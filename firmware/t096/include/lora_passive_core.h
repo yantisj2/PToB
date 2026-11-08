@@ -19,6 +19,9 @@ struct lp_tx {
  lp_save_fn save;void *storage;
  uint64_t slot_us,sync_end_us;
  bool ready,pair,unlaunched,manual;uint8_t reserved_control;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ uint32_t next_meta_index;
+#endif
 };
 struct lp_reservation {uint32_t cursor,serial;uint8_t control;bool has_pair;uint64_t slot_us;};
 /* A physical boot starts clean. Repeated service/profile transitions must

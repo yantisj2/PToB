@@ -6,7 +6,7 @@ from pathlib import Path
 import argparse,hashlib,json,subprocess,shutil,os
 p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);args=p.parse_args()
 app=Path(__file__).resolve().parents[1];root=app.parents[1];out=args.out.resolve();out.mkdir(parents=True,exist_ok=False)
-paths=[app/'src/main.c',app/'src/gnss.c',app/'src/watchdog.c',app/'tests/gnss_test.c',app/'tests/watchdog_test.c']
+paths=[app/'src/main.c',app/'src/gnss.c',app/'src/watchdog.c',app/'include/time_service.h',app/'tests/gnss_test.c',app/'tests/gnss_fake.h',app/'tests/watchdog_test.c']
 before={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 main=(app/'src/main.c').read_text();begin=main.index('    /* A latched GNSS driver failure');end=main.index('\n#endif\n    unsigned watchdog_retry',begin)
 hook=main[begin:end]
@@ -62,6 +62,9 @@ int main(void){
 '''
 (out/'watchdog-chain.c').write_text(w)
 commands=[base+['-include',str(app/'tests/gnss_fake.h'),str(out/'gnss-chain.c'),'-o',str(out/'gnss-chain')],[str(out/'gnss-chain')],base+[str(out/'watchdog-chain.c'),str(app/'src/watchdog_policy.c'),'-o',str(out/'watchdog-chain')],[str(out/'watchdog-chain')]]
+gm_gnss=out/'gnss-gm7'
+commands+=[base+['-DR2_GM7_NATIVE=1','-include',str(app/'tests/gnss_fake.h'),str(app/'tests/gnss_test.c'),'-o',str(gm_gnss)]]
+commands+=[[str(gm_gnss),mode] for mode in ('rx_rearm','rx_timeout','rx_stop','rx_window')]
 with (out/'test.log').open('x') as log:
  for c in commands:subprocess.run(c,cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=30)
 after={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths};assert before==after

@@ -589,11 +589,13 @@ def inspect(out,allow_development=False):
         require('CONFIG_NRFX_SPIM1=y' not in config and 'CONFIG_NRFX_TIMER4=y' not in config,'LoRa peripherals leaked into DC/PC')
     if passive:
         profile='RAM_30_120_300' if slow else 'RAM_LAB_4_12'
+        fixed=r.get('lora_fixed500_experiment',False)
+        fixed_meta_360=fixed and tuple(map(int,r['version'].split('.')))>=(0,15,330)
+        fixed_profile='RAM_FIXED500_30_360' if fixed_meta_360 else 'RAM_FIXED500_30_300'
         if slow:
-            fixed=r.get('lora_fixed500_experiment',False)
             require(r.get('passive_schedule')==dict(id=8 if fixed else 7 if r.get('lora_bw_experiment') else 3,precision_us=30000000,discovery_us=0 if fixed else 120000000,
-                    metadata_us=300000000,rolling_hour_cap_us=90000000 if fixed else 108000000),'Enhanced passive schedule/cap binding')
-        require(r.get('secondary_lora_class')==('RAM_FIXED500_30_300' if r.get('lora_fixed500_experiment') else ('RAM_BW_SWEEP_30' if slow else 'RAM_BW_AB_4_12') if r.get('lora_bw_experiment') else 'RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
+                    metadata_us=360000000 if fixed_meta_360 else 300000000,rolling_hour_cap_us=90000000 if fixed else 108000000),'Enhanced passive schedule/cap binding')
+        require(r.get('secondary_lora_class')==(fixed_profile if fixed else ('RAM_BW_SWEEP_30' if slow else 'RAM_BW_AB_4_12') if r.get('lora_bw_experiment') else 'RAM_DIAG_4_12' if r.get('lora_tx_diagnostic') else profile) and ('R2_LORA_PASSIVE_SLOW=1' if slow else 'R2_LORA_PASSIVE_FAST=1') in commands, 'Passive profile binding')
         require(r.get('runtime_state')=='RAM_ONLY' and r.get('passive_wire_version')==3,'RAM/wire cohort receipt')
         require(not ({'lp_store_load','lp_store_save','lp_store_prepare','lp_tx_restore','lp_checkpoint_carry'}&linked_names),'Persistence leaked into native LoRa owner')
         require(int(r['lora_backup_transmitter_factory'],16)==0,'Automatic backup emitter prohibited')

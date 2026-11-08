@@ -9,7 +9,22 @@
  			return &ut_data[i];
  		}
  	}
-@@ -150,6 +150,7 @@
+@@ -131,8 +131,12 @@
+ 			goto done;
+ 		}
+ 
+-		/* we expect mote data, clear NAK */
+-		usb_dc_ep_read_continue(ep);
++		/* A failed rearm has no future completion to retire the slot. */
++		ret = usb_dc_ep_read_continue(ep);
++		if (ret) {
++			LOG_ERR("Transfer rearm error %d, ep 0x%02x", ret, ep);
++			trans->status = -EINVAL;
++		}
+ 	}
+ 
+ done:
+@@ -150,6 +154,7 @@
  		LOG_DBG("Transfer done, ep 0x%02x, status %d, size %zu",
  			trans->ep, trans->status, trans->tsize);
  
@@ -17,7 +32,34 @@
  		trans->cb = NULL;
  		k_sem_give(&trans->sem);
  
-@@ -203,15 +204,16 @@
+@@ -171,17 +176,16 @@
+ 	if (!trans) {
+ 		if (status == USB_DC_EP_DATA_OUT) {
+ 			uint32_t bytes;
+-			/* In the unlikely case we receive data while no
+-			 * transfer is ongoing, we have to consume the data
+-			 * anyway. This is to prevent stucking reception on
+-			 * other endpoints (e.g dw driver has only one rx-fifo,
+-			 * so drain it).
+-			 */
+-			do {
++			/* Drain at most the unsolicited packet. Read failure can
++			 * leave the count untouched, and the USB worker must return. */
++			for (uint32_t i = 0, limit = usb_dc_ep_mps(ep); i < limit; i++) {
+ 				uint8_t data;
+-
+-				usb_dc_ep_read_wait(ep, &data, 1, &bytes);
+-			} while (bytes);
++				uint32_t bytes = 0;
++
++				if (usb_dc_ep_read_wait(ep, &data, 1, &bytes) || !bytes) {
++					break;
++				}
++			}
+ 
+ 			LOG_ERR("RX data lost, no transfer");
+ 		}
+@@ -203,15 +207,16 @@
  	struct usb_transfer_data *trans = NULL;
  	int key, ret = 0;
  
@@ -39,7 +81,7 @@
  
  	for (size_t i = 0; i < ARRAY_SIZE(ut_data); i++) {
  		if (!k_sem_take(&ut_data[i].sem, K_NO_WAIT)) {
-@@ -251,10 +253,19 @@
+@@ -251,10 +256,19 @@
  
  	if (flags & USB_TRANS_WRITE) {
  		/* start writing first chunk */

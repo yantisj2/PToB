@@ -14,10 +14,43 @@ static void reset(void){
  allocated=head=tail=irq_depth=setup_clear=data_clear=submissions=out_submissions=0;inject_setup=inject_mutex=false;write_callback=true;
  for(unsigned i=0;i<3;i++){endpoints[i].cfg.cb=stack_callback;endpoints[i].cfg.max_sz=64;endpoints[i].cfg.en=true;endpoints[i].cfg.addr=i==0?0x80:i==1?0:0x81;endpoints[i].cfg.type=i<2?USB_DC_EP_CONTROL:USB_DC_EP_BULK;endpoints[i].buf.data=endpoints[i].buf.curr=epbuf[i];}
 }
-static void process_one(void){assert(head<tail);usbd_work_process_ep_events(&events[queued[head++]].evt.ep_evt);}
+static void process_one(void){
+ assert(head<tail);struct usbd_event *e=&events[queued[head++]];
+ if(e->evt_type==USBD_EVT_RESET)process_reset();else usbd_work_process_ep_events(&e->evt.ep_evt);
+}
 static void drain(void){while(head<tail)process_one();}
 static void transfer(unsigned status){nrf_usbd_common_evt_t e={.data.eptransfer={0x80,status}};usbd_event_transfer_ctrl(&e);}
 int main(void){
+ /* A warm boot can see READY before the worker handles DETECTED. */
+ struct usbd_pwr_event power={.state=USBD_ATTACHED};
+ usb_power_state=NRFX_POWER_USB_STATE_READY;
+ usb_hfxo_ready_ms=3;
+ usbd_work_process_pwr_events(&power);
+#ifdef FIXED
+ assert(usbd_ctx.ready&&usb_starts==1&&usb_now_ms==3);
+#else
+ assert(!usbd_ctx.ready&&!usb_starts);
+#endif
+ power.state=USBD_POWERED;usbd_work_process_pwr_events(&power);
+ assert(usbd_ctx.ready&&usb_starts==1);
+#ifdef FIXED
+ power.state=USBD_DETACHED;usbd_work_process_pwr_events(&power);
+ usb_power_state=NRFX_POWER_USB_STATE_DISCONNECTED;
+ power.state=USBD_ATTACHED;usbd_work_process_pwr_events(&power);
+ assert(!usb_enabled&&!usbd_ctx.ready&&usb_starts==1);
+ power.state=USBD_DETACHED;usbd_work_process_pwr_events(&power); /* stale DETACHED */
+ power.state=USBD_ATTACHED;
+ usb_power_state=NRFX_POWER_USB_STATE_CONNECTED;
+ usbd_work_process_pwr_events(&power);
+ assert(usb_enabled&&!usbd_ctx.ready&&usb_starts==1);
+ usb_power_state=NRFX_POWER_USB_STATE_READY;
+ usb_hfxo_ready_ms=usb_now_ms+50;
+ int64_t before=usb_now_ms;
+ power.state=USBD_POWERED;usbd_work_process_pwr_events(&power);
+ assert(!usbd_ctx.ready&&usb_starts==1&&usb_now_ms==before+20);
+ usb_now_ms=usb_hfxo_ready_ms;usbd_work_process_pwr_events(&power);
+ assert(usbd_ctx.ready&&usb_starts==2);
+#endif
  reset();next_setup(0xc1,0x53,256);drain();assert(callback_write_result==0&&endpoints[0].write_in_progress);transfer(NRF_USBD_COMMON_EP_OK);drain();assert(!endpoints[0].write_in_progress&&callbacks[USB_DC_EP_DATA_IN]==1);
  /* Host replaces an unacknowledged IN. Pinned lower SETUP clears pending DMA
   * without EP_ABORTED. Stock driver reproduces permanent software busy. */
@@ -88,6 +121,14 @@ int main(void){
  /* Bulk endpoint admission is unchanged and never enters the new IRQ guard. */
  reset();uint32_t n=0;assert(!usb_dc_ep_write(0x81,epbuf[0],64,&n)&&n==64);assert(usb_dc_ep_write(0x81,epbuf[0],64,&n)==-EAGAIN);
 #ifdef FIXED
+ /* RESET and a new SETUP can arrive before the worker processes either. */
+ reset();next_setup(0xc1,0x55,64);
+ uint32_t old_generation=usbd_ctx.ep0_generation;
+ accept_reset();assert(usbd_ctx.ep0_generation!=old_generation);
+ next_setup(0xc1,0x53,256);uint32_t new_generation=usbd_ctx.ep0_generation;
+ drain();
+ assert(usbd_ctx.ep0_generation==new_generation&&usbd_ctx.ep0_active_generation==new_generation);
+ assert(callbacks[USB_DC_EP_SETUP]==1&&callback_write_result==0&&submissions==1);
  for(unsigned i=0;i<100;i++){reset();next_setup(0xc1,0x53,256);drain();next_setup(0x41,0x54,0);drain();next_setup(0xc1,0x55,64);drain();assert(callback_write_result==0);}
  puts("PASS exact fixed EP0 normal, replacement, ABORTED, stale completion/callback, status race, OUT rearm, bulk and 100 reopen sequences and exact IRQ active-DMA ordering");
 #else

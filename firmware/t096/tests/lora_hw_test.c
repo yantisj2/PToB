@@ -74,11 +74,21 @@ static unsigned submissions,attach_count,detach_count;static bool route,watchdog
 static int attach_error,arm_error;static bool busy_before_start_arm;
 static int init_failure;static bool busy_trigger,done_enabled,cutoff_enabled;
 static uint32_t delay_after_settx_us,delay_before_settx_callback_us,delay_nss_us;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+static uint32_t delay_before_settx_dma_us;
+static uint32_t settx_thread_preemption_us;
+static bool submission_locked;
+static void k_sched_lock(void){assert(!submission_locked);submission_locked=true;}
+static void k_sched_unlock(void){assert(submission_locked);submission_locked=false;}
+#endif
 static bool done_after_delay;
 static unsigned set_tx_commits,callback_op,programmed_length;static uint64_t actual_commit_us;
 static unsigned cutoff_arms;
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
 static uint8_t configured_frequency[4],configured_modulation[4];static unsigned configured_irq;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+static unsigned frequency_commands,modulation_commands;
+#endif
 #endif
 static bool reject_settx,stop_before_settx_callback,stop_in_commit;
 static bool fail_cs_assert,fail_cs_release,fail_cs_config;
@@ -155,7 +165,9 @@ static void nrfx_timer_clear(const nrfx_timer_t *t){(void)t;}
 static void nrfx_timer_enable(const nrfx_timer_t *t){(void)t;}
 static void nrfx_timer_extended_compare(const nrfx_timer_t *t,int ch,unsigned us,int shorts,bool irq){
  (void)t;(void)ch;(void)shorts;(void)irq;
-#if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
+#if defined(R2_LORA_FIXED500_EXPERIMENT)
+ assert(us==273168||us==305936||us==797456);
+#elif defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
  assert(us==454416||us==1142544||us==231951||us==268814);
 #else
  assert(us==360000||us==450000);
@@ -181,6 +193,12 @@ static int r2_capture_lora_detach(void){route=false;++detach_count;return 0;}
 static int spi_transceive_cb(const struct device *d,const struct spi_config *c,const struct spi_buf_set *tx,const struct spi_buf_set *rx,void(*fn)(const struct device*,int,void*),void *arg){
  assert(c->frequency==8000000&&tx->count==1&&rx->count==1);
  ++submissions;uint8_t *a=tx->buffers->buf,*b=rx->buffers->buf;size_t n=tx->buffers->len;
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(a[0]==0x83&&settx_thread_preemption_us){
+  if(!submission_locked)mock_us+=settx_thread_preemption_us;
+  settx_thread_preemption_us=0;
+ }
+#endif
  /* Match the pinned backend: legacy context owns NSS through callback, then
   * releases it. New GPIO-owned NSS has no later backend CS action. */
  if(c->cs.gpio.port)gpio_pin_set_dt(&c->cs.gpio,1);
@@ -203,8 +221,16 @@ static int spi_transceive_cb(const struct device *d,const struct spi_config *c,c
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
   assert(!a[1]&&!a[2]&&!a[3]);
   break;
- case 0x86:memcpy(configured_frequency,a+1,4);break;
- case 0x8b:memcpy(configured_modulation,a+1,4);break;
+ case 0x86:
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  ++frequency_commands;
+#endif
+  memcpy(configured_frequency,a+1,4);break;
+ case 0x8b:
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+  ++modulation_commands;
+#endif
+  memcpy(configured_modulation,a+1,4);break;
  case 0x08:configured_irq=((unsigned)a[1]<<8)|a[2];break;
 #else
   assert(a[1]==0&&a[2]==(programmed_length<=80?0x55:0x69)&&a[3]==0);break;
@@ -244,6 +270,12 @@ static void preempt_before_lock(void){
  }
 }
 static void preempt_cutoff(void){
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(delay_before_settx_dma_us&&atomic_get(&phase)==4&&dma_tx[0]==0x83&&
+    (wd.stage>>8)==R2_LORA_STAGE_DMA){
+  mock_us+=delay_before_settx_dma_us;delay_before_settx_dma_us=0;
+ }
+#endif
  if(stale_failure_ready&&stale_boundary==3){
   stale_boundary=0;stale_failure_ready=false;stop_before_terminal=!wd.terminal;r2_lora_hw_stop_begin(mock_us+200000);
  }
@@ -284,6 +316,67 @@ static void inject(int flags){
 static void closed(void){struct r2_lora_hw_ack ack;r2_lora_hw_stop_poll(&ack);assert(ack.dma_retired&&ack.radio_quiescent&&ack.fem_off&&ack.capture_released);}
 int main(int argc,char **argv){
  assert(argc==2);int mode=atoi(argv[1]);for(unsigned i=0;i<R2_LORA_HW_BYTES;i++)payload[i]=(uint8_t)(i+11);
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(mode>=386&&mode<=388){
+  mock_us=UINT32_MAX-150000;
+  assert(!r2_lora_hw_start(4,false));
+  assert(!r2_lora_hw_passive_configure(R2_LORA_FHSS,50));
+  assert(!r2_lora_hw_prepare(payload,24,5));
+  assert(!r2_lora_hw_launch_before_source(5,mock_us+1000000,(mock_us+3000000)*16,7));
+  uint64_t enable=mock_us-(uint32_t)((uint32_t)mock_us-wd.launch_us);
+  uint64_t end=enable+last_budget-10000;
+  mock_us=end;inject(1);
+  mock_us=enable+(mode==387?R2_LORA_FIXED500_TX_OBSERVE_US+1:3200000);
+  if(mode==388)mock_us+=UINT64_C(1)<<32;
+  struct r2_lora_hw_event e;
+  int rc=r2_lora_hw_take(&e);
+  if(mode==386)assert(rc==1&&e.kind==R2_LORA_HW_TX_DONE&&e.end_local_us==end&&!atomic_get(&fault));
+  else assert(rc==-ESTALE&&atomic_get(&fault));
+  r2_lora_hw_stop_begin(mock_us+200000);closed();
+  puts("PASS fixed500 late TxDone uses original hardware airtime across wrap and refuses expired or aliased launch");
+  return 0;
+ }
+ if(mode==385){
+  assert(!r2_lora_hw_start(4,false));
+  unsigned f=frequency_commands,m=modulation_commands;
+  assert(!r2_lora_hw_passive_configure(R2_LORA_DTS,0));
+  assert(frequency_commands==f+1&&modulation_commands==m+1);
+  assert(!r2_lora_hw_prepare(payload,24,5));
+  assert(!r2_lora_hw_passive_configure(R2_LORA_FHSS,50));
+  assert(!atomic_get(&prepared_budget)&&passive_phy==R2_LORA_FHSS);
+  assert(frequency_commands==f+1&&modulation_commands==m+1);
+  r2_lora_hw_stop_begin(mock_us+200000);closed();
+  assert(!r2_lora_hw_start(6,false));f=frequency_commands;m=modulation_commands;
+  assert(!r2_lora_hw_passive_configure(R2_LORA_FHSS,50));
+  assert(frequency_commands==f+1&&modulation_commands==m+1);
+  puts("PASS fixed PHY programmed once per hardware start and retune invalidates staged FIFO");
+  return 0;
+ }
+ if(mode>=379&&mode<=384){
+  assert(!r2_lora_hw_start(4,false));
+  assert(!r2_lora_hw_passive_configure(R2_LORA_FHSS,50));
+  assert(!r2_lora_hw_prepare(payload,24,5));
+  uint32_t budget=r2_lora_hw_budget_us(24);
+  uint64_t finish=mode==382?0:mock_us+budget+(mode==380?300000:mode==384?760000:1000000);
+  uint64_t until=(mock_us+budget+(mode==381?300000:3000000))*16;
+  if(mode==384)settx_thread_preemption_us=769000;
+  else if(mode>=382)delay_before_settx_callback_us=600000;
+  else delay_before_settx_dma_us=379000;
+  int rc=r2_lora_hw_launch_before_source(5,finish,until,7);
+  assert(!submission_locked);
+  if(mode==379||mode>=383){
+   assert(!rc&&set_tx_commits==1&&cutoff_arms==1&&last_budget==budget);
+   assert(!counters.launch_aborts&&wd.command_committed);
+  }else{
+   assert(rc==-EINTR&&counters.launch_aborts==1&&!set_tx_commits&&!cutoff_arms);
+   assert(!atomic_get(&fault)&&!pins[12]&&!wd.command_committed);
+   if(mode==380)assert(rejected.reason==R2_LORA_REJECT_FINISH&&rejected.point==5);
+   if(mode==381)assert(rejected.reason==R2_LORA_REJECT_SOURCE&&rejected.point==4);
+   if(mode==382)assert(!rejected.reason);
+  }
+  r2_lora_hw_stop_begin(mock_us+200000);closed();return 0;
+ }
+#endif
 #if defined(R2_LORA_PASSIVE_FAST) || defined(R2_LORA_PASSIVE_SLOW)
  if(mode>=361&&mode<=378){
   assert(!r2_lora_hw_start(4,false));assert(!r2_lora_hw_passive_configure(R2_LORA_DTS,0));assert(!r2_lora_hw_prepare(payload,112,5));

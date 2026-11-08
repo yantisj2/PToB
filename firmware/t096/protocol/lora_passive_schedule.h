@@ -65,7 +65,11 @@ static inline uint32_t lp_bw_packet_budget_us(uint32_t cursor,unsigned bytes){
 /* P30/D120/M300. Schedule2 is deliberately incompatible. Each precision
  * slot retains the original RF/source/capture fences, with or without DTS. */
 #define LP_BEAT_US UINT64_C(30000000)
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+#define LP_META_BEATS 12u
+#else
 #define LP_META_BEATS 10u
+#endif
 #define LP_DISC_BEATS 4u
 #define LP_DISC_PHASE 1u
 #ifdef R2_LORA_FIXED500_EXPERIMENT
@@ -85,7 +89,13 @@ static inline uint32_t lp_bw_packet_budget_us(uint32_t cursor,unsigned bytes){
 #define LP_CONTROL_RETIRE_US UINT64_C(4000000)
 #define LP_CONTROL_PROCESS_US UINT64_C(1000000)
 #define LP_RX_TUNE_LEAD_US UINT64_C(4000000)
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+/* Continuous fixed-channel RX has no predicted SYNC admission window.
+ * Allow delayed launch within the existing frame and FOLLOW interval. */
+#define LP_LAUNCH_PAD_US UINT64_C(2700000)
+#else
 #define LP_LAUNCH_PAD_US UINT64_C(1250000)
+#endif
 #define LP_FOLLOW_OFFSET_US UINT64_C(2500000)
 #define LP_FOLLOW_LATEST_US UINT64_C(4500000)
 #define LP_HOLD_US UINT64_C(120000000)
@@ -94,7 +104,7 @@ static inline uint32_t lp_bw_packet_budget_us(uint32_t cursor,unsigned bytes){
 #ifdef R2_LORA_FIXED500_EXPERIMENT
 #undef LP_CAP_US
 #define LP_CAP_US UINT64_C(90000000)
-#define LP_PROFILE_NAME "RAM_FIXED500_30_300"
+#define LP_PROFILE_NAME "RAM_FIXED500_30_360"
 #elif defined(R2_LORA_BW_EXPERIMENT)
 #define LP_PROFILE_NAME "RAM_BW_SWEEP_30"
 #else

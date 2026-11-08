@@ -20,6 +20,65 @@ static void drive_to(uint64_t end){
 int main(int argc,char **argv){
  assert(argc==2);unsigned mode=(unsigned)atoi(argv[1]);
  assert(LP_SCHEDULE==8&&LP_CAP_US==90000000&&LP_DISC_BEATS==0);
+ assert(LP_SYNC_OFFSET_US+LP_LAUNCH_PAD_US+lp_duration(LP_SYNC)+
+        LP_FOLLOW_LATEST_US+lp_duration(LP_FOLLOW)<LP_FRAME_END_US);
+ if(mode==36){
+  init(true);struct rc8_export m=source();r2_lora_source_publish(&m);
+  drive_to(25000000);assert(owner.sent[3]==1&&role.tx.context_ready);
+  uint64_t at=role.tx.core.durable.next_slot_us+LP_SYNC_OFFSET_US;
+  drive_to(at+20000);assert(owner.tx_kind==LP_SYNC);
+  now_us=sent_at_us+2200000;
+  queued=(struct r2_lora_hw_event){.tick=sent_at_us*16,.capture_epoch=7,.generation=sent_generation,
+   .kind=R2_LORA_HW_TX_DONE,.end_local_us=sent_at_us+r2_lora_hw_budget_us(sent_len)-10000};
+  uint64_t actual_end=queued.end_local_us;
+  have_event=true;step();
+  assert(owner.stage==2&&owner.last_sync_us==actual_end&&!owner.error&&!atomic_get(&faulted));
+  drive_to(actual_end+LP_FOLLOW_LATEST_US+1000000);
+  assert(owner.sent[3]==2&&sent_at_us>=actual_end+LP_FOLLOW_OFFSET_US&&sent_at_us<actual_end+LP_FOLLOW_LATEST_US);
+  puts("PASS worker sees SYNC TxDone after 2s and transmits FOLLOW on its original physical window");return 0;
+ }
+ if(mode==35){
+  init(true);struct rc8_export m=source();
+  m.scope.kind=RC8_SELECTED_BLE;m.scope.root=m.scope.parent=2;m.scope.root_boot=m.scope.parent_boot=44;
+  m.until_tick=(now_us+1000000)*16;m.expires_ns=m.anchor_ns+(now_us+1000000)*1000;
+  r2_lora_source_publish(&m);
+  assert(role.tx.maps[0].valid&&role.tx.maps[0].until_tick==m.until_tick+LAB_SOURCE_HOLD_US*16);
+  struct rc8_export before;memcpy(&before,&role.tx.maps[0],sizeof before);
+  struct r2_capture at={m.until_tick,7,R2_CAPTURE_NOW};now_us=at.tick/16;
+  assert(r2_lora_source_hold(&m.scope,at));
+  struct rc8_scope other=m.scope;++other.root_boot;assert(!r2_lora_source_hold(&other,at));
+  other=m.scope;++other.parent_boot;assert(!r2_lora_source_hold(&other,at));
+  other=m.scope;++other.source_epoch;assert(!r2_lora_source_hold(&other,at));
+  assert(!r2_lora_source_hold(&m.scope,(struct r2_capture){at.tick,8,R2_CAPTURE_NOW}));
+  assert(!r2_lora_source_hold(&m.scope,(struct r2_capture){before.until_tick,7,R2_CAPTURE_NOW}));
+  assert(!memcmp(&before,&role.tx.maps[0],sizeof before));
+  r2_lora_source_withdraw();assert(!r2_lora_source_hold(&m.scope,at));
+  puts("PASS fixed500 holds immutable BLE map only within its admitted expiry and scope");return 0;
+ }
+ if(mode==33||mode==34){
+  init(true);struct rc8_export m=source();r2_lora_source_publish(&m);
+  drive_to(25000000);assert(owner.sent[3]==1&&role.tx.context_ready);
+  uint64_t grid=role.tx.core.durable.next_slot_us;
+  uint64_t at=grid+LP_SYNC_OFFSET_US;
+  drive_to(at-3000000);
+  assert(owner.stage==1&&owner.prepared_kind==LP_SYNC&&!owner.tx_kind);
+  unsigned count=txs;
+  uint64_t charged=lp_charged(&role.tx.core.durable,now_us);
+  now_us=at+(mode==33?2470863:LP_LAUNCH_PAD_US+1);
+  step();
+  assert(!(atomic_get(&flags)&(RESTART_PENDING|RESTART_HELD))&&owner.active&&!owner.stopping);
+  assert(lp_charged(&role.tx.core.durable,now_us)==charged);
+  if(mode==33){
+   assert(txs==count+1&&owner.tx_kind==LP_SYNC&&!owner.late);
+   drive_to(now_us+6000000);
+   assert(owner.sent[3]==2&&owner.last_pair_us<grid+LP_FRAME_END_US);
+  }else{
+   assert(txs==count&&!role.tx.core.durable.pending&&owner.late==1);
+   drive_to(at+LP_BEAT_US+6000000);
+   assert(owner.sent[3]==2&&owner.sent[1]==1);
+  }
+  puts("PASS fixed500 delayed SYNC/FOLLOW within the existing frame and next-grid recovery after a miss");return 0;
+ }
  if(mode==25){
   init(false);step();report(now_us);struct r2_lora_view v;r2_lora_view(&v);
   assert(!v.activity_kind&&v.activity_age_ms==UINT32_MAX&&!v.context_known);
@@ -157,13 +216,13 @@ int main(int argc,char **argv){
    struct lp_tx t;struct lp_reservation r;assert(lp_tx_start(&t,17,first,first,(uint32_t)(first/1000)));
    for(unsigned i=0;i<5760;i++){
     uint64_t at=first+(uint64_t)i*LP_BEAT_US;
-    assert(lp_tx_reserve(&t,at,&r)&&r.has_pair&&r.control==(i%10?0:LP_META));
+    assert(lp_tx_reserve(&t,at,&r)&&r.has_pair&&r.control==(i%12?0:LP_META));
     assert(lp_channel(t.order,r.cursor)==50&&lp_channel(t.order,r.cursor+1)==50);
     uint64_t charge=lp_charged(&t.durable,at);assert(charge<=LP_CAP_US);if(charge>maximum)maximum=charge;
     if(r.control)lp_tx_control_complete(&t);
     uint64_t sync=at+LP_SYNC_OFFSET_US+263168;
     assert(lp_tx_capture_sync(&t,sync)&&lp_tx_capture_follow(&t,sync+LP_FOLLOW_OFFSET_US+295936));
-    if(i==119)assert(charge==79061952);
+    if(i==119)assert(charge==77467040);
    }
    printf("PASS48h phase%llu maximum%llu\n",(unsigned long long)phases[phase],(unsigned long long)maximum);
   }
@@ -174,10 +233,20 @@ int main(int argc,char **argv){
   assert(lp_tx_reserve_control(&t,1000000,&r,true)&&r.control==LP_META);lp_tx_cancel(&t,true);
   assert(!lp_tx_reserve_control(&t,4000000,&r,true));
   assert(!lp_tx_reserve_utc(&t,4000000,&r,true));
-  assert(!lp_tx_reserve_control(&t,31000000,&r,true));
-  assert(lp_tx_reserve_control(&t,31000000,&r,false)&&!r.control);
+  assert(lp_tx_reserve_control(&t,31000000,&r,true)&&r.control==LP_META);
+  lp_tx_control_complete(&t);
   lp_tx_cancel(&t,true);
-  assert(lp_tx_reserve_control(&t,301000000,&r,true)&&r.control==LP_META);
+  assert(!lp_tx_reserve_control(&t,361000000,&r,true));
+  assert(lp_tx_reserve(&t,361000000,&r)&&!r.control);
+  lp_tx_cancel(&t,true);
+  assert(lp_tx_reserve_control(&t,391000000,&r,true)&&r.control==LP_META);
+  lp_tx_cancel(&t,true);
+  /* A missed attempt and a skipped slot do not discharge the obligation. */
+  assert(lp_tx_reserve(&t,451000000,&r)&&r.control==LP_META);
+  lp_tx_control_complete(&t);lp_tx_cancel(&t,true);
+  assert(lp_tx_reserve(&t,781000000,&r)&&!r.control);
+  lp_tx_cancel(&t,true);
+  assert(lp_tx_reserve(&t,811000000,&r)&&r.control==LP_META);
   struct lp_tx capped;assert(lp_tx_start(&capped,17,1000000,1000000,1000));
   capped.durable.buckets[0]=LP_CAP_US-lp_duration(LP_META);
   assert(lp_tx_reserve(&capped,1000000,&r)&&r.control==LP_META&&!r.has_pair);
@@ -189,10 +258,10 @@ int main(int argc,char **argv){
    !memcmp(capped.durable.buckets,debt.buckets,sizeof debt.buckets)&&
    !memcmp(capped.durable.channel_end_ms,debt.channel_end_ms,sizeof debt.channel_end_ms));
   assert(!lp_tx_reserve(&capped,5000000,&r)); /* Rearm does not mint cap credit. */
-  puts("PASS strictMETA300 no offgrid retry/capoverride; skipped slots retain original phase");return 0;
+  puts("PASS META360 retries on grid until completion and retains original airtime cap");return 0;
  }
  if(mode==3||mode==5||mode==6||mode==7||mode==19){
-  init(true);uint64_t next=1337000,finish=now_us+(mode==19?UINT64_C(1800000000):UINT64_C(340000000));unsigned publications=0;
+  init(true);uint64_t next=1337000,finish=now_us+(mode==19?UINT64_C(1800000000):UINT64_C(410000000));unsigned publications=0;
   bool withdrew=false,delayed=false,rearmed=false;uint64_t rearmed_at=0,old_charge=0;
   uint32_t old_seed=0,old_serial=0,old_cursor=0;
   while(now_us<finish){
@@ -220,14 +289,14 @@ int main(int argc,char **argv){
    }
   }
   printf("OWNER META%u SYNC%u FOLLOW%u DISC%u\n",owner.sent[1],owner.sent[2],owner.sent[3],owner.sent[0]);
-  if(mode==19){assert(owner.sent[1]==6&&owner.sent[2]==60&&owner.sent[3]==60&&role.tx.stream==1);
-   puts("PASS30min synthetic routine fresh BLE maps retain one train, exact30s pairs/META300 and airtime cap");return 0;}
+  if(mode==19){assert(owner.sent[1]==5&&owner.sent[2]==60&&owner.sent[3]==60&&role.tx.stream==1);
+   puts("PASS30min synthetic routine fresh BLE maps retain one train, exact30s pairs/META360 and airtime cap");return 0;}
   if(mode==7){assert(rearmed&&owner.sent[1]>=2);puts("PASS explicit OFF/ON freshMETA with seed/cursor/serial/debt retained");return 0;}
   assert(owner.sent[1]==2&&owner.sent[2]==owner.sent[3]&&!owner.sent[0]);
   if(mode==6)assert(role.tx.stream==2&&owner.sent[2]>=7);
   else assert(owner.sent[2]>=10&&role.tx.stream==1);
   if(mode==5)assert(withdrew&&delayed&&!owner.late);
-  puts("PASS actual staged owner fixedPHY/noDISC/strictMETA300 and unchangedBLE grants plus explicitLABhold");return 0;
+  puts("PASS actual staged owner fixed PHY, on-grid META360 and unchanged BLE grants plus explicit lab hold");return 0;
  }
  if(mode==10){
   init(false);step();

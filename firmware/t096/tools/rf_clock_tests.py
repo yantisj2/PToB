@@ -20,7 +20,7 @@ def function(name):
  while depth:depth+=(s[end]=='{')-(s[end]=='}');end+=1
  return s[start:end]
 start=s.index('struct rf_rc_map {');end=s.index('static struct rf_rc_map rf_rc;',start)+len('static struct rf_rc_map rf_rc;')
-(O/'rf_rc_under_test.h').write_text(s[start:end]+'\n'+function('rf_clock_publish')+'\n'+function('r2_service_rf_clock')+'\n')
+(O/'rf_rc_under_test.h').write_text('#include "ui_read.h"\n'+s[start:end]+'\n'+function('rf_clock_publish')+'\n'+function('ui_rf_copy')+'\n'+function('r2_service_rf_clock')+'\n')
 flags=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all',*['-I'+str(f)for f in[A/'include',A/'protocol',A/'tests',tiny/'include',O]]]
 crypto=[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]
 radio=[A/'tests/rf_clock_radio_test.c',*[A/'src'/n for n in ['radio_precision.c','relay_precision.c','core.c','clock.c','nmea.c','precision.c','lora_source.c','lora_rc8_policy.c']],*[A/'protocol'/n for n in ['gm7_bridge.c','gm7_promote.c','gnss_diagnostics.c','role_announcement.c','group_join.c','group_auth.c','group_control.c','group_precision.c','authority_codec.c','precision_codec.c','relay_codec.c','lora_rc8.c']],*crypto]
@@ -36,7 +36,7 @@ def run(name,cmd):
 try:
  base=flags+['-DR2_GM7_NATIVE=1','-DR2_LORA=1','-DR2_LORA_PASSIVE_SLOW=1','-DR2_LORA_FIXED500_EXPERIMENT=1']
  run('radio-compile',base+list(map(str,radio))+['-o',str(O/'radio')])
- for mode in (1,2):run('radio-'+str(mode),[str(O/'radio'),str(mode)])
+ for mode in (1,2,3,4,5,6):run('radio-'+str(mode),[str(O/'radio'),str(mode)])
  run('lora-compile',base+['-DR2_PASSIVE_SERVICE_BODY="'+str(O/'owner.c')+'"','-DR2_HW_ADMISSION_BODY="'+str(O/'admission.c')+'"']+list(map(str,lora))+['-o',str(O/'lora')])
  for mode in (1,2):run('lora-'+str(mode),[str(O/'lora'),str(mode)])
  run('rc-compile',flags+['-DR2_LORA=1']+list(map(str,rc))+['-o',str(O/'rc')])

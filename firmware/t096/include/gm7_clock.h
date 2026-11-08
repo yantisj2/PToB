@@ -6,6 +6,8 @@
  * create an extension or splice LF callback time into the GM7 domain.
  * HF-derived microseconds, with original capture epoch and integer rounding. */
 bool r2_gm7_clock_now(uint64_t *microseconds, uint32_t *epoch);
+/* -EAGAIN for an unreadable publication, -ESTALE for lost continuity. */
+int r2_gm7_clock_sample(uint64_t *microseconds, uint32_t *epoch);
 bool r2_gm7_clock_event(uint32_t raw, uint32_t epoch, uint64_t *ticks);
 /* Called exclusively by the existing serialized capture extension/stop. */
 void r2_gm7_clock_begin(uint32_t new_epoch);

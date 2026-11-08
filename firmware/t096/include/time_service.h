@@ -33,6 +33,9 @@ void r2_gnss_aid(uint64_t utc_us,uint64_t at_us,bool valid,bool local_fix);
 void r2_gnss_aid_status(struct r2_gnss_aid_status *out);
 void r2_gnss_observe(const uint8_t *bytes,size_t size,int64_t received);
 int r2_gnss_input_error(void);
+#ifdef R2_GM7_NATIVE
+uint32_t r2_gnss_rx_rearms(void);
+#endif
 void r2_gnss_poll(int64_t now);
 bool r2_gnss_capture_now(struct r2_capture *current);
 void r2_gnss_stop(void);

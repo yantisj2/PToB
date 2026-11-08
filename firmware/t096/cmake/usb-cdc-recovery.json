@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "license": "Apache-2.0 (Zephyr source and patch); MIT (PToB generator)",
-  "description": "Active endpoint ownership, rejected-start retirement, and bounded idle CDC readiness retries; no cancellation or USB reset hook.",
+  "description": "Active endpoint ownership, bounded idle CDC readiness and orphan OUT drain, with failed starts and rearms retired.",
   "zephyr_commit": "7823374e872145b5bd018bfe447839eb36042611",
-  "patch_sha256": "d72f44cc60ccdaf8970f296fa4a0eb69a637cc1390d4ccd5c3efe4fa826de7ce",
+  "patch_sha256": "7eb463676a213d7381630930d4c401d2a27f2e9edd3a4fef2389a8325f07e025",
   "files": [
     {
       "file": "subsys/usb/device/usb_transfer.c",
       "leaf": "usb_transfer.c",
       "input_sha256": "0f82607b721b7c06175feafffd0dfe1eef98f47a37fb3580bf0c31f20aa503d0",
-      "output_sha256": "081da7de70b51c3daa8b518d9767ea527b35b94fc3f19ac12f836d4ae6ac121b"
+      "output_sha256": "dd9474c24a8c556fbe50eb16a834f03a667134e98f813ef2833e66e426981c24"
     },
     {
       "file": "subsys/usb/device/class/cdc_acm.c",

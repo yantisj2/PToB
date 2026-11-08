@@ -34,6 +34,12 @@ static const struct gpio_dt_spec pps=GPIO_DT_SPEC_GET(DT_NODELABEL(pps),gpios);
 static struct gpio_callback edge_callback;
 static uint8_t rx[2][128];
 static atomic_t used[2],disabled=1,stop_requested,error,initializing;
+#ifdef R2_GM7_NATIVE
+static atomic_t rx_recovering,rx_stopped_ms;
+static int64_t rx_rearm_window;
+static uint32_t rx_rearms;
+static unsigned rx_window_rearms;
+#endif
 static bool callback_added,uart_ready,powering,opened,closed=true;
 static int64_t power_ready,startup_deadline;
 static bool stop_sent,rail_kept;
@@ -62,6 +68,9 @@ void r2_gnss_aid(uint64_t utc,uint64_t at,bool valid,bool local_fix){
 #endif
  if(!valid||local_fix||now<0||(uint64_t)now<at||(uint64_t)now-at>=1500000||
     utc>UINT64_MAX-((uint64_t)now-at)||!uart_ready||atomic_get(&initializing)||atomic_get(&disabled)||
+#ifdef R2_GM7_NATIVE
+    atomic_get(&rx_recovering)||
+#endif
     atomic_get(&stop_requested)||atomic_get(&error)||atomic_get(&aid_tx_state)||
     (aid_status.attempts&&(now<aid_at||now-aid_at<60000000)))return;
  utc+=(uint64_t)now-at;int n=aid_format(utc);if(!n)return;
@@ -89,6 +98,9 @@ void r2_gnss_observe(const uint8_t *bytes,size_t size,int64_t received){
 }
 
 int r2_gnss_input_error(void) {return (int)atomic_get(&error);}
+#ifdef R2_GM7_NATIVE
+uint32_t r2_gnss_rx_rearms(void){return rx_rearms;}
+#endif
 enum r2_association r2_gnss_association(void) { return R2_ASSOC_UNKNOWN; }
 bool r2_gnss_capture_now(struct r2_capture *current) { return r2_capture_now(current); }
 static void fail(int rc)
@@ -121,7 +133,11 @@ static void uart_event(const struct device *dev,struct uart_event *event,void *u
     atomic_set(&aid_tx_state,event->type==UART_TX_DONE&&event->data.tx.len==aid_size?2:3);
     break;
   case UART_RX_RDY:
-    if(atomic_get(&stop_requested))break;
+    if(atomic_get(&stop_requested)
+#ifdef R2_GM7_NATIVE
+       ||atomic_get(&rx_recovering)
+#endif
+       )break;
     if((event->data.rx.buf!=rx[0]&&event->data.rx.buf!=rx[1]) ||
        event->data.rx.offset>128 || event->data.rx.len>128-event->data.rx.offset){fail(-EOVERFLOW);break;}
 #ifdef R2_DC_PROFILE
@@ -134,7 +150,11 @@ static void uart_event(const struct device *dev,struct uart_event *event,void *u
 #endif
     break;
   case UART_RX_BUF_REQUEST:
-    if(atomic_get(&stop_requested))break;
+    if(atomic_get(&stop_requested)
+#ifdef R2_GM7_NATIVE
+       ||atomic_get(&rx_recovering)
+#endif
+       )break;
     for(unsigned i=0;i<2;i++)if(atomic_cas(&used[i],0,1)) {
       int rc=uart_rx_buf_rsp(dev,rx[i],sizeof(rx[i]));
       if(rc){atomic_clear(&used[i]);fail(rc);}break;
@@ -145,10 +165,27 @@ static void uart_event(const struct device *dev,struct uart_event *event,void *u
     else if(event->data.rx_buf.buf==rx[1])atomic_clear(&used[1]);
     else fail(-EFAULT);
     break;
-  case UART_RX_STOPPED: fail(-EIO);break;
+  case UART_RX_STOPPED:
+#ifdef R2_GM7_NATIVE
+    if(!atomic_get(&stop_requested)&&!atomic_get(&initializing)&&
+       (event->data.rx_stop.reason&(UART_ERROR_OVERRUN|UART_ERROR_PARITY|UART_ERROR_FRAMING|UART_BREAK))){
+      /* The pinned driver stops RX after this callback. Invalidate local UTC
+       * immediately and leave the independent PPS/BLE counter running. */
+      if(atomic_cas(&rx_recovering,0,1)){
+        atomic_set(&rx_stopped_ms,(uint32_t)(r2_time_now_us()/1000));
+        r2_time_input_fault(R2_INPUT_DRIVER);
+      }
+      break;
+    }
+#endif
+    fail(-EIO);break;
   case UART_RX_DISABLED:
     atomic_set(&disabled,1);
-    if(!atomic_get(&stop_requested))fail(-EPIPE);
+    if(!atomic_get(&stop_requested)
+#ifdef R2_GM7_NATIVE
+       &&!atomic_get(&rx_recovering)
+#endif
+       )fail(-EPIPE);
     break;
   default: break;
   }
@@ -208,6 +245,32 @@ int r2_gnss_start(void)
   if(rc){fail(rc);r2_gnss_stop();return rc;}
   power_ready=r2_time_now_us()+10000;powering=true;return 0;
 }
+static int start_rx(void)
+{
+  atomic_set(&used[0],1);atomic_clear(&disabled);
+  int rc=uart_rx_enable(uart,rx[0],sizeof(rx[0]),20000);
+  if(rc){atomic_clear(&used[0]);atomic_set(&disabled,1);}
+  return rc;
+}
+#ifdef R2_GM7_NATIVE
+static void recover_rx(void)
+{
+  if(!atomic_get(&rx_recovering)||atomic_get(&stop_requested)||atomic_get(&error))return;
+  uint32_t stopped=(uint32_t)atomic_get(&rx_stopped_ms);
+  int64_t now=r2_time_now_us();
+  if((uint32_t)(now/1000)-stopped>=100){fail(-ETIMEDOUT);return;}
+  if(!atomic_get(&disabled)||atomic_get(&used[0])||atomic_get(&used[1]))return;
+  if(!rx_window_rearms||now-rx_rearm_window>=60000000){
+    rx_rearm_window=now;rx_window_rearms=0;
+  }
+  if(rx_window_rearms>=3){fail(-EIO);return;}
+  ++rx_window_rearms;
+  atomic_clear(&rx_recovering);
+  int rc=start_rx();
+  if(rc)fail(rc);
+  else if(rx_rearms<UINT32_MAX)++rx_rearms;
+}
+#endif
 static void initialize_uart(void *a,void *b,void *c)
 {
   /* Stock device_init contains peripheral event waits. Isolate it below the
@@ -217,9 +280,7 @@ static void initialize_uart(void *a,void *b,void *c)
   if(!rc){uart_ready=true;rc=uart_callback_set(uart,uart_event,NULL);}
   if(!rc && (atomic_get(&stop_requested)||r2_time_now_us()>=startup_deadline))rc=-ETIMEDOUT;
   if(!rc) {
-    atomic_set(&used[0],1);atomic_clear(&disabled);
-    rc=uart_rx_enable(uart,rx[0],sizeof(rx[0]),20000);
-    if(rc){atomic_clear(&used[0]);atomic_set(&disabled,1);}
+    rc=start_rx();
     if(!rc&&r2_time_now_us()>=startup_deadline)rc=-ETIMEDOUT;
   }
   if(rc)fail(rc);
@@ -233,6 +294,9 @@ void r2_gnss_poll(int64_t now)
 #endif
   if(!atomic_get(&stop_requested))r2_capture_poll(now);
   if(atomic_get(&initializing)&&now>=startup_deadline)fail(-ETIMEDOUT);
+#ifdef R2_GM7_NATIVE
+  recover_rx();
+#endif
   if(atomic_get(&error)&&!atomic_get(&stop_requested))r2_gnss_stop();
   if(atomic_get(&stop_requested)) {
     if(atomic_get(&initializing))return; /* no rail/DMA changes during device_init */

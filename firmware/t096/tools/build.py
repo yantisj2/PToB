@@ -198,7 +198,7 @@ def main():
                'lora_bw_experiment':args.lora_bw_experiment,
                'lora_fixed500_experiment':args.lora_fixed500_experiment,
                'runtime_state':'RAM_ONLY','passive_wire_version':3,
-               'secondary_lora_class':'RAM_FIXED500_30_300' if args.lora_fixed500_experiment else ('RAM_BW_SWEEP_30' if args.lora_passive_slow else 'RAM_BW_AB_4_12') if args.lora_bw_experiment else 'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
+               'secondary_lora_class':'RAM_FIXED500_30_360' if args.lora_fixed500_experiment else ('RAM_BW_SWEEP_30' if args.lora_passive_slow else 'RAM_BW_AB_4_12') if args.lora_bw_experiment else 'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
                'lora_passive_fast':args.lora_passive_fast}
     if args.gm7:receipt['rc_check_site_encoding']='RC_CHECK_LINE12_EIO_V1'
     receipt['time_zone'] = tz
@@ -214,7 +214,7 @@ def main():
         receipt['passive_schedule'] = dict(id=7 if args.lora_bw_experiment else 3,precision_us=30000000,discovery_us=120000000,
                                          metadata_us=300000000,rolling_hour_cap_us=108000000)
     if args.lora_fixed500_experiment:
-        receipt['passive_schedule'].update(id=8,discovery_us=0,rolling_hour_cap_us=90000000)
+        receipt['passive_schedule'].update(id=8,discovery_us=0,metadata_us=360000000,rolling_hour_cap_us=90000000)
         receipt['fixed500_experiment'] = dict(frequency_hz=922400000,sf=11,bandwidth_hz=500000,
             coding_rate='4/8',preamble=12,explicit_header=True,crc=True,source_hold_us=5000000,
             rx='CONTINUOUS_HEADER_VALID_CRC_CONFIRMED',event_delay_ns=args.lora_fixed500_event_delay_ns,default_on=True)
