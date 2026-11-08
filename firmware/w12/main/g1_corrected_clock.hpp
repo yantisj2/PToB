@@ -316,6 +316,7 @@ class G1CorrectedClock {
   uint32_t accepted()const{return accepted_;}uint32_t refused()const{return refused_;}
   uint64_t until()const{return until_;}
   uint64_t original20()const{return mapped_original20_?mapped_original20_:last_original_;}
+  uint32_t direct_capture_epoch()const{return local_epoch_;}
   uint32_t coarse_enclosure_ns()const{return coarse_enclosure_ns_;}
   bool frequency_trained(uint64_t tick=0)const{if(!tick)tick=clock_.tick;return frequency_trained_&&phase_fit_tick_&&tick>=phase_fit_tick_&&tick-phase_fit_tick_<=40000000;}
   uint32_t rate_pairs()const{return rate_pairs_;}uint32_t scatter_ns()const{return scatter_ns_;}
@@ -397,14 +398,23 @@ class G1CorrectedClock {
   bool receive(const r2_relay_packet& p,const periodic_rx::Stamp& capture,
                uint64_t available20,uint64_t now,const G1Anchor& anchor,rc5_origin* matched_origin=nullptr
 #ifdef PTOB_N30
-               ,const G1RetainedEstimate* handoff=nullptr
+               ,const G1RetainedEstimate* handoff=nullptr,uint32_t report_epoch=0
 #endif
                ){
     scope(anchor);
-    if(!anchor.valid(now)||!capture.actual||!capture.tick20||!capture.association_observed||
-       capture.channel>36||!capture.epoch||!capture.sequence||capture.map_enclosure_ns==UINT32_MAX||
-       capture.available20<capture.tick20||available20<capture.available20||stale(available20,capture.tick20)||
-       p.origin.boot!=anchor.boot||p.origin.source_epoch!=anchor.source_epoch||p.route.train!=anchor.publication||
+    const bool physical=capture.actual&&capture.tick20&&capture.association_observed&&
+      capture.channel<=36&&capture.epoch&&capture.sequence&&capture.map_enclosure_ns!=UINT32_MAX&&
+      capture.available20>=capture.tick20&&available20>=capture.available20&&!stale(available20,capture.tick20);
+#ifdef PTOB_N30
+    // A current authenticated follow-up can carry an earlier physical
+    // original even when the follow-up's own RF timestamp is unavailable.
+    const bool followup_only=!capture.actual&&!capture.association_observed&&available20&&
+      report_epoch&&report_epoch==local_epoch_&&p.route.capture_epoch==remote_epoch_&&p.count;
+    if(!physical&&!followup_only)return refuse();
+#else
+    if(!physical)return refuse();
+#endif
+    if(!anchor.valid(now)||p.origin.boot!=anchor.boot||p.origin.source_epoch!=anchor.source_epoch||p.route.train!=anchor.publication||
        p.route.depth||p.route.slot||p.route.transmitter!=p.origin.root||p.route.parent!=p.origin.root||
        p.route.boot!=p.origin.boot||p.route.map_generation!=p.route.train||!p.route.publication||!p.route.capture_epoch||
        p.origin.hold_horizon_us||p.origin.hold_budget_ns||p.count>2)return refuse();
@@ -414,41 +424,61 @@ class G1CorrectedClock {
     if(remote_epoch_&&p.route.capture_epoch<remote_epoch_)return refuse();
     if(remote_epoch_&&remote_epoch_!=p.route.capture_epoch){const auto saved=scope_;withdraw();scope_=saved;remote_epoch_=p.route.capture_epoch;return refuse();}
     remote_epoch_=p.route.capture_epoch;
-    // A recreated PA capture epoch retires pending physical tuples, while the
-    // already delivered map uses the same continuous20MHz clock through quiet.
-    if(local_epoch_!=capture.epoch){pending_clear();local_epoch_=capture.epoch;}
     unsigned slot=Pending;
-    for(unsigned i=0;i<Pending;i++){
-      auto& o=originals_[i];
-      if(o.used&&!stale(available20,o.local)&&o.publication==p.route.publication&&o.event==capture.event&&o.channel==capture.channel)return false;
-      if(!o.used||stale(available20,o.local))slot=i;
-    }
-    if(slot==Pending){pending_clear();return refuse();}
-    originals_[slot]={capture.tick20,p.origin.created_ns,p.origin.expires_ns,p.origin.frame_ns,p.origin.utc_offset_ns,
-      p.route.publication,capture.map_enclosure_ns,capture.epoch,capture.event,capture.channel,true};
-#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
-    // A later correction can arrive after another map has been published.
-    // Score the original against the map actually available at its capture,
-    // never against a map trained by intervening/newer physical evidence.
-    originals_[slot].predicted=clock_.relative_at(capture.tick20);
-    auto nominal=clock_;nominal.rate=0;
-    originals_[slot].nominal=nominal.relative_at(capture.tick20);
-#ifdef PTOB_N30
-    if(!clock_.tick&&handoff&&p.origin.utc_offset_ns>=0&&handoff->handoff_ready(capture.tick20)){
-      // Freeze the clock actually held at this physical RX. Translate its
-      // UTC value into the successor's signed correction-tick coordinate;
-      // two GMs need not have the same boot-time counter or UTC offset.
-      const auto held=handoff->clock.at(capture.tick20);
-      auto held_nominal=handoff->clock;held_nominal.rate=0;
-      if(held>p.origin.utc_offset_ns&&held_nominal.at(capture.tick20)>p.origin.utc_offset_ns){
-        originals_[slot].predicted=held-p.origin.utc_offset_ns;
-        originals_[slot].nominal=held_nominal.at(capture.tick20)-p.origin.utc_offset_ns;
+    if(physical){
+      // A recreated PA capture epoch retires pending physical tuples, while the
+      // already delivered map uses the same continuous20MHz clock through quiet.
+      if(local_epoch_!=capture.epoch){pending_clear();local_epoch_=capture.epoch;}
+      slot=Pending;
+      for(unsigned i=0;i<Pending;i++){
+        auto& o=originals_[i];
+        if(o.used&&!stale(available20,o.local)&&o.publication==p.route.publication&&o.event==capture.event&&o.channel==capture.channel)return false;
+        if(!o.used||stale(available20,o.local))slot=i;
       }
-    }
+      if(slot==Pending){pending_clear();return refuse();}
+      originals_[slot]={capture.tick20,p.origin.created_ns,p.origin.expires_ns,p.origin.frame_ns,p.origin.utc_offset_ns,
+        p.route.publication,capture.map_enclosure_ns,capture.epoch,capture.event,capture.channel,true};
+#if defined(PTOB_N30) || defined(PTOB_W12_FINE_CLOCK)
+      // A later correction can arrive after another map has been published.
+      // Score the original against the map actually available at its capture,
+      // never against a map trained by intervening/newer physical evidence.
+      originals_[slot].predicted=clock_.relative_at(capture.tick20);
+      auto nominal=clock_;nominal.rate=0;
+      originals_[slot].nominal=nominal.relative_at(capture.tick20);
+#ifdef PTOB_N30
+      if(!clock_.tick&&handoff&&p.origin.utc_offset_ns>=0&&handoff->handoff_ready(capture.tick20)){
+        // Freeze the clock actually held at this physical RX. Translate its
+        // UTC value into the successor's signed correction-tick coordinate;
+        // two GMs need not have the same boot-time counter or UTC offset.
+        const auto held=handoff->clock.at(capture.tick20);
+        auto held_nominal=handoff->clock;held_nominal.rate=0;
+        if(held>p.origin.utc_offset_ns&&held_nominal.at(capture.tick20)>p.origin.utc_offset_ns){
+          originals_[slot].predicted=held-p.origin.utc_offset_ns;
+          originals_[slot].nominal=held_nominal.at(capture.tick20)-p.origin.utc_offset_ns;
+        }
+      }
 #endif
+#endif
+    }
+#ifdef PTOB_N30
+    bool matched_followup=false;
 #endif
     for(unsigned k=0;k<p.count;k++){
       const auto& value=p.correction[k];if(value.generation!=p.route.map_generation||value.channel>36)return refuse();
+#ifdef PTOB_N30
+      if(followup_only){
+        // Without a physical stamp on this report, accept only an exact,
+        // still pending original in this capture epoch. A replay, unmatched
+        // correction or nonpreceding publication cannot seed later fitting.
+        bool pending=false;
+        if(value.publication<p.route.publication)for(const auto& o:originals_)
+          if(o.used&&o.epoch==report_epoch&&o.offset==p.origin.utc_offset_ns&&o.local>last_original_&&
+             !stale(available20,o.local)&&o.publication==value.publication&&o.event==value.event&&
+             o.channel==value.channel){pending=true;break;}
+        if(!pending)continue;
+        matched_followup=true;
+      }
+#endif
       slot=Pending;bool duplicate=false;
       for(unsigned i=0;i<Pending;i++){
         auto& c=corrections_[i];
@@ -462,40 +492,54 @@ class G1CorrectedClock {
       if(slot==Pending){pending_clear();return refuse();}
       corrections_[slot]={value,available20,p.origin.expires_ns};
     }
-    Original* best=nullptr;Correction* correction=nullptr;
-    for(auto& o:originals_)if(o.used&&!stale(available20,o.local)&&o.local>last_original_
-#if !defined(PTOB_N30) && !defined(PTOB_W12_FINE_CLOCK)
-      &&o.local>clock_.tick
+#ifdef PTOB_N30
+    if(followup_only&&!matched_followup)return false;
 #endif
-    )
-      for(auto& c:corrections_)if(c.available&&!stale(available20,c.available)&&o.publication==c.value.publication&&o.event==c.value.event&&o.channel==c.value.channel&&(!best||o.local<best->local)){best=&o;correction=&c;}
-    if(!best)return false;
-    correction->available=0;last_original_=best->local;
-    const auto& c=correction->value;
-    if(c.ticks>uint64_t(INT64_MAX)/125||!c.generation)return refuse();
-#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
-    // A later authenticated source envelope can carry a correction for an
-    // earlier RF publication. Both original and correction have already
-    // passed their wire MAC/scope gates. Preserve that physical pair while
-    // intersecting the grants: a new header cannot renew an old RF original.
-    const auto expires=std::min(best->expires,correction->expires);
-#else
-    if(correction->expires>best->expires)return refuse();
-    const auto expires=correction->expires;
-#endif
-    const uint64_t raw=c.ticks*125/2;
-    if(raw<best->created||raw>=expires||best->offset<0||raw>uint64_t(INT64_MAX-best->offset))return refuse();
-    const uint64_t remote=raw;
-    const uint64_t elapsed=(available20-best->local)*50;
-    const uint64_t permission=expires-raw;
+    Original* best=nullptr;
+    uint64_t expires=0,raw=0,remaining=0;
     const uint64_t guard=anchor.guard(now)*1000;
-    if(permission<=elapsed||permission-elapsed<=best->enclosure||permission-elapsed-best->enclosure<=guard)return refuse();
-    uint64_t remaining=(permission-elapsed-best->enclosure-guard)/1000;
-    // Passive leaf age is strictly less than1.5s, clipped by signed source
-    // permission (T096 radio_precision_read/output_read); no500ms relay rule.
-    const uint64_t age=elapsed/1000;
-    if(age>=1500000||!remaining||now>UINT64_MAX-remaining)return refuse();
+    do {
+      best=nullptr;Correction* correction=nullptr;
+      for(auto& o:originals_)if(o.used&&!stale(available20,o.local)&&o.local>last_original_
+#if !defined(PTOB_N30) && !defined(PTOB_W12_FINE_CLOCK)
+        &&o.local>clock_.tick
+#endif
+      )
+        for(auto& c:corrections_)if(c.available&&!stale(available20,c.available)&&o.publication==c.value.publication&&o.event==c.value.event&&o.channel==c.value.channel&&(!best||o.local<best->local)){best=&o;correction=&c;}
+      if(!best)return false;
+      correction->available=0;last_original_=best->local;
+      const auto& c=correction->value;
+      if(c.ticks>uint64_t(INT64_MAX)/125||!c.generation)return refuse();
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+      // Both original and correction retain their own signed deadlines.
+      expires=std::min(best->expires,correction->expires);
+#else
+      if(correction->expires>best->expires)return refuse();
+      expires=correction->expires;
+#endif
+      raw=c.ticks*125/2;
+      if(raw<best->created||raw>=expires||best->offset<0||raw>uint64_t(INT64_MAX-best->offset))return refuse();
+      const uint64_t elapsed=(available20-best->local)*50;
+      const uint64_t permission=expires-raw;
+      // The association age is at most250ms. Keep the signed source guard
+      // and the original1.5s age cap for every eligible physical pair.
+      if(permission>elapsed&&permission-elapsed>best->enclosure&&permission-elapsed-best->enclosure>guard)
+        remaining=(permission-elapsed-best->enclosure-guard)/1000;
+      if(!remaining){
+#ifndef PTOB_N30
+        return refuse();
+#else
+        // A single report can carry corrections on both sides of a grant
+        // renewal. Retire the expired older pair and try the next one now.
+        refuse();
+#endif
+      }
+    } while(!remaining);
+    if(now>UINT64_MAX-remaining)return refuse();
+    const uint64_t age=(available20-best->local)/20;
+    if(age>=1500000)return refuse();
     if(remaining>1500000-age)remaining=1500000-age;
+    const uint64_t remote=raw;
     // Only an authenticated, matched physical pair with actual remaining
     // permission can retire a map. Preserve the full failed prediction and
     // require a new pair; no corrupt sample trains the replacement clock.

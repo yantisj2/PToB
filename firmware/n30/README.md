@@ -61,6 +61,10 @@ scope. Permission-only gaps below **1.5 s** pause the dwell; longer gaps or
 quality/context changes reset it. Expired or unqualified LoRa yields to fresh
 qualified BLE. Each input keeps its own model and original timing permissions.
 
+An authenticated direct-GM follow-up can finish a pair using a saved receive
+timestamp from the same radio session. The original capture and both signed
+deadlines are required.
+
 LoRa **AUTO** and **KEEP ON** stay warm through healthy BLE and BLE-owner faults;
 **KEEP OFF** stops reception. Overrides return to AUTO at boot. BLE has separate
 recovery supervision: eligible nearby reception with **15 s** of no corrected

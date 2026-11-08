@@ -1272,5 +1272,6 @@ stale-source receipts are refused before compilation. This offline gate grants
 no hardware installation or timing-accuracy acceptance.
 
 Direct GR3 renewal uses the [intersection of authenticated source grants](dual-timing-state-machines.md#source-envelope-renewal-and-physical-pairing).
-The build receipt identifies this policy; the gate exercises real packet MACs
-and the production physical-clock adapter alongside source/UI scheduling.
+The receipt records the direct follow-up policy. The gate exercises the
+production receive path with authenticated packets, a missing follow-up
+timestamp, and overlapping original and follow-up deadlines.

@@ -17,6 +17,11 @@ def validate_layout(out,r):
 
 def inspect(out):
  out=Path(out).resolve();r=json.loads((out/'receipt.json').read_text());inputs=out/'local';target=out/'target'
+ release=r['version']
+ if release=='0.2.64':
+  if r.get('direct_followup_policy')!='CURRENT_PA_CAPTURED_ORIGINAL_SKIP_EXPIRED_PAIR_V1':raise ValueError('N30 direct GR3 follow-up policy missing')
+  # This release inherits all 0.2.63 build, layout and diagnostic contracts.
+  r={**r,'version':'0.2.63'}
  if r['version']=='0.2.63' and (r.get('lora_rx_diagnostics')!='STANDARD_COUNTERS_AND_FIRST_FAULT_V1' or 'lora_rx_probe' in r or 'lora_rx_probe_storage' in r):raise ValueError('N30 current LoRa diagnostics must match the reviewed receive implementation')
  if r['version']=='0.2.63' and r.get('source_renewal_policy')!='AUTH_GR3_MATCHED_ORIGINAL_MIN_BOTH_GRANTS_V1':raise ValueError('Authenticated GR3 grant-intersection policy missing')
  if r['version'] in ('0.2.62','0.2.63'):
@@ -101,7 +106,7 @@ def inspect(out):
  for name,copy in headers:
   if (inputs/name).read_bytes()!=(target/'esp-idf/main'/copy).read_bytes():raise ValueError('Compiler input mismatch')
  identity=json.loads((target/'v12_build_identity.json').read_text())
- fields=[r['public_commit'],sha(target/'sdkconfig'),r['dependencies']['esp_idf']['controller_sha256'],sha(inputs/'r2-enrollment.h'),sha(inputs/'ptob_device.h'),sha(inputs/'ptob_registry.h'),str(r['listening_percent']),'ON' if r['estimated_relay'] else 'OFF','OFF',*([sha(inputs/'n30_lora_config.h')] if r['version'] in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.47','0.2.48','0.2.49','0.2.50','0.2.51','0.2.52','0.2.53','0.2.54','0.2.55','0.2.56','0.2.57','0.2.58','0.2.59','0.2.60','0.2.61','0.2.62','0.2.63') else []),'PTOB_N30_'+r['version']]
+ fields=[r['public_commit'],sha(target/'sdkconfig'),r['dependencies']['esp_idf']['controller_sha256'],sha(inputs/'r2-enrollment.h'),sha(inputs/'ptob_device.h'),sha(inputs/'ptob_registry.h'),str(r['listening_percent']),'ON' if r['estimated_relay'] else 'OFF','OFF',*([sha(inputs/'n30_lora_config.h')] if r['version'] in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.47','0.2.48','0.2.49','0.2.50','0.2.51','0.2.52','0.2.53','0.2.54','0.2.55','0.2.56','0.2.57','0.2.58','0.2.59','0.2.60','0.2.61','0.2.62','0.2.63') else []),'PTOB_N30_'+release]
  if r['version'] in ('0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.47','0.2.48','0.2.49','0.2.50','0.2.51','0.2.52','0.2.53','0.2.54','0.2.55','0.2.56','0.2.57','0.2.58','0.2.59','0.2.60','0.2.61','0.2.62','0.2.63'):
   fine_sha=sha(inputs/'fine_capture_config.h');fields.insert(-1,fine_sha)
   if identity.get('fine_capture_header_sha256')!=fine_sha:raise ValueError('Runtime fine-profile binding mismatch')

@@ -22,6 +22,76 @@ v12::Discovery locator(uint64_t id,int8_t rssi){
 #ifdef PTOB_N30
 #include "ble_acquisition_native.inc"
 #include "dual_timing_native.inc"
+
+void direct_followup_case(const std::string& which){
+  constexpr uint64_t start=100000000;
+  constexpr int64_t offset=INT64_C(1700000000000000000);
+  constexpr uint32_t epoch=9;
+  fake_now=start;
+  v12::window_start=v12::G1Window::start(fake_now);
+  v12::anchor={true,501,601,uint64_t(offset)/1000+start,start,start+110000,2,3,60000};
+  v12::joined_peer=v12::sync_identity=501;
+  v12::joined_boot=601;v12::member=v12::synced=true;
+  v12::sync_handle=9;v12::sync_capture_epoch=epoch;
+  const uint64_t ids[4]={501,777,0,0};
+  const auto& group=v12::provision.group;
+  const auto send=[&](uint32_t pub,uint64_t expires,uint32_t first,uint32_t second,
+                      bool stamped=true,uint32_t owner=epoch,bool corrupt=false){
+    v12::Periodic row{};
+    row.identity=501;row.at=fake_now;row.length=190;row.signal_epoch=owner;
+    if(stamped){
+      auto& c=row.capture;
+      c.actual=c.association_observed=true;
+      c.tick20=c.available20=fake_now*20;c.epoch=epoch;c.sequence=pub;
+      c.event=uint16_t(pub);c.channel=uint8_t(pub+3);c.map_enclosure_ns=1000;
+    }
+    r2_relay_packet packet{};
+    packet.origin={0,1,601,2,(start-10000)*1000,expires,1,offset,0,0};
+    packet.route={0,0,0,0,601,3,pub,4,3,UINT32_MAX};
+    for(auto original:{first,second})if(original){
+      const auto tx=start+(original-1)*62500;
+      packet.correction[packet.count++]={original,uint16_t(original),uint8_t(original+3),tx*16,3};
+    }
+    uint8_t proof[32]{};
+    assert(!r2_group_origin_sign3(proof,&packet.origin,&group,ids));
+    assert(!r2_group_relay_encode3(row.bytes,&packet,proof,&group,ids));
+    if(corrupt)row.bytes[189]^=1;
+    assert(v12::periodic.push(row));
+    v12::periodic_poll(fake_now);
+  };
+  const auto long_expiry=(start+1250000)*1000;
+  const bool expired=which=="direct-followup-expired"||which=="direct-followup-two-grants";
+  const auto old_expiry=expired?(start+155000)*1000:long_expiry;
+  send(1,old_expiry,0,0,which!="direct-followup-no-original");
+  assert(!v12::corrected_clock.accepted());
+  if(which=="direct-followup-two-grants"){
+    fake_now+=62500;send(2,long_expiry,0,0);
+    fake_now+=62500;send(3,long_expiry,1,2);
+    assert(v12::corrected_clock.accepted()==1&&v12::following(fake_now));
+    assert(v12::corrected_clock.original20()==(start+62500)*20&&v12::corrected_clock.direct_capture_epoch()==epoch);
+    assert(v12::corrected_clock.until()>old_expiry/1000&&v12::corrected_clock.until()<long_expiry/1000);
+    std::puts("PASS expired older pair cannot block a valid newer pair from the same authenticated GR3 report");
+    return;
+  }
+  fake_now+=expired?125000:62500;
+  send(2,long_expiry,1,0,false,which=="direct-followup-retired-owner"?epoch-1:epoch,
+       which=="direct-followup-bad-mac");
+  if(which!="direct-followup-no-stamp"){
+    assert(!v12::corrected_clock.accepted()&&!v12::corrected_clock.until());
+    return;
+  }
+  assert(v12::corrected_clock.accepted()==1&&v12::corrected_clock.original20()==start*20);
+  assert(v12::corrected_clock.direct_capture_epoch()==epoch);
+  const auto until=v12::corrected_clock.until();
+  assert(until>start+110000&&until<long_expiry/1000);
+  // No timestamp was captured for publication 2, so even a later signed
+  // correction cannot fit it. The same report cannot renew publication 1.
+  fake_now+=62500;
+  send(3,long_expiry,1,2,false);
+  assert(v12::corrected_clock.accepted()==1&&v12::corrected_clock.until()==until);
+  assert(!v12::corrected_clock.covers(until,until));
+  std::puts("PASS unstamped current GR3 follow-up corrects only the saved physical original");
+}
 #endif
 int main(int argc,char** argv){
   assert(argc==2);const std::string which=argv[1];const uint8_t mac[]={2,3,4,5,6,7};
@@ -31,6 +101,7 @@ int main(int argc,char** argv){
   if(which=="startup-unusable"){startup_unusable_case();return 0;}
   if(which.starts_with("ble-acquisition-")){acquisition_case(which);return 0;}
   if(which=="dual-coupled"){dual_coupled_case();return 0;}
+  if(which.starts_with("direct-followup-")){direct_followup_case(which);return 0;}
 #endif
   fake_now=100000000;v12::window_start=v12::G1Window::start(fake_now);
   v12::anchor={true,501,601,UINT64_C(1700000000000000)+fake_now,fake_now,fake_now+1500000,2,3,1000};

@@ -66,6 +66,13 @@ history never grants a future output interval.
 
 ## Reproduced sequences
 
+A direct-GM GR3 report can carry the signed transmit correction for a previous
+publication even when the receiver cannot resolve this report's own timestamp.
+The current PA callback owner must match the retained capture epoch. Only the
+earlier publication's actual receive capture enters the fit. An expired pair
+does not consume the opportunity to use another valid pair in the same report.
+Both signed deadlines and the full causal guard still apply to every pair.
+
 A production-owner regression expires source/corrected permission while the
 same authenticated direct train has a fresh associated packet. Before the
 repair, acquisition protection disappeared immediately, allowing another parent

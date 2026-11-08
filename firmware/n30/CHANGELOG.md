@@ -1,5 +1,20 @@
 # N30 changelog
 
+## 0.2.64 — 2026-11-08
+
+Use a current authenticated direct-GM follow-up to correct an already captured
+original when the follow-up has no usable RF stamp. Require the exact live PA
+owner, capture epochs, preceding publication, event and channel. The follow-up
+cannot supply a physical sample of its own. When both corrections in a report
+match pending captures, skip an older pair that has exhausted its signed
+permission and consider the next pair in the same report. Keep the full
+causal guard and the earlier of the original and correction deadlines.
+
+Native-owner regressions use authenticated GR3 packets. They cover missing
+follow-up stamps, overlapping grant expiry, stale owners, missing originals,
+replay and bad authentication. The remaining field gaps need an installed
+same-GM comparison to establish their cause and frequency.
+
 ## 0.2.63 — 2026-11-06
 
 Retain the reviewed LoRa receive implementation. Raw packet-status/span probes

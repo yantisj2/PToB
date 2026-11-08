@@ -1367,9 +1367,15 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     uint64_t available=0;clock_reference_read(&available);
     const auto discontinuities=corrected_clock.discontinuities();
     rc5_origin matched_origin{};
+#ifdef PTOB_N30
+    // The report's callback epoch is independent of RF stamp association.
+    // Require the same live PA owner before using a correction without a stamp.
+    const auto report_epoch=synced&&!sync_terminating&&!sync_cleanup_queued&&!sync_cleanup_requested&&
+      row.signal_epoch==sync_capture_epoch?sync_capture_epoch:0;
+#endif
     if(corrected_clock.receive(p,row.capture,available,now,anchor,&matched_origin
 #ifdef PTOB_N30
-       ,&retained_estimate
+       ,&retained_estimate,report_epoch
 #endif
        )){
       uint64_t completion=0,utc=0;
@@ -1385,7 +1391,7 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
         last_origin_ns=p.origin.created_ns;window_corrected=true;corrected_clock.scope(anchor);
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
         rc7_path parent{};parent.source_epoch=anchor.source_epoch;parent.node[0]={anchor.root,anchor.boot,p.route.train,p.route.capture_epoch,0,0};
-        relay_input(parent,matched_origin,nullptr,corrected_clock.original20(),row.capture.epoch,completion,0);
+        relay_input(parent,matched_origin,nullptr,corrected_clock.original20(),corrected_clock.direct_capture_epoch(),completion,0);
 #endif
       }
     }
