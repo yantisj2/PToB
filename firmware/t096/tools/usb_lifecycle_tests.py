@@ -12,6 +12,7 @@ def fn(name):
  end=body.index('\n}',body.index('{',m.start()))+2
  return body[m.start():end]
 src='''#include <assert.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -19,17 +20,20 @@ src='''#include <assert.h>
 #define LOG_ERR(...) ((void)0)
 #define LOG_DBG(...) ((void)0)
 #define __ASSERT_NO_MSG(x) assert(x)
+#define __fallthrough __attribute__((fallthrough))
 #define CONFIG_USB_DEVICE_SOF 0
 #define IS_ENABLED(x) (x)
+#define K_MSEC(x) (x)
 #define NRFX_SUCCESS 0
 enum {USBD_ATTACHED,USBD_POWERED,USBD_DETACHED,USBD_SUSPENDED,USBD_RESUMED};
 enum {USB_DC_CONNECTED,USB_DC_DISCONNECTED,USB_DC_SUSPEND,USB_DC_RESUME};
 enum {NRFX_POWER_USB_STATE_DISCONNECTED,NRFX_POWER_USB_STATE_CONNECTED,NRFX_POWER_USB_STATE_READY};
 typedef int nrfx_err_t;
 struct usbd_pwr_event {int state;};
-struct nrf_usbd_ctx {uint32_t ep0_generation;bool ready,attached;void (*status_cb)(int,void *);};
+struct nrf_usbd_ctx {uint32_t ep0_generation;bool ready,attached;void (*status_cb)(int,void *);struct {int notify;} hfxo_cli;};
 static struct nrf_usbd_ctx ctx;
 static int power,second_power,enabled,initialized,starts,flushes,notifications[4],init_error,blocked;
+static int64_t now_ms,hfxo_ready_ms;
 static jmp_buf dma;
 static struct nrf_usbd_ctx *get_usbd_ctx(void){return &ctx;}
 static unsigned irq_lock(void){return 0;}
@@ -47,15 +51,23 @@ static bool nrf_usbd_common_is_enabled(void){return enabled;}
 static void nrf_usbd_common_enable(void){assert(initialized&&!enabled);enabled=1;}
 static int hfxo_start(struct nrf_usbd_ctx *p){(void)p;return 0;}
 static int hfxo_stop(struct nrf_usbd_ctx *p){(void)p;return 0;}
+static int64_t k_uptime_get(void){return now_ms;}
+static void k_sleep(int ms){now_ms+=ms;}
+static int sys_notify_fetch_result(const int *notify,int *result){
+ (void)notify;
+ if(now_ms<hfxo_ready_ms)return -EAGAIN;
+ *result=0;
+ return 0;
+}
 static void usbd_enable_endpoints(struct nrf_usbd_ctx *p){(void)p;assert(initialized&&enabled);}
-static void nrf_usbd_common_start(bool sof){(void)sof;assert(initialized&&enabled);++starts;}
+static void nrf_usbd_common_start(bool sof){(void)sof;assert(initialized&&enabled&&now_ms>=hfxo_ready_ms);++starts;}
 static void nrf_usbd_common_suspend(void){}
 static bool dev_ready(void){return ctx.ready;}
 static void status(int n,void *p){(void)p;++notifications[n];}
-'''+fn('usbd_work_process_pwr_events')+'\n'+fn('usbd_reinit')+'''
-static void reset(void){ctx=(struct nrf_usbd_ctx){.ep0_generation=7,.attached=true,.ready=true,.status_cb=status};power=NRFX_POWER_USB_STATE_READY;second_power=-1;initialized=enabled=1;starts=flushes=init_error=blocked=0;for(int i=0;i<4;i++)notifications[i]=0;}
+'''+fn('hfxo_ready')+'\n'+fn('usbd_work_process_pwr_events')+'\n'+fn('usbd_reinit')+'''
+static void reset(void){ctx=(struct nrf_usbd_ctx){.ep0_generation=7,.attached=true,.ready=true,.status_cb=status};power=NRFX_POWER_USB_STATE_READY;second_power=-1;initialized=enabled=1;starts=flushes=init_error=blocked=0;now_ms=hfxo_ready_ms=0;for(int i=0;i<4;i++)notifications[i]=0;}
 int main(void){
- reset();usbd_reinit();assert(ctx.ready&&ctx.attached&&ctx.ep0_generation==8&&starts==1&&flushes==1&&notifications[USB_DC_CONNECTED]==1&&notifications[USB_DC_DISCONNECTED]==1);
+ reset();hfxo_ready_ms=3;usbd_reinit();assert(ctx.ready&&ctx.attached&&ctx.ep0_generation==8&&starts==1&&flushes==1&&notifications[USB_DC_CONNECTED]==1&&notifications[USB_DC_DISCONNECTED]==1&&now_ms==3);
  struct usbd_pwr_event ready={.state=USBD_POWERED};usbd_work_process_pwr_events(&ready);assert(starts==1); /* queued duplicate */
  usbd_reinit();assert(starts==2&&ctx.ep0_generation==9);
  reset();power=NRFX_POWER_USB_STATE_DISCONNECTED;usbd_reinit();assert(!ctx.ready&&!enabled&&!starts&&initialized);

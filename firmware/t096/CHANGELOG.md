@@ -7,9 +7,14 @@ the existing 15-second frame. Continuous fixed-channel receivers
 authenticate the actual captured pair. The source lease, FOLLOW interval
 and airtime accounting still gate RF.
 
-The .338 native build and host regressions passed. A separate 47-minute
-local run on .337 recorded 90 received pairs, eight META announcements,
-four missed slots and nine brief BLE expiries bridged by LoRa holdover.
+The .338 native build and focused host checks passed. The aggregate host
+suite still has fixture failures reproduced on the previous public revision
+in controller diagnostics, health register capture, watchdog profile, the
+LoRa UI worker and native reply.
+
+A separate 47-minute local run on .337 recorded 90 received pairs, eight
+META announcements, four missed slots and nine brief BLE expiries bridged
+by LoRa holdover.
 Both devices stayed on their original boots during that run. Six USB
 reopens and 160 control requests succeeded. The operator ended the run
 early. Hardware behavior on .338 and absolute holdover error remain open.
