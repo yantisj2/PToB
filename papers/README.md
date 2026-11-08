@@ -1,5 +1,9 @@
 # Research papers — drafts
 
+The [PToB research library](https://ptob.dev/research/#paper-library) collects
+paper summaries, PDFs and related experiments. This index records the draft
+editions, source files and reproduction instructions.
+
 **Approved public review draft, 4 November 2026 — push deferred:**
 [Sparse One-Way LoRa Clock Transfer](lora-sparse-timing/sparse-one-way-lora-clock-transfer.pdf)
 is a seven-page retrospective of the bandwidth and frequency-hopping
@@ -18,7 +22,7 @@ experiment was performed; repository publication is prepared locally, with the
 push deferred until the firmware fixes are ready.
 
 **Approved public review draft, 3 November 2026 (UTC):**
-[Paired Clock Time Transfer from Starlink over Wi-Fi](starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf)
+[Paired Clock Time Transfer from Starlink over Wi-Fi](https://ptob.dev/research/starlink-wifi-timing/)
 compares two fresh locked-validation windows, retaining all 900 future PPS per
 method. After each estimator's own fixed prior GNSS phase calibration, the
 nominated robust AP hybrid gives 19.226/8.240 microseconds RMS versus
@@ -27,25 +31,27 @@ bias while slightly worsening scatter; R2 reduces both. Ordinary AP fits and
 servos have mixed outcomes, and raw phase RMS remains above 200 microseconds.
 Historical incomplete populations and the 64.215-microsecond direct-NTP
 failure remain separate. This does not qualify portable GNSS-free UTC or output
-accuracy. [Source, evidence and reproduction](starlink-wifi-hybrid-timing/README.md)
+accuracy. [PDF](starlink-wifi-hybrid-timing/starlink-wifi-hybrid-timing.pdf),
+[source, evidence and reproduction](starlink-wifi-hybrid-timing/README.md)
 and [public-review approval](starlink-wifi-hybrid-timing/publication.json)
 accompany this seven-page draft.
 
 **Approved public review draft, 2 November 2026:**
-[A Raspberry Pi Time Server at the Edge of a BLE Timing Mesh](pi5-mhat-gateway/main.pdf)
+[A Raspberry Pi Time Server at the Edge of a BLE Timing Mesh](https://ptob.dev/research/pi5-mhat-time-gateway/)
 is a seven-page Pi 5/M-HAT integration study. Its final fixed window retains
 600/600 pulses with one source cohort, 872 ns GPIO phase RMS, 4.809 µs absolute
 P99 and 7.017 µs maximum. These are observations against the disciplined Pi
 clock, not independent UTC or electrical output accuracy. It separates protocol
 health and Ethernet readiness, and proposes unmeasured Linux USB/SOF and
-external-PTP-to-PToB paths. [Source and reproduction](pi5-mhat-gateway/README.md)
+external-PTP-to-PToB paths. [PDF](pi5-mhat-gateway/main.pdf),
+[source and reproduction](pi5-mhat-gateway/README.md)
 and [selected evidence](../evidence/pi5/2026-11-02/README.md) exclude earlier
 troubleshooting populations and preserve every final-window tail. The separate
 [approval receipt](pi5-mhat-gateway/publication.json) preserves the reviewed
 source/PDF bytes and records the authorized GitHub main publication scope.
 
 **Approved public review draft, 1 November 2026:**
-[Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability](zephyr-timing/main.pdf)
+[Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability](https://ptob.dev/research/zephyr-hardware-timestamps/)
 is a seven-page implementation study of controller event association, counter
 continuity, bounded snapshots and source publication ordering. A targeted
 primary-source review places the work alongside Zephyr's evolving precision
@@ -57,7 +63,7 @@ the examined implementation; no new hardware comparison or current-firmware
 qualification is claimed.
 
 **Latest main preprint, approved for public review, 30 October 2026:**
-[PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks](ptob-viability-preprint.pdf)
+[PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks](https://ptob.dev/research/ble-timing-mesh-viability/)
 is the 17-page synthesis of the source-scoped clock service, causal event
 maps, heterogeneous relays, USB delivery and measured holdover.
 [LaTeX source](ptob-viability-preprint.tex),
@@ -67,7 +73,7 @@ accompany the unchanged reviewed manuscript. It remains a preprint draft
 and has not been submitted to arXiv.
 
 **Approved experimental research draft, 30 October 2026:**
-[Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf)
+[Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](https://ptob.dev/research/empirical-ble-holdover/)
 measures the longest supported hold duration at a fixed sampled 1 microsecond
 threshold using P99 across frozen run-prefix maxima. Separate W12 devices,
 observation windows, rolling populations, longer failures and unknown-expiry
@@ -80,7 +86,7 @@ under `evidence/w12/`, and large derived tables regenerate locally.
 reviewed bytes; GitHub publication and firmware qualification remain separate.
 
 **Public review draft, 26 October 2026:**
-[Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh](ble-tail-multipath/main.pdf)
+[Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh](https://ptob.dev/research/ble-timing-tails-multipath/)
 reviews capture, event association, channel-aware fitting and source ownership,
 then proposes placement, workload, estimator and recovery tests. The nine-page
 draft separates delivery latency, correction age, clock error and availability,
@@ -93,7 +99,7 @@ accompany the unchanged manuscript. No new experiment, demonstrated multipath
 cause or later-image qualification is claimed.
 
 **Public review draft, 26 October 2026:**
-[A Shared Time Base for Indoor PNT](indoor-pnt/main.pdf) investigates event timing
+[A Shared Time Base for Indoor PNT](https://ptob.dev/research/indoor-pnt-sensor-fusion/) investigates event timing
 beneath heterogeneous navigation sensors, with selective UWB and other positioning
 observations. It separates sensor-motion and radio-ranging budgets and proposes
 causal clock bridges, sensor fusion and independent validation.
@@ -103,7 +109,7 @@ causal clock bridges, sensor fusion and independent validation.
 scope. Indoor localization, UWB integration and GNSS equivalence remain unqualified.
 
 **Approved public research draft, 26 October 2026:**
-[PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons](indoor-ips/main.pdf)
+[PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons](https://ptob.dev/research/indoor-positioning-ble-beacons/)
 proposes surveyed timing beacons and a GNSS-like position/receiver-clock solve.
 Aligned periodic advertising timers, assigned offsets and coordinated 16/8/4 Hz
 rates let one receiver track multiple trains in distinct receive windows.
@@ -120,7 +126,7 @@ preparation receipt preserves its pending-approval checkpoint; the separate
 publication receipt records approval for public draft review.
 
 **Approved public research draft, 24 October 2026:**
-[Low-Level Timing on ESP32-S3: Event Capture, Clock Bridges, and Causal Validation](ptob-esp32s3-low-level-timing.pdf)
+[Low-Level Timing on ESP32-S3: Event Capture, Clock Bridges, and Causal Validation](https://ptob.dev/research/esp32-s3-event-capture/)
 is a separate seven-page implementation guide, with
 [LaTeX source](ptob-esp32s3-low-level-timing.tex),
 [edition receipt](editions/s3-low-level-2026-10-24.json), and
@@ -158,10 +164,10 @@ byte identities; later editions are recorded separately.
 
 ## Main paper: PToB Viability
 
-**[PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks](ptob-viability-preprint.pdf)**
+**[PToB Viability: Rooted BLE Timing Meshes for Heterogeneous Edge Networks](https://ptob.dev/research/ble-timing-mesh-viability/)**
 is the starting point for the project's research: protocol architecture,
 experimental evidence, scaling limits and a proposed path to PTP edge extension.
-Read the **30 October 2026 approved public-review preprint** or edit its
+Read the **[30 October 2026 approved public-review preprint (PDF)](ptob-viability-preprint.pdf)** or edit its
 [LaTeX source](ptob-viability-preprint.tex). The 17-page revision adds ESP32-S3
 event capture, the W12/T096 relay baseline, USB RC/DC comparison, awake sampling
 and measured frozen-clock holdover. It updates GM7/RC7 architecture, prior art,
@@ -184,18 +190,18 @@ toward arXiv; it has not been submitted.
 | Draft | Read | Edit | Edition |
 | --- | --- | --- | --- |
 | Sparse One-Way LoRa Clock Transfer: Bandwidth Experiments, Authenticated Two-Step Timing, and a Fixed-500-kHz Validation | [PDF](lora-sparse-timing/sparse-one-way-lora-clock-transfer.pdf) | [LaTeX](lora-sparse-timing/sparse-one-way-lora-clock-transfer.tex) | 4 November 2026, approved seven-page public review draft; local publication prepared, push deferred |
-| Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability | [PDF](zephyr-timing/main.pdf) | [LaTeX](zephyr-timing/main.tex) | 1 November 2026, approved seven-page public review draft; implementation and prior-art study, comparative hardware evaluation proposed |
-| Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks | [PDF](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf) | [LaTeX](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex) | 30 October 2026, approved research draft; compact selected evidence and offline prefix replay |
-| Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh | [PDF](ble-tail-multipath/main.pdf) | [LaTeX](ble-tail-multipath/main.tex) | 26 October 2026, public review draft; current mechanisms, analytical examples and proposed validation, no new hardware experiment |
-| A Shared Time Base for Indoor PNT: PToB Sensor Fusion, Selective UWB Augmentation, and a Validation Programme | [PDF](indoor-pnt/main.pdf) | [LaTeX](indoor-pnt/main.tex) | 26 October 2026, public review draft; proposed architecture and analytical budgets, no localization qualification |
-| PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons | [PDF](indoor-ips/main.pdf) | [LaTeX](indoor-ips/main.tex) | 26 October 2026, approved public research draft; surveyed beacons, aligned multi-rate advertisements and theoretical positioning/refinement limits |
-| Low-Level Timing on ESP32-S3: Event Capture, Clock Bridges, and Causal Validation | [PDF](ptob-esp32s3-low-level-timing.pdf) | [LaTeX](ptob-esp32s3-low-level-timing.tex) | 24 October 2026, seven-page implementation guide; relative measurements and calibration limits remain distinct |
-| A Shared Time Base for Robotic gPTP and TSN Systems: PToB Edge Adaptation, Compatibility Boundaries, and a Validation Programme | [PDF](ptob-gptp-tsn-robotics-preprint.pdf) | [LaTeX](ptob-gptp-tsn-robotics-preprint.tex) | 22 October 2026, proposed wired-domain ingress, wireless acquisition timestamps and staged validation |
-| Precision Bluetooth Timing on ESP32-S3: Causal Clock Discipline and Hardware Event Capture | [PDF](ptob-esp32s3-timing-preprint.pdf) | [LaTeX](ptob-esp32s3-timing-preprint.tex) | 22 October 2026 follow-up, empirical fine capture and completed 660 s relative PPS, target unmet |
-| A Shared Time Base for Bluetooth Timecode Ecosystems: PToB Architecture, Compatibility Boundaries, and a Validation Programme | [PDF](ptob-bluetooth-timecode-preprint.pdf) | [LaTeX](ptob-bluetooth-timecode-preprint.tex) | 22 October 2026, proposed media contract and compatibility layers |
-| How Much Timing Information Is Enough? Awake Hardware Evidence and Wake/Listen Energy Models for PToB | [PDF](ptob-power-scheduling-preprint.pdf) | [LaTeX](ptob-power-scheduling-preprint.tex) | 19 October 2026, awake PC117 pilot and hypothetical energy models |
-| Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 17 October 2026, shared-bus RC/DC revision |
-| From Virtual Clock Discipline to Physical Synchronization: White Rabbit Lessons for PToB and Future Tunable Targets | [PDF](white-rabbit-study-20261015.pdf) | [LaTeX](white-rabbit-study-20261015.tex) | 15 October 2026 |
+| [Trustworthy Hardware Timestamps in Zephyr: Event Association, Clock Continuity, and Service Availability](https://ptob.dev/research/zephyr-hardware-timestamps/) | [PDF](zephyr-timing/main.pdf) | [LaTeX](zephyr-timing/main.tex) | 1 November 2026, approved seven-page public review draft; implementation and prior-art study, comparative hardware evaluation proposed |
+| [Empirical Sub-Microsecond Holdover on BLE-Trained Software Clocks](https://ptob.dev/research/empirical-ble-holdover/) | [PDF](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.pdf) | [LaTeX](mcxo-holdover-duration/ptob-empirical-sub-microsecond-holdover.tex) | 30 October 2026, approved research draft; compact selected evidence and offline prefix replay |
+| [Reducing Timing Tails and Multipath Sensitivity in an Operating BLE Precision Mesh](https://ptob.dev/research/ble-timing-tails-multipath/) | [PDF](ble-tail-multipath/main.pdf) | [LaTeX](ble-tail-multipath/main.tex) | 26 October 2026, public review draft; current mechanisms, analytical examples and proposed validation, no new hardware experiment |
+| [A Shared Time Base for Indoor PNT: PToB Sensor Fusion, Selective UWB Augmentation, and a Validation Programme](https://ptob.dev/research/indoor-pnt-sensor-fusion/) | [PDF](indoor-pnt/main.pdf) | [LaTeX](indoor-pnt/main.tex) | 26 October 2026, public review draft; proposed architecture and analytical budgets, no localization qualification |
+| [PToB-IPS: Toward GNSS-like Indoor Positioning with Surveyed BLE Timing Beacons](https://ptob.dev/research/indoor-positioning-ble-beacons/) | [PDF](indoor-ips/main.pdf) | [LaTeX](indoor-ips/main.tex) | 26 October 2026, approved public research draft; surveyed beacons, aligned multi-rate advertisements and theoretical positioning/refinement limits |
+| [Low-Level Timing on ESP32-S3: Event Capture, Clock Bridges, and Causal Validation](https://ptob.dev/research/esp32-s3-event-capture/) | [PDF](ptob-esp32s3-low-level-timing.pdf) | [LaTeX](ptob-esp32s3-low-level-timing.tex) | 24 October 2026, seven-page implementation guide; relative measurements and calibration limits remain distinct |
+| [A Shared Time Base for Robotic gPTP and TSN Systems: PToB Edge Adaptation, Compatibility Boundaries, and a Validation Programme](https://ptob.dev/research/robotics-gptp-tsn/) | [PDF](ptob-gptp-tsn-robotics-preprint.pdf) | [LaTeX](ptob-gptp-tsn-robotics-preprint.tex) | 22 October 2026, proposed wired-domain ingress, wireless acquisition timestamps and staged validation |
+| [Precision Bluetooth Timing on ESP32-S3: Causal Clock Discipline and Hardware Event Capture](https://ptob.dev/research/esp32-s3-causal-clock-discipline/) | [PDF](ptob-esp32s3-timing-preprint.pdf) | [LaTeX](ptob-esp32s3-timing-preprint.tex) | 22 October 2026 follow-up, empirical fine capture and completed 660 s relative PPS, target unmet |
+| [A Shared Time Base for Bluetooth Timecode Ecosystems: PToB Architecture, Compatibility Boundaries, and a Validation Programme](https://ptob.dev/research/bluetooth-timecode-ecosystems/) | [PDF](ptob-bluetooth-timecode-preprint.pdf) | [LaTeX](ptob-bluetooth-timecode-preprint.tex) | 22 October 2026, proposed media contract and compatibility layers |
+| [How Much Timing Information Is Enough? Awake Hardware Evidence and Wake/Listen Energy Models for PToB](https://ptob.dev/research/awake-timing-power-scheduling/) | [PDF](ptob-power-scheduling-preprint.pdf) | [LaTeX](ptob-power-scheduling-preprint.tex) | 19 October 2026, awake PC117 pilot and hypothetical energy models |
+| [Beyond USB Packet Arrival: Frame-Identified Time Transfer to macOS](https://ptob.dev/research/usb-macos-time-transfer/) | [PDF](usb-macos-time-transfer-preprint.pdf) | [LaTeX](usb-macos-time-transfer-preprint.tex) | 17 October 2026, shared-bus RC/DC revision |
+| [From Virtual Clock Discipline to Physical Synchronization: White Rabbit Lessons for PToB and Future Tunable Targets](https://ptob.dev/research/white-rabbit-physical-synchronization/) | [PDF](white-rabbit-study-20261015.pdf) | [LaTeX](white-rabbit-study-20261015.tex) | 15 October 2026 |
 
 The robotics gPTP/TSN paper was **approved for public draft review on
 22 October 2026** and remains a research draft. It has a
@@ -274,8 +280,8 @@ website deployment or manuscript submission accompanied this import.
 
 | Draft | Read | Edit |
 | --- | --- | --- |
-| Passive Precision Time over BLE: V14 Service and Profile Release Candidate | [PDF](ptob-v14-sig-proposal.pdf) | [LaTeX](ptob-v14-sig-proposal.tex) |
-| Passive Precision Time over BLE: V14 Boundary Clocks, Causal Timestamping, and Prospective One-Relay Validation | [PDF](ptob-v14-preprint.pdf) | [LaTeX](ptob-v14-preprint.tex) |
+| [Passive Precision Time over BLE: V14 Service and Profile Release Candidate](https://ptob.dev/research/v14-protocol-proposal/) | [PDF](ptob-v14-sig-proposal.pdf) | [LaTeX](ptob-v14-sig-proposal.tex) |
+| [Passive Precision Time over BLE: V14 Boundary Clocks, Causal Timestamping, and Prospective One-Relay Validation](https://ptob.dev/research/v14-bluetooth-timing-results/) | [PDF](ptob-v14-preprint.pdf) | [LaTeX](ptob-v14-preprint.tex) |
 
 The **6 November 2026 release candidate** is approved for public review.
 It pins T096 0.15.326 and specifies G7V4 grandmaster control and observations,

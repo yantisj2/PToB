@@ -3,6 +3,9 @@
 These dated collections support review of specific experiments. They are not a
 single pooled benchmark or a statement of current firmware acceptance.
 
+The [research portal](https://ptob.dev/research/#measurements) summarizes the
+measurement methods and results alongside the papers.
+
 The **30 October 2026 [PToB Viability preprint](../papers/ptob-viability-preprint.pdf)**
 is the latest approved public-review synthesis across these collections.
 Its [edition manifest](../papers/editions/viability-2026-10-30.json),

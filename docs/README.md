@@ -3,18 +3,19 @@
 The experimental [Pi/M-HAT gateway](../gateways/pi5/README.md) has a separate
 [setup guide](pi5/setup.md), [monitoring guide with generic screenshots](../gateways/pi5/dashboard/README.md),
 [timing/clock documentation](pi5/README.md) and [USB/PTP continuation plan](pi5/bridge-work.md).
-Its [approved public-review paper and measured results](../papers/pi5-mhat-gateway/README.md)
+The [Pi gateway study](https://ptob.dev/research/pi5-mhat-time-gateway/) describes
+the timing path and results. Its [source and reproduction notes](../papers/pi5-mhat-gateway/README.md)
 preserve the final fixed-window population and unmeasured output boundaries.
 
 Start with the **30 October 2026 approved public-review
-[PToB Viability preprint](../papers/ptob-viability-preprint.pdf)** for the
+[PToB Viability preprint](https://ptob.dev/research/ble-timing-mesh-viability/)** for the
 current research synthesis. Its [LaTeX source](../papers/ptob-viability-preprint.tex),
 [source and evidence audit](../papers/editions/viability-2026-10-30-audit.json)
 and [publication approval](../papers/editions/viability-2026-10-30-publication.json)
 preserve the reviewed edition and its limits.
 
 For the current protocol design, read the **6 November public review
-[V14 release candidate](../papers/ptob-v14-sig-proposal.pdf)** and
+[V14 release candidate](https://ptob.dev/research/v14-protocol-proposal/)** and
 [V14 research status](V14_RESEARCH_STATUS.md). The
 [V14-RC1 specification](V14_CLOCK_SPEC_RC1.md) is a frozen 12 October reference;
 paper editions, wire revisions and physical evidence retain separate identities.
@@ -23,9 +24,11 @@ Start with [From passive precision to v12 and T096 R2](V12_TO_R2.md): why period
 advertising became a mesh requirement, how mesh and client services are being
 separated, and where the planned phone/OS GATT service fits.
 
-Use the [papers](../papers/README.md) for dated research and the
-[evidence index](../evidence/README.md) for experiment-specific claims. Design
-direction, implemented behavior, and measured outcomes have different scopes.
+The [research library](https://ptob.dev/research/#paper-library) brings together
+paper summaries and related results. The [paper index](../papers/README.md)
+records editions and the [evidence index](../evidence/README.md) links claims
+to experiments. Design direction, implemented behavior, and measured outcomes
+have different scopes.
 
 The [RC round-trip ranging proposal](t096/round-trip-ranging.md) studies a
 GM-granted, low-priority T096 exchange, conditional averaging, shadow-PPS

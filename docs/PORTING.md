@@ -8,6 +8,10 @@ examples are [T096](../firmware/t096/README.md), [W12](../firmware/w12/README.md
 and [SS3](../firmware/ss3/README.md); the [macOS client](../clients/macos/README.md)
 shows a host consuming a USB source. PToB is experimental, not a certified profile.
 
+The interactive timing diagrams for [T096](https://ptob.dev/hardware/t096/timing/)
+and [ESP32-S3](https://ptob.dev/hardware/esp32-s3/timing/) trace the path from
+radio events to the local clock estimate.
+
 ## Radio and clock requirements
 
 **Mesh participation requires Bluetooth LE periodic advertising, introduced in
