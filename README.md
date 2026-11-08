@@ -101,6 +101,15 @@ oscillator tuning and GNSS are optional; the source and timing requirements
 depend on the role. Conventional clients can consume a host time service without
 implementing a BLE mesh role. A general GATT time-client service remains planned.
 
+For small teaching programs, start with **[ESP32-REF](firmware/examples/esp32-ref/README.md)**.
+[Example 00](firmware/examples/esp32-ref/00_clock_fundamentals/README.md) runs
+offline on your computer and introduces counter rollover, clock rate, gradual
+phase correction and causal validation. [Example 01](firmware/examples/esp32-ref/01_wireless_softpll/README.md)
+explores wireless SoftPLL, and [Example 02](firmware/examples/esp32-ref/02_minimal_receiver/README.md)
+adds grandmaster UTC and passive BLE clock tracking to an ESP32-S3 project.
+The reference examples have their own source and builds, separate from
+operational W12.
+
 ## Research and review
 
 [Research library](https://ptob.dev/research/#paper-library) ·

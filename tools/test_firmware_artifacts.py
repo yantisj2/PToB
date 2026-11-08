@@ -17,6 +17,21 @@ import firmware_artifacts as storage
 
 
 class RetentionTests(unittest.TestCase):
+    def test_reference_examples_have_distinct_generic_and_device_groups(self):
+        generic = self.build(profile='FOLLOWER')
+        r = storage.read(generic / 'receipt.json')
+        r.update(artifact_class='ESP32_REF', binding='GENERIC_NO_TARGET')
+        storage.atomic_json(generic / 'receipt.json', r)
+        generic_group = storage.grouping(generic, r)
+        self.assertIn(str(generic), list(map(str, storage.discover(self.repo))))
+        self.assertIn('generic-esp32s3', generic_group)
+        r['pulse_gpio'] = 16
+        self.assertNotEqual(storage.grouping(generic, r), generic_group)
+        r['binding'] = 'EXACT_DEVICE'
+        self.assertNotEqual(storage.grouping(generic, r), generic_group)
+        r['artifact_class'] = 'PTOB_W12_RC'
+        self.assertNotEqual(storage.grouping(generic, r), generic_group)
+
     def test_automatic_catalog_limits_mutations_to_completed_group(self):
         old, previous, latest = [self.build() for _ in range(3)]
         unrelated = self.build(device='0000000000000002')

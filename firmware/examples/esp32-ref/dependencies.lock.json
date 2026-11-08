@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "implemented_examples": [
+    "00_clock_fundamentals",
+    "01_wireless_softpll",
+    "02_minimal_receiver"
+  ],
+  "host": {
+    "c_language": "C11",
+    "compiler": "System C compiler; exact version recorded by tools/check.py",
+    "python": ">=3.9; standard library only",
+    "third_party_packages": []
+  },
+  "native_sdk": {
+    "status": "USED_BY_01_AND_02_NATIVE_BUILDS",
+    "target": "esp32s3",
+    "first_board": "Meshnology W12; hardware acceptance requires separate exact-device scope",
+    "url": "https://github.com/espressif/esp-idf.git",
+    "release": "v5.5.5",
+    "commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f",
+    "license": "Apache-2.0 plus component-specific upstream terms",
+    "controller_sha256": "513488f088f7806c5a815580fd00e189265962a8824091b1e60618b7f345d0c1",
+    "mcpwm_private_sha256": "4513dc83f66bcdd96be518114f98cab813a5c4f31604997453c5df5123ae213e",
+    "toolchain": "xtensa-esp-elf esp-14.2.0_20260121",
+    "application_offset": 65536,
+    "application_max_bytes": 1048576
+  }
+}

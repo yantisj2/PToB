@@ -18,7 +18,7 @@ import sys
 import time
 
 KINDS = {'PTOB_MHAT_RC', 'PTOB_T096_RC7', 'PTOB_T096_DC1', 'PTOB_T096_PC1', 'PTOB_W12_RC',
-         'PTOB_N30_RC', 'PTOB_SS3_RC', 'CORESE_LIVE_CLIENT', 'UI_PREPARATION_ONLY'}
+         'PTOB_N30_RC', 'PTOB_SS3_RC', 'CORESE_LIVE_CLIENT', 'UI_PREPARATION_ONLY', 'ESP32_REF'}
 SUCCESS = {'BUILD_COMPLETE_PHYSICAL_UNKNOWN', 'BUILD_COMPLETE',
            'COMMISSIONING_CANDIDATE_PHYSICAL_UNKNOWN', 'DEVELOPMENT_NOT_FLASHABLE',
            'OFFLINE_NOT_FLASHABLE', 'OFFLINE_UI_BUILD_VERIFIED_NOT_INSTALLED'}
@@ -163,7 +163,9 @@ def grouping(root, r):
             matches = re.findall(r'^#define PTOB_DEVICE_ID "([0-9a-f]{16})"$', p.read_text(), re.M)
             if len(matches) == 1:
                 identity = matches[0]
-    if kind == 'UI_PREPARATION_ONLY':
+    if kind == 'ESP32_REF' and r.get('binding') == 'GENERIC_NO_TARGET':
+        identity = 'generic-esp32s3'
+    elif kind == 'UI_PREPARATION_ONLY':
         identity = 'ui-only'
     elif not isinstance(identity, str) or not re.fullmatch('[0-9a-f]{16}', identity) or int(identity, 16) == 0:
         raise ValueError('No exact device identity')
@@ -176,6 +178,9 @@ def grouping(root, r):
                'lora_rx', 'lora_passive_fast', 'lora_passive_slow', 'lora_tx_diagnostic', 'lora_bw_experiment', 'rc9', 'controller_diagnostics', 'gnss_fast_map_diagnostic')}
     options['listening_percent'] = r.get('listening_percent', 100)
     options['gnss'] = bool(device.get('gnss_profile'))
+    if kind == 'ESP32_REF':
+        options.update(board=r.get('board'), pulse_gpio=r.get('pulse_gpio'),
+                       w12_lora_present=r.get('w12_lora_present'))
     backend = r.get('clock_backend') or {}
     if isinstance(backend, dict):
         options['clock_mode'] = backend.get('mode', 'LEGACY_GPTIMER20' if kind in {'PTOB_W12_RC', 'PTOB_N30_RC'} else None)

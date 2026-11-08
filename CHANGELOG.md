@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-07 — T096 continuity fixes and ESP32-REF examples
+
+- Wake the T096 display on timing-source and LoRa train changes. Improve
+  fixed500 holdover and slot recovery, retry missed META announcements, and
+  recover transient GNSS UART, GM7 clock-sampling and USB startup failures.
+  The [T096 changelog](firmware/t096/CHANGELOG.md) separates the field
+  observation from the latest source checks.
+- Add the independent [ESP32-REF examples](firmware/examples/esp32-ref/README.md)
+  for clock fundamentals, wireless SoftPLL and an ESP32-S3 BLE time receiver.
+  Include host checks, illustrative W12 screens and a separate bench plan.
+
 ## 2026-11-06 — V14 BLE release candidate approved for public review
 
 - Publish the approved draft at the existing V14 PDF and LaTeX paths.
