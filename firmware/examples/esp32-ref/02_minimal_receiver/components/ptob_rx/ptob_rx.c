@@ -18,7 +18,7 @@
 #define PTOB_TIER 0
 #endif
 enum { QUEUE_DEPTH = 6, STACK_BYTES = 4096, MAX_PHASE_ADJUST_NS = 50000,
-       GM_SESSION_US = 360000000 };
+       GM_SESSION_US = 75000000 };
 typedef struct {
     PtobLocator gm;
     PtobCapture capture;
@@ -38,24 +38,22 @@ static struct ble_npl_event stop_event;
 static atomic_bool stopping, worker_stopped, reacquire;
 static atomic_uint drops;
 static bool started, counter_available, adjustment_pending, wall_initialized;
-static uint32_t generation = 1;
+static uint32_t generation = 1, join_refreshes, join_refresh_attempts;
 static PtobGmAnchor gm_anchor;
 static uint64_t session_until_us;
-static bool have_pair;
 static RefClock delivered;
 static PtobRxStatus status = {.state = PTOB_SEARCHING};
-static uint64_t next_wall_us, last_report_us;
+static uint64_t next_wall_us, last_pair_us;
 
 static uint64_t local_us(void) { return (uint64_t)esp_timer_get_time(); }
 static void lock(void) { xSemaphoreTake(mutex, portMAX_DELAY); }
 static void unlock(void) { xSemaphoreGive(mutex); }
 
-// The JOIN grant covers acquisition. Once an advancing pair arrives, the
-// receiver clock checks each original's signed expiry inside this session.
+// The causal JOIN sample bounds replay throughout this session. Its short
+// wire grant must be live when installed and cannot grant delivered UTC.
 static bool anchor_live(uint64_t now)
 {
-    return gm_anchor.boot && now < session_until_us &&
-        (have_pair || now < gm_anchor.bootstrap_until_us);
+    return gm_anchor.boot && now >= gm_anchor.received_us && now < session_until_us;
 }
 
 bool ptob_rx_hmac(const uint8_t key[32], const uint8_t *data, size_t len, uint8_t mac[32])
@@ -92,7 +90,7 @@ static void clear_delivery(PtobRxState state)
 static void withdraw(PtobRxState state)
 {
     clear_delivery(state);
-    last_report_us = 0;
+    last_pair_us = 0;
     ++generation;
 }
 
@@ -171,19 +169,17 @@ static void consume(PtobReceiverClock *clock, const Report *r, uint32_t *scope)
         unlock();
         return;
     }
-    if (!clock->admission.root) {
-        const PtobAdmission admission = {.root = r->gm.root, .boot = anchor.boot, .utc_ns = anchor.utc_ns,
-            .at_us = anchor.received_us, .session_until_us = session_end,
-            .bootstrap_until_us = anchor.bootstrap_until_us, .epoch = anchor.epoch,
-            .train = anchor.train, .uncertainty_us = anchor.uncertainty_us};
-        ptob_clock_begin(clock, PTOB_TIER, &admission);
-    }
+    const PtobAdmission admission = {.root = r->gm.root, .boot = anchor.boot, .utc_ns = anchor.utc_ns,
+        .at_us = anchor.received_us, .session_until_us = session_end,
+        .epoch = anchor.epoch, .train = anchor.train, .uncertainty_us = anchor.uncertainty_us};
+    if (!clock->admission.root) ptob_clock_begin(clock, PTOB_TIER, &admission);
+    else if (admission.at_us > clock->admission.at_us) ptob_clock_refresh(clock, &admission);
+    const uint64_t previous_reference = clock->last_reference_ns;
     if (!ptob_clock_packet(clock, &frame, r->capture, tick, now)) return;
 
     lock();
     if (generation == *scope && !atomic_load(&stopping)) {
-        have_pair = clock->last_reference_ns != 0;
-        last_report_us = now;
+        if (clock->last_reference_ns != previous_reference) last_pair_us = now;
         RefClockReading reading;
         if (ptob_clock_output(clock, tick, options.phase_source_id, options.phase_adjust_ns, &delivered, &reading)) {
             status = (PtobRxStatus){.state = PTOB_TIME_VALID, .source_id = r->gm.root,
@@ -268,6 +264,8 @@ PtobRxStatus ptob_rx_status(void)
     if (copy.state == PTOB_STOPPED && !atomic_load(&worker_stopped))
         copy.state = PTOB_TIME_LOST;
     copy.drops = atomic_load(&drops);
+    copy.join_refreshes = join_refreshes;
+    copy.join_refresh_attempts = join_refresh_attempts;
     unlock();
     return copy;
 }
@@ -295,7 +293,7 @@ void ptob_rx_stop(void)
 void ptob_rx_port_state(PtobRxState state)
 {
     lock();
-    const bool retire_train = state == PTOB_TIME_LOST && last_report_us;
+    const bool retire_train = state == PTOB_TIME_LOST && last_pair_us;
     if (status.state != PTOB_FAULT && (status.state != state || retire_train)) withdraw(state);
     unlock();
 }
@@ -316,8 +314,36 @@ void ptob_rx_port_set_anchor(const PtobGmAnchor *anchor)
     lock();
     gm_anchor = *anchor;
     session_until_us = anchor->received_us + GM_SESSION_US;
-    have_pair = false;
     withdraw(PTOB_SYNCING);
+    unlock();
+}
+
+bool ptob_rx_port_refresh_anchor(const PtobGmAnchor *anchor)
+{
+    lock();
+    bool same = anchor_live(local_us()) && anchor->received_us > gm_anchor.received_us &&
+        anchor->boot == gm_anchor.boot && anchor->epoch == gm_anchor.epoch && anchor->train == gm_anchor.train;
+    if (same) {
+        const uint64_t elapsed = anchor->received_us - gm_anchor.received_us;
+        const uint64_t expected = gm_anchor.utc_ns + elapsed * 1000;
+        const uint64_t difference = expected > anchor->utc_ns ?
+            expected - anchor->utc_ns : anchor->utc_ns - expected;
+        const uint64_t uncertainty = gm_anchor.uncertainty_us + anchor->uncertainty_us + (elapsed + 499) / 500;
+        same = difference <= uncertainty * 1000;
+    }
+    if (same) {
+        gm_anchor = *anchor;
+        session_until_us = anchor->received_us + GM_SESSION_US;
+        ++join_refreshes;
+    }
+    unlock();
+    return same;
+}
+
+void ptob_rx_port_note_refresh_attempt(void)
+{
+    lock();
+    ++join_refresh_attempts;
     unlock();
 }
 
@@ -325,7 +351,6 @@ void ptob_rx_port_clear_anchor(void)
 {
     lock();
     gm_anchor = (PtobGmAnchor){0};
-    have_pair = false;
     if (status.state != PTOB_FAULT) withdraw(PTOB_TIME_LOST);
     unlock();
 }
@@ -347,10 +372,10 @@ void ptob_rx_counter_available(bool available)
     unlock();
 }
 
-uint64_t ptob_rx_port_last_report_us(void)
+uint64_t ptob_rx_port_last_pair_us(void)
 {
     lock();
-    const uint64_t last = last_report_us;
+    const uint64_t last = last_pair_us;
     unlock();
     return last;
 }

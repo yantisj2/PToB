@@ -18,11 +18,12 @@
 #ifndef PTOB_TIER
 #define PTOB_TIER 0
 #endif
-enum { NO_SYNC = UINT16_MAX, ACQUIRE_US = 5000000, JOIN_RETRY_US = 2000000 };
+enum { NO_SYNC = UINT16_MAX, ACQUIRE_US = 5000000, JOIN_RETRY_US = 2000000,
+       REFRESH_US = 20000000, REFRESH_RETRY_US = 5000000 };
 static struct ble_npl_callout poll;
 static PtobLocator gm, candidate;
 static uint16_t sync_handle = NO_SYNC;
-static int64_t sync_until, acquire_until, retry_at;
+static int64_t sync_until, acquire_until, retry_at, refresh_at;
 static uint8_t own_addr;
 static bool poll_initialized;
 static bool admitted, pending, scan_owned, running, stop_requested, terminate_requested, lost, fault;
@@ -94,36 +95,51 @@ static bool start_sync(void)
 static void follow_or_discover(int64_t now)
 {
     PtobGmAnchor anchor;
-    if (ptob_bootstrap_poll(now, &anchor)) {
-        ptob_rx_port_set_anchor(&anchor);
-        admitted = true;
-        // Resume scanning so the controller can find the periodic train's
-        // SyncInfo. The GAP callback stops it once synchronization completes.
-        if (!scan() || !start_sync()) lost = true;
+    if (ptob_bootstrap_poll(now, &anchor) && !lost) {
+        refresh_at = now + REFRESH_US;
+        if (admitted) {
+            if (!ptob_rx_port_refresh_anchor(&anchor)) lost = true;
+        } else {
+            ptob_rx_port_set_anchor(&anchor);
+            admitted = true;
+            // Scan for the train's SyncInfo. Stop once sync completes.
+            if (!scan() || !start_sync()) lost = true;
+        }
     }
-    if (ptob_bootstrap_busy()) return;
 
+    uint64_t last_pair = 0;
     if (sync_handle != NO_SYNC) {
-        const uint64_t last = ptob_rx_port_last_report_us();
-        if (last && (int64_t)last + ACQUIRE_US > acquire_until)
-            acquire_until = (int64_t)last + ACQUIRE_US;
+        // Unmatched reports alone cannot keep a stalled train selected.
+        last_pair = ptob_rx_port_last_pair_us();
+        if (last_pair && (int64_t)last_pair + ACQUIRE_US > acquire_until)
+            acquire_until = (int64_t)last_pair + ACQUIRE_US;
     }
+    // A periodic train can survive while GATT fails. Reacquire before the
+    // aging causal bound repeatedly clips valid pairs at each source expiry.
     if (ptob_rx_port_reacquire() || (admitted && !ptob_rx_port_anchor_live()) ||
         (pending && now >= sync_until) || (sync_handle != NO_SYNC && now >= acquire_until))
         lost = true;
     if (lost) {
         if (admitted) ptob_rx_port_clear_anchor();
         admitted = false;
-        if (!stop_scan() || !retire_sync()) return;
+        if (!ptob_bootstrap_stop() || !stop_scan() || !retire_sync()) return;
         lost = false;
     }
-    if (admitted) return;
+    if (ptob_bootstrap_busy()) return;
+    if (admitted) {
+        if (last_pair && now >= refresh_at) {
+            refresh_at = now + REFRESH_RETRY_US;
+            ptob_rx_port_note_refresh_attempt();
+            (void)ptob_bootstrap_start(&ptob_rx_trust, &gm, now, true);
+        }
+        return;
+    }
 
     if (candidate.root) {
         gm = candidate;
         candidate = (PtobLocator){0};
         retry_at = now + JOIN_RETRY_US;
-        if (stop_scan() && ptob_bootstrap_start(&ptob_rx_trust, &gm, now)) {
+        if (stop_scan() && ptob_bootstrap_start(&ptob_rx_trust, &gm, now, false)) {
             ptob_rx_port_state(PTOB_BOOTSTRAPPING);
             return;
         }

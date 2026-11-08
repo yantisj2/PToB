@@ -14,9 +14,17 @@ static uint64_t joined_utc_upper(const PtobAdmission *admission, uint64_t now_us
 
 void ptob_clock_begin(PtobReceiverClock *rx, PtobTier tier, const PtobAdmission *admission)
 {
+    // JOIN gives us a date and replay scope. Only a fresh GR3 pair grants
+    // clock permission, using the original and follow-up's signed expiry.
     *rx = (PtobReceiverClock){.admission = *admission, .coarse_ns = admission->utc_ns,
-        .coarse_at_us = admission->at_us, .permission_us = admission->bootstrap_until_us,
-        .tier = tier};
+        .coarse_at_us = admission->at_us, .tier = tier};
+}
+
+void ptob_clock_refresh(PtobReceiverClock *rx, const PtobAdmission *admission)
+{
+    // Caller has authenticated the same root, boot, epoch and train. Update
+    // the replay bound for future packets. Leave the clock and its expiry.
+    rx->admission = *admission;
 }
 
 bool ptob_clock_expire(PtobReceiverClock *rx, uint64_t now_us)
@@ -165,8 +173,8 @@ static bool match(PtobReceiverClock *rx, const PtobFrame *frame, const PtobCorre
 bool ptob_clock_packet(PtobReceiverClock *rx, const PtobFrame *frame, PtobCapture capture,
                        uint64_t now_tick, uint64_t now_us)
 {
-    if (now_us < rx->coarse_at_us || (rx->permission_us && now_us >= rx->permission_us) ||
-        (!rx->last_reference_ns && now_us >= rx->admission.bootstrap_until_us) ||
+    if (now_us < rx->admission.at_us || now_us < rx->coarse_at_us ||
+        (rx->permission_us && now_us >= rx->permission_us) ||
         now_us >= rx->admission.session_until_us ||
         frame->boot != rx->admission.boot || frame->epoch != rx->admission.epoch ||
         frame->train != rx->admission.train ||

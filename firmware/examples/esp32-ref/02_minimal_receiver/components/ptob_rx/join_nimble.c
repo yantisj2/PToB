@@ -2,6 +2,7 @@
 #include "join_nimble.h"
 #include "esp_mac.h"
 #include "esp_random.h"
+#include "esp_timer.h"
 #include "host/ble_att.h"
 #include "host/ble_gap.h"
 #include "host/ble_gatt.h"
@@ -19,7 +20,7 @@ static const ble_uuid128_t data_id = BLE_UUID128_INIT(0x5c, 0xd4, 0x4e, 0x7d, 0x
 static const uint8_t marker[] = {'R', '2', 'G', '1', 1};
 static JoinState state;
 static uint16_t connection = NO_LINK, value_handle;
-static uint64_t client_id, client_boot, deadline_us;
+static uint64_t client_id, client_boot, connect_until_us, deadline_us, inbox_us;
 static bool connecting, closing, inbox_full, anchor_ready;
 static uint8_t inbox[PTOB_JOIN_BYTES];
 static PtobJoin exchange;
@@ -36,7 +37,9 @@ static int access_record(uint16_t handle, uint16_t attr, struct ble_gatt_access_
     if (handle != connection || (state != WAIT_CHALLENGE && state != WAIT_ACCEPT) || inbox_full ||
         OS_MBUF_PKTLEN(ctx->om) != sizeof inbox || os_mbuf_copydata(ctx->om, 0, sizeof inbox, inbox))
         return BLE_ATT_ERR_UNLIKELY;
-    // Handle the exchange on the next host service tick, outside the ATT callback.
+    // Measure arrival here. The host poll authenticates the record later,
+    // and its scheduling delay must not shift the arrival time.
+    inbox_us = (uint64_t)esp_timer_get_time();
     inbox_full = true;
     return 0;
 }
@@ -108,11 +111,12 @@ static int link_event(struct ble_gap_event *event, void *arg)
     return 0;
 }
 
-bool ptob_bootstrap_start(const PtobTrust *trust, const PtobLocator *gm, uint64_t now_us)
+bool ptob_bootstrap_start(const PtobTrust *trust, const PtobLocator *gm, uint64_t now_us, bool tracking)
 {
     uint8_t address[6];
-    if (state != IDLE || gm->root == client_id ||
-        !ptob_join_address(trust, gm->mesh, client_id, address) || ble_hs_id_set_rnd(address)) return false;
+    if (state != IDLE || gm->root == client_id) return false;
+    if (!tracking && (!ptob_join_address(trust, gm->mesh, client_id, address) || ble_hs_id_set_rnd(address)))
+        return false;
     // The Bluetooth controller has started and supplies hardware RNG entropy.
     if (!client_boot) esp_fill_random(&client_boot, sizeof client_boot);
     exchange = (PtobJoin){.client = client_id, .boot = client_boot};
@@ -120,15 +124,19 @@ bool ptob_bootstrap_start(const PtobTrust *trust, const PtobLocator *gm, uint64_
     if (!client_boot || !exchange.nonce) return false;
     group = trust;
     peer = *gm;
+    connect_until_us = now_us + (tracking ? 1500000 : 4000000);
     deadline_us = now_us + JOIN_TIMEOUT_US;
     inbox_full = anchor_ready = false;
     ble_addr_t target = {.type = BLE_ADDR_RANDOM};
     memcpy(target.val, gm->address, sizeof target.val);
-    const struct ble_gap_conn_params params = {.scan_itvl = 32, .scan_window = 32,
+    // A refresh uses the existing mesh address and leaves gaps for periodic RX.
+    const struct ble_gap_conn_params params = {.scan_itvl = 32, .scan_window = tracking ? 8 : 32,
         .itvl_min = 6, .itvl_max = 6, .supervision_timeout = 50};
     state = CONNECTING;
     connecting = true;
-    if (!ble_gap_connect(BLE_OWN_ADDR_RANDOM, &target, 4000, &params, link_event, NULL)) return true;
+    // Keep one deadline owner. The SDK's own timer also sends a cancel and
+    // can race with our teardown. Completion still belongs to link_event.
+    if (!ble_gap_connect(BLE_OWN_ADDR_RANDOM, &target, BLE_HS_FOREVER, &params, link_event, NULL)) return true;
     connecting = false;
     state = IDLE;
     return false;
@@ -167,7 +175,8 @@ bool ptob_bootstrap_poll(uint64_t now_us, PtobGmAnchor *anchor)
         *anchor = accepted;
         return now_us < anchor->bootstrap_until_us;
     }
-    if (state == CLOSING || now_us >= deadline_us) {
+    if (state == CLOSING || now_us >= deadline_us ||
+        (state == CONNECTING && now_us >= connect_until_us)) {
         close_link();
         return false;
     }
@@ -175,7 +184,7 @@ bool ptob_bootstrap_poll(uint64_t now_us, PtobGmAnchor *anchor)
         inbox_full = false;
         if (state == WAIT_CHALLENGE && ptob_join_challenge(group, &peer, &exchange, inbox))
             state = SEND_PROOF;
-        else if (state == WAIT_ACCEPT && ptob_join_accept(group, &peer, &exchange, inbox, now_us, &accepted)) {
+        else if (state == WAIT_ACCEPT && ptob_join_accept(group, &peer, &exchange, inbox, inbox_us, &accepted)) {
             anchor_ready = true;
             close_link();
         }

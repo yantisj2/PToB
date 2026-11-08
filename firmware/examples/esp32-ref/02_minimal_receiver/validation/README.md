@@ -19,12 +19,17 @@ validity. A host UTC reading can be recorded separately for a rough shadow
 comparison. Record the host clock's uncertainty and USB observation latency
 with that comparison. Use independent PPS for precision scoring.
 
-Keep the receiver running through a six-minute session boundary and verify
-that it gets fresh authority from the GM and returns to passive tracking.
-Record any renewal outage in the coverage denominator. Where the lab can
-isolate the receiver's RF path without changing the GM, verify loss and
-reacquisition with USB disconnected. Repeat the cold start and recovery for
-each profile before measuring steady-state precision.
+Run a status-only stability check through repeated JOIN refreshes. Record the
+build, sample interval, GM, `refresh_attempts`, `refreshes` and every unavailable
+reading. If a refresh stalls, record whether the receiver reacquires after
+the 75-second limit. Status samples measure availability at their sampling
+interval. Use an independent PPS capture for phase error.
+
+Where the lab can isolate the receiver's RF path without changing the GM,
+verify loss and reacquisition with USB disconnected. Exercise `stop` and
+verify that radio and counter owners drain within the two-second deadline.
+Repeat cold start and recovery for each profile before measuring steady-state
+precision.
 
 Measure against a separate, qualified PPS reference. Record reference and
 electrical uncertainty and confirm the actual W12 route before use. For Basic

@@ -5,7 +5,7 @@
 #include "ref_clock.h"
 
 typedef struct {
-    uint64_t root, boot, utc_ns, at_us, session_until_us, bootstrap_until_us;
+    uint64_t root, boot, utc_ns, at_us, session_until_us;
     uint32_t epoch, train, uncertainty_us;
 } PtobAdmission;
 
@@ -30,6 +30,7 @@ typedef struct {
 } PtobReceiverClock;
 
 void ptob_clock_begin(PtobReceiverClock *rx, PtobTier tier, const PtobAdmission *admission);
+void ptob_clock_refresh(PtobReceiverClock *rx, const PtobAdmission *admission);
 bool ptob_clock_expire(PtobReceiverClock *rx, uint64_t now_us);
 bool ptob_clock_packet(PtobReceiverClock *rx, const PtobFrame *frame, PtobCapture capture,
                        uint64_t now_tick, uint64_t now_us);

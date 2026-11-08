@@ -8,27 +8,29 @@ int main(int argc, char **argv)
     static const struct {
         const char *name;
         PtobRxState state;
-        bool info, off, released, fault;
+        bool had_utc, info, off, released, fault;
     } frames[] = {
-        {"bootstrap", PTOB_BOOTSTRAPPING, false, false, false, false},
-        {"search", PTOB_SEARCHING, false, false, false, false},
-        {"sync", PTOB_SYNCING, false, false, false, false},
-        {"acquire", PTOB_ACQUIRING, false, false, false, false},
-        {"clock", PTOB_TIME_VALID, false, false, false, false},
-        {"info", PTOB_TIME_VALID, true, false, false, false},
-        {"lost", PTOB_TIME_LOST, true, false, false, false},
-        {"off", PTOB_TIME_VALID, true, true, false, false},
-        {"drain", PTOB_TIME_LOST, false, true, true, false},
-        {"off-failed", PTOB_FAULT, false, true, true, true},
-        {"stopped", PTOB_STOPPED, false, false, false, false},
-        {"fault", PTOB_FAULT, false, false, false, false},
+        {.name = "bootstrap", .state = PTOB_BOOTSTRAPPING},
+        {.name = "waiting", .state = PTOB_SEARCHING},
+        {.name = "sync", .state = PTOB_SYNCING},
+        {.name = "acquire", .state = PTOB_ACQUIRING},
+        {.name = "cold-retry", .state = PTOB_TIME_LOST},
+        {.name = "clock", .state = PTOB_TIME_VALID, .had_utc = true},
+        {.name = "info", .state = PTOB_TIME_VALID, .had_utc = true, .info = true},
+        {.name = "lost", .state = PTOB_TIME_LOST, .had_utc = true, .info = true},
+        {.name = "hot-retry", .state = PTOB_SEARCHING, .had_utc = true},
+        {.name = "off", .state = PTOB_TIME_VALID, .off = true},
+        {.name = "drain", .state = PTOB_TIME_LOST, .off = true, .released = true},
+        {.name = "off-failed", .state = PTOB_FAULT, .off = true, .released = true, .fault = true},
+        {.name = "stopped", .state = PTOB_STOPPED},
+        {.name = "fault", .state = PTOB_FAULT},
     };
     for (unsigned i = 0; i < sizeof frames / sizeof frames[0]; ++i) {
         const ReceiverScreen model = {.receiver = {.state = frames[i].state,
             .utc_ns = INT64_C(1794056712000000000), .rate_ppb = -1370, .pairs = 638,
             .misses = 4, .drops = 0, .posix_adjusting = true},
             .alias = "REF-02", .source = "T096 GM", .tier = 0,
-            .info = frames[i].info, .power_off = frames[i].off,
+            .had_utc = frames[i].had_utc, .info = frames[i].info, .power_off = frames[i].off,
             .released = frames[i].released, .power_fault = frames[i].fault};
         uint8_t fb[1024];
         receiver_screen(&model, fb);

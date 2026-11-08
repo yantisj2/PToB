@@ -76,8 +76,10 @@ static void print_status(PtobRxStatus s)
         "TIME_VALID", "TIME_LOST", "STOPPED", "FAULT"};
     printf("REF2_STATUS id=%016" PRIx64 " build=%.12s state=%s source=%016" PRIx64 " utc_ns=%" PRId64
            " rate_ppb=%" PRId32 " pairs=%" PRIu32 " misses=%" PRIu32 " drops=%" PRIu32
-           " wall=%u power=%s\n", identity, REF_SOURCE_ID, states[s.state], s.source_id, s.utc_ns, s.rate_ppb, s.pairs,
-           s.misses, s.drops, s.posix_adjusting, ref_shutdown_stage_name(shutdown.stage));
+           " refreshes=%" PRIu32 " refresh_attempts=%" PRIu32 " wall=%u power=%s\n",
+           identity, REF_SOURCE_ID, states[s.state], s.source_id, s.utc_ns, s.rate_ppb, s.pairs,
+           s.misses, s.drops, s.join_refreshes, s.join_refresh_attempts,
+           s.posix_adjusting, ref_shutdown_stage_name(shutdown.stage));
 }
 
 static void command(const char *line)
@@ -122,7 +124,7 @@ void app_main(void)
     bool display = REF_BOARD_W12 && board_ok && ref_w12_display_begin();
     const bool started = board_ok && begin();
     RefButton button = {0};
-    bool info = false, stop_started = false, ready = false;
+    bool had_utc = false, info = false, stop_started = false, ready = false;
     uint64_t drawn = 0;
     static uint8_t fb[1024], previous[1024];
     puts("ESP32-REF 02 / BLE grandmaster time receiver");
@@ -137,6 +139,7 @@ void app_main(void)
         if (console) read_usb();
 
         PtobRxStatus state = started ? ptob_rx_status() : (PtobRxStatus){.state = PTOB_FAULT};
+        if (state.state == PTOB_TIME_VALID) had_utc = true;
         const bool released = !REF_BOARD_W12 || ref_button_released(&button, now);
         if (shutdown.requested) {
             ptob_rx_stop();
@@ -160,7 +163,7 @@ void app_main(void)
         if (display && (event != REF_BUTTON_NONE || now - drawn >= 200)) {
             const char *source = ptob_registry_name(state.source_id);
             const ReceiverScreen screen = {.receiver = state, .alias = REF_DEVICE_LABEL,
-                .source = source ? source : "T096 GM", .tier = PTOB_TIER, .info = info,
+                .source = source ? source : "T096 GM", .tier = PTOB_TIER, .had_utc = had_utc, .info = info,
                 .power_off = shutdown.power_off, .released = released, .power_fault = shutdown.fault};
             receiver_screen(&screen, fb);
             if (memcmp(previous, fb, sizeof fb)) {

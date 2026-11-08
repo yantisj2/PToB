@@ -19,21 +19,29 @@ profiles. The hardware accuracy targets are still open.
    trusted date with which to distinguish a new broadcast from a recording.
    The round trip bounds the age of the startup sample. Disconnect before
    following the periodic train.
-3. **Track passively.** The T096 sends a GR3 advertisement and later identifies
+3. **Track the broadcast.** The T096 sends a GR3 advertisement and later identifies
    the precise transmit event in a follow-up. The S3 saves the receive
    timestamp and channel from the controller. The worker checks both MACs
    and pairs the original and follow-up by publication, event and channel.
    Those pairs supply the observations that steer the clock.
 
 The receiver checks signed expiry against elapsed monotonic time from JOIN
-and checks each pair against the latest accepted event. It withdraws UTC
-when clock permission expires and starts a fresh JOIN after losing the train,
-on a source context change, or at the end of the example's six-minute
-session. Periodic renewal can briefly interrupt valid time. A replay inside a
-live freshness window remains possible. A group PSK authenticates group
-membership. Each holder can produce a valid group MAC. Applications should
-test `ptob_rx_now_ns()` on each use. The USB console exposes status for
-an optional host UTC shadow comparison. [PToB protocol contracts](../../../../protocol/README.md) ·
+and checks each pair against the latest accepted event. The short JOIN grant
+must be live when the session opens. It supplies coarse time for replay checks.
+Fresh GR3 pairs can arrive later and earn their own signed clock permission.
+The receiver tries a short background JOIN after 20 seconds to refresh its
+coarse UTC sample while broadcast tracking continues. A successful refresh
+preserves the fit, replay watermark and current signed clock deadline. Failed
+refreshes retry after five seconds. After 75 seconds without a fresh
+authenticated sample, or when the source context changes, the receiver retires
+the current scope and reacquires. It withdraws UTC as soon as signed clock
+permission expires.
+
+A replay inside a live freshness window remains possible. A group PSK
+authenticates group membership, and each holder can produce a valid group MAC.
+Applications should test `ptob_rx_now_ns()` on each use. The USB console
+provides status for an optional host UTC shadow comparison.
+[PToB protocol contracts](../../../../protocol/README.md) ·
 [T096 replay limits](../../../../docs/t096/gm7-implementation.md#wire-diagnostics-and-replay-limits) ·
 [S3 timestamp notes](../docs/esp32s3-port.md).
 
@@ -121,10 +129,11 @@ in CMake for a copied component or `--tier` for the standalone demo.
 Fine descriptor keeps 12.5 ns local counter ticks and uses the controller's
 500 ns receive timestamp grid. The longer fit tolerates sparse anchor pairs.
 When the signed clock deadline expires, the receiver withdraws UTC while it
-listens for fresh pairs. The responsive train stays open for up to five seconds
-after the last usable report. The fit can reuse recent points on that train,
-and the replay watermark survives the outage. Two fresh pairs restore
-publication. A source or counter change retires the whole fit.
+listens for fresh pairs. The receiver waits up to five seconds for its first
+pair and up to five seconds from the most recent accepted pair while tracking.
+The fit can reuse recent points on that train, and the replay watermark
+survives the outage. Two fresh pairs restore publication. A source or counter
+change retires the whole fit.
 [Fine bench gate](validation/README.md).
 
 The worker has a 4 KiB static stack, a six-report handoff and bounded sample
@@ -160,16 +169,16 @@ ownership with the lab operator. [Hardware validation](validation/README.md).
 These images come from the firmware's 128 × 64 framebuffer at 4× scale.
 The time and counters are illustrative. Panel colors are approximate.
 
-| Find the GM | Get UTC from the GM | Pair timing packets |
-| :---: | :---: | :---: |
-| <img src="images/w12-search.png" width="256" alt="Searching. Looking for a GM with passive BLE scan."> | <img src="images/w12-bootstrap.png" width="256" alt="Joining. Authenticating the grandmaster and getting UTC."> | <img src="images/w12-acquire.png" width="256" alt="Acquiring. Matching packets and waiting for follow-up."> |
+| Waiting | Clock | Info | Time lost | Power-off |
+| :---: | :---: | :---: | :---: | :---: |
+| <img src="images/w12-waiting.png" width="256" alt="Waiting for BLE time. UTC is unavailable."> | <img src="images/w12-clock.png" width="256" alt="Valid UTC, T096 GM source, and system clock owned by BLE."> | <img src="images/w12-info.png" width="256" alt="Info shows timing pairs, rate, misses and queue drops. RF error is unknown."> | <img src="images/w12-lost.png" width="256" alt="Time lost. UTC is unavailable while the receiver reacquires the GM."> | <img src="images/w12-off.png" width="256" alt="Power off. Release the button while the receiver drains."> |
 
-| Clock | Info | Source lost | Power-off |
-| :---: | :---: | :---: | :---: |
-| <img src="images/w12-clock.png" width="256" alt="Valid UTC, T096 GM source, and system clock owned by BLE."> | <img src="images/w12-info.png" width="256" alt="Info shows timing pairs, rate, misses and queue drops. RF error is unknown."> | <img src="images/w12-lost.png" width="256" alt="Time lost. UTC is unavailable. Check the GM."> | <img src="images/w12-off.png" width="256" alt="Power off. Release the button while the receiver drains."> |
-
-The receiver starts on power-up. `status` over USB reports the receiver,
-source and power state. `stop` drains the receiver and leaves USB available.
+The receiver starts on power-up. The OLED holds **WAITING** through discovery,
+JOIN and the first timing pairs. If valid UTC drops out, it shows **TIME LOST**
+until the clock recovers. `status` over USB shows the radio stage, source and
+power state. Compare `refresh_attempts` with `refreshes` to see how often the
+receiver tries a refresh and how often it succeeds. `stop` drains the receiver
+and leaves USB available.
 
 Tap the button to switch between Clock and Info while time is valid.
 The clock shows UTC from the receiver's model. **SYSTEM CLOCK BLE** means the
@@ -192,8 +201,9 @@ only its own receiver resources.
 3. [ptob_rx.c](components/ptob_rx/ptob_rx.c) owns the worker, source lifetime and
    optional wall-clock discipline.
 4. [direct_wire.c](components/ptob_rx/direct_wire.c) reads JOIN5 and GR3.
-   [join_nimble.c](components/ptob_rx/join_nimble.c) runs the startup exchange.
-   [rx_nimble.c](components/ptob_rx/rx_nimble.c) hands off to passive tracking.
+   [join_nimble.c](components/ptob_rx/join_nimble.c) owns each short connection
+   from request through disconnect. [rx_nimble.c](components/ptob_rx/rx_nimble.c)
+   starts periodic tracking and schedules background refresh and reacquisition.
    [receive_stamp.c](components/ptob_rx/receive_stamp.c) isolates the ISR hook.
 5. [screen.c](main/screen.c) is the W12 renderer. [main.c](main/main.c) wires
    the standalone demo, USB and button together.

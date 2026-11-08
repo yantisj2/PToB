@@ -71,7 +71,7 @@ static void freshness(void)
 {
     const uint64_t offset = UINT64_C(1794000000000000000);
     const PtobAdmission admission = {.root = 17, .boot = 9, .utc_ns = offset + 1000000000,
-        .at_us = 3000000, .session_until_us = 8000000, .bootstrap_until_us = 4100000,
+        .at_us = 3000000, .session_until_us = 8000000,
         .epoch = 1, .train = 3, .uncertainty_us = 50000};
     PtobFrame frame = {.created_ns = 1100000000, .expires_ns = 2500000000,
         .utc_offset_ns = offset, .boot = 9, .epoch = 1, .train = 3};
@@ -80,8 +80,7 @@ static void freshness(void)
     ptob_clock_begin(&clock, PTOB_RX_FINE, &admission);
     assert(!ptob_clock_packet(&clock, &frame, capture, capture.tick, 3000000)); // Future.
     assert(ptob_clock_packet(&clock, &frame, capture, capture.tick, 3200000));
-    assert(ptob_clock_expire(&clock, admission.bootstrap_until_us));
-    assert(!ptob_clock_packet(&clock, &frame, capture, capture.tick, admission.bootstrap_until_us));
+    assert(!ptob_clock_expire(&clock, 4100000)); // An unpaired report grants no permission.
 
     // A delayed estimate cannot extend expiry past the independent JOIN bound.
     clock.last_reference_ns = 1200000000;
@@ -92,20 +91,20 @@ static void freshness(void)
     assert(!ptob_clock_packet(&clock, &frame, capture, capture.tick, admission.session_until_us));
 }
 
-static void train(PtobTier tier)
+static void train(PtobTier tier, uint64_t acquire_delay_us)
 {
     const uint64_t utc_offset = UINT64_C(1794000000000000000);
     const uint64_t relative = UINT64_C(1000000000);
     const uint64_t at = 5000000;
     const PtobAdmission admission = {.root = 8, .boot = 9, .utc_ns = utc_offset + relative,
-        .at_us = at, .session_until_us = at + 4000000, .bootstrap_until_us = at + 1000000,
+        .at_us = at, .session_until_us = at + 4000000,
         .epoch = 1, .train = 3, .uncertainty_us = 30000};
     PtobReceiverClock clock;
     ptob_clock_begin(&clock, tier, &admission);
 
     for (unsigned i = 0; i < 32; ++i) {
         const uint64_t local = REF_MS_TICKS(5000) + i * UINT64_C(62500) * REF_TICKS_PER_US;
-        const uint64_t remote = relative + i * UINT64_C(62500000);
+        const uint64_t remote = relative + acquire_delay_us * 1000 + i * UINT64_C(62500000);
         const uint16_t event = (uint16_t)(UINT16_MAX + i);
         PtobFrame frame = {.created_ns = remote > 100000000 ? remote - 100000000 : 1,
             .expires_ns = remote + 1300000000, .utc_offset_ns = utc_offset,
@@ -119,7 +118,7 @@ static void train(PtobTier tier)
         // One channel mismatch must withhold that update even with good MACs.
         if (i == 3) frame.correction[0].channel = 18;
         const uint64_t available = local + REF_MS_TICKS(2);
-        const uint64_t now = at + i * UINT64_C(62500) + 2000;
+        const uint64_t now = at + acquire_delay_us + i * UINT64_C(62500) + 2000;
         const PtobCapture capture = {local, event, 17};
         assert(ptob_clock_packet(&clock, &frame, capture, available, now));
         assert(clock.pairs == (i < 3 ? i : i - 1));
@@ -137,6 +136,15 @@ static void train(PtobTier tier)
     assert(read.time_ns > (int64_t)utc_offset);
     assert(!ref_clock_read(&clock.clock, clock.clock.valid_until_tick, &read));
     const int64_t raw = read.time_ns;
+    const uint64_t original_permission = clock.permission_us;
+    const uint64_t original_reference = clock.last_reference_ns;
+    PtobAdmission refresh = admission;
+    refresh.at_us += 2000000;
+    refresh.utc_ns += 2000000000;
+    refresh.session_until_us += 2000000;
+    ptob_clock_refresh(&clock, &refresh);
+    assert(clock.admission.at_us == refresh.at_us);
+    assert(clock.permission_us == original_permission && clock.last_reference_ns == original_reference);
     RefClock output;
     assert(ptob_clock_output(&clock, clock.clock.anchor_tick, admission.root + 1, 2500, &output, &read));
     assert(read.time_ns == raw);
@@ -152,7 +160,7 @@ static void fine_recovery(void)
     const uint64_t offset = UINT64_C(1794000000000000000);
     const uint64_t at = 5000000;
     const PtobAdmission admission = {.root = 8, .boot = 9, .utc_ns = offset + 1000000000,
-        .at_us = at, .session_until_us = at + 10000000, .bootstrap_until_us = at + 1000000,
+        .at_us = at, .session_until_us = at + 10000000,
         .epoch = 1, .train = 3, .uncertainty_us = 30000};
     PtobReceiverClock clock;
     ptob_clock_begin(&clock, PTOB_RX_FINE, &admission);
@@ -196,9 +204,10 @@ int main(void)
     wire();
     join_wire();
     freshness();
-    train(PTOB_RX_BASIC);
-    train(PTOB_RX_REFINED);
-    train(PTOB_RX_FINE);
+    train(PTOB_RX_BASIC, 0);
+    train(PTOB_RX_REFINED, 0);
+    // First capture lands after any original JOIN grant could still be live.
+    train(PTOB_RX_FINE, 1800000);
     fine_recovery();
     puts("PASS JOIN5 freshness, GR3 authentication and matching, Fine recovery, and scoped calibration");
 }

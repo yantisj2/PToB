@@ -26,7 +26,8 @@ qualification needs an independent measurement. The offline installation review 
 device handoff.
 
 02 gets UTC from a serving T096 grandmaster using a short authenticated BLE
-exchange, then follows its periodic broadcasts passively. The worker offers
+exchange. It follows periodic broadcasts and refreshes the coarse UTC sample
+with short background exchanges. The worker offers
 optional system-clock discipline. The W12 demo has a clock, Info
 page and hold-to-power-off controls. Its Basic, Refined and Fine descriptor
 profiles have separate [bench gates](02_minimal_receiver/validation/README.md).

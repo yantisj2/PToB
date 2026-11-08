@@ -21,7 +21,7 @@ typedef struct {
     int64_t utc_ns, phase_ns;
     uint64_t source_id;
     int32_t rate_ppb;
-    uint32_t pairs, misses, drops;
+    uint32_t pairs, misses, drops, join_refreshes, join_refresh_attempts;
     bool posix_adjusting;
 } PtobRxStatus;
 

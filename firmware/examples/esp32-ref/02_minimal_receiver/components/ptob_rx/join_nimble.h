@@ -5,7 +5,7 @@
 
 // Registration runs before NimBLE starts. All other calls belong to its host.
 bool ptob_bootstrap_register(void);
-bool ptob_bootstrap_start(const PtobTrust *trust, const PtobLocator *gm, uint64_t now_us);
+bool ptob_bootstrap_start(const PtobTrust *trust, const PtobLocator *gm, uint64_t now_us, bool tracking);
 bool ptob_bootstrap_busy(void);
 bool ptob_bootstrap_poll(uint64_t now_us, PtobGmAnchor *anchor);
 bool ptob_bootstrap_stop(void);

@@ -6,7 +6,7 @@ typedef struct {
     PtobRxStatus receiver;
     const char *alias, *source;
     unsigned tier;
-    bool info, power_off, released, power_fault;
+    bool had_utc, info, power_off, released, power_fault;
 } ReceiverScreen;
 void receiver_screen(const ReceiverScreen *screen, uint8_t fb[1024]);
 #endif

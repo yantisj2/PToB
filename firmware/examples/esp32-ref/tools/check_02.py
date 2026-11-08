@@ -16,7 +16,7 @@ LESSON = ROOT / '02_minimal_receiver'
 RX = LESSON / 'components/ptob_rx'
 CLOCK = ROOT / 'components/ref_clock'
 UI = ROOT / 'components/ref_ui'
-PUBLISHED = {'bootstrap', 'search', 'acquire', 'clock', 'info', 'lost', 'off'}
+PUBLISHED = {'waiting', 'clock', 'info', 'lost', 'off'}
 
 
 def fixture(path):
@@ -117,6 +117,10 @@ def main():
                     LESSON / 'tests/preview.c', '-o', exe], check=True)
     subprocess.run([exe, out], check=True)
     frames = sorted(out.glob('*.fb'))
+    rendered = {frame.stem.split('-', 1)[1]: frame.read_bytes() for frame in frames}
+    for name in ('bootstrap', 'sync', 'acquire', 'cold-retry'):
+        assert rendered[name] == rendered['waiting'], name
+    assert rendered['hot-retry'] == rendered['lost']
     for frame in frames:
         name = frame.stem.split('-', 1)[1]
         path = out / f'w12-{name}.png'

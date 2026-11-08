@@ -1,5 +1,14 @@
 # ESP32-REF changes
 
+## Example 02 — Acquisition recovery
+
+- Keep JOIN replay scope while waiting for fresh GR3 pairs. Signed packet
+  expiry still controls delivered UTC, and unmatched reports cannot extend
+  the acquisition timeout.
+- Keep the OLED on one waiting or recovery view while radio stages retry.
+- Refresh the causal UTC bound in the background while GR3 tracking continues.
+- Bound each JOIN attempt and reacquire if refresh fails for 75 seconds.
+
 ## Example 02 — GM-sourced UTC
 
 - Get startup UTC and freshness from the grandmaster over authenticated

@@ -82,11 +82,17 @@ void receiver_screen(const ReceiverScreen *s, uint8_t fb[1024])
     } else {
         const char *title = "FAULT", *a = "TIME UNAVAILABLE", *b = "CHECK USB STATUS";
         switch (s->receiver.state) {
-        case PTOB_BOOTSTRAPPING: title = "JOINING"; a = "AUTHENTICATING GM"; b = "GETTING UTC"; break;
-        case PTOB_SEARCHING: title = "SEARCHING"; a = "LOOKING FOR GM"; b = "PASSIVE BLE SCAN"; break;
-        case PTOB_SYNCING: title = "SYNCING"; a = "FINDING BLE TRAIN"; b = "WAIT FOR PACKETS"; break;
-        case PTOB_ACQUIRING: title = "ACQUIRING"; a = "MATCHING PACKETS"; b = "WAIT FOR FOLLOW-UP"; break;
-        case PTOB_TIME_LOST: title = "TIME LOST"; b = "CHECK THE GM"; break;
+        case PTOB_BOOTSTRAPPING:
+        case PTOB_SEARCHING:
+        case PTOB_SYNCING:
+        case PTOB_ACQUIRING:
+        case PTOB_TIME_LOST:
+            // Radio stages can change several times per second. Keep a
+            // single unavailable view until the receiver has usable UTC.
+            title = s->had_utc ? "TIME LOST" : "WAITING";
+            a = "UTC UNAVAILABLE";
+            b = s->had_utc ? "REACQUIRING GM" : "WAIT FOR BLE TIME";
+            break;
         case PTOB_STOPPED: title = "RADIO OFF"; a = "RECEIVER STOPPED"; break;
         default: break;
         }
