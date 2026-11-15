@@ -1,0 +1,2 @@
+# G1 owns bounded connection incarnations/retries; no hidden SDK reattempts.
+# CONFIG_BT_NIMBLE_ENABLE_CONN_REATTEMPT is not set

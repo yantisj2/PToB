@@ -1,0 +1,422 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-15T00:52:05.836039+00:00",
+  "title": "Design System: T-Watch Ultra",
+  "extensions": {
+    "colorMeta": {
+      "black": {
+        "role": "neutral",
+        "displayName": "AMOLED surround",
+        "tonalRamp": [
+          "oklch(15.000% 0.0093 211.36)",
+          "oklch(26.430% 0.0093 211.36)",
+          "oklch(37.860% 0.0093 211.36)",
+          "oklch(49.290% 0.0093 211.36)",
+          "oklch(60.710% 0.0093 211.36)",
+          "oklch(72.140% 0.0093 211.36)",
+          "oklch(83.570% 0.0093 211.36)",
+          "oklch(95.000% 0.0093 211.36)"
+        ]
+      },
+      "face": {
+        "role": "neutral",
+        "displayName": "Deep green field",
+        "tonalRamp": [
+          "oklch(15.000% 0.0133 204.69)",
+          "oklch(26.430% 0.0133 204.69)",
+          "oklch(37.860% 0.0133 204.69)",
+          "oklch(49.290% 0.0133 204.69)",
+          "oklch(60.710% 0.0133 204.69)",
+          "oklch(72.140% 0.0133 204.69)",
+          "oklch(83.570% 0.0133 204.69)",
+          "oklch(95.000% 0.0133 204.69)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Pale phosphor",
+        "tonalRamp": [
+          "oklch(15.000% 0.0333 135.53)",
+          "oklch(26.430% 0.0333 135.53)",
+          "oklch(37.860% 0.0333 135.53)",
+          "oklch(49.290% 0.0333 135.53)",
+          "oklch(60.710% 0.0333 135.53)",
+          "oklch(72.140% 0.0333 135.53)",
+          "oklch(83.570% 0.0333 135.53)",
+          "oklch(95.000% 0.0333 135.53)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted sage",
+        "tonalRamp": [
+          "oklch(15.000% 0.0349 159.10)",
+          "oklch(26.430% 0.0349 159.10)",
+          "oklch(37.860% 0.0349 159.10)",
+          "oklch(49.290% 0.0349 159.10)",
+          "oklch(60.710% 0.0349 159.10)",
+          "oklch(72.140% 0.0349 159.10)",
+          "oklch(83.570% 0.0349 159.10)",
+          "oklch(95.000% 0.0349 159.10)"
+        ]
+      },
+      "amber": {
+        "role": "primary",
+        "displayName": "Instrument amber",
+        "tonalRamp": [
+          "oklch(15.000% 0.1295 77.94)",
+          "oklch(26.430% 0.1295 77.94)",
+          "oklch(37.860% 0.1295 77.94)",
+          "oklch(49.290% 0.1295 77.94)",
+          "oklch(60.710% 0.1295 77.94)",
+          "oklch(72.140% 0.1295 77.94)",
+          "oklch(83.570% 0.1295 77.94)",
+          "oklch(95.000% 0.1295 77.94)"
+        ]
+      },
+      "green": {
+        "role": "secondary",
+        "displayName": "Status green",
+        "tonalRamp": [
+          "oklch(15.000% 0.1057 158.16)",
+          "oklch(26.430% 0.1057 158.16)",
+          "oklch(37.860% 0.1057 158.16)",
+          "oklch(49.290% 0.1057 158.16)",
+          "oklch(60.710% 0.1057 158.16)",
+          "oklch(72.140% 0.1057 158.16)",
+          "oklch(83.570% 0.1057 158.16)",
+          "oklch(95.000% 0.1057 158.16)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Green separator",
+        "tonalRamp": [
+          "oklch(15.000% 0.0263 173.39)",
+          "oklch(26.430% 0.0263 173.39)",
+          "oklch(37.860% 0.0263 173.39)",
+          "oklch(49.290% 0.0263 173.39)",
+          "oklch(60.710% 0.0263 173.39)",
+          "oklch(72.140% 0.0263 173.39)",
+          "oklch(83.570% 0.0263 173.39)",
+          "oklch(95.000% 0.0263 173.39)"
+        ]
+      },
+      "dim": {
+        "role": "neutral",
+        "displayName": "Inactive segment",
+        "tonalRamp": [
+          "oklch(15.000% 0.0207 174.92)",
+          "oklch(26.430% 0.0207 174.92)",
+          "oklch(37.860% 0.0207 174.92)",
+          "oklch(49.290% 0.0207 174.92)",
+          "oklch(60.710% 0.0207 174.92)",
+          "oklch(72.140% 0.0207 174.92)",
+          "oklch(83.570% 0.0207 174.92)",
+          "oklch(95.000% 0.0207 174.92)"
+        ]
+      },
+      "instrument-case": {
+        "role": "neutral",
+        "displayName": "Olive case"
+      },
+      "instrument-bevel": {
+        "role": "neutral",
+        "displayName": "Case bevel"
+      },
+      "instrument-dial": {
+        "role": "neutral",
+        "displayName": "Olive dial"
+      },
+      "instrument-lume": {
+        "role": "neutral",
+        "displayName": "Pale lume"
+      },
+      "instrument-etch": {
+        "role": "neutral",
+        "displayName": "Engraved sage"
+      },
+      "instrument-recess": {
+        "role": "neutral",
+        "displayName": "Dial recess"
+      },
+      "instrument-red": {
+        "role": "primary",
+        "displayName": "Needle red"
+      },
+      "metal-shadow": {
+        "role": "neutral",
+        "displayName": "Metal shadow"
+      },
+      "metal-highlight": {
+        "role": "neutral",
+        "displayName": "Metal highlight"
+      },
+      "well-shadow": {
+        "role": "neutral",
+        "displayName": "Well offset shadow"
+      },
+      "well-top": {
+        "role": "neutral",
+        "displayName": "Well upper shade"
+      },
+      "well-bottom": {
+        "role": "neutral",
+        "displayName": "Well lower shade"
+      },
+      "well-groove": {
+        "role": "neutral",
+        "displayName": "Concentric groove"
+      },
+      "dial-highlight": {
+        "role": "neutral",
+        "displayName": "Olive dial highlight"
+      },
+      "hand-shadow": {
+        "role": "neutral",
+        "displayName": "Pilot hand shadow"
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Screen titles and navigation rows."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Date and diagnostic values."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Supporting copy and captions."
+      },
+      "dial-label": {
+        "displayName": "Dial caption",
+        "purpose": "14px printed Instrument units, scale bounds and unavailable/lower-bound labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "instrument-well",
+        "value": "native offset (1px, 2px), well-shadow",
+        "purpose": "Drawn recessed well shadow; not applied to Digital or utility rows."
+      },
+      {
+        "name": "instrument-hand",
+        "value": "native offset (2px, 3px), hand-shadow",
+        "purpose": "Drawn pilot-hand silhouette below the outlined luminous hand."
+      }
+    ],
+    "motion": [
+      {
+        "name": "seconds-step",
+        "value": "1s discrete",
+        "purpose": "Discrete seconds updates for the Digital track and Instrument hands; no continuous decorative animation."
+      }
+    ],
+    "breakpoints": [],
+    "nativeGeometry": {
+      "viewport": [
+        410,
+        502
+      ],
+      "cornerReview": {
+        "radiusPx": 100,
+        "scope": "Conservative synthetic aperture only; not measured panel mask"
+      },
+      "digitalBezel": [
+        18,
+        20,
+        374,
+        462,
+        42
+      ],
+      "instrumentCase": [
+        22,
+        27,
+        366,
+        451,
+        48
+      ],
+      "modeTouchYMin": 430,
+      "calendarBridge": {
+        "sourceAperture": [
+          136,
+          142,
+          41,
+          25
+        ],
+        "rxAperture": [
+          234,
+          142,
+          41,
+          25
+        ],
+        "phaseCenter": [
+          205,
+          154
+        ],
+        "phaseWellRadius": 24,
+        "phaseFillRadius": 17,
+        "emptyColumnsEachSide": 4,
+        "sourceTextCenterX": 156,
+        "rxTextCenterX": 247,
+        "contentsAtlasTopY": 145,
+        "visibleLetterY": [
+          150,
+          158
+        ],
+        "rxJewelCenter": [
+          265,
+          154
+        ],
+        "pllCaptionAtlas": [
+          205,
+          113
+        ],
+        "captionCentersX": [
+          156,
+          254
+        ],
+        "captionAtlasTopY": 174,
+        "captionVisibleY": [
+          179,
+          187
+        ],
+        "qualification": "Native previews are synthetic; installation does not establish timing or endurance qualification."
+      }
+    },
+    "presentationPolicy": {
+      "faces": [
+        "Digital",
+        "Instrument"
+      ],
+      "defaultSleepSeconds": 90,
+      "sleepChoicesSeconds": [
+        90,
+        120,
+        180
+      ],
+      "localHold": "Display only, less than 24h from valid anchor; withdraw source, lock, RMS and sampled hold. Never feeds timing/admission.",
+      "wake": "First touch/button wakes only",
+      "gesture": "Resolve on release: face switch for horizontal displacement >=64px and >2x vertical displacement, within 1.5s; tap displacement <20px on each axis. Wake consumes the entire gesture. Both directions switch and persist.",
+      "receiver": "Calendar bridge: independent source drum and RX apertures flank a concentric PLL phase well. Source shows BLE for BLE/RC1/RC2, LOR, distinct RC9, HOLD during valid hold, or --- without time. Full/half/dark phase means lock/hold/acquisition or unavailable. RX jewel reports powered receiver independently of source selection and packet freshness. No source selector ring or triangle.",
+      "rms": "Linear 0ns\u201310us, 2.5us divisions; OVER above 10000ns, unavailable red parking outside sweep."
+    },
+    "material": {
+      "scope": "Instrument only",
+      "rings": "Directional metal-shadow to metal-highlight interpolation; upper-left raised highlights, reversed for recesses.",
+      "wells": "Vertical well-top to well-bottom blend, well-groove circles every 4px.",
+      "dial": "Radial/directional blend from dial-highlight to instrument-dial; RGB565 interpolation.",
+      "digital": "Retains flat tonal fields and chamfer frames."
+    },
+    "rendering": {
+      "scope": "Native single-owner renderer",
+      "instrumentStaticLayer": {
+        "storage": "PSRAM",
+        "bytes": 411640,
+        "initialization": "Build once at first presentation, including when Digital is selected.",
+        "redraw": "Copy the static Instrument layer, then draw source text, phase, RX contents, precision pointers and moving hands. Engravings, aperture frames and well geometry remain cached.",
+        "visualContract": "Preserve the reviewed pixels; cached and uncached fixture images match pixel-for-pixel. No hardware timing, power or precision qualification follows from this comparison.",
+        "allocationFallback": "If allocation fails, draw the same static base directly for each Instrument frame."
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Face field",
+      "kind": "custom",
+      "refersTo": "face-field",
+      "description": "Illustrative static SVG swatch; native C++ rendering and touch behavior are authoritative. No web states exist.",
+      "html": "<svg class=\"ds-swatch\" xmlns=\"http://www.w3.org/2000/svg\" width=\"346\" height=\"80\" viewBox=\"0 0 346 80\" role=\"img\" aria-label=\"Digital instrument\"><rect width=\"346\" height=\"80\" fill=\"#111A1B\"/><text x=\"14\" y=\"35\" fill=\"#DEEDD7\" font-family=\"sans-serif\" font-size=\"20\">Digital instrument</text></svg>",
+      "css": ".ds-swatch { display: block; }"
+    },
+    {
+      "name": "Navigation row",
+      "kind": "nav",
+      "refersTo": "navigation-row",
+      "description": "Illustrative static SVG swatch; native C++ rendering and touch behavior are authoritative. No web states exist.",
+      "html": "<svg class=\"ds-swatch\" xmlns=\"http://www.w3.org/2000/svg\" width=\"326\" height=\"80\" viewBox=\"0 0 326 80\" role=\"img\" aria-label=\"Watch faces  \u203a\"><rect width=\"326\" height=\"80\" fill=\"#040809\"/><text x=\"14\" y=\"35\" fill=\"#DEEDD7\" font-family=\"sans-serif\" font-size=\"20\">Watch faces  \u203a</text></svg>",
+      "css": ".ds-swatch { display: block; }"
+    },
+    {
+      "name": "Printed MODE label",
+      "kind": "custom",
+      "refersTo": "action-label",
+      "description": "Illustrative static SVG swatch; native C++ rendering and touch behavior are authoritative. No web states exist.",
+      "html": "<svg class=\"ds-swatch\" xmlns=\"http://www.w3.org/2000/svg\" width=\"250\" height=\"55\" viewBox=\"0 0 250 55\" role=\"img\" aria-label=\"MODE\"><rect width=\"250\" height=\"55\" fill=\"#040809\"/><text x=\"14\" y=\"35\" fill=\"#F1B859\" font-family=\"sans-serif\" font-size=\"20\">MODE</text></svg>",
+      "css": ".ds-swatch { display: block; }"
+    },
+    {
+      "name": "Locked status",
+      "kind": "custom",
+      "refersTo": "locked-status",
+      "description": "Illustrative static SVG swatch; native C++ rendering and touch behavior are authoritative. No web states exist.",
+      "html": "<svg class=\"ds-swatch\" xmlns=\"http://www.w3.org/2000/svg\" width=\"250\" height=\"55\" viewBox=\"0 0 250 55\" role=\"img\" aria-label=\"LOCK\"><rect width=\"250\" height=\"55\" fill=\"#111A1B\"/><text x=\"14\" y=\"35\" fill=\"#86D9AA\" font-family=\"sans-serif\" font-size=\"20\">LOCK</text></svg>",
+      "css": ".ds-swatch { display: block; }"
+    },
+    {
+      "name": "Face selection",
+      "kind": "custom",
+      "refersTo": "navigation-row",
+      "description": "Illustrative static SVG swatch; native C++ rendering and touch behavior are authoritative. No web states exist.",
+      "html": "<svg class=\"ds-swatch\" xmlns=\"http://www.w3.org/2000/svg\" width=\"326\" height=\"80\" viewBox=\"0 0 326 80\" role=\"img\" aria-label=\"INSTRUMENT / SELECTED\"><rect width=\"326\" height=\"80\" fill=\"#040809\"/><text x=\"14\" y=\"35\" fill=\"#DEEDD7\" font-family=\"sans-serif\" font-size=\"20\">INSTRUMENT / SELECTED</text></svg>",
+      "css": ".ds-swatch { display: block; }"
+    },
+    {
+      "name": "Instrument dial",
+      "kind": "custom",
+      "refersTo": "instrument-dial",
+      "description": "Illustrative static material schematic, not an actual renderer capture or hardware evidence. Native directional rims, grooved wells, outlined luminous hands, source states and 14px scale lettering are authoritative.",
+      "html": "<svg class=\"ds-instrument\" xmlns=\"http://www.w3.org/2000/svg\" width=\"180\" height=\"180\" viewBox=\"0 0 180 180\" role=\"img\" aria-label=\"Instrument material schematic\"><defs><linearGradient id=\"ds-metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#798A6B\"/><stop offset=\"1\" stop-color=\"#0A110C\"/></linearGradient><radialGradient id=\"ds-dial\"><stop stop-color=\"#31412B\"/><stop offset=\"1\" stop-color=\"#1B271D\"/></radialGradient></defs><circle cx=\"90\" cy=\"90\" r=\"85\" fill=\"url(#ds-metal)\"/><circle cx=\"90\" cy=\"90\" r=\"78\" fill=\"url(#ds-dial)\"/><circle cx=\"65\" cy=\"95\" r=\"22\" fill=\"#0D1710\" stroke=\"#495844\"/><circle cx=\"65\" cy=\"95\" r=\"16\" fill=\"none\" stroke=\"#1E2B1D\"/><path d=\"M91 102L63 48L59 30L75 40L97 97Z\" fill=\"#060D08\"/><path d=\"M89 99L61 45L57 27L73 37L95 94Z\" fill=\"#94A384\"/><path d=\"M84 84L63 44L61 35L70 41L88 82Z\" fill=\"#CBD3AE\"/><path d=\"M90 95L90 20\" stroke=\"#C34C37\"/><circle cx=\"90\" cy=\"90\" r=\"4\" fill=\"#CBD3AE\"/></svg>",
+      "css": ".ds-instrument { display: block; }"
+    },
+    {
+      "name": "Calendar bridge",
+      "kind": "custom",
+      "description": "Illustrative geometry schematic, not a native screenshot. Native 14px glyph atlas, exact pixel centers and current state semantics remain authoritative. Preview only; no hardware acceptance.",
+      "html": "<svg class=\"ds-bridge\" xmlns=\"http://www.w3.org/2000/svg\" width=\"160\" height=\"90\" viewBox=\"125 105 160 90\" role=\"img\" aria-label=\"Calendar bridge source, PLL phase and independent LoRa RX\"><rect x=\"125\" y=\"105\" width=\"160\" height=\"90\" fill=\"#1B271D\"/><g fill=\"#0C1711\" stroke=\"#495844\"><rect x=\"136\" y=\"142\" width=\"41\" height=\"25\"/><rect x=\"234\" y=\"142\" width=\"41\" height=\"25\"/><circle cx=\"205\" cy=\"154\" r=\"24\"/></g><circle cx=\"205\" cy=\"154\" r=\"17\" fill=\"#CBD3AE\"/><circle cx=\"265\" cy=\"154\" r=\"2\" fill=\"#CBD3AE\"/><g fill=\"#94A384\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\"><text x=\"205\" y=\"124\">PLL</text><text x=\"156\" y=\"158\">BLE</text><text x=\"247\" y=\"158\">RX</text><text x=\"156\" y=\"185\">RADIO</text><text x=\"254\" y=\"185\">LORA</text></g></svg>",
+      "css": ".ds-bridge { display: block; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Wrist Instrument",
+    "overview": "Digital retains the Casio-inspired dark segmented display, pale phosphor time and amber controls within a chamfered bezel and inset LCD frame. Instrument translates the approved olive perpetual-calendar reference into original PToB mechanical indicators inside a squarish instrument case, with pale lume and restrained red needles. Directional bevels, grooved recessed wells and broad outlined pilot hands give Instrument physical depth. Neither face copies a brand mark.\n\nThis visual authority applies only to firmware/twatch. The native C++ framebuffer is authoritative; sidecar swatches illustrate components. Host captures and offline finish reviews establish source/render quality only. The operator has confirmed physical rendering of the earlier Digital face; Instrument appearance on hardware, optical timing, precision and power remain unqualified.",
+    "keyCharacteristics": [
+      "Time-first segmented Digital or mechanical Instrument display.",
+      "Chamfered case geometry and inset readable content.",
+      "Face-specific palette with shared utility screens and controls.",
+      "Explicit unavailable evidence and display-only local hold."
+    ],
+    "rules": [
+      {
+        "name": "Display-only hold",
+        "body": "Display only, less than 24h from valid anchor; withdraw source, lock, RMS and sampled hold. Never feeds timing/admission.",
+        "section": "Components"
+      },
+      {
+        "name": "Printed bounds",
+        "body": "Keep linear 0ns\u201310us RMS and OVER above range, <=1/>=60 hold endpoints, lower-bound-only hold evidence parked as unavailable, red unavailable parking and NO TIME aperture distinct.",
+        "section": "Components"
+      },
+      {
+        "name": "Receiver identity",
+        "body": "Calendar bridge: independent source drum and RX apertures flank a concentric PLL phase well. Source shows BLE for BLE/RC1/RC2, LOR, distinct RC9, HOLD during valid hold, or --- without time. Full/half/dark phase means lock/hold/acquisition or unavailable. RX jewel reports powered receiver independently of source selection and packet freshness. No source selector ring or triangle.",
+        "section": "Components"
+      }
+    ],
+    "dos": [
+      "Do keep this visual authority scoped to firmware/twatch.",
+      "Do use the bundled Rajdhani atlas and original segment geometry.",
+      "Do preserve units, unavailable states and explicit status labels.",
+      "Do review both faces and all utility screens at native resolution, with the rounded aperture and unavailable, local-hold, overflow, RC9 and lower-bound states, plus release-resolved swipe and wake gestures."
+    ],
+    "donts": [
+      "Don't use synthetic preview values as hardware evidence.",
+      "Don't convey lock, selection, saturation or failure through color alone.",
+      "Don't treat display-only local hold as current timing authority or retain precision during it.",
+      "Don't add web hover or responsive behavior to the native touchscreen contract.",
+      "Don't introduce image assets for elements already drawn by the renderer."
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "scope": "SYNTHETIC_NATIVE_RENDERER_PREVIEWS_NOT_HARDWARE",
+  "renderer": "firmware/twatch/main/watch.cpp",
+  "renderer_sha256": "179b6d8316c2e0559b76932461b2932df00fdb3d0d664cb0f6a8c7c2c9c7553e",
+  "fixture": "firmware/twatch/tools/preview.cpp",
+  "fixture_sha256": "8bf2e18d5a4fc13114e7f0389800653c0ec6b185d7c8e1acb3e72f2048aff2d4",
+  "images": {
+    "launcher.png": "d40f968967b195eae04b42b2735342125034ecadf55bc61943803098d04e29ce",
+    "settings.png": "70667258b5789389009264ab7c9617a0eb78d2579cba821630c3280772e9a6de",
+    "digital.png": "31cddff0c26ef4c226c98bbd212be80db910c9097b1a13dc2f4b6de94729bcaf",
+    "instrument.png": "505a06f04667adf995e1831c6069660765e08d8590924dc796ea1915ddf94bef"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "license": "MIT",
+  "author": "Jonathan Yantis",
+  "selected_adapters": [
+    {
+      "source": "firmware/n30/main/native_main.cpp",
+      "sha256": "38b7cd65bfafab5e63b37e955b86905ad33d416aad14c0945e1b9f0488fccfd3",
+      "destination": "main/native_main.cpp"
+    },
+    {
+      "source": "firmware/n30/main/native_lora.cpp",
+      "sha256": "8baf47616d93aa173af7590592f672474090f1a58ab76a672a5bc170c7d4d7c8",
+      "destination": "main/native_lora.cpp"
+    },
+    {
+      "source": "firmware/n30/main/bounded_log.cpp",
+      "sha256": "6d3dc5b467a88eb31825ebed18549b61a6647a31a2a74c4603fdd55463f8c7f7",
+      "destination": "main/bounded_log.cpp"
+    }
+  ],
+  "console_source": "firmware/corese/main/corese_console.hpp",
+  "backend": "Compile shared W12/N30 sources directly; no calibration import",
+  "vendor_board_reference": {
+    "repository": "https://github.com/Xinyuan-LilyGO/LilyGoLib",
+    "commit": "fe74cf72326c5673e43d69be4883a6ba5f589aa9"
+  },
+  "register_reference": {
+    "repository": "https://github.com/lewisxhe/SensorLib",
+    "commit": "93d109d330a3b212b0a61236bbfcb1959df66f06"
+  },
+  "font": {
+    "name": "Rajdhani SemiBold",
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/rajdhani/Rajdhani-SemiBold.ttf",
+    "sha256": "94bbd25a18ca665999feb05a537de9fd2b860dcfb78bbe9ca00270825bf235da",
+    "license": "OFL-1.1",
+    "generator": "tools/font.py",
+    "pillow": "11.3.0"
+  },
+  "schematic": {
+    "path": "schematic/T-Watch Ultra V1.0 SCH 25-07-24.pdf",
+    "sha256": "cae987e0d19f87890df668b3313df491907cb9f6e4f5905dc285942c6219ae51",
+    "touch_reset": "XL9555 P10 = bit8; board header and schematic page3 agree; descriptive hardware table disagrees"
+  }
+}

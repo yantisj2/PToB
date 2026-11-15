@@ -1,0 +1,165 @@
+set(w12 "${CMAKE_CURRENT_LIST_DIR}/../../w12")
+set(control_source "${w12}/main/control_codec.c")
+if(V12_R2_PROFILE)
+  set(r2_directory "${w12}/main/r2/${V12_R2_PROFILE}")
+  set(control_source "${r2_directory}/control_codec.c")
+  set(r2_sources "${w12}/main/native_r2.cpp" "${w12}/main/r2/precision_codec.c" "${r2_directory}/network.c" "${r2_directory}/direct_control_state.c" "${r2_directory}/clock.c" "${r2_directory}/nmea.c")
+  if(V12_R2_PROFILE MATCHES "^r2-a5(-16)?$")
+    set(r2_sources "${w12}/main/native_r2.cpp" "${r2_directory}/precision_codec.c" "${r2_directory}/authority_codec.c" "${r2_directory}/election_policy.c" "${r2_directory}/network.c" "${r2_directory}/direct_control_state.c" "${r2_directory}/clock.c" "${r2_directory}/nmea.c")
+  endif()
+  if(V12_R2_PROFILE STREQUAL "r2-g1")
+    set(control_source "${w12}/main/control_codec.c")
+    set(r2_sources "${w12}/main/native_g1.cpp" "${w12}/main/g1_hci_trace.cpp" "${r2_directory}/group_auth.c" "${r2_directory}/group_join.c" "${r2_directory}/group_precision.c" "${r2_directory}/precision_codec.c" "${r2_directory}/relay_codec.c")
+    set(g1_crypto "$ENV{IDF_PATH}/components/bt/host/nimble/nimble/ext/tinycrypt")
+    list(APPEND r2_sources "${w12}/main/g1_hmac.c" "${g1_crypto}/src/sha256.c" "${g1_crypto}/src/utils.c")
+    list(APPEND r2_sources "${w12}/main/r2/rc7/protocol/rc_dynamic.c" "${w12}/main/r2/rc7/src/rc_boundary.c" "${w12}/main/r2/rc7/src/rc_slots.c" "${w12}/main/rc9/rc9.cpp")
+    if(PTOB_GM_SUCCESSOR)
+      list(APPEND r2_sources "${w12}/main/gm7/gm7_codec.c")
+      set_source_files_properties("${w12}/main/gm7/gm7_codec.c" PROPERTIES COMPILE_OPTIONS "-Os")
+    endif()
+  endif()
+  configure_file("${V12_R2_ENROLLMENT_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/r2_bench_enrollment.h" COPYONLY)
+  set(r2_includes "${r2_directory}" "${CMAKE_CURRENT_BINARY_DIR}")
+  if(V12_R2_PROFILE STREQUAL "r2-g1")
+    list(APPEND r2_includes "${g1_crypto}/include" "${w12}/main/r2/rc7/include")
+    if(PTOB_GM_SUCCESSOR)
+      list(APPEND r2_includes "${w12}/main/gm7")
+    endif()
+  endif()
+endif()
+idf_component_register(SRCS "native_main.cpp" "board.cpp" "${w12}/main/fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_core.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_counter.c"
+  "${w12}/../t096/protocol/lora_passive.c" "${w12}/../t096/src/lora_passive_core.c"
+  "${w12}/main/native_direct.cpp" "${w12}/main/native_credentials.cpp" "${w12}/main/native_diagnostic_tx.cpp" "${w12}/main/periodic_rx.cpp" "${w12}/main/periodic_tx.cpp" "${w12}/main/s3_clock_reference.c" "${w12}/main/direct_auth.cpp" "${control_source}" ${r2_sources}
+  "${w12}/main/shared/public_codec.c" "${w12}/main/shared/p256_canonical.c" "${w12}/main/public_observer.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/gnss_absent.cpp" "power.cpp" "display.cpp" "watch.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/ui_model.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/timing_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/relative_rate.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/fine_capture.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/window_diagnostics.cpp"
+  INCLUDE_DIRS "." "${CMAKE_CURRENT_LIST_DIR}/../../n30/main" "${w12}/main" "${w12}/legacy" "${w12}/legacy/reference" ${r2_includes} "${w12}/../t096/include" "${w12}/../t096/protocol"
+  LDFRAGMENTS "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_map.lf"
+  REQUIRES bt mbedtls esp_driver_spi esp_driver_gptimer esp_driver_i2c esp_driver_gpio
+    esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_pm esp_timer esp_hw_support nvs_flash)
+if(V12_R2_RX_SHADOW)
+  file(SHA256 "$ENV{IDF_PATH}/components/esp_driver_gptimer/src/gptimer_priv.h" timer_abi_sha)
+  if(NOT timer_abi_sha STREQUAL "1b75930c75158fd6f32640d0ff094919a786d4057c0b9e9258e71ce6495542d4")
+    message(FATAL_ERROR "Pinned W12 GPTimer latch layout changed")
+  endif()
+  target_include_directories(${COMPONENT_LIB} PRIVATE "$ENV{IDF_PATH}/components/esp_driver_gptimer/src")
+endif()
+if(PTOB_W12_GNSS_INDICATORS)
+  set(ptob_board 12)
+  set(ptob_gnss 1)
+else()
+  set(ptob_board 0)
+  set(ptob_gnss 0)
+endif()
+target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_UNIT="TWATCH"
+  V12_SOURCE_REVISION="${V12_SOURCE_REVISION}" W12_UNIT_NAME="PToB Watch"
+  W12_COPY_BOARD_PROFILE=${ptob_board} W12_GNSS_VERIFIED_INPUTS=${ptob_gnss} PTOB_N30_LORA_RX_ONLY=1
+  W12_GNSS_RX_PIN=39 W12_GNSS_PPS_PIN=41 W12_GNSS_BAUD=9600
+  W12_GNSS_W12_POWER=${ptob_gnss} W12_GNSS_R8_POWER=0)
+if(PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC)
+  if(NOT PTOB_W12_GNSS_INDICATORS OR NOT V12_R2_RX_SHADOW OR NOT V12_R2_PROFILE STREQUAL "r2-g1")
+    message(FATAL_ERROR "Fast map diagnostic requires the verified GNSS G1 profile and pinned driver ABI")
+  endif()
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC=1)
+else()
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_W12_GNSS_FAST_MAP_DIAGNOSTIC=0)
+endif()
+configure_file("${PTOB_DEVICE_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/ptob_device.h" COPYONLY)
+configure_file("${PTOB_REGISTRY_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/ptob_registry.h" COPYONLY)
+if(V12_R2_PROFILE)
+  if(V12_R2_PROFILE STREQUAL "r2-g1")
+    set(r2_config 13)
+  elseif(V12_R2_PROFILE STREQUAL "r2-p1")
+    set(r2_config 2)
+  elseif(V12_R2_PROFILE MATCHES "^r2-a5(-16)?$")
+    set(r2_config 5)
+  else()
+    set(r2_config 1)
+  endif()
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_R2_ENABLED=1 V12_R2_CONFIG=${r2_config} V12_R2_PROFILE="${V12_R2_PROFILE}" V12_R2_ENROLLMENT_SHA="${r2_enrollment_sha}")
+  if(V12_R2_PROFILE STREQUAL "r2-g1")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_R2_G1_LISTENING_PERCENT=${V12_R2_G1_LISTENING_PERCENT})
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_R2_OUTPUT_CORRECTION_NS=${V12_R2_OUTPUT_CORRECTION_NS}
+      V12_R2_OUTPUT_ROOT=0x${V12_R2_OUTPUT_ROOT}ULL V12_R2_OUTPUT_BOOT=0x${V12_R2_OUTPUT_BOOT}ULL V12_R2_OUTPUT_SOURCE_EPOCH=${V12_R2_OUTPUT_SOURCE_EPOCH})
+    if(V12_R2_RC7_EXCLUDE_DIRECT_GM)
+      target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_R2_RC7_EXCLUDE_DIRECT_GM=1)
+    endif()
+  endif()
+  if(V12_R2_PROFILE MATCHES "^(r2-a5-16|r2-g1)$")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_R2_16HZ=1)
+  endif()
+  if(V12_R2_FIELD_CLIENT)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_R2_FIELD_CLIENT=1)
+  endif()
+  if(V12_R2_RX_SHADOW)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_R2_RX_SHADOW=1)
+  endif()
+  if(V12_R2_RC7_TX_ESTIMATE_LAB)
+    if(NOT CONFIG_BT_CTRL_BLE_MAX_ACT_EFF EQUAL 10)
+      message(FATAL_ERROR "Estimated RC7 server requires reviewed10-activity controller budget")
+    endif()
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_R2_RC7_TX_ESTIMATE_LAB=1)
+  endif()
+  if(V12_R2_TX_SHADOW)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_R2_TX_SHADOW=1)
+  endif()
+endif()
+
+target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=printf" "-Wl,--wrap=puts")
+target_compile_options(${COMPONENT_LIB} PRIVATE -fstack-usage)
+# Keep N30 presentation/observer and radio-wrapper code within the original
+# fixed1MiB slot. Shared timing cores and BLE capture/SDK options are unchanged.
+set_source_files_properties("watch.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("native_lora.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_core.c" "display.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/ui_model.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/timing_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/window_diagnostics.cpp" "native_main.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_counter.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" PROPERTIES COMPILE_OPTIONS "-Os")
+
+if(V12_R2_PROFILE STREQUAL "r2-g1")
+  target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=ble_hs_hci_cmd_tx" "-Wl,--wrap=ble_hs_hci_rx_evt")
+endif()
+
+# C3 G1 window image is a physical GPS witness, never a GPS disciplined source.
+if(V12_UNIT STREQUAL "C3" AND V12_R2_PROFILE STREQUAL "r2-g1")
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_GPS_SHADOW_OBSERVER=1 PTOB_GPS_PHYSICAL_REFERENCE_ONLY=1 PTOB_N30_LORA_RX_ONLY=1)
+endif()
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_N30=1 PTOB_RC9=1 PTOB_GNSS_DISABLED=1 V12_G1_FAILED_PARENT_RETRY_US=60000000 V12_NO_TIME_SYNC_US=720000000)
+if(PTOB_GM_SUCCESSOR)
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_GM_SUCCESSOR=1)
+endif()
+
+configure_file("${PTOB_LORA_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/n30_lora_config.h" COPYONLY)
+
+# Keep independent CURRENT/wrap guards in the original application slot.
+# No wire, acceptance, buffer, owner-drain or error checks are removed.
+set_source_files_properties("native_lora.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_core.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("bounded_log.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("display.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/ui_model.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+# N30-only build choice; W12 keeps its existing supervisor compilation.
+set_source_files_properties("${w12}/main/fault_watchdog.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+
+# This adapter is explicitly private and bound to the reviewed SDK implementation.
+foreach(pair
+ "components/esp_driver_mcpwm/src/mcpwm_private.h|4513dc83f66bcdd96be518114f98cab813a5c4f31604997453c5df5123ae213e"
+ "components/esp_driver_mcpwm/src/mcpwm_cap.c|d02bbe2251fdba5d4c14c79bf852101cb45b636e0c5cd286fba07a1f3af8cbd2"
+ "components/hal/esp32s3/include/hal/mcpwm_ll.h|28f77239ff7fbf5786d7dcc79e75d0880664ec79a5cab5dfca035defbc65a7a1"
+ "components/soc/esp32s3/register/soc/mcpwm_struct.h|70d9a09b98106376e4ebff17509ca220e0a6611e8da199d86a5a0c50cca0aef4")
+ string(REPLACE "|" ";" fields "${pair}")
+ list(GET fields 0 source)
+ list(GET fields 1 expected)
+ file(SHA256 "$ENV{IDF_PATH}/${source}" actual)
+ if(NOT actual STREQUAL expected)
+  message(FATAL_ERROR "Pinned N30 raw MCPWM adapter input changed: ${source}")
+ endif()
+endforeach()
+target_include_directories(${COMPONENT_LIB} PRIVATE "$ENV{IDF_PATH}/components/esp_driver_mcpwm/src")
+configure_file("${PTOB_FINE_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/fine_capture_config.h" COPYONLY)
+
+# Current coarse TZ wire; other derived targets retain their selected profile.
+target_compile_definitions(${COMPONENT_LIB} PRIVATE R2_TZ_WIRE=1)
+
+# Passive fixed500 namespace; the N30 pipeline has no measured bias prior.
+# Engineering symbol model: (12 + 4.25 + 8) * 2^11 / 500k = 99.328ms.
+target_compile_definitions(${COMPONENT_LIB} PRIVATE R2_LORA_PASSIVE_SLOW=1 R2_LORA_FIXED500_EXPERIMENT=1 R2_LORA_FIXED500_EVENT_DELAY_NS=99328000)
+
+# N30-only receiver build: preserve all shared G1 source behavior and guards.
+set_source_files_properties("${w12}/main/native_g1.cpp" PROPERTIES COMPILE_OPTIONS "-Os")

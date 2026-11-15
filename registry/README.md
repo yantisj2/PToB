@@ -36,3 +36,6 @@ After each factory MAC is verified, the [N30 onboarding tool](../firmware/n30/to
 atomically merges its `n30` row into the ignored shared map and emits the
 matching private device input. [Commands and arrival gates](../docs/n30/build.md).
 This file operation neither changes installed maps nor accesses hardware.
+
+T-Watch Ultra device rows use target `twatch`. Add real bindings only after
+factory identity verification; the target supports the SX1262 variant only.
