@@ -21,6 +21,7 @@ int main(void)
 {
  memset(previous,0xa5,sizeof previous);memset((void *)r2_watchdog_capsule,0xa5,sizeof r2_watchdog_capsule);boot(1,RESET_POR);
  assert(!previous[0]&&!r2_watchdog_pending_record());
+ first(WD_USB_FAULT);assert(pending_attributed&&previous[4]==WD_USB_FAULT&&!strcmp(previous_reason_name(),"USB_FAULT"));
  first(WD_CORE_STALL);assert(pending_attributed&&r2_watchdog_reset_kind()==R2_UI_RESET_WD_CORE);
  uint32_t keep[WD_WORDS];memcpy(keep,previous,sizeof keep);assert(r2_watchdog_pending_record());
  boot(102,RESET_WATCHDOG);

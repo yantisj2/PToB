@@ -156,7 +156,7 @@ struct
 static uint32_t map_version;
 #if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
 #define LAB_SOURCE_HOLD_US UINT64_C(5000000)
-static struct {uint64_t original_until_tick,original_expires_ns;} lab_source;
+
 /* Experimental LoRa permission only. The BLE owner and its original source
  * maps/leases remain unchanged. A duplicate cannot refresh these fixed bounds. */
 static bool __attribute__((noinline)) lab_hold_source(struct rc8_export *m){
@@ -517,7 +517,6 @@ void r2_lora_source_publish(const struct rc8_export *input){
  if(!m.valid||!m.authenticated||m.scope.scale!=RC8_UTC||
  (m.scope.kind!=RC8_OWN_GM&&m.scope.kind!=RC8_SELECTED_BLE)||rc8_scope_validate(&m.scope)){r2_lora_source_withdraw();return;}
 #if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
- uint64_t original_until=m.until_tick,original_expires=m.expires_ns;
  if(!lab_hold_source(&m)){r2_lora_source_withdraw();return;}
 #endif
  k_spinlock_key_t key=k_spin_lock(&lock);
@@ -545,12 +544,6 @@ void r2_lora_source_publish(const struct rc8_export *input){
    * Invalidating a concurrent projection here only adds avoidable retries.
    * Real shortening and a newly pinned physical edge still fence readers. */
   if(shortened||was_pinned!=role.tx.pinned)++map_version;
-#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
-  if(m.scope.kind==RC8_SELECTED_BLE){
-   if(original_until<lab_source.original_until_tick)lab_source.original_until_tick=original_until;
-   if(original_expires<lab_source.original_expires_ns)lab_source.original_expires_ns=original_expires;
-  }
-#endif
   if(m.until_tick<last->until_tick)last->until_tick=m.until_tick;
   if(m.expires_ns<last->expires_ns)last->expires_ns=m.expires_ns;
   if(role.tx.pinned&&same_formula(&role.tx.maps[1],last)){
@@ -589,10 +582,6 @@ void r2_lora_source_publish(const struct rc8_export *input){
  }
  if(!role.tx.pinned)role.tx.maps[1]=*last;
  *last=m;
-#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
- lab_source.original_until_tick=m.scope.kind==RC8_SELECTED_BLE?original_until:0;
- lab_source.original_expires_ns=m.scope.kind==RC8_SELECTED_BLE?original_expires:0;
-#endif
  atomic_or(&flags,SOURCE_PRESENT);k_spin_unlock(&lock,key);
  if(changed&&!atomic_get(&closed))stop_now();
 }
@@ -789,7 +778,7 @@ int r2_lora_utc_json(char *out,size_t capacity,int result){
 }
 
 static void begin_stop(int error){
- if(error){owner.error=error;atomic_or(&faulted,1);}
+ if(error){owner.error=error;r2_lora_hw_watchdog_trip(error);atomic_or(&faulted,1);}
  stop_now();owner.stopping=true;
  if(!transmitter){
  role.rx.display_valid=role.rx.display_acquiring=false;
@@ -1045,16 +1034,10 @@ void __attribute__((noinline)) r2_lora_console_poll(uint64_t boot,uint64_t now_m
  k_spinlock_key_t key=k_spin_lock(&lock);
  struct r2_lora_view v=published;
  uint32_t stream=diagnostics.stream,epoch=diagnostics.source_epoch;
- uint32_t sent=diagnostics.sent[3],accepted=diagnostics.accepted,late=diagnostics.late,refused=diagnostics.refused;
- uint64_t last=diagnostics.last_us,charged=diagnostics.charged,next=diagnostics.next_slot;
- uint8_t pending=diagnostics.pending,stage=diagnostics.stage;
+ uint32_t sent=diagnostics.sent[3],accepted=diagnostics.accepted;
+ uint64_t last=diagnostics.last_us,charged=diagnostics.charged;
  int error=diagnostics.error;atomic_val_t f=atomic_get(&flags);
  bool context=transmitter&&role.tx.context_ready,fh_disabled=diagnostics.fh_disabled;
- uint32_t hold_ms=0,source_pc=0;
-#ifdef R2_LORA_FIXED500_EXPERIMENT
- if((f&RESTART_HELD)&&retry_at_us>now)hold_ms=(uint32_t)((retry_at_us-now+999)/1000);
- source_pc=source_withdraw_pc;
-#endif
  bool cap=transmitter&&(charged>LP_CAP_US||lp_duration(LP_SYNC)+lp_duration(LP_FOLLOW)+
   (context?0:lp_duration(LP_META))>LP_CAP_US-charged);
  uint32_t events=0;
@@ -1072,14 +1055,13 @@ void __attribute__((noinline)) r2_lora_console_poll(uint64_t boot,uint64_t now_m
  uint32_t signature=(stream*UINT32_C(2654435761))^(epoch*31)^state^(events*131)^((unsigned)f&SOURCE_GATE_MASK);
  if(signature==previous&&elapsed<60000)return;
  uint64_t age=last&&now>=last?(now-last)/1000:UINT32_MAX;
- char note[480];
+ char note[256];
  const char *source_gate="UNKNOWN";
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  source_gate=source_gate_name(f);
 #endif
- int n=snprintf(note,sizeof note,"#R2_LORA boot=%016llx role=%s state=%s source_gate=%s stream=%u epoch=%u pair_age_ms=%llu follow=%u accepted=%u charged_us=%llu cap_us=%llu next_us=%llu pending=%u stage=%u late=%u refused=%u context_resets=%u hold_ms=%u source_pc=%08x error=%d\n",
-  (unsigned long long)boot,transmitter?"TX":"RX",names[state],source_gate,stream,epoch,(unsigned long long)age,sent,accepted,
-  (unsigned long long)charged,(unsigned long long)LP_CAP_US,(unsigned long long)next,pending,stage,late,refused,events,hold_ms,source_pc,error);
+ int n=snprintf(note,sizeof note,"#R2_LORA boot=%016llx role=%s state=%s source_gate=%s stream=%u epoch=%u pair_age_ms=%llu follow=%u accepted=%u error=%d\n",
+  (unsigned long long)boot,transmitter?"TX":"RX",names[state],source_gate,stream,epoch,(unsigned long long)age,sent,accepted,error);
  if(n>0&&(size_t)n<sizeof note){
   int rc=r2_console_note(note,(size_t)n,now_ms+150);
   note_at=now32;if(!rc)previous=signature;
@@ -1842,8 +1824,11 @@ static int __attribute__((noinline)) process_event(uint64_t now){
  if(transmitter&&owner.tx_kind==LP_SYNC){k_spinlock_key_t key=k_spin_lock(&lock);preserve();k_spin_unlock(&lock,key);}
 #endif
  int rc=r2_lora_hw_take(&h);if(rc<=0)return rc;
+ /* take() has retired RX before physical validation. Even a stale/rejected
+  * event must clear listening so the continuous receiver can rearm. */
+ if(h.kind==R2_LORA_HW_RX_DONE)owner.listening=false;
  uint64_t event;if(h.generation!=generation||!physical(&h,&event)){inc(&owner.bad);return transmitter&&role.tx.core.durable.pending?EVENT_FH_FAULT:0;}
- if(h.kind==R2_LORA_HW_RX_DONE){owner.listening=false;
+ if(h.kind==R2_LORA_HW_RX_DONE){
   /* TX-mode idle RX must not write the RX half of the shared role storage.
    * A GNSS serving GM already has time; the HW retains RX/error counters. */
   rc=transmitter?0:receive_event(&h,event,mono());
@@ -2082,9 +2067,6 @@ void r2_lora_init(uint64_t f,uint64_t boot,uint64_t tx,const struct r2_group_con
  source_withdraw_pc=0;atomic_set(&ble_holdovers,0);
  memset(&progress_watch,0,sizeof progress_watch);source_ready_at_us=0;
 #endif
-#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
- memset(&lab_source,0,sizeof lab_source);
-#endif
  atomic_set(&observer_ready,0);rf_observer=(struct rf_observer_map){0};map_version=0;memset(&source_observation,0,sizeof source_observation);memset(sync_map,0,sizeof sync_map);
 #ifdef R2_LORA_PASSIVE_SLOW
  memset(tx_due,0,sizeof tx_due);
@@ -2159,6 +2141,8 @@ static uint32_t stack_unused(void){
 
 /* Bounded read-only poll for unattended runs; larger causal audits stay in
  * `lora`. UTC comes from the accepted SYNC event, never host wall time. */
+static void __attribute__((noinline)) json_tx_due(struct r2_json *j,uint32_t due[2][4])
+{r2_json_format(j,",\"tx_due_us\":[[%u,%u,%u,%u],[%u,%u,%u,%u]],",due[0][0],due[0][1],due[0][2],due[0][3],due[1][0],due[1][1],due[1][2],due[1][3]);}
 int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
  struct lp_diagnostics d;struct r2_lora_view v;uint8_t owed=0;uint32_t reads[4],sync_stats[4],due[2][4]={{0}};
  uint32_t hold_ms=0,source_pc=0,events[4]={0};
@@ -2292,7 +2276,7 @@ int r2_lora_diagnostics_json(char *out,size_t capacity,int result){
   !tx&&(d.pair_prediction_flags&3)==3?"true":"false",(unsigned long long)(LP_BEAT_US*LP_DISC_BEATS),
   RX_WATCH_ARGS tx?0:d.accepted,tx?0:d.rejected,tx?0:d.missing);
  r2_json_fields(&j,second,sizeof second/sizeof second[0],bases,7);
- r2_json_format(&j,",\"tx_due_us\":[[%u,%u,%u,%u],[%u,%u,%u,%u]],",due[0][0],due[0][1],due[0][2],due[0][3],due[1][0],due[1][1],due[1][2],due[1][3]);
+ json_tx_due(&j,due);
  r2_json_fields(&j,last,sizeof last/sizeof last[0],bases,7);r2_json_text(&j,"}");return r2_json_result(&j);
 }
 
@@ -2301,16 +2285,10 @@ int r2_lora_json(char *out,size_t capacity,int result){
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  uint32_t events[4],ble_refused;uint64_t ble_since,ble_until;bool ble_live;
 #endif
-#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
- uint64_t original_until,original_expires,held_until;
-#endif
  k_spinlock_key_t key=k_spin_lock(&lock);
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  memcpy(events,source_events,sizeof events);ble_since=ble_return.since_us;ble_until=ble_return.until_us;
  ble_live=ble_return.qualified;ble_refused=ble_return.refused;
-#endif
-#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
- original_until=lab_source.original_until_tick;original_expires=lab_source.original_expires_ns;held_until=transmitter?role.tx.maps[0].until_tick:0;
 #endif
  d=diagnostics;v=published;if(transmitter)memcpy(reads,source_observation.tx_reads,sizeof reads);else memset(reads,0,sizeof reads);memcpy(sync_stats,sync_map,sizeof sync_stats);
 #ifdef R2_LORA_PASSIVE_SLOW
@@ -2400,9 +2378,6 @@ until=lab_until;
    (unsigned long long)a->tick,(unsigned long long)a->epoch,(unsigned long long)a->start_us,(unsigned long long)a->end_us,a->cursor,a->phy,a->channel,a->valid);
  }
  r2_json_text(&j,"],");
-#if defined(R2_LORA_PASSIVE_SLOW) && (defined(R2_LORA_BW_EXPERIMENT) || defined(R2_LORA_FIXED500_EXPERIMENT))
- r2_json_format(&j,"\"lab_source_hold\":[%llu,%llu,%llu,%llu],",(unsigned long long)LAB_SOURCE_HOLD_US,(unsigned long long)original_until,(unsigned long long)original_expires,(unsigned long long)held_until);
-#endif
 #ifdef R2_LORA_FIXED500_EXPERIMENT
  r2_json_format(&j,"\"source_events\":[%u,%u,%u,%u],\"ble_return\":[%s,%llu,%llu,%u],",events[0],events[1],events[2],events[3],ble_live?"true":"false",(unsigned long long)ble_since,(unsigned long long)ble_until,ble_refused);
 #endif
@@ -2412,7 +2387,7 @@ until=lab_until;
  r2_json_text(&j,"],");
 #endif
  r2_json_fields(&j,timing_fields,sizeof timing_fields/sizeof timing_fields[0],bases,4);
- r2_json_format(&j,",\"tx_due_us\":[[%u,%u,%u,%u],[%u,%u,%u,%u]],",due[0][0],due[0][1],due[0][2],due[0][3],due[1][0],due[1][1],due[1][2],due[1][3]);
+ json_tx_due(&j,due);
  r2_json_fields(&j,counts,sizeof counts/sizeof counts[0],bases,4);
  r2_json_format(&j,",\"owner\":[%u,%u,%u],\"startup\":[%u,%u],\"hw\":[%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u],\"drain_result\":%d,",
   d.stage,d.phy,d.channel,startup0,startup1,h.rx_done,h.tx_done,h.crc_bad,h.overflow,h.spi_error,h.cutoffs,h.invalid_capture,h.error,h.phase,h.launch_aborts,h.busy_aborts,drain_result);

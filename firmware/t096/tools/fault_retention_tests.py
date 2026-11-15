@@ -14,7 +14,7 @@ def main():
   'src/diagnostic.c','include/health.h','include/crash_record.h','include/watchdog_policy.h',
   'include/watchdog.h','include/snapshot_witness.h','tools/inspect_build.py','tools/crash_decode.py',
   'tests/watchdog_test.c','tests/health_fake.h','tests/zephyr_fake.h','tests/crash_capture_test.c',
-  'tests/fault_retention_watchdog_test.c','tests/fault_retention_crash_test.c')]]
+  'tests/fault_retention_watchdog_test.c','tests/fault_retention_crash_test.c','tests/usb_health_test.c','include/usb_health.h')]]
  bound={str(f.relative_to(APP)):sha(f) for f in files};passed=[]
  for n in ('zephyr/kernel.h','zephyr/sys/atomic.h','zephyr/sys/reboot.h','zephyr/device.h',
    'zephyr/drivers/watchdog.h','zephyr/drivers/hwinfo.h','zephyr/fatal.h','zephyr/irq.h',
@@ -30,7 +30,7 @@ def main():
   passed.append(label)
  try:
   for case,extra in [('fault_retention_watchdog_test',[APP/'src/watchdog_policy.c']),
-                     ('fault_retention_crash_test',[]),('crash_capture_test',[])]:
+                     ('usb_health_test',[APP/'src/watchdog_policy.c']),('fault_retention_crash_test',[]),('crash_capture_test',[])]:
    binary=out/case
    run(case+'-compile',[*flags,str(APP/'tests'/(case+'.c')),*map(str,extra),'-o',str(binary)])
    run(case,[str(binary),*([str(out/'crash.bin')]if case=='crash_capture_test'else[])])
@@ -54,7 +54,7 @@ def main():
   assert rejects==24;passed.append('native-exact-fault-only-allocation-contract-and24-negatives')
   assert all(sha(APP/f)==h for f,h in bound.items())
  finally:
-  (out/'receipt.json').write_text(json.dumps(dict(status='PASS'if len(passed)==7 else 'INCOMPLETE',
+  (out/'receipt.json').write_text(json.dumps(dict(status='PASS'if len(passed)==9 else 'INCOMPLETE',
    cases=passed,hardware=False,flash_backend_linked=False,inputs=bound,
    descriptor=locals().get('descriptor'),limits=['Synthetic reset retains host arrays; actual SRAM survival and native lifecycle require separate proof.',
     'No physical watchdog/CPU exception or accuracy claim. No historical flash-writer tests run; production diagnostics remain RAM-only.']),indent=2)+'\n')

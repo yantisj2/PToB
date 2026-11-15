@@ -1,0 +1,8 @@
+{
+  "revision": "RC_USB_DMA_PROGRESS_OBSERVER_V1",
+  "upstream_commit": "7823374e872145b5bd018bfe447839eb36042611",
+  "path": "drivers/usb/common/nrf_usbd_common/nrf_usbd_common.c",
+  "original": "8c004c6a431bc7bc9e52fbe560579116b0569060bd648797adefc46a0fe82046",
+  "fixed": "cfd6ed82bf161736ff954af754f623ef8f6c474022a5fbb679b7e11aa1017db5",
+  "patch_sha256": "eaa50b362d1535d9a9a499fb1ab9db6068dc5bee753182eb6491ed2c007c131f"
+}

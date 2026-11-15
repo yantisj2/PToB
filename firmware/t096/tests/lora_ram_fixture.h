@@ -146,7 +146,7 @@ void r2_lora_hw_stop_begin(uint64_t d){fake_tx_capture_live=false;assert(d);++st
 void r2_lora_hw_stop_poll(struct r2_lora_hw_ack *a){*a=(struct r2_lora_hw_ack){!(stop_ack_missing&1),!(stop_ack_missing&2),!(stop_ack_missing&4),!(stop_ack_missing&8),false};}
 static struct r2_lora_hw_diag json_hw_fixture;
 void r2_lora_hw_diag(struct r2_lora_hw_diag *h){*h=json_hw_fixture;}
-void r2_lora_hw_watchdog_trip(int e){(void)e;r2_diag_scratch.lora.terminal=1;}
+void r2_lora_hw_watchdog_trip(int e){if(r2_diag_scratch.lora.terminal)return;r2_diag_scratch.lora.record[1]=(uint32_t)e;r2_diag_scratch.lora.terminal=1;}
 static uint64_t charged_unlocked(const struct lp_checkpoint *s,uint64_t now){assert(!lock_depth);return lp_charged(s,now);}
 static void (*projection_hook)(void);
 static bool event_unlocked(struct rc8_correction *c,const struct rc8_export *m,uint32_t sequence,struct rc8_event event){

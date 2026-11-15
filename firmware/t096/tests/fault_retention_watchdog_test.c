@@ -25,9 +25,9 @@ int main(void)
  policy_cases(false);policy_cases(true);cleanup_recovery_budget();
  owner_failure_cases();control_capsule_detail_cases();host_detail_cases();
  const unsigned reasons[]={WD_RETRIES_EXHAUSTED,WD_CORE_STALL,WD_RECOVERY_FAILED,
-   WD_RC_WORKER_STALL,WD_LORA_FAULT,WD_FATAL+4,WD_NO_SYNC};
+   WD_RC_WORKER_STALL,WD_LORA_FAULT,WD_USB_FAULT,WD_FATAL+4,WD_NO_SYNC};
  const unsigned kinds[]={R2_UI_RESET_WD_PROFILE,R2_UI_RESET_WD_CORE,R2_UI_RESET_WD_RECOVERY,
-   R2_UI_RESET_WD_FAULT,R2_UI_RESET_WD_FAULT,R2_UI_RESET_WD_FAULT,R2_UI_RESET_WATCHDOG};
+   R2_UI_RESET_WD_FAULT,R2_UI_RESET_WD_FAULT,R2_UI_RESET_WD_FAULT,R2_UI_RESET_WD_FAULT,R2_UI_RESET_WATCHDOG};
  for(unsigned i=0;i<sizeof reasons/sizeof *reasons;i++){
   seed(reasons[i]);uint32_t original[WD_WORDS];memcpy(original,(const void *)r2_watchdog_capsule,sizeof original);
   reboot(RESET_WATCHDOG,1235);assert(!memcmp(previous,original,sizeof original));
@@ -75,7 +75,7 @@ int main(void)
 
  size_t largest=strlen(sent);
  const unsigned labels[]={0,WD_NO_SYNC,WD_RETRIES_EXHAUSTED,WD_CORE_STALL,
-  WD_RECOVERY_FAILED,WD_RC_WORKER_STALL,WD_LORA_FAULT,WD_FATAL,UINT32_MAX};
+  WD_RECOVERY_FAILED,WD_RC_WORKER_STALL,WD_LORA_FAULT,WD_USB_FAULT,WD_FATAL,UINT32_MAX};
  for(unsigned i=0;i<sizeof labels/sizeof *labels;i++)for(unsigned flag=0;flag<2;flag++){
   /* Keep the32-bit age at its maximum while advancing console cadence. */
   previous[4]=labels[i];report_useful=flag?3:0;fake_ms+=UINT64_C(1)<<32;

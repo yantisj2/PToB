@@ -22,6 +22,24 @@ int main(int argc,char **argv){
  assert(LP_SCHEDULE==8&&LP_CAP_US==90000000&&LP_DISC_BEATS==0);
  assert(LP_SYNC_OFFSET_US+LP_LAUNCH_PAD_US+lp_duration(LP_SYNC)+
         LP_FOLLOW_LATEST_US+lp_duration(LP_FOLLOW)<LP_FRAME_END_US);
+ if(mode==38){
+  init(true);begin_stop(-ESTALE);
+  assert(owner.error==-ESTALE&&r2_diag_scratch.lora.terminal);
+  assert((int32_t)r2_diag_scratch.lora.record[1]==-ESTALE);
+  r2_lora_watchdog_poll();assert((int32_t)r2_diag_scratch.lora.record[1]==-ESTALE);
+  puts("PASS original owner error survives deferred watchdog poll");return 0;
+ }
+ if(mode==37){
+  init(false);step();assert(owner.active&&owner.listening);
+  unsigned before=rearms;
+  now_us+=3000000;
+  queued=(struct r2_lora_hw_event){.tick=(now_us-2100000)*16,.capture_epoch=fake_capture_epoch,
+   .generation=generation,.kind=R2_LORA_HW_RX_DONE};have_event=true;
+  step();assert(!have_event&&owner.bad==1);
+  assert(rearms==before+1&&owner.listening&&!owner.error);
+  assert(!role.rx.accepted&&!role.watch.admitted);
+  puts("PASS stale physical RX is rejected and continuous receiver rearms");return 0;
+ }
  if(mode==36){
   init(true);struct rc8_export m=source();r2_lora_source_publish(&m);
   drive_to(25000000);assert(owner.sent[3]==1&&role.tx.context_ready);

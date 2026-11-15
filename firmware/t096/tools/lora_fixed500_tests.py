@@ -16,7 +16,7 @@ def main():
  sources=[APP/'tests/lora_fixed500_test.c',APP/'src/lora_passive_core.c',APP/'src/lora_receiver_watch.c',APP/'protocol/lora_passive.c',APP/'src/lora_rc8_policy.c',APP/'protocol/lora_rc8.c',APP/'protocol/group_auth.c',*[tiny/'source'/(n+'.c')for n in('hmac','sha256','utils')]]
  binary=a.out.resolve()/'owner';subprocess.run([*flags,'-DR2_PASSIVE_SERVICE_BODY="'+str(owner)+'"','-DR2_HW_ADMISSION_BODY="'+str(admission)+'"',*map(str,sources),'-o',str(binary)],check=True)
  logs=[]
- for mode in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36):
+ for mode in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38):
   r=subprocess.run([str(binary),str(mode)],capture_output=True,text=True);logs.append(r.stdout+r.stderr);(a.out/'owner.log').write_text(''.join(logs));r.check_returncode();print(r.stdout.strip())
  for correction in (123456789,-123456789):
   calibrated=a.out.resolve()/('owner-calibrated-'+str(correction))
@@ -36,6 +36,6 @@ def main():
  subprocess.run([str(ui),str(a.out.resolve())],check=True)
  files=[*sources,APP/'include/lora_receiver_watch.h',APP/'include/lora_passive_core.h',APP/'include/lora_service.h',APP/'tests/lora_meta_processing_test.c',APP/'tests/lora_hw_test.c',APP/'tests/lora_tx_indicator_test.c',APP/'src/ui_render.c',APP/'legacy_ui/draw.inc',APP/'src/lora_passive_service.c',APP/'src/lora_hw.c',APP/'include/lora_hw.h',APP/'protocol/lora_passive_schedule.h',APP/'tests/lora_ram_fixture.h',Path(__file__)]
  assert before==source_manifest(),'T096 source changed during test; receipt refused'
- (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FIXED500_SYNTHETIC_OWNER_CORE_DRIVER',hardware=False,cases=35,precommit_cases=6,phy_cache_cases=1,late_done_cases=3,tx_indicator_cases=18,schedule=8,frequency_hz=922400000,sf=11,cr='4/8',META_processing_us=1787456,normal_slow_META_processing_us=1000000,source_hashes={str(f):hashlib.sha256(f.read_bytes()).hexdigest()for f in files}),indent=2)+'\n')
+ (a.out/'receipt.json').write_text(json.dumps(dict(status='PASS_FIXED500_SYNTHETIC_OWNER_CORE_DRIVER',hardware=False,cases=37,precommit_cases=6,phy_cache_cases=1,late_done_cases=3,tx_indicator_cases=18,schedule=8,frequency_hz=922400000,sf=11,cr='4/8',META_processing_us=1787456,normal_slow_META_processing_us=1000000,source_hashes={str(f):hashlib.sha256(f.read_bytes()).hexdigest()for f in files}),indent=2)+'\n')
  print('PASS actualdriver fixed922.4MHz/SF11/CR8/exactguardedbudgets/TxModbit2')
 if __name__=='__main__':main()

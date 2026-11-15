@@ -8,9 +8,22 @@ static struct r2_radio_scope grant;
 static struct r2_group_client anchor;
 static bool running;
 static bool replay_record;
+static bool audit_lora;
+static unsigned duplicate_shortenings;
+static struct rc8_export audited_lora;
 static bool replay_query;
 static uint32_t replay_hash;
 static unsigned optin_unlocks;
+static unsigned control_race;
+static void replace_follower_control(void){
+ fake_after_stats=NULL;
+ if(control_race==4){r2_radio_service_withdraw();}
+ if(control_race==0)++grant.source_epoch;
+ if(control_race==1)++grant.publication_epoch;
+ if(control_race==2)++grant.remote_capture_epoch;
+ if(control_race==3)++grant.boot;
+ r2_radio_service_gm7_publish(grant,&anchor,&path,-1,fake_time,anchor.until);
+}
 static void setup_pt(void){
  path=(struct r2_enrollment){.count=2,.identity={17,99},.group={.id=7,.epoch=1,.psk={1}}};
  assert(!r2_radio_service_init(0,&path));r2_radio_service_continuous(true);fake_adv_success=true;
@@ -51,6 +64,14 @@ static void drive_stream_range(unsigned first,unsigned samples){
    assert(!generic_encode(packet.ad,&p));enrollment=receive_roster;
    fake_time=capture_us=1000000+(uint64_t)i*62500+1000;capture_tick=(uint64_t)packet.raw+16000;queued=true;precision_step(fake_time);
    assert(!queued&&!error&&!pt_input.source_ready&&!pt_output.scope.gm);
+   if(audit_lora&&lora_publishes){
+    if(audited_lora.valid&&audited_lora.anchor_tick==lora_export.anchor_tick&&audited_lora.anchor_ns==lora_export.anchor_ns&&audited_lora.rate_ppb==lora_export.rate_ppb&&audited_lora.phase_ns==lora_export.phase_ns&&
+       (lora_export.until_tick<audited_lora.until_tick||lora_export.expires_ns<audited_lora.expires_ns)){
+      fprintf(stderr,"stream shortening %u until%lld expiry%lld last%llu delivery%llu\n",i,(long long)(lora_export.until_tick-audited_lora.until_tick),(long long)(lora_export.expires_ns-audited_lora.expires_ns),(unsigned long long)precision.last_accepted,(unsigned long long)precision.servo.output.delivery);++duplicate_shortenings;
+    }
+    audited_lora=lora_export;
+   }
+
    if(replay_query){struct r2_gm7_follow_diagnostic d;r2_radio_service_gm7_follow_diagnostic(&d,fake_time);assert(d.data_until_tick==precision.data_until);}
    if(replay_record){
     const r2_servo_map_t *m=&precision.servo.output;
@@ -69,6 +90,48 @@ int main(int argc,char **argv){
  if(test>=100){char mode_text[16];snprintf(mode_text,sizeof mode_text,"%u",test-100);char *historical[]={argv[0],mode_text};return historical_radio_main(2,historical);}
  setup_pt();
 #ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(test==94){
+  lora_needed=true;ble_needed=false;
+  r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);
+  drive_stream(900);assert(lora_publishes&&pt_output.utc_valid);
+  struct rc8_export first=lora_export;
+  struct r2_precision_packet p={.root=0,.boot=77,.source_epoch=8,.train=9,.publication=901,.capture_epoch=4,.flags=1,
+   .created_ns=precision.permission_created+1000,.expires_ns=precision.permission_expires-150001000,.utc_offset_ns=precision.permission_offset};
+  struct r2_enrollment saved=enrollment;enrollment.identity[0]=99;enrollment.identity[1]=17;
+  packet=(struct r2_radio_record){.raw=(uint32_t)(capture_tick+160000),.epoch=1,.length=R2_RELAY_AD_BYTES,.event=901,.channel=3};
+  assert(!generic_encode(packet.ad,&p));enrollment=saved;
+  fake_time=capture_us+=11000;capture_tick+=176000;queued=true;precision_step(fake_time);
+  assert(!queued&&lora_export.anchor_tick==first.anchor_tick&&lora_export.expires_ns==first.expires_ns);
+  fprintf(stderr,"restriction clip %lld ticks data%llu expiry%llu\n",(long long)(first.until_tick-lora_export.until_tick),(unsigned long long)precision.data_until,(unsigned long long)precision.permission_expires);
+  assert(lora_export.until_tick==first.until_tick);
+  assert(precision.permission_expires==p.expires_ns+150000000);
+  p.publication++;p.expires_ns-=20000000;
+  saved=enrollment;enrollment.identity[0]=99;enrollment.identity[1]=17;
+  packet.raw=(uint32_t)(capture_tick+16000);packet.event++;
+  assert(!generic_encode(packet.ad,&p));enrollment=saved;
+  fake_time=capture_us+=2000;capture_tick+=32000;queued=true;precision_step(fake_time);
+  assert(!queued&&lora_export.anchor_tick==first.anchor_tick);
+  assert(lora_export.until_tick<first.until_tick&&lora_export.until_tick<=precision.data_until);
+  assert(precision.permission_expires==p.expires_ns+150000000);
+  puts("PASS stable conservative LoRa cap across tiny authenticated expiry restriction; larger restriction still clips");return 0;
+ }
+ if(test==93){
+  lora_needed=true;ble_needed=false;
+  r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);
+  audit_lora=true;drive_stream(900);assert(lora_publishes&&pt_output.utc_valid);assert(!duplicate_shortenings);
+  struct rc8_export first=lora_export;unsigned shortened=0;
+  for(unsigned i=0;i<1000;i++){
+   capture_tick+=497;fake_time=capture_us+=31;
+   unsigned before=lora_publishes;precision_step(fake_time);assert(lora_publishes==before+1);
+   assert(lora_export.anchor_tick==first.anchor_tick&&lora_export.anchor_ns==first.anchor_ns&&lora_export.phase_ns==first.phase_ns&&lora_export.rate_ppb==first.rate_ppb);
+   if(lora_export.until_tick<first.until_tick||lora_export.expires_ns<first.expires_ns){
+    if(!shortened)fprintf(stderr,"duplicate shortened tick %llu->%llu expiry %llu->%llu data%llu last%llu delivery%llu\n",(unsigned long long)first.until_tick,(unsigned long long)lora_export.until_tick,(unsigned long long)first.expires_ns,(unsigned long long)lora_export.expires_ns,(unsigned long long)precision.data_until,(unsigned long long)precision.last_accepted,(unsigned long long)precision.servo.output.delivery);
+    ++shortened;
+   }
+   first=lora_export;
+  }
+  assert(!shortened);puts("PASS immutable BLE LoRa export across paired-clock quantization");return 0;
+ }
  if(test==90||test==91||test==92){
   lora_needed=false;ble_needed=test!=91;replay_record=true;replay_query=test==92;
   r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);
@@ -81,6 +144,128 @@ int main(int argc,char **argv){
   puts("PASS identical realMAC900packet BLE model/UTC/permission trajectory with receiver observation ON/OFF; silence cannot extend original map life");return 0;
  }
 #endif
+ if(test==32){
+  r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);drive_stream(900);
+  struct r2_radio_precision saved=precision;
+  struct pt_input original_in=pt_input;struct pt_output original_out=pt_output;
+  struct r2_radio_scope original_grant=grant,original_active=active_scope;
+  uint32_t original_revision=gm7_control_revision;
+  for(control_race=0;control_race<6;control_race++){
+   precision=saved;pt_input=original_in;pt_output=original_out;grant=original_grant;active_scope=original_active;
+   gm7_control_revision=gm7_precision_revision=original_revision;
+   fake_after_stats=replace_follower_control;precision_step(fake_time);
+   if(control_race==5){assert(pt_output.utc_valid&&gm7_control_revision==original_revision);continue;}
+   assert(gm7_control_revision!=original_revision&&!pt_output.utc_valid&&!pt_output.view.map_valid);
+   assert(!pt_output.context.source&&!gm7_direct.root);
+   /* Old accepted pairs and independent permission cannot survive the next
+    * job after CONTROL replaced or withdrew/re-admitted the same parent. */
+   precision_step(fake_time);
+   assert(!precision.permission_anchor&&!precision.last_accepted&&!pt_output.utc_valid);
+  }
+  puts("PASS actual PT input-copy/control replacement and stop-resume ABA fences; ordinary same-context refresh preserved");return 0;
+ }
+ if(test==31){
+  r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);drive_stream(900);
+  assert(pt_output.utc_valid);uint64_t old=precision.data_until;
+  uint64_t delta=old+16000-capture_tick;capture_tick+=delta;fake_time=capture_us+=delta/16;
+  int64_t root_ns;assert(r2_servo_mapped(&precision.servo.output,capture_tick,&root_ns));
+  struct r2_precision_packet fresh={.root=1,.boot=77,.source_epoch=8,.train=9,.publication=1001,.capture_epoch=4,.flags=1,
+   .created_ns=(uint64_t)root_ns-10000000,.expires_ns=(uint64_t)root_ns+1000000000,.utc_offset_ns=INT64_C(1792800000000000000)};
+  struct r2_radio_precision baseline=precision;
+  struct r2_capture rx={capture_tick-144,1,R2_CAPTURE_RADIO},now={capture_tick,1,R2_CAPTURE_NOW};
+  /* Actual authenticated GRv3 count-zero delivery, without a correction. */
+  struct r2_enrollment receive_roster=enrollment;enrollment.identity[0]=99;enrollment.identity[1]=17;
+  fresh.root=0;packet=(struct r2_radio_record){.raw=(uint32_t)rx.tick,.epoch=1,.length=R2_RELAY_AD_BYTES,.event=1001,.channel=3};
+  assert(!generic_encode(packet.ad,&fresh));enrollment=receive_roster;
+  assert(!generic_decode(&fresh,packet.ad,sizeof packet.ad));queued=true;precision_step(fake_time);
+  assert(!queued&&!error);
+  assert(precision.data_until>old&&precision.accepted==baseline.accepted&&precision.last_accepted==baseline.last_accepted);
+  int64_t ns;assert(r2_radio_precision_read(&precision,now,fake_time,&ns));
+  assert(!memcmp(&baseline.servo,&precision.servo,sizeof precision.servo));
+  struct r2_radio_precision renewed=precision;uint64_t renewed_until=precision.data_until;
+  for(unsigned negative=0;negative<16;negative++){
+   precision=baseline;struct r2_precision_packet p=fresh;struct r2_capture r=rx,a=now;uint64_t kernel=fake_time;
+   switch(negative){
+    case 0:p.publication=baseline.original_progress;break;
+    case 1:p.created_ns=(uint64_t)root_ns+10000000;break;
+    case 2:p.created_ns=baseline.permission_created-1;break;
+    case 3:p.expires_ns=(uint64_t)root_ns-1;break;
+    case 4:++p.utc_offset_ns;break;
+    case 5:++p.boot;break;case 6:++p.source_epoch;break;case 7:++p.train;break;
+    case 8:++p.capture_epoch;break;case 9:++r.epoch;break;
+    case 10:kernel=precision.scope.until_us;break;
+    case 11:precision.permission_anchor=false;break;
+    case 12:p.expires_ns=UINT64_MAX;break;
+    case 13:precision.servo.fault=true;break;case 14:precision.servo.output.valid=false;break;
+    case 15:precision.servo.fit_valid=false;break;
+   }
+   uint64_t before=precision.data_until;(void)r2_radio_precision_rx_serving_origin(&precision,&p,r,1001,3,a,kernel,(int64_t)p.created_ns+p.utc_offset_ns);
+   assert(precision.data_until<=before);
+  }
+  precision=renewed;fresh.publication++;fresh.created_ns+=1000000;fresh.expires_ns-=200000000;
+  assert(r2_radio_precision_rx_serving_origin(&precision,&fresh,rx,1002,3,now,fake_time,(int64_t)fresh.created_ns+fresh.utc_offset_ns));
+  assert(precision.data_until<renewed_until);
+  struct r2_radio_precision clipped=precision;
+  precision=renewed;struct r2_capture delayed_now=now,delayed_rx=rx;delayed_now.tick+=R2_CAPTURE_HZ*3/10;delayed_rx.tick+=R2_CAPTURE_HZ*3/10;
+  assert(r2_radio_precision_rx_serving_origin(&precision,&fresh,delayed_rx,1002,3,delayed_now,fake_time,(int64_t)fresh.created_ns+fresh.utc_offset_ns));
+  assert(!precision.data_until);struct r2_radio_precision aged_barrier=precision;precision=clipped;
+  /* A later accepted correction for an older original must retain the
+   * separately authenticated newer permission within the same context. */
+  struct r2_radio_precision restricted=precision;uint64_t restricted_until=precision.data_until;
+  precision=restricted;memset(precision.original,0,sizeof precision.original);memset(precision.correction,0,sizeof precision.correction);
+  uint64_t local_tick=now.tick+1000000;uint64_t remote_tick=((uint64_t)root_ns+62500000)*2/125;
+  precision.original[0]=(struct r2_radio_original){.local=local_tick,.created_ns=precision.permission_created,.expires_ns=(uint64_t)root_ns+1300000000,.utc_offset_ns=fresh.utc_offset_ns,.publication=999,.event=99,.channel=3,.used=true};
+  precision.correction[0]=(struct r2_radio_correction){.value={.publication=999,.event=99,.channel=3,.ticks=remote_tick,.generation=9,.expires_ns=(uint64_t)root_ns+1300000000},.arrived=local_tick+16000,.used=true};
+  struct r2_capture later={local_tick+16000,1,R2_CAPTURE_NOW};
+  assert(r2_radio_precision_step(&precision,later,fake_time));assert(precision.data_until==restricted_until);
+  assert(precision.permission_publication==restricted.permission_publication);
+  /* An aged-map revocation persists through fresh acceptance of an older,
+   * longer grant. A matched current signed grant can then reacquire clock
+   * authority, bounded by its tighter expiry and the new physical cap. */
+  precision=aged_barrier;memset(precision.original,0,sizeof precision.original);memset(precision.correction,0,sizeof precision.correction);
+  local_tick=delayed_now.tick+1000000;
+  uint64_t source_ns=precision.permission_ns+(local_tick-precision.permission_local)*125/2;
+  precision.original[0]=(struct r2_radio_original){.local=local_tick,.created_ns=precision.permission_created,.expires_ns=(uint64_t)root_ns+1300000000,.utc_offset_ns=fresh.utc_offset_ns,.publication=999,.event=99,.channel=3,.used=true};
+  precision.correction[0]=(struct r2_radio_correction){.value={.publication=999,.event=99,.channel=3,.ticks=source_ns*2/125,.generation=9,.expires_ns=(uint64_t)root_ns+1300000000},.arrived=local_tick+16000,.used=true};
+  later.tick=local_tick+16000;assert(r2_radio_precision_step(&precision,later,fake_time));
+  assert(!precision.data_until&&precision.permission_publication==aged_barrier.permission_publication);
+  assert(!r2_radio_precision_read(&precision,later,fake_time,&ns));
+  memset(precision.original,0,sizeof precision.original);memset(precision.correction,0,sizeof precision.correction);
+  local_tick=later.tick+1000000;source_ns=precision.permission_ns+(local_tick-precision.permission_local)*125/2;
+  fresh.publication=1004;fresh.count=0;rx.tick=local_tick;now.tick=local_tick+16000;
+  assert(r2_radio_precision_rx_serving_origin(&precision,&fresh,rx,1004,3,now,fake_time,(int64_t)fresh.created_ns+fresh.utc_offset_ns));
+  assert(!precision.data_until);fresh.publication=1005;fresh.count=1;
+  fresh.correction[0]=(struct r2_precise_correction){.publication=1004,.event=1004,.channel=3,.ticks=source_ns*2/125,.generation=9,.expires_ns=fresh.expires_ns};
+  rx.tick=local_tick+1000000;now.tick=rx.tick+16000;
+  assert(r2_radio_precision_rx_serving_origin(&precision,&fresh,rx,1005,3,now,fake_time,(int64_t)fresh.created_ns+fresh.utc_offset_ns));
+  assert(r2_radio_precision_step(&precision,now,fake_time));
+  assert(precision.data_until&&precision.permission_expires==fresh.expires_ns);
+  uint64_t maximum=local_tick+(fresh.expires_ns-source_ns)/1000*16;
+  assert(precision.data_until<=maximum&&r2_radio_precision_read(&precision,now,fake_time,&ns));
+  /* An authenticated but already expired tighter grant retires cached
+   * permission; it never extends or bootstraps the physical map. */
+  precision=renewed;struct r2_precision_packet expired=fresh;expired.count=0;expired.publication=1006;
+  expired.created_ns=(uint64_t)root_ns-1000000;expired.expires_ns=(uint64_t)root_ns-1;
+  rx.tick=capture_tick-144;now.tick=capture_tick;
+  assert(r2_radio_precision_rx_serving_origin(&precision,&expired,rx,1006,3,now,fake_time,(int64_t)expired.created_ns+expired.utc_offset_ns));
+  assert(!precision.data_until&&precision.permission_publication==1006);
+
+  /* Rejected corrections may advance last_available but cannot renew the
+   * accepted physical model lifetime, even with a fresh signed header. */
+  precision=renewed;memset(precision.original,0,sizeof precision.original);memset(precision.correction,0,sizeof precision.correction);
+  now.tick=renewed.last_accepted+R2_CAPTURE_HZ*3/2;local_tick=now.tick-16000;
+  uint64_t rejected_ns=renewed.permission_ns+(local_tick-renewed.permission_local)*125/2;
+  precision.original[0]=(struct r2_radio_original){.local=local_tick,.created_ns=rejected_ns-1000000,.expires_ns=rejected_ns+1000000000,.utc_offset_ns=fresh.utc_offset_ns,.publication=1005,.event=105,.channel=3,.used=true};
+  precision.correction[0]=(struct r2_radio_correction){.value={.publication=1005,.event=105,.channel=3,.ticks=rejected_ns*2/125,.generation=9,.expires_ns=rejected_ns+1000000000},.arrived=now.tick,.used=true};
+  precision.servo.last_sequence=UINT32_MAX;
+  assert(!r2_radio_precision_step(&precision,now,fake_time));
+  assert(precision.last_available==now.tick&&precision.last_accepted==renewed.last_accepted);
+assert(!r2_radio_precision_read(&precision,now,fake_time,&ns));
+  struct r2_radio_precision_view view;r2_radio_precision_view(&precision,now,fake_time,&view);assert(!view.map_valid);
+  uint64_t before=precision.data_until;fresh.publication++;fresh.created_ns=(uint64_t)root_ns+1500000000;fresh.expires_ns=fresh.created_ns+1000000000;rx.tick=now.tick-144;
+  (void)r2_radio_precision_rx_serving_origin(&precision,&fresh,rx,1003,3,now,fake_time,(int64_t)fresh.created_ns+fresh.utc_offset_ns);assert(precision.data_until<=before);
+  puts("PASS anchored signed grant renewal without new pair; duplicate/stale/future/expiry/offset/scope/counter/control/unknown/overflow negatives; tightergrant clips; older acceptedpair preserves independentgrant; rejected-correction physical cap");return 0;
+ }
  if(test==29){
   r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);drive_stream(900);
   fprintf(stderr,"causal setup utc%d data%llu modeldata%llu physical%llu tick%llu scope%d/%d accepted%u\n",pt_output.utc_valid,(unsigned long long)pt_output.gm7.data_until,(unsigned long long)precision.data_until,(unsigned long long)pt_output.capture_until,(unsigned long long)capture_tick,pt_output.scope.follower,pt_output.scope.broadcast,precision.accepted);

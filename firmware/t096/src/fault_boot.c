@@ -50,7 +50,7 @@ static void watchdog_package(uint32_t p[128],const volatile uint32_t *raw,const 
  }
  bool observed=raw[0]==R2_FAULT_RESET_MAGIC;
  unsigned reason=raw[4];p[24]=reason;
- p[25]=!observed&&((reason>=2&&reason<=6)||(reason>=16&&reason<256))?R2_FAULT_WD_TERMINAL:0;
+ p[25]=!observed&&((reason>=2&&reason<=7)||(reason>=16&&reason<256))?R2_FAULT_WD_TERMINAL:0;
  p[26]=observed?R2_FAULT_CONTEXT_HARDWARE_RESET:R2_FAULT_CONTEXT_SOFTWARE_WD;
  p[27]=observed?raw[5]:0; /* Raw mixed flags stay ambiguous; no CPU frame. */
  for(unsigned i=0;i<34;i++)p[64+i]=raw[i];

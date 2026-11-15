@@ -53,7 +53,7 @@ static void wd(uint32_t p[128],unsigned reason)
 {
  memset(p,0,512);p[0]=R2_FAULT_WD_MAGIC;p[1]=R2_FAULT_WD_SCHEMA;p[2]=UINT32_MAX;p[3]=512;
  p[4]=55;p[6]=0x9abcdef0;p[7]=0x12345678;p[24]=reason;
- p[25]=((reason>=2&&reason<=6)||(reason>=16&&reason<256))?1:0;p[26]=1;
+ p[25]=((reason>=2&&reason<=7)||(reason>=16&&reason<256))?1:0;p[26]=1;
  uint32_t *raw=p+64;raw[0]=0x52325744;raw[1]=1;raw[2]=55;raw[4]=reason;
  const char *binding="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
  memcpy(raw+12,binding,64);memcpy(raw+28,"123456789abcdef0",16);raw[33]=wd_crc(raw);
@@ -108,11 +108,11 @@ int main(int argc,char **argv)
  /* Exactly500ms is outside the original budget, with no write or ACK. */
  empty();now=500;cpu(retained,5001);memcpy(p,retained,512);assert(r2_fault_append(&io,p,500,&slot)==-ETIMEDOUT&&!writes);
  /* Distinct watchdog context preserves raw reason1 as NONTERMINAL, not CPU. */
- const unsigned reasons[]={1,2,3,4,5,6,16,29,UINT32_MAX};
+ const unsigned reasons[]={1,2,3,4,5,6,7,16,29,UINT32_MAX};
  for(unsigned i=0;i<sizeof reasons/sizeof *reasons;i++){
   empty();wd(retained,reasons[i]);assert(!r2_crash_valid(retained,true));memcpy(p,retained,512);
   assert(!r2_fault_append(&io,p,500,&slot));memcpy(stored,flash_bytes,512);assert(r2_fault_wd_valid(stored,false)&&!r2_crash_valid(stored,false));
-  assert(stored[25]==(((reasons[i]>=2&&reasons[i]<=6)||(reasons[i]>=16&&reasons[i]<256))?1u:0u));
+  assert(stored[25]==(((reasons[i]>=2&&reasons[i]<=7)||(reasons[i]>=16&&reasons[i]<256))?1u:0u));
   reset_io();memcpy(p,retained,512);assert(!r2_fault_append(&io,p,500,&slot)&&!writes);
  }
  /* Torn/corrupt candidate, invalid callbacks, exhausted generation refuse. */

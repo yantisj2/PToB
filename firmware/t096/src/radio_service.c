@@ -94,6 +94,13 @@ static struct {
  uint64_t created_ns,expires_ns;int64_t utc_offset_ns;
 #endif
 } gm7_direct;
+/* CONTROL changes retire in-flight PT authority, including stop/resume ABA.
+ * Saturation fails closed until the existing drained owner reset. */
+static uint32_t gm7_control_revision,gm7_precision_revision;
+static void gm7_control_changed(void){
+ if(gm7_control_revision!=UINT32_MAX)++gm7_control_revision;
+ memset(&gm7_direct,0,sizeof gm7_direct);
+}
 
 #endif
 static struct r2_radio_scope active_scope, native_scope;
@@ -302,6 +309,7 @@ static void withdraw_at(uint32_t reason,uint32_t generation,uint32_t caller_pc,b
    * the actual retirement is then only a subsequent material cause. */
   causal_locked(&pt_output,pt_output.scope,at,sampled,detected,paired,bound,false,UINT32_MAX,0,0);
 #endif
+  if(!pt_input.stopped)gm7_control_changed();
   pt_input.stopped=true;
 #ifdef R2_BLE_CAUSAL_EVENTS
   causal_locked(&pt_output,pt_output.scope,at,sampled,service_now(),paired,false,true,
@@ -641,8 +649,9 @@ static void precision_step(uint64_t now){
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
 #ifdef R2_GM7_NATIVE
  pt_input.gm7_busy=true;
+ uint32_t control_revision=gm7_control_revision;
 #endif
- out=pt_output;in=pt_input;(void)k_mutex_unlock(&pt_lock);
+ out=pt_output;in=pt_input;
 #ifdef R2_GM7_NATIVE
  bool broadcast=in.gm7_managed&&in.grant.follower&&!in.grant.gm;
  if(broadcast){
@@ -652,6 +661,13 @@ static void precision_step(uint64_t now){
    in.grant.source_epoch=gm7_direct.source;in.grant.publication_epoch=gm7_direct.train;
    in.grant.remote_capture_epoch=gm7_direct.capture;
   }
+ }
+#endif
+ (void)k_mutex_unlock(&pt_lock);
+#ifdef R2_GM7_NATIVE
+ if(in.gm7_managed&&gm7_precision_revision!=control_revision){
+  r2_radio_precision_scope(&precision,(struct r2_radio_scope){0},0);
+  gm7_precision_revision=control_revision;
  }
 #endif
  if(retain_public_timing(&in,now)){
@@ -806,7 +822,8 @@ static void precision_step(uint64_t now){
             p.expires_ns-p.created_ns>1650000000||p.utc_offset_ns<0||
             p.utc_offset_ns>INT64_MAX-(int64_t)p.expires_ns)continue;
         (void)k_mutex_lock(&pt_lock,K_FOREVER);
-        if(!pt_input.stopped&&pt_input.grant.follower&&
+        if(control_revision==gm7_control_revision&&control_revision!=UINT32_MAX&&
+            !pt_input.stopped&&pt_input.grant.follower&&
             pt_input.grant.root_identity==scope.root_identity&&pt_input.grant.boot==p.boot){
           gm7_direct.root=scope.root_identity;gm7_direct.boot=p.boot;
           gm7_direct.tick=physical.tick;gm7_direct.counter_epoch=physical.epoch;
@@ -887,10 +904,11 @@ static void precision_step(uint64_t now){
  out.quality=direct_quality.view;
  out.scope=active_scope;out.sampled=sampled;out.source_frame=follower_frame;out.capture_epoch=current.epoch;out.capture_tick=current.tick;out.capture_until=0;
  out.valid_until=active_scope.until_us;
- if(precision.last_available&&paired&&current.tick>=precision.last_available){
-  uint64_t age=current.tick-precision.last_available;
+ uint64_t physical_reference=scope.broadcast?precision.last_accepted:precision.last_available;
+ if(physical_reference&&paired&&current.tick>=physical_reference){
+  uint64_t age=current.tick-physical_reference;
   uint64_t remaining=age<R2_CAPTURE_HZ*3/2?(R2_CAPTURE_HZ*3/2-age)/(R2_CAPTURE_HZ/1000000):0;
-  out.capture_until=precision.last_available+R2_CAPTURE_HZ*3/2;
+  out.capture_until=physical_reference+R2_CAPTURE_HZ*3/2;
   remaining=remaining>remaining/500+1?remaining-remaining/500-1:0;
   if(sampled+remaining<out.valid_until)out.valid_until=sampled+remaining;
  }else out.valid_until=sampled;
@@ -962,7 +980,8 @@ static void precision_step(uint64_t now){
  (void)k_mutex_lock(&pt_lock,K_FOREVER);
  if(in.gm7_managed||pt_input.gm7_managed){
   export_locked=true;
-  if(in.gm7_managed!=pt_input.gm7_managed||!gm7_bound_locked(&out,service_now())){
+  if(in.gm7_managed!=pt_input.gm7_managed||control_revision!=gm7_control_revision||
+     control_revision==UINT32_MAX||!gm7_bound_locked(&out,service_now())){
 #ifdef R2_BLE_CAUSAL_EVENTS
    causal_bound=false;
 #endif
@@ -1059,6 +1078,17 @@ static void precision_step(uint64_t now){
     if(precision.last_available<delivered.delivery||delivered.delivery>UINT64_MAX-life||precision.data_until<16)limit=0;
     else{
      uint64_t stable=delivered.delivery+life;
+     /* Start with the same conservative conversion envelope used by signed
+      * permission restrictions. Otherwise a sub-microsecond expiry clip
+      * converts an unguarded accepted-pair deadline into a ~3ms shortening
+      * of an unchanged LoRa formula, repeatedly restarting its hardware.
+      * Freeze this cap to the original formula/UTC expiry; current data
+      * restrictions below it still fence, and duplicates cannot renew it. */
+     uint64_t room=delivered.anchor>=0&&precision.origin_expires_ns>(uint64_t)delivered.anchor?
+      (precision.origin_expires_ns-(uint64_t)delivered.anchor)/1000:0;
+     const uint64_t guard=1650000/500+101;
+     if(room<=guard||room-guard>(UINT64_MAX-delivered.delivery)/16)stable=0;
+     else{uint64_t origin=delivered.delivery+(room-guard)*16;if(stable>origin)stable=origin;}
      if(stable>precision.data_until-16)stable=precision.data_until-16;
      if(limit>stable)limit=stable;
     }
@@ -1202,6 +1232,7 @@ static void precision_poll(uint64_t now,bool *was_running){
   public_client=false;client_utc_offset=follower_utc_offset=0;shadow_delivery=shadow_epoch=0;
 #ifdef R2_GM7_NATIVE
   pt_input.gm7_managed=pt_input.gm7_busy=false; /* Drained PT reset only. */
+  gm7_control_revision=gm7_precision_revision=0;
 #endif
   generic_frame=0;memset(&generic_origin,0,sizeof generic_origin);last_published_capture=UINT32_MAX;updated_at=0;
   require_anchor=refresh_anchor=false;reset_ack=reset_requested;*was_running=false;
@@ -1358,6 +1389,14 @@ void r2_radio_service_gm7_publish(struct r2_radio_scope scope,const struct r2_gr
  bool bounded=scope.root<roster->count&&scope.root_identity&&scope.root_identity==roster->identity[scope.root]&&
   scope.boot&&scope.source_epoch&&scope.publication_epoch&&sampled<=now&&now<scope.until_us&&now<resume_until;
  bool own=scope.gm&&!scope.follower&&scope.root==service_self&&pt_input.source_ready&&pt_input.source_epoch==r2_radio_local_epoch(scope);
+ bool follow=scope.follower&&!scope.gm&&scope.root!=service_self&&
+  scope.root<roster->count&&scope.root_identity&&scope.root_identity==roster->identity[scope.root]&&scope.boot;
+ struct r2_radio_scope normalized=scope;
+ if(follow){normalized.until_us=INT64_MAX;normalized.broadcast=true;}
+ if(!pt_input.gm7_managed||pt_input.stopped||!same(pt_input.grant,normalized)||
+    pt_input.grant.remote_capture_epoch!=normalized.remote_capture_epoch||
+    pt_input.roster.group.id!=roster->group.id||pt_input.roster.group.epoch!=roster->group.epoch)
+  gm7_control_changed();
  bool changed=!same(pt_input.grant,scope)||scope.until_us<pt_input.grant.until_us;
  if(changed){
 #ifdef R2_LORA
@@ -1378,8 +1417,6 @@ void r2_radio_service_gm7_publish(struct r2_radio_scope scope,const struct r2_gr
  }
  pt_input.client=*client;pt_input.roster=*roster;pt_input.grant=scope;
  pt_input.utc=utc;pt_input.at=sampled;pt_input.gm7_managed=true;
- bool follow=scope.follower&&!scope.gm&&scope.root!=service_self&&
-  scope.root<roster->count&&scope.root_identity&&scope.root_identity==roster->identity[scope.root]&&scope.boot;
  if(follow){pt_input.grant.until_us=INT64_MAX;pt_input.grant.broadcast=true;pt_input.client=(struct r2_group_client){0};}
  if(((bounded&&own)||follow)&&!atomic_get(&error))pt_input.stopped=false;
  /* Handoff history survives. The owner may still need its original imported
@@ -1452,7 +1489,7 @@ static bool ui_radio_rf_copy(struct r2_rf_clock_sample *out,struct r2_capture at
    .train=s->publication_epoch,.fresh_until_us=until};
  }
  (void)k_mutex_unlock(&pt_lock);
- if(follower&&offset>=0&&r2_servo_mapped(&map,at.tick,&value)&&value>=0&&value<=INT64_MAX-offset){
+ if(follower&&offset>=0&&r2_radio_map_time(&map,at.tick,&value)&&value>=0&&value<=INT64_MAX-offset){
   int64_t elapsed=0;if(!r2_math_elapsed(at.tick-map.delivery,&elapsed))return true;
   uint64_t consumed=(uint64_t)elapsed/1000000;
   uint64_t magnitude=map.phase<0?(uint64_t)(-(map.phase+1))+1:(uint64_t)map.phase;
@@ -1542,7 +1579,7 @@ static void causal_locked(const struct pt_output *o,struct r2_radio_scope evalua
  bool header=gm7_direct.root&&gm7_direct.boot&&gm7_direct.counter_epoch;
  uint32_t raw=o->gm7.follow.flags;
  int64_t model_source_ns=0;
- bool model_known=counter&&o->gm7.retained&&r2_servo_mapped(&o->gm7.map,at.tick,&model_source_ns)&&model_source_ns>=0;
+ bool model_known=counter&&o->gm7.retained&&r2_radio_map_time(&o->gm7.map,at.tick,&model_source_ns)&&model_source_ns>=0;
  struct r2_ble_causal_record r={.sample_us=sampled,.commit_us=detected,.tick=at.tick,.epoch=at.epoch,
   .root=evaluated.root_identity,.boot=evaluated.boot,.source=evaluated.source_epoch,
   .train=evaluated.publication_epoch,.capture=evaluated.remote_capture_epoch,
@@ -1686,7 +1723,7 @@ int r2_radio_service_gm7_promote(struct r2_source_clock *to,uint64_t root,uint64
  uint32_t enclosure;valid=valid&&gm7_phase_grow(handoff.phase_enclosure_us,handoff.phase_evaluated_tick,current.tick,&enclosure)&&enclosure<=8000;
  r2_servo_map_t delivered=handoff.servo.output;
  int64_t offset=handoff.utc_offset_ns;
- int64_t ns;valid=valid&&r2_empirical_phase_ns(delivered.anchor,&delivered.anchor)&&r2_servo_mapped(&delivered,current.tick,&ns)&&ns>=0;
+ int64_t ns;valid=valid&&r2_empirical_phase_ns(delivered.anchor,&delivered.anchor)&&r2_radio_map_time(&delivered,current.tick,&ns)&&ns>=0;
  handoff.valid=false;(void)k_mutex_unlock(&pt_lock);
  if(!valid)return -ESTALE;
  return gm7_promote_clock(to,&delivered,offset,current,local_epoch,association);

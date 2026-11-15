@@ -31,12 +31,12 @@ def decode(raw):
     assert len(binding)==64 and all(c in '0123456789abcdef'for c in binding)
     assert len(factory)==16 and all(c in '0123456789abcdef'for c in factory)
     assert raw[64:96].hex()==binding and factory==f'{p[7]:08x}{p[6]:08x}'
-    reason=p[24];terminal=not observed and(2<=reason<=6 or 16<=reason<256)
+    reason=p[24];terminal=not observed and(2<=reason<=7 or 16<=reason<256)
     assert(not reason and p[27]==w[5]and p[27])if observed else not p[27]
     assert p[25]==int(terminal)
     assert not any(p[i]for i in range(28,64)if i not in(56,57,58))
     assert not any(p[98:126])
-    names={2:'RETRIES_EXHAUSTED',3:'CORE_STALL',4:'RECOVERY_FAILED',5:'CONTROL_STALL',6:'LORA_FAULT'}
+    names={2:'RETRIES_EXHAUSTED',3:'CORE_STALL',4:'RECOVERY_FAILED',5:'CONTROL_STALL',6:'LORA_FAULT',7:'USB_FAULT'}
     cause=names.get(reason,'FATAL_HOOK'if 16<=reason<256 else'UNKNOWN')if terminal else'UNKNOWN'
     return dict(kind='BARE_HARDWARE_RESET'if observed else'WATCHDOG_CONTEXT',schema=1,cpu_exception_frame=False,
         originating_source='UNKNOWN',exact_build_binding=binding,silicon=factory,
@@ -45,6 +45,7 @@ def decode(raw):
         hardware_reset_flags=p[27]if observed else None,binding_role='OBSERVING_IMAGE'if observed else'ORIGIN_IMAGE',
         software_terminal_decision=terminal,
         cause=cause,raw_reason=reason,raw_capsule=list(w),slot=p[2],
+        usb_health=dict(flags=w[9],progress=w[10],dma_owned=bool(w[9]&256),dma_endpoint=(w[9]>>24)&255,errata199=bool(w[9]&65536),phy_inconsistent=bool(w[9]&512),ep0_generation=w[11],frame=w[32])if reason==7 else None,
         rc_check=rc_check_detail(reason,w[32])if terminal else None,
         generation=p[56]|p[57]<<32,retained_id=f'{p[58]:08x}',
         limits='Original source absent in136B capsule; match original build receipt by binding. Stored context is not current-reset attribution and contains no CPU exception frame.')

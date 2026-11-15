@@ -20,7 +20,7 @@ endif()
 set(R2_USB_SOURCE_STREAM ON)
 set(R2_USB_SOF_PROBE ON)
 set(R2_USB_REFERENCE_PROBE ON)
-project(ptob_t096 VERSION 0.15.338)
+project(ptob_t096 VERSION 0.15.346)
 option(R2_LEGACY_GM_REGRESSION "Historical GM5/6 regression backend only" OFF)
 if(R2_DC_PROFILE OR R2_PC_PROFILE)
  set(R2_GM7_NATIVE OFF)
@@ -263,3 +263,8 @@ endif()
 
 # Generated from the shared registry, display-only.
 target_compile_definitions(app PRIVATE PTOB_NAME_REGISTRY=1)
+
+# Keep the precision owners within the fixed application partition. Preserve
+# small helper calls instead of duplicating their bodies in the large owners.
+set_source_files_properties(src/radio_precision.c src/radio_service.c PROPERTIES
+ COMPILE_OPTIONS "-fno-inline-functions-called-once;-fno-inline-small-functions")

@@ -22,7 +22,7 @@ bool r2_fault_wd_valid(const volatile uint32_t *p,bool retained)
     (p[26]!=R2_FAULT_CONTEXT_SOFTWARE_WD&&!observed)||p[127]!=R2_CRASH_COMMIT||p[126]!=r2_crash_crc(p)||
     raw[0]!=(observed?R2_FAULT_RESET_MAGIC:UINT32_C(0x52325744))||raw[1]!=(observed?2u:1u)||raw[33]!=capsule_crc(raw)||
     p[4]!=raw[2]||p[5]!=raw[3]||p[24]!=raw[4])return false;
- bool terminal=!observed&&((p[24]>=2&&p[24]<=6)||(p[24]>=16&&p[24]<256));
+ bool terminal=!observed&&((p[24]>=2&&p[24]<=7)||(p[24]>=16&&p[24]<256));
  if(p[25]!=(terminal?R2_FAULT_WD_TERMINAL:0))return false;
  if(observed){if(p[24]||p[27]!=raw[5]||!p[27])return false;}
  else if(p[27])return false;

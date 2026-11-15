@@ -13,18 +13,20 @@
 #include <errno.h>
 /* UEP1 v1: 32 bytes, six saturating transport counters, no clock authority. */
 extern void r2_usb_ep0_diagnostics(uint32_t words[6]);
+extern void r2_usb_health_snapshot(uint32_t words[4]);
 static uint8_t diagnostic[32];
 static int ep0_diagnostic_request(struct usb_setup_packet *s,int32_t *length,uint8_t **data){
- if(s->bmRequestType!=0xc1||s->bRequest!=0x56||s->wValue||
+ if(s->bmRequestType!=0xc1||(s->bRequest!=0x56&&s->bRequest!=0x58)||s->wValue||
     s->wIndex!=r2_usb_reference_number()||s->wLength!=sizeof diagnostic)return -ENOTSUP;
- uint32_t words[6];r2_usb_ep0_diagnostics(words);
- diagnostic[0]='U';diagnostic[1]='E';diagnostic[2]='P';diagnostic[3]='1';
+ uint32_t words[6]={0};
+ if(s->bRequest==0x58)r2_usb_health_snapshot(words);else r2_usb_ep0_diagnostics(words);
+ diagnostic[0]='U';diagnostic[1]=s->bRequest==0x58?'H':'E';diagnostic[2]=s->bRequest==0x58?'W':'P';diagnostic[3]='1';
  sys_put_le16(1,diagnostic+4);sys_put_le16(sizeof diagnostic,diagnostic+6);
  for(unsigned i=0;i<6;i++)sys_put_le32(words[i],diagnostic+8+4*i);
  *length=sizeof diagnostic;*data=diagnostic;return 0;
 }
 static int timing_request(struct usb_setup_packet *setup,int32_t *length,uint8_t **data){
- if(setup->bRequest==0x56)return ep0_diagnostic_request(setup,length,data);
+ if(setup->bRequest==0x56||setup->bRequest==0x58)return ep0_diagnostic_request(setup,length,data);
  if(setup->bRequest==0x54||setup->bRequest==0x55)return r2_usb_anchor_request(setup,length,data);
  if(setup->bRequest==0x52||setup->bRequest==0x53||setup->bRequest==0x57)return r2_usb_source_request(setup,length,data);
  return r2_usb_sof_request(setup,length,data);

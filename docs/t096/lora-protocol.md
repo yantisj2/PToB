@@ -371,9 +371,9 @@ with a60s steady-state heartbeat. They use the existing DTR-only nonblocking
 note path and never displace a queued command reply. `NO_SOURCE`, `META_WAIT`,
 `TRAIN_WAIT`, `TX_STALLED`, `RESTART_HOLD`, `AIRTIME_CAP` and `FAULT` distinguish causes;
 `ACTIVE` requires a completed current-context FOLLOW within normal cadence.
-Notes retain stream/epoch, pair age, completion/refusal/lateness counts, charge
-and context-reset count. Fixed500 notes include `hold_ms` and the last source
-withdrawal call site. A lost/disconnected USB console cannot retain a note;
+Notes retain stream/epoch, pair age, completion counts and error.
+Detailed refusal/lateness, airtime, context-reset and source-withdrawal fields
+remain available through `lora` and `lora-diag`. A lost/disconnected USB console cannot retain a note;
 explicit diagnostics remain available and fault evidence keeps its own policy.
 
 `lora-diag.train_active` reports that same transmitter progress criterion.

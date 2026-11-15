@@ -1,5 +1,81 @@
 # T096 changelog
 
+## 0.15.346
+
+- Observe held USB DMA independently of worker events. Suspend no longer masks
+  pending control work, latched SETUP/RESET or stalled DMA; ordinary idle suspend
+  and unplug remain exempt. Capture DMA endpoint, progress, regulator, peripheral,
+  pullup and IRQ state in the existing USB fault capsule. Also recover inconsistent
+  powered PHY state. Read-only UHW1 request0x58 exposes the same health fields
+  and errata199 applicability for live comparison. The observer neither retires DMA nor reuses its buffers.
+- Compact unsolicited LoRa notes to state, source, pair age, completion and error
+  fields. Detailed counters remain in `lora`/`lora-diag`; note cadence is unchanged.
+
+## 0.15.344
+
+- Count only USB worker dispatch as health progress. Freeing queued events
+  during interrupt-side overflow recovery cannot hide a blocked worker.
+
+## 0.15.343
+
+- Observe queued USB work and latched hardware SETUP/RESET independently of the USB worker. After 30 seconds
+  without a completed event while attached, powered and not suspended, retain
+  `USB_FAULT` with USB state, completed-event count, EP0 generation and frame
+  counter, then let the existing hardware watchdog reset the MCU. No driver
+  lock, peripheral reset or DMA-buffer reuse occurs in the observer. Idle,
+  unread CDC output, unplug and suspend do not arm this recovery. This covers
+  stalled queued work; it does not establish a fix for every USB failure.
+- Preserve the first terminal watchdog decision after a LoRa observer fault.
+  Capture original owner errors before stopping instead of replacing them with
+  generic EIO during the later main-loop poll. The recorded hardware stage is
+  the last observed stage, not proof that this operation caused an owner error.
+- Retire temporary `lab_source_hold` console instrumentation after the source
+  shortening diagnosis; source bounds and admission behavior are unchanged.
+
+## 0.15.342
+
+- Remove the temporary last-shortening diagnostic after capturing its cause;
+  retain the original startup/stop counters and memory budgets.
+
+- Clear the LoRa receiver's listening flag when the driver retires RX, before
+  validating its physical timestamp. A rejected stale packet now rearms
+  continuous reception instead of leaving the radio idle with a stale flag.
+  Invalid packets still supply no timing or admission authority.
+- A production-owner regression reproduces the previous stalled receiver and
+  verifies rearming after rejection. Hardware acceptance remains separate.
+
+## 0.15.341
+
+- Give direct-BLE LoRa formulas a fixed conservative original-expiry cap from
+  their first publication. Tiny authenticated expiry restrictions no longer
+  introduce the clock-conversion guard as a sudden capture-deadline reduction.
+  Current tighter data bounds still clip and fence transmission. No lease,
+  holdover window, hardware cancellation guard or mesh policy is extended.
+- Actual authenticated producer tests reproduce the previous restart trigger
+  and cover both tiny and material restrictions. Hardware/USB reliability
+  qualification remains separate.
+
+## 0.15.340
+
+- Add bounded, read-only last duplicate-source shortening deltas (low32 capture
+  ticks and UTC nanoseconds) to the slow LoRa diagnostic. Timing authority,
+  radio admission and expiry behavior are unchanged; hardware diagnosis pending.
+
+## 0.15.339 — refresh direct-GM source permission independently
+
+Convert progressing authenticated direct-GM source expiry through the last
+accepted physical pair, with the existing conservative clock-conversion guard.
+A new header can renew source permission without changing the servo or renewing
+the 1.5-second accepted-pair lifetime. Tighter grants retire older permission;
+late corrections cannot undo that retirement. A changed UTC offset requires a
+new context. Immutable source origins retain their original absolute expiry.
+
+Fence in-flight PT publication across CONTROL context changes and stop/resume,
+and clear old association/permission state before the next job. Ordinary
+same-context CONTROL refresh preserves the model. Host tests cover the actual
+authenticated receive path, stale/tighter grants and CONTROL interleavings.
+Hardware reliability and independent timing accuracy remain unqualified.
+
 ## 0.15.338 — keep delayed fixed500 SYNC inside the slot
 
 Give the staged fixed500 SYNC up to 2.7 seconds of launch slack within

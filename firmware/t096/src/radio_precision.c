@@ -20,6 +20,8 @@ static void association_clear(struct r2_radio_precision *s) {
   s->data_until = 0;
   s->last_available = 0;
   s->last_accepted = 0;
+  s->permission_local=s->permission_ns=s->permission_created=s->permission_expires=0;
+  s->permission_offset=0;s->original_progress=s->permission_publication=0;s->permission_anchor=false;
   s->sent_count = s->beat_count = s->beat_head = 0;
   s->tx_seen = false;
 }
@@ -65,6 +67,54 @@ static bool reject(struct r2_radio_precision *s) {
   r2_math_inc(&s->rejected);
   return false;
 }
+/* A fresh signed source grant is independent of a new physical correction.
+ * Its coordinate conversion is anchored to an actually accepted pair, never
+ * header UTC or a callback time. Reuse the public-client2kppm+100us guard.
+ * Clock/model reads retain a hard1.5s cap from the last accepted pair. */
+static void source_permission(struct r2_radio_precision *s,
+ const struct r2_precision_packet *p,struct r2_capture available,uint64_t horizon){
+ bool progressing=p->publication&&p->publication>s->original_progress;
+ if(progressing)s->original_progress=p->publication;
+ if(!progressing||!s->scope.broadcast||horizon!=1650000000||!s->permission_anchor||
+  p->utc_offset_ns<0||p->utc_offset_ns!=s->permission_offset||
+  p->created_ns<s->permission_created)return;
+ bool restriction=p->expires_ns<s->permission_expires;
+ uint64_t prior_until=s->data_until;
+ if(restriction){
+  /* Authenticated revocation cannot wait for a usable physical model.
+   * Keep its publication barrier so an older accepted pair cannot revive it. */
+  s->data_until=0;s->permission_created=p->created_ns;
+  s->permission_expires=p->expires_ns;s->permission_publication=p->publication;
+ }
+ if(s->servo.fault||!s->servo.fit_valid||!s->last_accepted||
+  available.tick<s->last_accepted||available.tick-s->last_accepted>=R2_CAPTURE_HZ*3/2||
+  available.tick<s->permission_local)return;
+ r2_servo_map_t map;if(!r2_radio_precision_map(s,&map))return;
+ uint64_t elapsed=available.tick-s->permission_local;
+ if(elapsed>R2_RADIO_MAX_AGE_TICKS+R2_CAPTURE_HZ*3/2)return;
+ uint64_t ns=elapsed*125/2;
+ if(s->permission_ns>UINT64_MAX-ns)return;
+ uint64_t current=s->permission_ns+ns,guard=ns/500+100000;
+ if(current>UINT64_MAX-guard||current<guard||p->created_ns>current-guard||
+  p->expires_ns<=current+guard||p->expires_ns<=s->permission_ns||
+  p->expires_ns-s->permission_ns>horizon+1750000000)return;
+ uint64_t duration=(p->expires_ns-s->permission_ns)/1000;
+ uint64_t reserve=duration/500+100;
+ if(duration<=reserve)return;
+ duration-=reserve;
+ if(duration>(UINT64_MAX-s->permission_local)/(R2_CAPTURE_HZ/1000000))return;
+ uint64_t until=s->permission_local+duration*(R2_CAPTURE_HZ/1000000);
+ if(until<=available.tick)return;
+ if(restriction)s->data_until=until<prior_until?until:prior_until;
+ else if(p->expires_ns>s->permission_expires){
+  /* Immutable source origins may predate this packet. Progression and the
+   * original absolute expiry, converted with the accepted-pair guard, bound
+   * authority; arrival cannot manufacture a fresh source lifetime. */
+  if(until>s->data_until){s->data_until=until;r2_math_inc(&s->permission_updates);}
+ }
+ s->permission_created=p->created_ns;s->permission_expires=p->expires_ns;
+ s->permission_publication=p->publication;
+}
 static bool receive(struct r2_radio_precision *s,
                            const struct r2_precision_packet *p,
                            struct r2_capture rx, uint16_t event,
@@ -108,6 +158,10 @@ static bool receive(struct r2_radio_precision *s,
     s->train = p->train;
     s->remote_capture = p->capture_epoch;
   }
+  /* An offset change needs a new authenticated context, not a silent rebase
+   * of an existing model or a way around a tighter permission barrier. */
+  if(s->scope.broadcast&&s->permission_anchor&&
+     p->utc_offset_ns!=s->permission_offset)return reject(s);
   unsigned slot = R2_RADIO_PENDING;
   for (unsigned i = 0; i < R2_RADIO_PENDING; i++) {
     struct r2_radio_original *o = &s->original[i];
@@ -125,9 +179,9 @@ static bool receive(struct r2_radio_precision *s,
     history_clear(s);
     return false;
   }
-  s->original[slot] = (struct r2_radio_original){
-      rx.tick, p->created_ns, p->expires_ns, p->publication,
-      event,   channel,       true};
+  s->original[slot] = (struct r2_radio_original){.local=rx.tick,.created_ns=p->created_ns,
+      .expires_ns=p->expires_ns,.utc_offset_ns=p->utc_offset_ns,.publication=p->publication,
+      .event=event,.channel=channel,.used=true};
   for (unsigned c = 0; c < p->count; c++) {
     const struct r2_precise_correction *value = &p->correction[c];
     unsigned free = R2_RADIO_PENDING;
@@ -154,6 +208,7 @@ static bool receive(struct r2_radio_precision *s,
     s->correction[free] =
         (struct r2_radio_correction){*value, available.tick, true};
   }
+  source_permission(s,p,available,horizon_ns);
   return true;
 }
 bool r2_radio_precision_rx(struct r2_radio_precision *s,const struct r2_precision_packet *p,
@@ -218,7 +273,22 @@ bool r2_radio_precision_step(struct r2_radio_precision *s,
   s->last_available = available.tick;
   if (accepted) {
     s->last_accepted = available.tick;
-    s->data_until=data_until;
+    bool same_permission=s->permission_anchor&&s->permission_offset==best->utc_offset_ns;
+    bool current_grant=best->created_ns==s->permission_created&&c.expires_ns==s->permission_expires;
+    bool newer_grant=best->publication>=s->permission_publication&&
+      best->created_ns>=s->permission_created&&c.expires_ns>=s->permission_expires;
+    if(!same_permission||((current_grant||newer_grant)&&data_until>s->data_until))s->data_until=data_until;
+    if(!same_permission){
+      s->permission_created=best->created_ns;s->permission_expires=c.expires_ns;s->permission_publication=best->publication;
+    }else{
+      if(best->publication>=s->permission_publication&&best->created_ns>=s->permission_created){
+        s->permission_publication=best->publication;
+        s->permission_created=best->created_ns;
+        if(c.expires_ns>s->permission_expires)s->permission_expires=c.expires_ns;
+      }
+    }
+    s->permission_local=best->local;s->permission_ns=c.ticks*125/2;
+    s->permission_offset=best->utc_offset_ns;s->permission_anchor=true;
 #ifdef R2_LORA
     s->origin_created_ns=best->created_ns;
     s->origin_expires_ns=c.expires_ns; /* minimum original/correction permission */
@@ -306,9 +376,11 @@ bool r2_radio_precision_read(const struct r2_radio_precision *s,
          now.epoch == s->local_epoch && s->last_available &&
          now.tick >= s->last_available &&
          now.tick - s->last_available < R2_CAPTURE_HZ * 3 / 2 &&
+         (!s->scope.broadcast||(s->last_accepted&&now.tick>=s->last_accepted&&
+          now.tick-s->last_accepted<R2_CAPTURE_HZ*3/2))&&
          (!s->scope.broadcast || (s->data_until && now.tick<s->data_until)) &&
          r2_radio_precision_map(s,&map) &&
-         r2_servo_mapped(&map, now.tick, ns);
+         r2_radio_map_time(&map, now.tick, ns);
 }
 void r2_radio_precision_view(const struct r2_radio_precision *s,
                              struct r2_capture now, uint64_t us,
@@ -323,6 +395,8 @@ void r2_radio_precision_view(const struct r2_radio_precision *s,
                now.epoch == s->local_epoch && s->last_available &&
                now.tick >= s->last_available &&
                now.tick - s->last_available < R2_CAPTURE_HZ * 3 / 2 &&
+               (!s->scope.broadcast||(s->last_accepted&&now.tick>=s->last_accepted&&
+                now.tick-s->last_accepted<R2_CAPTURE_HZ*3/2))&&
                (!s->scope.broadcast || (s->data_until && now.tick<s->data_until));
   if (s->scope.gm) {
     v->rms_ns = s->beat_rms_ns;
@@ -355,4 +429,8 @@ bool r2_radio_precision_rx_held_origin(struct r2_radio_precision *s,const struct
  uint64_t now,int64_t expected,uint32_t signed_horizon_us){
  if(!signed_horizon_us||signed_horizon_us>10000000)return false;
  return receive(s,p,rx,event,channel,available,now,expected,true,(uint64_t)signed_horizon_us*1000);
+}
+
+bool r2_radio_map_time(const r2_servo_map_t *map,uint64_t tick,int64_t *ns){
+ return r2_servo_mapped(map,tick,ns);
 }

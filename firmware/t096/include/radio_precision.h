@@ -19,6 +19,7 @@ static inline uint32_t r2_radio_local_epoch(struct r2_radio_scope s)
 {return s.local_source_epoch?s.local_source_epoch:s.source_epoch;}
 struct r2_radio_original {
   uint64_t local, created_ns, expires_ns;
+  int64_t utc_offset_ns;
   uint32_t publication;
   uint16_t event;
   uint8_t channel;
@@ -33,6 +34,10 @@ struct r2_radio_precision {
   struct r2_radio_scope scope;
   uint64_t local_epoch, last_available, last_accepted, last_tx_ns;
   uint64_t data_until; /* Broadcast matched original/correction expiry in local ticks. */
+  uint64_t permission_local,permission_ns,permission_created,permission_expires;
+  int64_t permission_offset;
+  uint32_t original_progress,permission_updates,permission_publication;
+  bool permission_anchor;
 #ifdef R2_LORA
   uint64_t origin_created_ns,origin_expires_ns;
 #endif
@@ -111,3 +116,6 @@ bool r2_radio_precision_rx_held_origin(struct r2_radio_precision *,const struct 
 /* Frozen delivered follower map with the declared empirical phase correction.
  * The raw fitter and matched RF samples remain unchanged. */
 bool r2_radio_precision_map(const struct r2_radio_precision *,r2_servo_map_t *);
+
+/* Shared conversion keeps the native owner and precision core on one body. */
+bool r2_radio_map_time(const r2_servo_map_t *map,uint64_t tick,int64_t *ns);

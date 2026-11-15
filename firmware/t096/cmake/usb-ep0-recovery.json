@@ -1,8 +1,8 @@
 {
-  "revision": "RC_USB_EP0_SETUP_RESET_FENCE_POWER_REPLAY_V5",
+  "revision": "RC_USB_EP0_POWER_WORKER_DMA_HEALTH_V8",
   "upstream_commit": "7823374e872145b5bd018bfe447839eb36042611",
   "path": "drivers/usb/device/usb_dc_nrfx.c",
   "original": "7134b8da13a380f19b0426e1f693ec55b134308f681b4994f31b6bfa3c02d535",
-  "fixed": "b07c30f01a246d025d8241fb06c1b1cfb61ede8d3d08bf7c717d8bd1a41b72b3",
-  "patch_sha256": "e1aa952f48df99a78a29787a9d6622fe8c5075c032dba596eb79579de3d382ce"
+  "fixed": "1b3eadc2e0811d85ba640843a29f35c0b7efcc0c9549d28791a8c29945bbfddf",
+  "patch_sha256": "d13c54adf27eb5ff00727220a7000b52e195e1d626756c41555262eea7e6457a"
 }

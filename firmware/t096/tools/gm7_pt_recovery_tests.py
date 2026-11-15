@@ -21,12 +21,12 @@ def run(label,cmd):
  with(O/(label+'.log')).open('x')as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
 try:
  run('radio-compile',flags+['-DR2_LORA=1']+list(map(str,radio))+['-o',str(O/'radio')])
- for n in ([29,30]if a.causal_only else list(range(31))+[116,117,120,122,130,131,132,133,134,150,161]):run('radio-'+str(n),[str(O/'radio'),str(n)])
+ for n in ([29,30,31,32]if a.causal_only else list(range(33))+[116,117,120,122,130,131,132,133,134,150,161]):run('radio-'+str(n),[str(O/'radio'),str(n)])
  if not a.causal_only:
   run('passive-radio-compile',flags+['-DR2_LORA=1','-DR2_LORA_PASSIVE_FAST=1']+list(map(str,radio))+['-o',str(O/'passive-radio')])
   for n in range(31):run('passive-radio-'+str(n),[str(O/'passive-radio'),str(n)])
  run('fixed-observer-compile',flags+['-DR2_LORA=1','-DR2_LORA_PASSIVE_SLOW=1','-DR2_LORA_FIXED500_EXPERIMENT=1']+list(map(str,radio))+['-o',str(O/'fixed-observer')])
- for n in (90,91,92):run('fixed-observer-'+str(n),[str(O/'fixed-observer'),str(n)])
+ for n in (90,91,92,93,94):run('fixed-observer-'+str(n),[str(O/'fixed-observer'),str(n)])
  import re
  replay=[re.search(r'BLE_MODEL_REPLAY ([0-9a-f]+) accepted(\d+) rejected(\d+) until(\d+) observer(\d+)',(O/('fixed-observer-'+str(n)+'.log')).read_text())for n in (90,91,92)]
  assert all(replay)and replay[0].groups()[:4]==replay[1].groups()[:4]==replay[2].groups()[:4]and int(replay[0][5])>400 and replay[1][5]=='0'

@@ -3,9 +3,9 @@
 from pathlib import Path
 import hashlib,json,re,sys
 APP=Path(__file__).resolve().parents[1]
-def generate(deps,out):
-    m=json.loads((APP/'cmake/usb-ep0-recovery.json').read_text())
-    patch=(APP/'cmake/usb-ep0-recovery.patch').read_bytes()
+def generate(deps,out,stem="usb-ep0-recovery"):
+    m=json.loads((APP/'cmake'/(stem+'.json')).read_text())
+    patch=(APP/'cmake'/(stem+'.patch')).read_bytes()
     sha=lambda b:hashlib.sha256(b).hexdigest()
     assert sha(patch)==m['patch_sha256']
     body=(deps/m['path']).read_bytes();assert sha(body)==m['original']
@@ -24,4 +24,4 @@ def generate(deps,out):
     fixed.extend(original[pos:]);data=''.join(fixed).encode();assert sha(data)==m['fixed']
     out.parent.mkdir(parents=True,exist_ok=True)
     if not out.is_file() or out.read_bytes()!=data:out.write_bytes(data)
-if __name__=='__main__':generate(Path(sys.argv[1]),Path(sys.argv[2]))
+if __name__=='__main__':generate(Path(sys.argv[1]),Path(sys.argv[2]),sys.argv[3]if len(sys.argv)>3 else"usb-ep0-recovery")

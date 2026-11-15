@@ -1,0 +1,31 @@
+--- a/drivers/usb/common/nrf_usbd_common/nrf_usbd_common.c
++++ b/drivers/usb/common/nrf_usbd_common/nrf_usbd_common.c
+@@ -223,6 +223,20 @@
+ 
+ /* Endpoint on which DMA was started. */
+ static nrf_usbd_common_ep_t dma_ep;
++static uint32_t r2_dma_completions;
++
++/* Called under the application observer IRQ fence. Never wait or retire DMA.
++ * A held semaphore is outstanding DMA or a blocked lifecycle owner; unlike
++ * waiting for a host IN token, neither may remain held for30 seconds. */
++uint32_t r2_usb_dma_health(uint32_t *progress)
++{
++	uint32_t flags = ((uint32_t)dma_ep << 24) | ((uint32_t)nrf_usbd_common_errata_199() << 16);
++	if (!k_sem_count_get(&dma_available)) {
++		*progress = r2_dma_completions;
++		flags |= 1u << 8;
++	}
++	return flags;
++}
+ 
+ /**
+  * @brief Tracks whether total bytes transferred by DMA is even or odd.
+@@ -626,6 +640,7 @@
+ 
+ static void nrf_usbd_dma_finished(nrf_usbd_common_ep_t ep)
+ {
++	++r2_dma_completions;
+ 	/* DMA finished, track if total bytes transferred is even or odd */
+ 	m_dma_odd ^= usbd_ep_amount_get(ep) & 1;
+ 	usbd_dma_pending_clear();
