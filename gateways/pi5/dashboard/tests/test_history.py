@@ -27,13 +27,88 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(result['source_poll_s'],4)
         # Real edge loss and unreachable/failed source queries still produce gaps.
         state['pps']['fresh']=False
-        self.assertIsNone(h.sample(state,4)['source_offset_ns'])
-        self.assertIsNone(h.sample(state,4)['tracking_rms_ns'])
+        held=h.sample(state,4)
+        self.assertIsNone(held['source_offset_ns'])
+        self.assertIsNone(held['tracking_rms_ns'])
+        self.assertEqual(held['reported_tracking_rms_ns'],50)
+        self.assertEqual(held['reported_source_offset_ns'],100)
+        self.assertEqual(held['tracking_mode'],'holdover')
+        self.assertEqual(held['timing_reason'],'PPS paused; no current edge')
         state['pps']['fresh']=True
         state['sources'][0]['reach']='000'
         self.assertIsNone(h.sample(state,4)['source_offset_ns'])
         state['sources']=[]
-        self.assertIsNone(h.sample(state,4)['tracking_offset_ns'])
+        failed=h.sample(state,4)
+        self.assertIsNone(failed['tracking_offset_ns'])
+        self.assertIsNone(failed['reported_source_offset_ns'])
+
+    def test_availability_does_not_replace_the_clock_scope_or_live_population(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'history.sqlite3';db=h.History(path)
+            context=['test-source','boot',['root','leaf'],'PTOB',True,'root','root-boot',1,'root']
+            for i in range(5):
+                context[3]='NTP' if i>=3 else 'PTOB'
+                context[4]=i!=1
+                context[5]='new-root' if i==4 else 'root'
+                db.add(dict(at_ms=i*1000,mono_ms=i*1000,context=__import__('json').dumps(context),
+                            selected=context[3],tracking_reference=context[3],complete=i!=1,gm_admitted=i!=1,
+                            fit_drift_ppb=i,tracking_rms_ns=None if i==1 else 50,
+                            reported_tracking_rms_ns=50,tracking_mode='holdover' if i==1 else 'live',
+                            pps_phase_ns=None if i==1 else i,pps_sequence=i,receiver_boot='boot'))
+            db.close();data=h.read(path,60);rows=data['points']
+            self.assertEqual([r['series_segments']['receiver'] for r in rows],[0,0,0,0,1])
+            self.assertEqual([r['series_segments']['tracking'] for r in rows],[0,0,0,1,1])
+            self.assertEqual(data['timing_health']['source_changes'],1)
+            self.assertEqual(data['timing_health']['pps_unavailable_snapshots'],1)
+            self.assertEqual(data['statistics']['tracking_rms_ns']['n'],4)
+            self.assertEqual(data['held_estimates']['tracking_rms_ns'],1)
+            self.assertIn('withdrawn',rows[1]['timing_reason'])
+            exported=h.read(path,60,export=True)
+            self.assertIsNone(exported[1]['tracking_rms_ns'])
+            self.assertEqual(exported[1]['reported_tracking_rms_ns'],50)
+
+    def test_historical_unknowns_and_two_second_physical_intervals_are_preserved(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'history.sqlite3';db=h.History(path)
+            for i in range(3):
+                db.add(dict(at_ms=i*1000,mono_ms=i*1000,context='same',selected='PTOB',gm_admitted=i!=1,
+                            complete=i!=1,pps_sequence=10 if i<2 else 11,
+                            pps_phase_ns=None if i==1 else 1,tracking_rms_ns=None if i==1 else 50,
+                            pps_interval_ns=2000000000 if i==2 else 1000000000,pps_gap=i==2))
+            db.close();data=h.read(path,60)
+            self.assertIsNone(data['points'][1]['tracking_rms_ns'])
+            self.assertNotIn('reported_tracking_rms_ns',data['points'][1])
+            self.assertEqual(data['timing_health']['pps_gap_events'],1)
+            self.assertEqual(data['timing_health']['nominal_missing_pps_slots'],1)
+
+    def test_unknown_telemetry_does_not_count_as_a_source_change(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'history.sqlite3';db=h.History(path)
+            known=['firmware','boot',['root','leaf'],'PTOB',True,'root','gm-boot',1,'parent']
+            unknown=[None,None,None,'PTOB',False,None,None,None,None]
+            changed=known.copy();changed[5]='new-root'
+            for i, context in enumerate((known,unknown,known,unknown,changed)):
+                db.add(dict(at_ms=i*1000,mono_ms=i*1000,context=__import__('json').dumps(context),
+                            selected='PTOB',complete=context is not unknown,
+                            pps_phase_ns=1,pps_sequence=i,receiver_boot=context[1]))
+            db.close();data=h.read(path,60)
+            self.assertEqual(data['timing_health']['source_changes'],1)
+            self.assertEqual(data['timing_health']['availability_changes'],4)
+            self.assertEqual([r['series_segments']['receiver'] for r in data['points']],[0,1,2,3,4])
+
+    def test_legacy_display_warmup_does_not_erase_valid_measured_history(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'history.sqlite3';db=h.History(path)
+            for i in range(20):
+                db.add(dict(at_ms=i*1000,mono_ms=i*1000,context='same',selected='PTOB',
+                            complete=True,gm_admitted=True,pps_phase_ns=1,pps_sequence=i,
+                            fit_rms_ns=55,tracking_rms_ns=50,source_stddev_ns=300,
+                            report_policy='stable-path-10s-v1',report_ready=False,report_state='warming'))
+            db.close();data=h.read(path,60)
+            self.assertEqual(data['statistics']['tracking_rms_ns']['n'],20)
+            self.assertTrue(all(r['tracking_rms_ns']==50 for r in data['points']))
+            exported=h.read(path,60,export=True)
+            self.assertTrue(all(r['report_ready'] is False for r in exported))
 
     def test_epoch_nanoseconds_and_chrony_columns(self):
         self.assertEqual(h.ns('1793571054.000000063')-h.ns('1793571053.999999999'),64)

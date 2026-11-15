@@ -81,6 +81,10 @@ function networkState(d, states, live) {
     note:`Wi-Fi PTP ${wifi ? 'active' : 'unavailable'} · ${d.ethernet_link === false ? 'Ethernet has no link' : 'Ethernet link unknown'} · Accuracy unmeasured`};
   return {state:'good', title:'NTP / Ethernet PTP active', note:`Wi-Fi PTP ${wifi ? 'active' : 'unavailable'} · Accuracy unmeasured`};
 }
+function holdoverDetail(pps){
+  return (pps.fresh ? 'Receiver timing was withdrawn while the last PPS edge is still recent.' : `PPS edges stopped (${ago(pps.age_s)}).`)+
+    ' Chrony retains PTOB in holdover; current PToB timing is unavailable.';
+}
 function render(d) {
   lastData=d;
   const stale = d.stale, c = d.chain, r = d.receiver, rx = r.data || {}, p = d.pps;
@@ -88,7 +92,7 @@ function render(d) {
   const states = services(d.observations.services.text);
   text('headline', c.summary);
   $('signal').className = 'signal ' + (c.complete && live ? 'good' : 'wait');
-  text('detail', stale ? 'The collector stopped updating. Check its service before trusting this display.' : c.complete ? 'Receiver timing is admitted, PPS edges are current, and chrony selects PTOB. Output accuracy remains unmeasured.' : c.chrony_holdover ? `PPS edges stopped (${ago(p.age_s)}). Chrony retains PTOB in holdover; current PToB timing is unavailable.` : c.selected ? `The system clock currently selects ${c.selected.name === 'PTOB' ? 'PTOB PPS' : 'NTP ' + c.selected.name}. The complete PToB transfer is not yet established.` : 'No chrony source is selected. Clock discipline is not established.');
+  text('detail', stale ? 'The collector stopped updating. Check its service before trusting this display.' : c.complete ? 'Receiver timing is admitted, PPS edges are current, and chrony selects PTOB. Output accuracy remains unmeasured.' : c.chrony_holdover ? holdoverDetail(p) : c.selected ? `The system clock currently selects ${c.selected.name === 'PTOB' ? 'PTOB PPS' : 'NTP ' + c.selected.name}. The complete PToB transfer is not yet established.` : 'No chrony source is selected. Clock discipline is not established.');
   text('age', `Device sample ${ago(d.sample_age_s)} · ${new Date(d.observed_utc).toLocaleString()}`);
   sourceReport(d,stale);
   stage('receiver', admitted ? 'good' : 'wait', stale ? 'Stale' : admitted ? 'Timing admitted' : r.fresh ? 'Acquiring' : 'Telemetry unavailable', r.fresh ? `${number(rx.authenticated)} authenticated · ${ago(r.age_s)}` : r.transport + ' · ' + ago(r.age_s));

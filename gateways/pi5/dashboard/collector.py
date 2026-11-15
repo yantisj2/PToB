@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import select
+import signal
 import re
 import subprocess
 import termios
@@ -57,12 +58,17 @@ class PPS:
                 consecutive = self.seq is not None and seq == self.seq + 1
                 interval = tick-self.stamp if consecutive else None
                 regular = consecutive and 500_000_000 < interval < 1_500_000_000
-                if self.seq is not None or abs(time.time_ns()-tick) < 5_000_000_000:
+                observed_interval = now-self.at if self.at is not None and consecutive else None
+                # A cached assert is not a newly observed edge. Wait for the
+                # sequence to advance after startup; a recently stopped PPS
+                # must not become fresh merely because the collector restarts.
+                if self.seq is not None:
                     self.at = now
                 self.latest = dict(present=True, sequence=seq, assert_utc=stamp,
                                    phase_ns=(tick+500_000_000)%1_000_000_000-500_000_000,
                                    period_error_ns=interval-1_000_000_000 if regular else None,
                                    interval_ns=interval, gap_interval=consecutive and not regular,
+                                   observed_interval_s=observed_interval,
                                    skipped_edges=max(0, seq-self.seq-1) if self.seq is not None else None,
                                    pin=16)
                 self.seq, self.stamp = seq, tick
@@ -72,7 +78,7 @@ class PPS:
             self.latest.update(present=False, error=str(e))
         age = None if self.at is None else now-self.at
         # A 1 Hz source must not appear continuously live through 2–3 s gaps.
-        return dict(self.latest, age_s=age, fresh=self.latest['present'] and age is not None and age < 1.5)
+        return dict(self.latest, age_s=age, fresh=self.latest['present'] and age is not None and 0 <= age < 1.5)
 
 
 def observe(previous, health_due):
@@ -167,7 +173,7 @@ def chain_state(receiver, pps, rows):
     admitted = bool(receiver.get('fresh') and r.get('following') and r.get('clock_valid') and
                     not r.get('error') and not r.get('receiver_error') and
                     not r.get('capture_error') and r.get('offer_valid'))
-    phase = bool(pps_selected and pps.get('fresh'))
+    phase = bool(admitted and pps_selected and pps.get('fresh'))
     if not admitted:
         state = 'Receiver timing unavailable'
     elif not pps.get('fresh'):
@@ -177,7 +183,7 @@ def chain_state(receiver, pps, rows):
     else:
         state = 'PToB phase disciplines the system clock'
     return dict(summary=state, admitted=admitted, pps_selected=pps_selected,
-                pps_disciplined=phase, chrony_holdover=bool(pps_selected and not pps.get('fresh')),
+                pps_disciplined=phase, chrony_holdover=bool(pps_selected and not phase),
                 complete=bool(admitted and phase), selected=selected,
                 output_accuracy_measured=False, sub_microsecond_qualified=False)
 
@@ -252,10 +258,16 @@ def main():
     from history import sample
     pps_reader = PPS()
     history = History(args.history)
+    stopping = False
+    def stop(signum, frame):
+        nonlocal stopping
+        stopping = True
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
     source_tracker = SourceTracker()
     worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='observations')
     pending, observations, next_sample, health_at = None, {}, 0, 0
-    while True:
+    while not stopping:
         r = receiver.poll()
         now = time.monotonic()
         pps = pps_reader.poll(now)
@@ -294,6 +306,12 @@ def main():
             next_sample += 1
             if next_sample <= now: next_sample = now + 1
         time.sleep(0.02)
+    # Commit the final disk batch during an ordinary service update. Chrony
+    # keeps consuming PPS independently; no UART command or clock write occurs.
+    history.close()
+    if receiver.fd is not None:
+        os.close(receiver.fd)
+    worker.shutdown(wait=True)
 
 
 if __name__ == '__main__':

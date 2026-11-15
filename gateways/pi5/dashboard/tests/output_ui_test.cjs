@@ -11,6 +11,9 @@ function draw(data,live=true,services=states){context.data=data;context.live=liv
 const holdover=structuredClone(base);holdover.chain={complete:false,chrony_holdover:true};
 assert.equal(draw(holdover).state,'wait');assert.equal(draw(holdover).title,'PToB holdover');
 assert.match(draw(holdover).note,/holdover or network UTC/);
+assert.match(vm.runInContext('holdoverDetail({fresh:true,age_s:0.2})',context),/withdrawn.*still recent/);
+assert.doesNotMatch(vm.runInContext('holdoverDetail({fresh:true,age_s:0.2})',context),/edges stopped/);
+assert.match(vm.runInContext('holdoverDetail({fresh:false,age_s:2})',context),/PPS edges stopped/);
 assert.equal(draw({...holdover,chain:{complete:false}}).title,'PToB unavailable');
 const withheld=structuredClone(base);withheld.clock_chain.server={fresh:true,ready:false,running:false,reason:'kernel TAI unavailable'};
 assert.equal(draw(withheld).state,'wait');assert.match(draw(withheld).note,/TAI unavailable/);

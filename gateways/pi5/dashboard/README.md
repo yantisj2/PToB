@@ -11,7 +11,8 @@ assets. Use the [Pi setup guide](../../../docs/pi5/setup.md) to install it.
 
 ![Generic Pi timing monitor overview](images/overview.jpg)
 
-The screenshots render the shipped frontend with **illustrative synthetic data**.
+The screenshots show an earlier frontend render with **illustrative synthetic data**.
+Current charts also distinguish reported holdover estimates and timing interruptions.
 Names, identities, dates and values are examples, not laboratory measurements.
 They contain no real device, network, account or private-access details. Actual
 [measured results](../../../evidence/pi5/2026-11-02/README.md) remain a separate,
@@ -42,13 +43,25 @@ boundary. Repeated servo estimates are snapshots, not independent updates.
 Select one minute through six hours, inspect by pointer/touch or arrow keys,
 and export the full window as CSV. The table reports population, mean, RMS,
 centered standard deviation, absolute percentiles and extrema before chart
-reduction. Lines retain real gaps and source changes; isolated points remain
-visible. Block means use unique contiguous PPS edges with denominators and
+reduction. Lines retain real missing measurements and source changes; isolated
+points remain visible. Fresh chrony responses during PPS holdover appear as
+dashed estimates, with their state and measurement age, and stay outside the
+live timing statistics. Receiver fit gaps are not filled with old values.
+Inspection reports the recorded reason for a timing interruption; collection
+gaps and source changes have separate counts. Series use their own clock scope,
+so admission changes do not break unrelated receiver drift estimates.
+Display settling never blanks otherwise valid observations. Legacy readiness
+annotations remain in CSV for audit; they are not timing permission or a reason
+to discard initialization and recovery measurements.
+Block means use unique contiguous PPS edges with denominators and
 correlation, without assuming independent errors or a square-root accuracy gain.
 
 History is recorded at 1 Hz, held locally for up to 24 hours and written in
 10-second batches. Status refreshes every two seconds; history refreshes every
-ten seconds. The collector continues without a browser open. The read-only
+ten seconds. Large HTTP responses use negotiated gzip compression to reduce
+transfer load without removing measurements or extrema. The collector commits
+its last history batch on a normal service stop and continues without a browser
+open. The read-only
 server does not flash firmware, reset a radio or write any clock.
 
 ## Files, API and access

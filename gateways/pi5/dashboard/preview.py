@@ -54,14 +54,25 @@ def history(seconds=300):
             fit_rms_ns=round(55+12*math.sin(i*.12)), fit_drift_ppb=round(1450+25*math.sin(i*.015)),
             pps_phase_ns=phase, pps_period_ns=round(180*math.sin(i*.3)), query_ms=5,
             uart_age_ms=250, source_sample_age_s=0, source_poll_s=1))
+        row=points[-1]
+        row.update(context='synthetic-same-source', series_segments=dict(receiver=0,source=0,tracking=0,pps=0),
+                   tracking_mode='live', source_mode='live',timing_reason='Live admitted PPS')
+        # Synthetic interruption: physical/receiver gaps stay open; separately
+        # reported servo estimates are held and excluded from live statistics.
+        if seconds//2 <= i < seconds//2+7:
+            for key in ('source_offset_ns','tracking_offset_ns','tracking_rms_ns','source_stddev_ns'):
+                row['reported_'+key]=row[key];row[key]=None
+            row.update(fit_rms_ns=None,pps_phase_ns=None,pps_period_ns=None,
+                       tracking_mode='holdover',source_mode='holdover',timing_reason='Receiver clock offer withdrawn')
     statistics={}
     for key in points[0]:
         if not key.endswith(('_ns','_ms','_ppb')) or key=='at_ms':continue
-        values=[p[key] for p in points];n=len(values);mean=math.fsum(values)/n;ordered=sorted(map(abs,values))
+        values=[p[key] for p in points if isinstance(p.get(key),(int,float))];n=len(values);mean=math.fsum(values)/n;ordered=sorted(map(abs,values))
         statistics[key]=dict(n=n,mean=mean,rms=math.sqrt(math.fsum(v*v for v in values)/n),
             stddev=math.sqrt(math.fsum((v-mean)**2 for v in values)/n),min=min(values),max=max(values),
             p95_abs=ordered[math.ceil(.95*n)-1],p99_abs=ordered[math.ceil(.99*n)-1])
-    return dict(points=points,statistics=statistics,population=len(points),window_s=seconds,sample_age_s=0,gaps=0)
+    return dict(points=points,statistics=statistics,population=len(points),window_s=seconds,sample_age_s=0,gaps=2,
+                timing_health=dict(pps_unavailable_snapshots=7,source_changes=0,collection_breaks=0))
 
 
 class Handler(BaseHTTPRequestHandler):

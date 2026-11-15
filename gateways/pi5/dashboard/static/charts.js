@@ -14,6 +14,14 @@ const TimingCharts = (() => {
   let data=null, busy=false, generation=0;
   const inspections=new Map();
   const format=n=>Number.isFinite(n)?n.toLocaleString(undefined,{maximumFractionDigits:0}):'—';
+  const group=key=>key.startsWith('tracking_')?'tracking':key.startsWith('source_')?'source':key.startsWith('fit_')?'receiver':'pps';
+  const segment=(row,key)=>row.series_segments?.[group(key)]??row.segment;
+  function observation(row,key){
+    const mode=row[group(key)+'_mode'];
+    const reported=row['reported_'+key];
+    if(mode==='holdover'&&Number.isFinite(reported))return {value:reported,held:true};
+    return {value:row[key],held:false};
+  }
   function svg(tag,attrs={},value) { const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs)) e.setAttribute(k,v);if(value!==undefined)e.textContent=value;return e; }
   function draw(id,series,unit) {
     const figure=document.getElementById(id),box=figure.querySelector('.plot'),readout=figure.querySelector('.readout');
@@ -21,15 +29,19 @@ const TimingCharts = (() => {
     // Chart reduction can omit a previously inspected point on a later poll.
     // Keep that real observation while it remains in the selected time range.
     if(pinned&&rows.length&&pinned.at_ms>=rows.at(-1).at_ms-data.window_s*1000&&
-       !rows.some(r=>r.at_ms===pinned.at_ms)){rows.push(pinned);rows.sort((a,b)=>a.at_ms-b.at_ms);}
+       !rows.some(r=>r.at_ms===pinned.at_ms)){
+      const same=rows.filter(r=>r.context===pinned.context);
+      if(same.length){const near=same.reduce((a,b)=>Math.abs(a.at_ms-pinned.at_ms)<Math.abs(b.at_ms-pinned.at_ms)?a:b);
+        rows.push({...pinned,segment:near.segment,series_segments:near.series_segments});rows.sort((a,b)=>a.at_ms-b.at_ms);}
+    }
     const W=Math.max(280,box.clientWidth),H=220,left=64,right=W-14,top=16,bottom=181;
     const hadFocus=box.contains(document.activeElement);
     box.replaceChildren();box.removeAttribute('tabindex');
-    const values=rows.flatMap(r=>series.map(s=>r[s[0]]).filter(Number.isFinite));
+    const values=rows.flatMap(r=>series.map(s=>observation(r,s[0]).value).filter(Number.isFinite));
     if (!values.length) { const p=document.createElement('p');p.className='plot-empty';p.textContent='No valid samples in this window. Check source validity and telemetry freshness.';box.append(p);readout.textContent='No exact value available in the selected window.';inspections.delete(id);if(hadFocus){box.tabIndex=-1;box.focus({preventScroll:true});}return; }
     let low=Math.min(...values),high=Math.max(...values);
     if (id!=='chart-drift') {low=Math.min(0,low);high=Math.max(0,high);}
-    const pad=Math.max(10,(high-low)*.1);low-=pad;high+=pad;
+    const pad=Math.max(10,(high-low)*.1);low=id==='chart-rms'?0:low-pad;high+=pad;
     const end=rows.at(-1).at_ms,start=Math.max(rows[0].at_ms,end-data.window_s*1000),span=Math.max(1000,end-start);
     const x=r=>left+(r.at_ms-start)/span*(right-left),y=v=>bottom-(v-low)/(high-low)*(bottom-top);
     const el=svg('svg',{viewBox:`0 0 ${W} ${H}`,role:'img',tabindex:'0','aria-label':figure.querySelector('h3').textContent+`. Values in ${unit}. Use left and right arrows to inspect samples; End follows the newest sample.`});
@@ -37,27 +49,42 @@ const TimingCharts = (() => {
     for(let i=0;i<4;i++) {const v=low+(high-low)*i/3,cy=y(v);el.append(svg('line',{x1:left,x2:right,y1:cy,y2:cy,class:'chart-grid'}),svg('text',{x:left-8,y:cy+4,'text-anchor':'end',class:'chart-tick'},format(v)));}
     el.append(svg('text',{x:8,y:12,class:'chart-tick'},unit));
     for(let i=0;i<3;i++){const at=start+span*i/2;el.append(svg('text',{x:left+(right-left)*i/2,y:207,'text-anchor':i===0?'start':i===2?'end':'middle',class:'chart-tick'},new Date(at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})));}
+    let hasHeld=false;
     for (const [key,label,color] of series) {
-      let path='',run=[];const isolated=[];
-      function finish(){if(run.length===1)isolated.push(run[0]);run=[];}
-      for(const r of rows) {const valid=Number.isFinite(r[key]);if(!valid){finish();continue;}
+      const paths={live:'',held:''},isolated=[];
+      let run=[],held=false;
+      function finish(){
+        if(run.length===1)isolated.push({row:run[0],held});
+        if(run.length){paths[held?'held':'live']+=run.map((r,i)=>`${i?'L':'M'}${x(r).toFixed(2)},${y(observation(r,key).value).toFixed(2)} `).join('');}
+        run=[];
+      }
+      for(const r of rows){
+        const item=observation(r,key);
+        if(!Number.isFinite(item.value)){finish();continue;}
         const previous=run.at(-1);
-        if(previous&&previous.segment!==r.segment)finish();
-        path+=`${run.length?'L':'M'}${x(r).toFixed(2)},${y(r[key]).toFixed(2)} `;run.push(r);}
+        if(previous&&segment(previous,key)!==segment(r,key))finish();
+        else if(previous&&held!==item.held){
+          if(item.held){finish();run=[previous];}
+          else{run.push(r);finish();}
+        }
+        held=item.held;run.push(r);hasHeld||=held;
+      }
       finish();
-      el.append(svg('path',{d:path,class:`chart-line series-${color}`,fill:'none','aria-label':label}));
+      el.append(svg('path',{d:paths.live,class:`chart-line series-${color}`,fill:'none','aria-label':label}));
+      if(paths.held)el.append(svg('path',{d:paths.held,class:`chart-line series-${color}`,fill:'none','stroke-dasharray':'5 4','aria-label':label+' · reported during holdover'}));
       // An isolated valid observation is a point, not an invisible SVG move.
       // Keep real gaps open instead of joining across missing observations.
-      for(const r of isolated)el.append(svg('circle',{cx:x(r),cy:y(r[key]),r:2.5,
-        class:`chart-line series-${color}`,fill:'none','aria-label':`${label}: ${format(r[key])} ${unit}`}));
+      for(const {row:r,held:h} of isolated)el.append(svg('circle',{cx:x(r),cy:y(observation(r,key).value),r:2.5,
+        class:`chart-line series-${color}`,fill:'none','aria-label':`${label}: ${format(observation(r,key).value)} ${unit}${h?' · holdover estimate':''}`}));
     }
     const cursor=svg('line',{y1:top,y2:bottom,class:'chart-cursor',visibility:'hidden'});el.append(cursor);box.append(el);
     const legend=document.createElement('ul');legend.className='chart-legend';
-    for(const [,label,color] of series){const li=document.createElement('li'),mark=document.createElement('span');mark.className=`legend-mark series-${color}`;li.append(mark,document.createTextNode(label));legend.append(li);}box.append(legend);
+    for(const [,label,color] of series){const li=document.createElement('li'),mark=document.createElement('span');mark.className=`legend-mark series-${color}`;li.append(mark,document.createTextNode(label));legend.append(li);}
+    if(hasHeld){const li=document.createElement('li');li.textContent='Dashed: reported during holdover';legend.append(li);}box.append(legend);
     let selected=rows.length-1;
     if(pinned!==undefined){selected=0;for(let i=1;i<rows.length;i++)if(Math.abs(rows[i].at_ms-pinned.at_ms)<Math.abs(rows[selected].at_ms-pinned.at_ms))selected=i;}
-    function inspect(index,pin=true){selected=Math.max(0,Math.min(rows.length-1,index));const r=rows[selected],cx=x(r);if(pin)inspections.set(id,r);cursor.setAttribute('x1',cx);cursor.setAttribute('x2',cx);cursor.setAttribute('visibility','visible');readout.textContent=new Date(r.at_ms).toLocaleTimeString()+' · '+series.map(([k,label])=>`${label}: ${format(r[k])} ${unit}`).join(' · ')+` · Source: ${r.selected||'none'}`+((id==='chart-offset'||id==='chart-rms')&&Number.isFinite(r.source_sample_age_s)?` · chrony sample age ${format(r.source_sample_age_s)} s; poll ${format(r.source_poll_s)} s`:'');}
-    function point(e){const at=start+((e.clientX-el.getBoundingClientRect().left)-left)/(right-left)*span;let nearest=0;for(let i=1;i<rows.length;i++)if(Math.abs(rows[i].at_ms-at)<Math.abs(rows[nearest].at_ms-at))nearest=i;inspect(nearest);}
+    function inspect(index,pin=true){selected=Math.max(0,Math.min(rows.length-1,index));const r=rows[selected],cx=x(r);if(pin)inspections.set(id,r);cursor.setAttribute('x1',cx);cursor.setAttribute('x2',cx);cursor.setAttribute('visibility','visible');readout.textContent=new Date(r.at_ms).toLocaleTimeString()+' · '+series.map(([k,label])=>{const o=observation(r,k);return `${label}: ${format(o.value)} ${unit}${o.held?' (holdover estimate)':''}`;}).join(' · ')+` · Source: ${r.selected||'none'}`+(r.timing_reason?` · ${r.timing_reason}`:'')+((id==='chart-offset'||id==='chart-rms')&&Number.isFinite(r.source_sample_age_s)?` · chrony sample age ${format(r.source_sample_age_s)} s; poll ${format(r.source_poll_s)} s`:'');}
+    function point(e){const rect=el.getBoundingClientRect(),px=(e.clientX-rect.left)*W/rect.width;const at=start+(px-left)/(right-left)*span;let nearest=0;for(let i=1;i<rows.length;i++)if(Math.abs(rows[i].at_ms-at)<Math.abs(rows[nearest].at_ms-at))nearest=i;inspect(nearest);}
     el.addEventListener('pointermove',point);el.addEventListener('pointerdown',point);
     el.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();inspect(selected+(e.key==='ArrowLeft'?-1:1));}else if(e.key==='End'){e.preventDefault();inspections.delete(id);inspect(rows.length-1,false);}});
     inspect(selected,false);if(hadFocus)el.focus({preventScroll:true});
@@ -75,7 +102,8 @@ const TimingCharts = (() => {
       for(const b of avg.blocks){const tr=document.createElement('tr');for(const v of [`${b.seconds} s`,format(b.n),format(b.used_edges),fractional(b.mean),fractional(b.rms),fractional(b.stddev),fractional(b.p95_abs)]){const td=document.createElement('td');td.textContent=v;tr.append(td);}averages.append(tr);}
     }
     const age=data.sample_age_s;
-    document.getElementById('history-status').textContent=data.population?`${format(data.population)} snapshots · ${data.gaps} context changes / gaps · newest ${Math.max(0,Math.round(age))} s ago${(age<0||age>20)?' · History is stale; check the collector.':''}`:'History is warming up. First disk batch appears within 10 seconds.';
+    const h=data.timing_health,health=h?`${format(h.pps_unavailable_snapshots)} without current PPS · ${format(h.source_changes)} source changes · ${format(h.collection_breaks)} collection breaks`:`${data.gaps} context changes / gaps`;
+    document.getElementById('history-status').textContent=data.population?`${format(data.population)} snapshots · ${health} · newest ${Number.isFinite(age)?Math.max(0,Math.round(age)):'unknown'} s ago${(!Number.isFinite(age)||age<0||age>20)?' · History is stale; check the collector.':''}`:'History is warming up. First disk batch appears within 10 seconds.';
   }
   async function refresh(){
     if(busy)return;busy=true;const request=++generation,window=document.getElementById('window').value;
