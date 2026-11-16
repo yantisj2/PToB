@@ -1008,7 +1008,7 @@ extern "C" void app_main(){
   gnss_pps::set_nmea_consumer([](const uint8_t* bytes,unsigned n){v12::r2_nmea(bytes,n,micros());});
 #ifdef V12_R2_FIELD_CLIENT
 #if V12_R2_CONFIG == 13
-  std::printf("W12_R2_BOOT RF=AUTO\n");
+  // Current R2 policy and enrollment identity are in mandatory CRC status.
 #else
   std::printf("W12_R2_BOOT profile=%s enrollment_sha=%s self=3 roster=4 RF=AUTO_CLIENT_AFTER_HOST_SYNC active=PERSISTENT_ONCE_PER_BOOT precision=UNAVAILABLE\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA);
 #endif
