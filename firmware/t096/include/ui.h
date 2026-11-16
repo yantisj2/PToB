@@ -248,7 +248,7 @@ bool r2_ui_shadow_requested(void);
 bool r2_ui_rf_requested(void);
 bool r2_ui_take_profile_toggle(void);
 #ifdef R2_LORA
-bool r2_ui_take_lora_toggle(void);
+unsigned r2_ui_take_lora_toggle(void);
 #endif
 void r2_ui_profile_flash(bool rc);
 uint32_t r2_ui_stack_unused(void);

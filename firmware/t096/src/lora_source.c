@@ -53,11 +53,12 @@ bool r2_lora_source_follower(struct rc8_export *out,const r2_servo_map_t *m,stru
  if(!out)return false;
  memset(out,0,sizeof *out);uint64_t anchor,first,last;int64_t value;
  if(!m||!m->valid||scope.kind!=RC8_SELECTED_BLE||rc8_scope_validate(&scope)||scope.scale!=RC8_UTC||
- !generation||!now.epoch||now.tick<m->delivery||until<=now.tick||m->anchor<0||
+ !generation||!now.epoch||now.kind!=R2_CAPTURE_NOW||now.tick<m->delivery||until<=m->delivery||m->anchor<0||created>=expires||
  !r2_servo_mapped(m,now.tick,&value)||value<0||!translated((uint64_t)m->anchor,offset,&anchor)||
- !translated(created,offset,&first)||!translated(expires,offset,&last)||created>(uint64_t)value||(uint64_t)value>=expires)return false;
+ !translated(created,offset,&first)||!translated(expires,offset,&last)||created>(uint64_t)value)return false;
+ bool live=until>now.tick&&(uint64_t)value<expires;
  *out=(struct rc8_export){.scope=scope,.from_tick=m->delivery,.until_tick=until,.anchor_tick=m->delivery,
  .anchor_ns=anchor,.capture_epoch=now.epoch,.created_ns=first,.expires_ns=last,.map_generation=generation,
- .upstream_bound_ns=RC8_UNKNOWN,.rate_ppb=m->rate,.phase_ns=m->phase,.mode=RC8_MAP_DELIVERED,.authenticated=true,.valid=true};
- return true;
+ .upstream_bound_ns=RC8_UNKNOWN,.rate_ppb=m->rate,.phase_ns=m->phase,.mode=RC8_MAP_DELIVERED,.authenticated=live,.valid=live};
+ return live;
 }

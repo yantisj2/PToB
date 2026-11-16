@@ -32,7 +32,9 @@ int main(int argc,char **argv)
         r2_fault_capsule[45]==0xcccccccc&&r2_fault_capsule[47]==0x55555555&&
         r2_fault_capsule[54]==0x20031000&&r2_fault_capsule[56]==0xfffffffd);
  FILE *f=fopen(argv[1],"wb");assert(f&&fwrite((const void *)r2_fault_capsule,4,64,f)==64&&!fclose(f));
- r2_health_init(9);assert(previous[1]==4&&previous[47]==0x55555555&&!r2_fault_capsule[0]);
+ /* Reboot clears operational capsules; durable records use a separate path. */
+ r2_health_init(9);
+ for(unsigned i=0;i<FAULT_WORDS;i++)assert(!previous[i]&&!r2_fault_capsule[i]);
  /* Each unavailable pointer is rejected numerically before any access. */
  uintptr_t bad[]={0,1,start-4,top-47,top-44,top-36,UINTPTR_MAX-3};
  for(unsigned i=0;i<sizeof bad/sizeof bad[0];i++){
@@ -65,10 +67,11 @@ int main(int argc,char **argv)
  }
  fake_fault_vector=5;capture(25,NULL);assert(r2_fault_capsule[1]==4&&r2_fault_capsule[40]==16);
  for(unsigned i=41;i<=56;i++)assert(!r2_fault_capsule[i]);
- /* Accept every retained schema without turning diagnostic words into role state. */
+ /* Clear every legacy operational schema instead of restoring prior state. */
  for(unsigned schema=2;schema<=4;schema++){
   r2_fault_capsule[0]=FAULT_MAGIC;r2_fault_capsule[1]=schema;r2_fault_capsule[63]=crc(r2_fault_capsule);
-  r2_health_init(schema);assert(previous[1]==schema);
+  r2_health_init(schema);
+  for(unsigned i=0;i<FAULT_WORDS;i++)assert(!previous[i]&&!r2_fault_capsule[i]);
  }
  for(unsigned schema=1;schema<=5;schema+=4){
   memset(previous,0,sizeof previous);r2_fault_capsule[0]=FAULT_MAGIC;

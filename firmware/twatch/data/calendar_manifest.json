@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "station": "8729511",
+  "station_name": "Destin, East Pass, FL",
+  "reference_station": "8729840",
+  "scope": "Nearby Gulf reference; not a Santa Rosa Beach gauge or weather forecast",
+  "datum": "MLLW",
+  "time_zone": "UTC",
+  "height_unit": "mm",
+  "event_resolution_seconds": 60,
+  "coverage_start_utc": 1767225600,
+  "coverage_end_exclusive_utc": 1830297600,
+  "events": 1548,
+  "runtime_table_bytes": 9288,
+  "source_terms": "NOAA public domain; https://oceanservice.noaa.gov/about/faq.html",
+  "encoding_license": "CC-BY-4.0; original encoding Jonathan Yantis",
+  "sources": [
+    {
+      "year": 2026,
+      "url": "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=PToB_Watch&begin_date=20260101&end_date=20261231&datum=MLLW&station=8729511&time_zone=gmt&units=metric&interval=hilo&format=json",
+      "sha256": "1c4d43cd77a5c6853a85a518257cbf2e83007ffa2797086b2d7cc50321f60a20",
+      "events": 777
+    },
+    {
+      "year": 2027,
+      "url": "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=PToB_Watch&begin_date=20270101&end_date=20271231&datum=MLLW&station=8729511&time_zone=gmt&units=metric&interval=hilo&format=json",
+      "sha256": "3ee8637364b57df4c0cc1ea2f880cef12e8cdaba1ed3e7baaaafe04b995535f2",
+      "events": 771
+    }
+  ],
+  "generated_sha256": "6c400afc2ce39954adb3f70ab35ea090e4d9ef5f67258c80100d2611bddffcdc"
+}

@@ -32,3 +32,7 @@ void r2_json_fields(struct r2_json *,const struct r2_json_field *,unsigned,
 /* snprintf-compatible required length/truncation for bounded supported data;
  * a negative formatting/count error is retained rather than masked. */
 int r2_json_result(const struct r2_json *);
+
+/* One compact read-only literal instead of two address selections at each
+ * diagnostic field. bool normalizes arbitrary nonzero callers to index one. */
+static inline const char *r2_json_bool(bool value){return &"false\0true"[6*(unsigned)value];}

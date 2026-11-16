@@ -61,7 +61,8 @@ static int sys_notify_fetch_result(const int *notify,int *result){
 }
 static void usbd_enable_endpoints(struct nrf_usbd_ctx *p){(void)p;assert(initialized&&enabled);}
 static void nrf_usbd_common_start(bool sof){(void)sof;assert(initialized&&enabled&&now_ms>=hfxo_ready_ms);++starts;}
-static void nrf_usbd_common_suspend(void){}
+static bool nrf_usbd_common_suspend(void){return true;}
+static bool r2_usb_common_failed(void){return false;}
 static bool dev_ready(void){return ctx.ready;}
 static void status(int n,void *p){(void)p;++notifications[n];}
 '''+fn('hfxo_ready')+'\n'+fn('usbd_work_process_pwr_events')+'\n'+fn('usbd_reinit')+'''

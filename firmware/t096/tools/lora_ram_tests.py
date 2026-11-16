@@ -48,7 +48,7 @@ def main():
   assert r.returncode!=0 and expected in r.stderr,(name,r.returncode,r.stderr)
   print('PASS causal negative '+name);cases+=1
  # Actual RAM diagnostic and watchdog bodies, without any flash fake or driver.
- for name in ['zephyr/kernel.h','zephyr/sys/atomic.h','zephyr/sys/reboot.h','zephyr/device.h','zephyr/drivers/watchdog.h','zephyr/drivers/hwinfo.h','cmsis_core.h','build_identity.h']:
+ for name in ['zephyr/kernel.h','zephyr/irq.h','zephyr/sys/atomic.h','zephyr/sys/reboot.h','zephyr/device.h','zephyr/drivers/watchdog.h','zephyr/drivers/hwinfo.h','cmsis_core.h','build_identity.h']:
   f=a.out/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('/* Fixture boundary */\n')
  (a.out/'build_identity.h').write_text('#ifndef R2_SOURCE_SHA\n#define R2_SOURCE_SHA "'+'f'*64+'"\n#endif\n')
  runtime_flags=[*flags,'-DR2_LORA=1','-I'+str(a.out),'-include',str(APP/'tests/zephyr_fake.h')]

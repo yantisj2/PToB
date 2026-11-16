@@ -1,5 +1,21 @@
 # N30 changelog
 
+## 0.2.65 — 2026-11-16
+
+Discover passive LoRa transmitters from authenticated wire3/schedule8 META,
+following the T096 field-emitter policy. Replace the compiled transmitter filter
+with four non-evicting per-emitter replay floors that survive RX OFF/ON. Advance
+the matching floor after strict or observer physical pairs. A source/context
+change clears pending captures, models and training before new physical evidence
+can supply time. Self-emission, invalid authentication, replay and a full peer
+table are refused. Same-context refresh keeps its existing timing model.
+
+Enable reception with `--lora-rx`; the legacy transmitter argument remains an
+enable hint. Trust enrollment remains separate from runtime source discovery.
+Offline regressions cover source changes, retired boots, consumed cursors,
+observer-only pairs and zero/self legacy hints. Hardware reception and timing
+accuracy require their own evidence.
+
 ## 0.2.64 — 2026-11-08
 
 Use a current authenticated direct-GM follow-up to correct an already captured

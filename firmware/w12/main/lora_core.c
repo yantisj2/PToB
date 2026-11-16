@@ -5,17 +5,21 @@
 #include "lora_passive_core.h"
 #include <string.h>
 static struct lp_rx receiver;
-static struct lp_replay replay;
+// Per-emitter ordering survives RX OFF/ON; full tables never evict history.
+enum { ReplayPeers=4 };
+static struct {uint64_t emitter;struct lp_replay floor;} replay[ReplayPeers];
 static struct r2_group_config group;
-static uint64_t transmitter,current_tick,current_epoch,current_us,meta_us;
+static uint64_t factory_id,current_tick,current_epoch,current_us,meta_us;
 static uint32_t generation,metadata,rejected,replayed;
 static bool enabled,time_valid;
 static void inc(uint32_t *n){if(*n<UINT32_MAX)++*n;}
 bool w12_rc8_init(uint64_t factory,uint64_t source,uint64_t id,uint32_t epoch,const uint8_t key[32]){
- if(!key||!factory||!source||factory==source)return false;
+ // Legacy source hint does not select the authenticated field emitter.
+ (void)source;
+ if(!key||!factory)return false;
  group=(struct r2_group_config){.id=id,.epoch=epoch};memcpy(group.psk,key,32);
  if(!r2_group_valid(&group))return false;
- lp_rx_clear(&receiver);memset(&replay,0,sizeof replay);transmitter=source;
+ lp_rx_clear(&receiver);memset(&replay,0,sizeof replay);factory_id=factory;
  generation=metadata=rejected=replayed=0;current_tick=current_epoch=current_us=meta_us=0;enabled=time_valid=false;return true;
 }
 uint32_t w12_rc8_switch(bool on){
@@ -34,11 +38,15 @@ bool w12_rc8_receive(const uint8_t* wire,size_t size,uint64_t tick,uint64_t epoc
  lp_rx_expire(&receiver,now);struct lp_packet packet;
  if(lp_decode(&packet,wire,size,receiver.cached?receiver.context:NULL,&group)||packet.kind==LP_DISC){inc(&rejected);return false;}
  if(packet.kind==LP_META){
-  if(packet.scope.emitter!=transmitter||!lp_replay_admit(&replay,&packet)){inc(&replayed);return false;}
+  if(packet.scope.emitter==factory_id){inc(&rejected);return false;}
+  unsigned peer=0;
+  for(;peer<ReplayPeers;++peer)if(replay[peer].emitter==packet.scope.emitter||!replay[peer].emitter)break;
+  if(peer==ReplayPeers){inc(&rejected);return false;}
+  if(!lp_replay_admit(&replay[peer].floor,&packet)){inc(&replayed);return false;}
   // No independent UTC age/source-error interval exists on this no-GNSS target.
   // Authenticated observation leases are not calibrated age/accuracy bounds.
   if(!lp_rx_meta(&receiver,&packet,&group,NULL,local,now)){inc(&rejected);return false;}
-  lp_replay_commit(&replay,&packet);time_valid=packet.time_valid;meta_us=local;inc(&metadata);return false;
+  replay[peer].emitter=packet.scope.emitter;lp_replay_commit(&replay[peer].floor,&packet);time_valid=packet.time_valid;meta_us=local;inc(&metadata);return false;
  }
  if(!receiver.cached||!time_valid){inc(&rejected);return false;}
  if(packet.kind==LP_SYNC){
@@ -48,6 +56,11 @@ bool w12_rc8_receive(const uint8_t* wire,size_t size,uint64_t tick,uint64_t epoc
  }
  const bool ok=lp_rx_follow(&receiver,&packet,NULL,epoch,now);
  if(!ok)inc(&rejected);
+ else for(unsigned peer=0;peer<ReplayPeers;++peer)if(replay[peer].emitter==receiver.scope.emitter){
+  const uint32_t next=packet.cursor<=UINT32_MAX-2?packet.cursor+2:UINT32_MAX;
+  if(next>replay[peer].floor.cursor)replay[peer].floor.cursor=next;
+  break;
+ }
  return ok;
 }
 void w12_rc8_snapshot(struct w12_lora_view* out,uint64_t now){
@@ -68,6 +81,7 @@ void w12_rc8_snapshot(struct w12_lora_view* out,uint64_t now){
  if(r->last_tick){
   out->edge_us=r->last_us;out->edge_tick=r->last_tick;out->capture_epoch=r->last_epoch;out->event_ns=r->last_tx_ns;
   out->age_ms=now>=r->last_us&&(now-r->last_us)/1000<=UINT32_MAX?(uint32_t)((now-r->last_us)/1000):UINT32_MAX;
+  if(r->fit_count>1){const uint64_t span=(r->fit[r->fit_count-1].tick-r->fit[0].tick)/16000;out->fit_span_ms=span>UINT32_MAX?UINT32_MAX:(uint32_t)span;}
   out->link_samples=r->fit_count;out->link_rms_ns=r->trained?r->rms_ns:UINT32_MAX;out->rate_ppb=r->display_rate_ppb;
   uint64_t ns;
   if(enabled&&now>=current_us&&now-current_us<250000&&lp_rx_estimate(r,current_tick,current_epoch,now,&ns)){

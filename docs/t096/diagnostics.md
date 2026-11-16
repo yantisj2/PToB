@@ -1,5 +1,49 @@
 # T096 sync diagnostics
 
+## USB state without a working USB console
+
+The ordinary GM/RC System screen shows a live, read-only USB register view.
+Use the physical button to select System. Uptime and last reset remain above
+eight hexadecimal rows: F health flags, P worker/DMA progress, G EP0 generation,
+N frame counter, C EVENTCAUSE, I INTEN, H HFCLKSTAT and V USBREGSTATUS. Photograph
+the whole screen and retain the exact installed image, device and observed boot.
+The existing UHW1 flag assignments still apply; inaccessible low-power registers
+can read zero. These words are observations, not a fault diagnosis.
+Observation layout V13 (also used by driver patch revision V14) additionally
+reports USBD NVIC pending in F bit22;
+F bit13 reports NVIC enable, while I is the peripheral interrupt mask. Older
+layout V12 images do not capture pending state. A pending bit alone does not
+establish an interrupt stall or explain its cause.
+
+System stays visible while selected in both UI workers; other pages keep their
+normal screensaver policy. The display reads these words only while rendering
+System. The watchdog also samples the same read-only state at its existing
+125 ms cadence. Neither path sends USB traffic, wakes or resets the peripheral.
+The screen is a live view and cannot itself survive power removal.
+
+GM/RC durable diagnostics also retain the last sampled USB lifecycle observation
+in the existing 136 B capsule. Capture starts after attachment/readiness and
+updates for physical-state, interrupt-mask, clock or regulator changes. Frame,
+request, DMA-progress and pending-IRQ changes alone do not trigger a rewrite.
+The record includes all eight words, sampled uptime, originating boot, factory,
+exact build binding and CRC. Short transitions between samples may be missed.
+It is explicitly **USB_OBSERVATION**, not proof of a stall or its cause: a
+legitimate host suspend can produce it. Existing watchdog context takes priority,
+including a nonterminal NO_SYNC request, which stops later USB observations.
+
+After a reset, valid retained observations can be appended by the startup-only
+journal writer below. There is no runtime flash write, automatic erase or new
+reset trigger. Power loss, bootloader RAM changes or a different image layout
+before that startup commit can lose the observation. Photograph the live state
+before recovery where possible; a normal same-image restart gives retained
+bytes a chance to reach the journal before a later power cycle or update.
+
+Offline snapshot and display checks:
+
+```sh
+python3 firmware/t096/tools/usb_debug_tests.py --deps artifacts/deps --out artifacts/usb-debug-check
+```
+
 ## Fault-only reset retention and durable readout
 
 Native GM/RC images stage watchdog136B and CPU512B fault records in
@@ -17,6 +61,8 @@ invents a CPU exception frame:
 
 - Software capsules preserve terminal decisions or nonterminal context.
   NO_SYNC is a recovery request, so its cause remains UNKNOWN.
+- USB_OBSERVATION records the prior boot’s sampled USB state without assigning
+  a reset cause. It can consume a journal slot after an ordinary reset.
 - BARE_HARDWARE_RESET observes the new boot and raw watchdog/CPU-lockup flags.
   Prior fault boot, source, PC and software cause remain UNKNOWN. Mixed flags
   stay ambiguous. Recognized UF2 maintenance does not create this observation.
@@ -24,6 +70,9 @@ invents a CPU exception frame:
 The existing previous-copy136B allocation becomes the distinct pending
 watchdog record. First pending CPU and watchdog evidence is protected until
 durable acknowledgement; later faults can be omitted while it remains pending.
+A pending USB observation is lower priority: a later valid terminal watchdog
+record or hardware-reset witness may replace it before persistence. Existing
+genuine pending watchdog/hardware evidence is never replaced by a USB observation.
 Immediate reset classification stays separate: older context is never the
 current reset's cause.
 

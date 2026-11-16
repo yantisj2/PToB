@@ -24,13 +24,13 @@ bool pop_estimated(EstimateRecord& r){if(!estimate_queued)return false;estimate_
 }
 int ble_gap_ext_adv_active(unsigned i){return ext_active[i];}
 int ble_gap_ext_adv_stop(unsigned i){ext_active[i]=false;return 0;}
-int ble_gap_ext_adv_remove(unsigned i){assert(!ext_active[i]);return 0;}
-unsigned discovery_configured=0;
+unsigned cap_removed=0;int ble_gap_ext_adv_remove(unsigned i){assert(!ext_active[i]);if(i==1)++cap_removed;return 0;}
+unsigned discovery_configured=0,cap_sets=0;int cap_set_result=0;
 int ble_gap_ext_adv_configure(unsigned i,const ble_gap_ext_adv_params* p,int8_t*,int(*)(ble_gap_event*,void*),void*){
  assert(i<2&&p->sid==12+i&&p->connectable==i);
  assert(p->itvl_min==160&&p->itvl_max==160); //100ms discovery,625us units
  discovery_configured|=1u<<i;return 0;}
-int ble_gap_ext_adv_set_data(unsigned,os_mbuf* b){os_mbuf_free_chain(b);return 0;}
+int ble_gap_ext_adv_set_data(unsigned i,os_mbuf* b){os_mbuf_free_chain(b);if(i==1){++cap_sets;return cap_set_result;}return 0;}
 int ble_gap_ext_adv_start(unsigned i,int,unsigned){ext_active[i]=true;return 0;}
 int ble_gap_periodic_adv_configure(unsigned i,const ble_gap_periodic_adv_params* p){assert(i==0&&p->itvl_min==50&&p->itvl_max==50);return 0;}
 int ble_gap_periodic_adv_set_data(unsigned i,os_mbuf* b){assert(i==0&&b->bytes.size()==190);
@@ -71,6 +71,19 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
  tx_observation_fixture=which=="tx-observation"||which=="provisional-output";
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac));assert(v12::r2_host_init());assert(v12::r2_host_sync());
  v12::mode=v12::R2Mode::Client;v12::relay_poll(fake_now,false);assert(discovery_configured==3&&!ext_active[1]&&!ext_active[0]&&!pa_active);
+#ifdef PTOB_W12_BLE_RECOVERY
+ if(which=="cap-data-recreate"){
+   const auto start=fake_now;v12::synced=true;v12::sync_handle=17;v12::sync_identity=123;
+   v12::periodic_rx::installed=v12::periodic_rx::armed=true;v12::periodic_rx::capture_epoch=9;
+   ext_active[0]=pa_active=true;cap_set_result=0x207;
+   for(unsigned n=0;n<3;++n){assert(!v12::relay_cap_update(fake_now));assert(!v12::fault);fake_now+=100000;}
+   assert(cap_removed==1&&cap_sets==3&&v12::relay_cap_dirty&&!v12::relay_cap_at);
+   assert(v12::synced&&v12::sync_handle==17&&v12::sync_identity==123&&v12::periodic_rx::capture_epoch==9&&v12::periodic_rx::armed&&pa_active&&ext_active[0]);
+   cap_set_result=0;assert(v12::relay_cap_update(fake_now)&&!v12::fault&&cap_sets==4&&v12::relay_cap_at==fake_now);
+   assert(fake_now-start<500000&&v12::synced&&v12::periodic_rx::capture_epoch==9&&v12::periodic_rx::armed&&pa_active&&ext_active[0]);
+   puts("PASS bounded stopped CAP recreation preserves upstream PA scope and downstream train");return 0;
+ }
+#endif
 #ifdef R2_TZ_WIRE
  if(which=="tz-publisher"){
    fake_now=1000000;assert(r2_tz_observe(&v12::coarse_tz,{2,-300},fake_now,fake_now,R2_TZ_GM_PERIOD_US));

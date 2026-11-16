@@ -7,3 +7,6 @@ evidence/**/*.csv whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eo
 
 # Preserve hash-checked patch context, including its significant leading spaces.
 firmware/t096/cmake/*.patch -whitespace
+
+# Preserve selected Bosch source/firmware bytes bound by the provenance manifest.
+firmware/twatch/vendor/bhi260/* -text -whitespace

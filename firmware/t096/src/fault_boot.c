@@ -49,9 +49,10 @@ static void watchdog_package(uint32_t p[128],const volatile uint32_t *raw,const 
   p[16+i]|=((r2_crash_nibble((char)binding[at])<<4)|r2_crash_nibble((char)binding[at+1]))<<(8*b);
  }
  bool observed=raw[0]==R2_FAULT_RESET_MAGIC;
- unsigned reason=raw[4];p[24]=reason;
- p[25]=!observed&&((reason>=2&&reason<=7)||(reason>=16&&reason<256))?R2_FAULT_WD_TERMINAL:0;
- p[26]=observed?R2_FAULT_CONTEXT_HARDWARE_RESET:R2_FAULT_CONTEXT_SOFTWARE_WD;
+ bool usb=raw[0]==R2_USB_OBSERVATION_MAGIC;
+ unsigned reason=usb?0:raw[4];p[24]=reason;
+ p[25]=!observed&&!usb&&((reason>=2&&reason<=7)||(reason>=16&&reason<256))?R2_FAULT_WD_TERMINAL:0;
+ p[26]=usb?R2_FAULT_CONTEXT_USB_OBSERVATION:observed?R2_FAULT_CONTEXT_HARDWARE_RESET:R2_FAULT_CONTEXT_SOFTWARE_WD;
  p[27]=observed?raw[5]:0; /* Raw mixed flags stay ambiguous; no CPU frame. */
  for(unsigned i=0;i<34;i++)p[64+i]=raw[i];
  p[126]=r2_crash_crc(p);p[127]=R2_CRASH_COMMIT;
@@ -69,7 +70,7 @@ void r2_fault_boot(const struct r2_identity *id,uint32_t package[128])
  uint64_t deadline=begin+500;
  const volatile uint32_t *cpu=r2_health_crash_pending();
  const volatile uint32_t *watchdog=r2_watchdog_pending_record();
- if(!cpu&&!watchdog)return; /* Normal fault-free boot never opens the journal. */
+ if(!cpu&&!watchdog)return; /* No pending diagnostic means no journal IO. */
  if(!device_is_ready(flash)){
   fault_boot_state.cpu_result=fault_boot_state.watchdog_result=-ENODEV;return;
  }

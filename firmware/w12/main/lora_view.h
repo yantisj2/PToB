@@ -14,7 +14,7 @@ struct w12_lora_view {
  uint64_t created_ns,expires_ns,event_ns,metadata_us,meta_utc_ns;
  uint32_t source_epoch,generation,meta_seed,meta_cursor,sequence,corrected_sequence,map_generation,map_age_us;
  uint32_t accepted,rejected,replayed,overflow,unmatched,metadata,metadata_misses;
- uint32_t link_rms_ns,age_ms,reference_age_ms,snapshot_age_ms,diagnostic_sequence;
+ uint32_t link_rms_ns,fit_span_ms,age_ms,reference_age_ms,snapshot_age_ms,diagnostic_sequence;
  uint32_t parent_bound_ns,correction_age_ms,map_life_ms,residual_ns;
  int32_t rate_ppb,phase_ns;uint16_t quality_known,quality_values,events;
  uint8_t context[16],state,assurance,authority,kind,scale,link_samples;

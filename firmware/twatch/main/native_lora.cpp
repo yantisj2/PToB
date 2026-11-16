@@ -6,6 +6,8 @@
 #include "native_lora.hpp"
 #include "n30_lora.hpp"
 #include "lora_core.h"
+#include "lora_shadow.hpp"
+#include "lora_shadow_input.h"
 #include "lora_owner_gate.hpp"
 #include "ptob_gnss_reference.hpp"
 #include "lora_mapping.hpp"
@@ -25,6 +27,7 @@
 extern "C" bool n30_lora_reference_read(uint64_t*);
 extern "C" bool n30_lora_reference_bracket(mcpwm_cap_channel_handle_t,uint64_t*,uint64_t*);
 extern "C" int n30_lora_reference_current(mcpwm_cap_channel_handle_t,uint32_t*,uint64_t*);
+extern "C" void watch_lora_shadow_event(uint8_t,const uint8_t*,uint64_t,uint32_t,uint64_t,uint64_t,bool);
 namespace {
 constexpr auto Nss=GPIO_NUM_36,Reset=GPIO_NUM_47,Busy=GPIO_NUM_48,Irq=GPIO_NUM_14;
 constexpr uint16_t RxGainReg=0x08ac;
@@ -48,10 +51,13 @@ uint32_t header_capture=0,header_generation=0,header_serial=0;uint64_t header_un
 uint64_t capture_epoch=0;
 uint8_t requested_mode=0;bool mode_pending=false,cycle_pending=false,ble_locked=false,allowed=false,ble_parked=false;
 bool ble_lock_observed=false; // Worker-owned actual fresh policy input.
-bool resources=false,capture_active=false,inflight=false,latched=false,failed=false;
+bool resources=false,capture_active=false,capture_ready=false,inflight=false,latched=false,failed=false;
 bool cleanup_failed=false,published_cleanup_fault=false;
+bool recover_pending=false;uint64_t recover_requested_at=0;
+uint32_t recover_owner_generation=0,recover_cancel_serial=0;
 bool timer_enabled=false,timer_started=false,map_enabled=false,edge_enabled=false,current_enabled=false,emergency=false;
 uint32_t capture_drops=0,capture_invalid=0;
+watch::LoRaShadow shadow;watch::LoRaShadow::View shadow_published;
 uint64_t now(){return uint64_t(esp_timer_get_time());}
 void inc(uint32_t& v){if(v<UINT32_MAX)++v;}
 // LoRa owns an independent clock. Keep its short mapping brackets on the
@@ -129,6 +135,7 @@ int capture_start(){
   // CH2 is CURRENT-only, polled under the pinned driver lock. No callback,
   // IRQ, GPIO route or BLE/group1 owner is attached to this channel.
   if(mcpwm_new_capture_channel(cap_timer,&ch,&current_channel)!=ESP_OK)return -EIO;
+  capture_ready=true;
  }
  if(capture_epoch==UINT64_MAX)return -EOVERFLOW;
  map_clear();native_clock.reset();last_map=map_pending=0;++capture_epoch;
@@ -288,14 +295,31 @@ void publish(){
  view.current_us=current_failure.sampled;view.current_prev_us=current_failure.previous_us;view.current_available_us=current_failure.available;view.current_epoch=current_failure.epoch;
  view.hold_requested_id=hold_last_id;view.hold_result=hold_result;
  view.spi_retired=!inflight;view.capture_released=!capture_active&&!edge_enabled&&!map_enabled&&!current_enabled&&!timer_enabled&&!timer_started;view.reset_asserted=resources&&gpio_get_level(Reset)==0;
- portENTER_CRITICAL(&mux);view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;published_cleanup_fault=cleanup_failed||owner.stuck;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
+ shadow.tick(available,owned.enabled&&!failed);
+ portENTER_CRITICAL(&mux);shadow_published=shadow.v;view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;published_cleanup_fault=cleanup_failed||owner.stuck;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
 }
-bool configured_receiver(){return PTOB_N30_LORA_TX_FACTORY&&n30_rc8_init(PTOB_N30_FACTORY_ID,PTOB_N30_LORA_TX_FACTORY,PTOB_N30_GROUP_ID,PTOB_N30_KEY_EPOCH,PTOB_N30_GROUP_KEY);}
+bool configured_receiver(){const bool ok=PTOB_TWATCH_LORA_DYNAMIC_RX&&n30_rc8_init(PTOB_N30_FACTORY_ID,0,PTOB_N30_GROUP_ID,PTOB_N30_KEY_EPOCH,PTOB_N30_GROUP_KEY);if(ok)watch_lora_shadow_set_observer(watch_lora_shadow_event);return ok;}
 void worker_step(bool configured){
   const auto begin=now();bool permit,locked,cycle,change,parked;uint8_t mode;uint32_t generation,serial;bool tripped;uint64_t hold_id,hold_at;
   portENTER_CRITICAL(&mux);permit=allowed;parked=ble_parked;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;hold_id=hold_pending_id;hold_at=hold_pending_us;hold_pending_id=0;portEXIT_CRITICAL(&mux);
   if(tripped)fault(-ETIMEDOUT);
   ble_lock_observed=locked;policy.update(locked,begin,parked);if(cycle)policy.toggle();if(change)policy.set(n30::LoRaMode(mode));
+  portENTER_CRITICAL(&mux);
+  if(recover_pending){
+   const bool retired=owner.drained()&&!owned.enabled&&!inflight&&!capture_active&&
+    !edge_enabled&&!map_enabled&&!current_enabled&&!timer_enabled&&!timer_started&&
+    resources&&(!cap_timer||capture_ready)&&gpio_get_level(Reset)==0;
+   // This clears an operating latch only. Original cleanup failures, missing
+   // DMA completions, dead workers and exhausted generations remain terminal.
+   if(configured&&allowed&&permit&&!emergency&&!cleanup_failed&&failed&&retired&&!mode_pending&&!cycle_pending&&
+      owner.generation==recover_owner_generation&&cancel_serial==recover_cancel_serial&&
+      begin>=recover_requested_at&&begin-recover_requested_at<250000&&
+      policy.mode()!=n30::LoRaMode::KeepOff&&owner.generation!=UINT32_MAX&&cancel_serial!=UINT32_MAX){
+    failed=false;hardware.fault=false;hardware.error=0;
+   }
+   recover_pending=false;
+  }
+  portEXIT_CRITICAL(&mux);
   bool want=configured&&permit&&!failed&&policy.requested();
   portENTER_CRITICAL(&mux);want=want&&allowed&&serial==cancel_serial;
   if(want!=owner.requested&&!owner.request(want)){failed=true;hardware.error=-EOVERFLOW;want=false;}
@@ -338,14 +362,34 @@ void n30_lora_control(bool locked,uint64_t sampled,bool permit,bool parked){
  portEXIT_CRITICAL(&mux);
 }
 bool n30_lora_mode(n30::LoRaMode mode){
- if(!PTOB_N30_LORA_TX_FACTORY||uint8_t(mode)>2)return false;
- portENTER_CRITICAL(&mux);const bool ok=allowed&&!basic.failed;if(ok){requested_mode=uint8_t(mode);mode_pending=true;cycle_pending=false;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
+ if(!PTOB_TWATCH_LORA_DYNAMIC_RX||uint8_t(mode)>2)return false;
+ // Mode changes express operator intent. A fault remains latched even on ON;
+ // only a later guarded recovery may admit new receiver/capture generations.
+ portENTER_CRITICAL(&mux);const bool ok=allowed;if(ok){requested_mode=uint8_t(mode);mode_pending=true;cycle_pending=false;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
 bool n30_lora_cycle(){
- if(!PTOB_N30_LORA_TX_FACTORY)return false;
+ if(!PTOB_TWATCH_LORA_DYNAMIC_RX)return false;
  portENTER_CRITICAL(&mux);const bool ok=allowed&&!basic.failed&&!cycle_pending&&!mode_pending;if(ok){cycle_pending=true;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
-bool n30_lora_configured(){return PTOB_N30_LORA_TX_FACTORY!=0;}
+bool n30_lora_configured(){return PTOB_TWATCH_LORA_DYNAMIC_RX!=0;}
+bool n30_lora_fault_recover(){
+ const auto sampled=now();portENTER_CRITICAL(&mux);
+ const bool fresh=sampled/1000>=published.heartbeat_ms&&sampled/1000-published.heartbeat_ms<250;
+ const bool ok=PTOB_TWATCH_LORA_DYNAMIC_RX&&allowed&&!emergency&&basic.failed&&!recover_pending&&
+  !published_cleanup_fault&&!owner.stuck&&owner.generation!=UINT32_MAX&&cancel_serial!=UINT32_MAX&&
+  !cycle_pending&&!mode_pending&&published.mode!=uint8_t(n30::LoRaMode::KeepOff)&&fresh&&
+  owner.drained()&&published.off_acknowledged&&published.request_generation==owner.generation&&
+  !published.active&&published.spi_retired&&published.capture_released&&published.reset_asserted;
+ if(ok){recover_pending=true;recover_requested_at=sampled;recover_owner_generation=owner.generation;recover_cancel_serial=cancel_serial;}
+ portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
+}
+unsigned n30_lora_off_proof(){
+ portENTER_CRITICAL(&mux);
+ const bool quiet=!emergency&&!published_cleanup_fault&&!owner.stuck&&owner.generation!=UINT32_MAX&&cancel_serial!=UINT32_MAX&&
+  owner.drained()&&published.off_acknowledged&&published.request_generation==owner.generation&&published.off_ack_generation==owner.off_ack&&!published.active;
+ const unsigned proof=unsigned(quiet)|(unsigned(published.spi_retired)<<1)|(unsigned(published.capture_released)<<2)|(unsigned(published.reset_asserted)<<3);
+ portEXIT_CRITICAL(&mux);return proof;
+}
 bool n30_lora_cleanup_fault(){
  portENTER_CRITICAL(&mux);
  const bool result=published_cleanup_fault||owner.stuck||owner.generation==UINT32_MAX||cancel_serial==UINT32_MAX;
@@ -360,3 +404,10 @@ bool n30_lora_hold60(uint64_t id){
  portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
 void n30_lora_snapshot(n30_lora_view& out){portENTER_CRITICAL(&mux);out=published;if(emergency){out.fault=true;out.active=false;out.until_us=0;out.error=-ETIMEDOUT;out.spi_retired=out.capture_released=out.off_acknowledged=false;}portEXIT_CRITICAL(&mux);}
+
+extern "C" void watch_lora_shadow_event(uint8_t kind,const uint8_t context[16],uint64_t epoch,uint32_t cursor,uint64_t at,uint64_t pair_at,bool valid){
+ shadow.observe(kind,context,epoch,cursor,at,pair_at,valid);
+}
+watch::LoRaShadow::View watch_lora_shadow_snapshot(){
+ portENTER_CRITICAL(&mux);const auto s=shadow_published;portEXIT_CRITICAL(&mux);return s;
+}

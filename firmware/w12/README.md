@@ -26,7 +26,7 @@ instructions. [Image provenance](../../docs/images/README.md).*
 | Holdover | BLE-only causal rate consensus and continuous entry/return. Local HOLD estimates do not extend authenticated source or relay permission. |
 | Shadow diagnostics | **48** offset frozen clocks plus long probes; sampled P99 sub-1 µs duration. Temperature learning stays shadow-only. |
 | Time zone | Front clock follows fresh GM time-zone/DST metadata, then falls back to UTC. LoRa/RC9 and timing diagnostics retain UTC. |
-| Optional LoRa | Explicit LR2021 passive wire3/schedule8 receiver at922.4MHz, SF11/BW500/CR4/8. Independent clock with unknown bounds. Disabled by default. |
+| Optional LoRa | Explicit LR2021 passive wire3/schedule8 receiver at922.4MHz, SF11/BW500/CR4/8. Discovers authenticated field transmitters; independent clock with unknown bounds. Disabled by default. |
 | Optional GNSS | Explicit L76K indicator/PPS-shadow profile with verified RX39/PPS41 wiring. Disabled by default; it does not train the normal BLE clock or make W12 a GM. |
 | Host interface | Diagnostic console; no T096-compatible USB timing stream. Wi-Fi and PTS are disabled. |
 
@@ -78,6 +78,18 @@ Witness gaps remain unmeasured, and overlapping trials are correlated.
 LoRa **AUTO/KEEP ON** stays warm with an independent timing model. BLE returns
 from live LoRa after **30 s of qualified same-scope time**; permission-only gaps
 below **1.5 s** pause the dwell. Expired or unqualified LoRa yields to fresh BLE.
+The LoRa page shows its own authenticated transmitter and independent UTC clock,
+even while the front clock uses BLE. `WAIT META` awaits authenticated source
+metadata (nominally every 300 s); `WAIT PAIR` awaits a physical timing pair.
+`TRAIN nnn/180s Nn` reports the span and count of actual fitting pairs, so waiting
+without packets cannot advance it. A nominal 30 s pair cadence commonly needs
+eight pairs to exceed the 180 s span. `FIT NOT READY` means that span alone has
+not produced an accepted clock. Expiry, source withdrawal, stale worker status
+and radio faults clear the LoRa digits. `FIT` is internal residual quality and
+`UTC UNQUAL` means independently measured RF/UTC accuracy remains unknown.
+The LoRa page omits the BLE/GNSS activity lamps; other pages retain their normal
+indicator meanings.
+
 LoRa fit RMS and the engineering symbol-delay prior have unknown RF/UTC bounds;
 the passive source cannot feed the legacy RC9 server without its signed envelope.
 

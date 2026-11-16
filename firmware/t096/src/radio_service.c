@@ -642,6 +642,40 @@ static bool retain_public_timing(const struct pt_input *in,uint64_t now){
  return !in->client.passive&&!in->stopped&&!direct_grant_live(in,now)&&
   ((public_client&&grant_anchor_valid(in,&client_clock,now)&&(!selected||selected_anchor(in,&client_clock,now)))||selected_anchor(in,&in->client,now));
 }
+#ifdef R2_LORA_FIXED500_EXPERIMENT
+static bool __attribute__((noinline)) lora_follower_quality(const struct r2_radio_precision_view *view,uint64_t tick){
+ return view->authorized&&view->map_valid&&view->fit_valid&&!precision.servo.fault&&
+  view->rms_valid&&view->rms_ns<R2_SERVO_ATTEMPT_GATE_NS&&r2_servo_attempt_quality(&precision.servo)&&
+  r2_servo_pll_phase_remaining(&precision.servo,tick)<=R2_SERVO_ATTEMPT_GATE_NS;
+}
+#endif
+#ifdef R2_LORA
+static uint64_t __attribute__((noinline)) lora_broadcast_limit(const r2_servo_map_t *delivered,uint64_t limit){
+    /* Freeze the BLE-only LoRa cap in capture coordinates. Re-pairing the
+     * same map with kernel microseconds otherwise loses fractional ticks and
+     * repeatedly fences startup. These conservative caps can only shorten
+     * the existing 1.5s guarded permission and authenticated data expiry. */
+    const uint64_t life=UINT64_C(1496998)*16;
+    if(precision.last_available<delivered->delivery||delivered->delivery>UINT64_MAX-life||precision.data_until<16)limit=0;
+    else{
+     uint64_t stable=delivered->delivery+life;
+     /* Start with the same conservative conversion envelope used by signed
+      * permission restrictions. Otherwise a sub-microsecond expiry clip
+      * converts an unguarded accepted-pair deadline into a ~3ms shortening
+      * of an unchanged LoRa formula, repeatedly restarting its hardware.
+      * Freeze this cap to the original formula/UTC expiry; current data
+      * restrictions below it still fence, and duplicates cannot renew it. */
+     uint64_t room=delivered->anchor>=0&&precision.origin_expires_ns>(uint64_t)delivered->anchor?
+      (precision.origin_expires_ns-(uint64_t)delivered->anchor)/1000:0;
+     const uint64_t guard=1650000/500+101;
+     if(room<=guard||room-guard>(UINT64_MAX-delivered->delivery)/16)stable=0;
+     else{uint64_t origin=delivered->delivery+(room-guard)*16;if(stable>origin)stable=origin;}
+     if(stable>precision.data_until-16)stable=precision.data_until-16;
+     if(limit>stable)limit=stable;
+    }
+ return limit;
+}
+#endif
 static void precision_step(uint64_t now){
  bool request_refresh=false,request_anchor=false;struct pt_input in;struct pt_output out;
  /* PT is the sole output writer: reading its previous value needs no lock.
@@ -1020,10 +1054,7 @@ static void precision_step(uint64_t now){
   * depth. Other owners must supply their actual parent; lineage is not one. */
  if(r2_lora_ble_needed()){
   bool qualified=paired&&!in.stopped&&scope.broadcast&&scope.follower&&!scope.gm&&out.utc_valid&&
-   out.view.authorized&&out.view.map_valid&&out.view.fit_valid&&!precision.servo.fault&&
-   out.view.rms_valid&&out.view.rms_ns<R2_SERVO_ATTEMPT_GATE_NS&&
-   r2_servo_attempt_quality(&precision.servo)&&
-   r2_servo_pll_phase_remaining(&precision.servo,current.tick)<=R2_SERVO_ATTEMPT_GATE_NS&&
+   lora_follower_quality(&out.view,current.tick)&&
    sampled<out.valid_until;
   struct lp_ble_scope observed={.parent=scope.root_identity,.parent_boot=scope.boot,
    .root=scope.root_identity,.root_boot=scope.boot,.source_epoch=scope.source_epoch,
@@ -1048,10 +1079,7 @@ static void precision_step(uint64_t now){
   * fresh authenticated delivered clock remains usable for sparse LoRa while
   * that badge reacquires. Keep the existing1us acquisition quality and phase
   * limits; never export an expired, faulted or unconverged delivered map. */
- follower_export=out.view.authorized&&out.view.map_valid&&out.view.fit_valid&&
-  !precision.servo.fault&&out.view.rms_valid&&out.view.rms_ns<R2_SERVO_ATTEMPT_GATE_NS&&
-  r2_servo_attempt_quality(&precision.servo)&&
-  r2_servo_pll_phase_remaining(&precision.servo,current.tick)<=R2_SERVO_ATTEMPT_GATE_NS;
+ follower_export=lora_follower_quality(&out.view,current.tick);
 #endif
  uint64_t export_until=scope.broadcast?out.valid_until:scope.until_us;
  if(paired&&!in.stopped&&sampled<export_until&&export_until-sampled<=(UINT64_MAX-current.tick)/16){
@@ -1069,30 +1097,7 @@ static void precision_step(uint64_t now){
   }
   else if(scope.follower&&out.utc_valid&&follower_export&&out.valid_until>sampled&&r2_radio_precision_map(&precision,&delivered)){
    uint64_t limit=current.tick+(out.valid_until-sampled)*16;
-   if(scope.broadcast){
-    /* Freeze the BLE-only LoRa cap in capture coordinates. Re-pairing the
-     * same map with kernel microseconds otherwise loses fractional ticks and
-     * repeatedly fences startup. These conservative caps can only shorten
-     * the existing 1.5s guarded permission and authenticated data expiry. */
-    const uint64_t life=UINT64_C(1496998)*16;
-    if(precision.last_available<delivered.delivery||delivered.delivery>UINT64_MAX-life||precision.data_until<16)limit=0;
-    else{
-     uint64_t stable=delivered.delivery+life;
-     /* Start with the same conservative conversion envelope used by signed
-      * permission restrictions. Otherwise a sub-microsecond expiry clip
-      * converts an unguarded accepted-pair deadline into a ~3ms shortening
-      * of an unchanged LoRa formula, repeatedly restarting its hardware.
-      * Freeze this cap to the original formula/UTC expiry; current data
-      * restrictions below it still fence, and duplicates cannot renew it. */
-     uint64_t room=delivered.anchor>=0&&precision.origin_expires_ns>(uint64_t)delivered.anchor?
-      (precision.origin_expires_ns-(uint64_t)delivered.anchor)/1000:0;
-     const uint64_t guard=1650000/500+101;
-     if(room<=guard||room-guard>(UINT64_MAX-delivered.delivery)/16)stable=0;
-     else{uint64_t origin=delivered.delivery+(room-guard)*16;if(stable>origin)stable=origin;}
-     if(stable>precision.data_until-16)stable=precision.data_until-16;
-     if(limit>stable)limit=stable;
-    }
-   }
+   if(scope.broadcast)limit=lora_broadcast_limit(&delivered,limit);
    lvalid=r2_lora_source_follower(&lora,&delivered,lscope,current,limit,
     precision.origin_created_ns,precision.origin_expires_ns,offset,precision.accepted);
   }
@@ -1103,13 +1108,19 @@ static void precision_step(uint64_t now){
   * and capture domains. Stop/control changes fence it under this same lock. */
  bool ble_expired=scope.broadcast&&scope.follower&&service_now()>=out.valid_until;
  if(ble_expired)lvalid=false;
+ /* Fresh publication keeps its original gates. Only a failed publication
+  * enters this separate restriction-only path for a prior admitted copy. */
  if(!lvalid&&export_locked&&paired&&!in.stopped&&scope.broadcast&&scope.follower&&!scope.gm&&
-    ble_expired&&out.view.authorized&&precision.servo.fit_valid&&precision.servo.output.valid&&!precision.servo.fault&&
+    (ble_expired||(out.utc_valid&&follower_export))&&out.view.authorized&&precision.servo.fit_valid&&precision.servo.output.valid&&!precision.servo.fault&&
     precision.last_accepted&&precision.data_until&&
     same(scope,pt_output.scope)&&scope.remote_capture_epoch==pt_output.scope.remote_capture_epoch&&
-    scope.remote_capture_epoch==precision.remote_capture&&
-    current.epoch==pt_output.capture_epoch)
-  lhold=r2_lora_source_hold(&lscope,current);
+    scope.remote_capture_epoch==precision.remote_capture&&current.epoch==pt_output.capture_epoch){
+  if(!lora.until_tick&&r2_radio_precision_map(&precision,&delivered))
+   (void)r2_lora_source_follower(&lora,&delivered,lscope,current,lora_broadcast_limit(&delivered,UINT64_MAX),
+    precision.origin_created_ns,precision.origin_expires_ns,offset,precision.accepted);
+  lora.valid=lora.authenticated=false;
+  if(lora.until_tick&&(ble_expired||current.tick>=lora.until_tick))lhold=r2_lora_source_hold(&lscope,current,&lora);
+ }
  r2_lora_source_status(lvalid?R2_LORA_SOURCE_READY:lhold?R2_LORA_SOURCE_BLE_HOLDOVER:
   !paired||in.stopped?R2_LORA_SOURCE_CAPTURE:
   !scope.gm&&!scope.follower?R2_LORA_SOURCE_SCOPE:

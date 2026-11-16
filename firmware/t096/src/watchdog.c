@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0
- * Out-of-band observer: no service locks, controller calls, flash or USB in
+ * Out-of-band observer: no service locks, controller calls, flash or USB requests in
  * the watchdog thread. Main alone requests recovery through existing owners.
  */
 #include "watchdog.h"
@@ -26,6 +26,7 @@ extern void r2_usb_health_snapshot(uint32_t out[4]);
 #include <zephyr/drivers/hwinfo.h>
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/reboot.h>
+#include <zephyr/irq.h>
 #include <cmsis_core.h>
 #define WD_PARENT_MS 30000u
 #define WD_POLL_MS 125u
@@ -80,26 +81,55 @@ static uint32_t crc(const volatile uint32_t *p)
  }
  return ~c;
 }
+static void capsule_base(volatile uint32_t *p)
+{
+ p[0]=0;p[1]=1;p[2]=(uint32_t)physical_boot;p[3]=(uint32_t)(physical_boot>>32);
+ for(unsigned i=0;i<16;i++){
+  uint32_t word;memcpy(&word,&R2_WATCHDOG_BINDING[4*i],4);p[12+i]=word;
+ }
+ for(unsigned i=0;i<4;i++){
+  uint32_t word;memcpy(&word,silicon+4*i,4);p[28+i]=word;
+ }
+}
 static void capsule(unsigned reason,uint32_t control_detail)
 {
- r2_watchdog_capsule[0]=0;r2_watchdog_capsule[1]=1;
- r2_watchdog_capsule[2]=(uint32_t)physical_boot;r2_watchdog_capsule[3]=(uint32_t)(physical_boot>>32);
+ capsule_base(r2_watchdog_capsule);
  r2_watchdog_capsule[4]=reason;r2_watchdog_capsule[5]=(uint32_t)atomic_get(&report_rc);
  r2_watchdog_capsule[6]=(uint32_t)atomic_get(&retries);r2_watchdog_capsule[7]=k_uptime_get_32();
  r2_watchdog_capsule[8]=(uint32_t)atomic_get(&silent_since);r2_watchdog_capsule[9]=(uint32_t)atomic_get(&main_at);
  r2_watchdog_capsule[10]=UINT32_MAX; /* A flash commit is never inferred here. */
  r2_watchdog_capsule[11]=(uint32_t)atomic_get(&report_generation);
- for(unsigned i=0;i<16;i++){
-  uint32_t word;memcpy(&word,&R2_WATCHDOG_BINDING[4*i],4);r2_watchdog_capsule[12+i]=word;
- }
- for(unsigned i=0;i<4;i++){
-  uint32_t word;memcpy(&word,silicon+4*i,4);r2_watchdog_capsule[28+i]=word;
- }
  /* Source152 reason5: accepted CONTROL mailbox mask and signed16 error. */
  r2_watchdog_capsule[32]=reason==WD_RC_WORKER_STALL?control_detail:(uint32_t)atomic_get(&restart_error);
  r2_watchdog_capsule[33]=crc(r2_watchdog_capsule);
  __DMB();r2_watchdog_capsule[0]=WD_MAGIC;__DSB();
 }
+#if defined(R2_USB_SOURCE_STREAM) && defined(R2_FAULT_DURABLE)
+/* Last observed physical/lifecycle transition, including legitimate suspend.
+ * Not a failure decision or a claim that the host attempted any traffic.
+ * Reuse the current diagnostic capsule; every WD context has priority. */
+static void usb_observation(const uint32_t s[8],uint32_t now)
+{
+ uint32_t magic=r2_watchdog_capsule[0];
+ if(magic==WD_MAGIC||atomic_get(&reset_reason))return;
+ if(magic==R2_USB_OBSERVATION_MAGIC){
+  /* Pending IRQ, requests, frame count and worker/DMA progress are traffic,
+   * not independent transition triggers. Retain their sampled values. */
+  if(!((r2_watchdog_capsule[4]^s[0])&UINT32_C(0x003ffe1f))&&
+     r2_watchdog_capsule[9]==s[5]&&r2_watchdog_capsule[10]==s[6]&&r2_watchdog_capsule[11]==s[7])return;
+ }else if((s[0]&3u)!=3u)return; /* Establish attached+ready before baseline. */
+ uint32_t draft[WD_WORDS];capsule_base(draft);
+ for(unsigned i=0;i<8;i++)draft[4+i]=s[i];
+ draft[32]=now;draft[33]=crc(draft); /* No CRC work under the IRQ fence. */
+ unsigned key=irq_lock();
+ if(!atomic_get(&reset_reason)&&r2_watchdog_capsule[0]!=WD_MAGIC){
+  r2_watchdog_capsule[0]=0;
+  for(unsigned i=1;i<WD_WORDS;i++)r2_watchdog_capsule[i]=draft[i];
+  __DMB();r2_watchdog_capsule[0]=R2_USB_OBSERVATION_MAGIC;__DSB();
+ }
+ irq_unlock(key);
+}
+#endif
 /* Diagnostics only. These words never restore a profile, clock or train. */
 static bool watchdog_bound(const struct r2_identity *id)
 {
@@ -111,7 +141,7 @@ static bool watchdog_bound(const struct r2_identity *id)
 #ifdef R2_FAULT_DURABLE
 static bool watchdog_any_bound(const volatile uint32_t *p,const char *factory)
 {
- bool software=p[0]==WD_MAGIC&&p[1]==1;
+ bool software=(p[0]==WD_MAGIC||p[0]==R2_USB_OBSERVATION_MAGIC)&&p[1]==1;
  bool observed=p[0]==R2_FAULT_RESET_MAGIC&&p[1]==2&&!p[4]&&
   (p[5]&(RESET_WATCHDOG|RESET_CPU_LOCKUP));
  if((!software&&!observed)||p[33]!=crc(p)||
@@ -141,6 +171,7 @@ void r2_watchdog_pending_saved(uint32_t retained_crc)
 static const char *previous_reason_name(void)
 {
 #ifdef R2_FAULT_DURABLE
+ if(previous[0]==R2_USB_OBSERVATION_MAGIC)return "USB_OBSERVATION";
  if(previous[0]==R2_FAULT_RESET_MAGIC)return "UNKNOWN";
 #endif
  if(previous[0]!=WD_MAGIC)return "UNAVAILABLE";
@@ -275,10 +306,18 @@ static bool watchdog_step(void)
 #endif
  if(atomic_get(&reset_reason))return false;
 #ifdef R2_USB_SOURCE_STREAM
+#ifdef R2_FAULT_DURABLE
+ uint32_t usb[8];r2_usb_debug_snapshot(usb);
+#else
  uint32_t usb[4];r2_usb_health_snapshot(usb);
- if(r2_usb_health_stalled(&usb_health,usb,k_uptime_get_32())){
+#endif
+ uint32_t usb_at=k_uptime_get_32();
+ if(r2_usb_health_stalled(&usb_health,usb,usb_at)){
   transport_fault(WD_USB_FAULT,-ETIMEDOUT,usb[0],usb[2],usb[1],(int)usb[3]);return false;
  }
+#ifdef R2_FAULT_DURABLE
+ usb_observation(usb,usb_at);
+#endif
 #endif
  /* Main has higher priority and may publish after this thread wakes.
   * Read each timestamp before its comparison time; a preempting producer
@@ -328,14 +367,22 @@ int r2_watchdog_boot(const struct r2_identity *id)
 #ifdef R2_FAULT_DURABLE
  uint64_t pending_boot=(uint64_t)previous[2]|((uint64_t)previous[3]<<32);
  bool pending=pending_boot&&pending_boot!=id->boot&&watchdog_any_bound(previous,id->silicon);
+ bool hard_reset=!updater&&(id->reset_cause&(RESET_WATCHDOG|RESET_CPU_LOCKUP));
+ unsigned last=r2_watchdog_capsule[4];
+ bool terminal=(last>=2&&last<=WD_USB_FAULT)||(last>=WD_FATAL&&last<WD_UF2);
+ bool current=prior&&prior!=id->boot&&watchdog_any_bound(r2_watchdog_capsule,id->silicon);
+ bool current_terminal=current&&r2_watchdog_capsule[0]==WD_MAGIC&&terminal;
+ /* A nonfault USB observation must never hide later terminal/reset evidence.
+  * Replacing it loses that lower-priority observation, not a flash record.
+  * An existing pending WD/hardware context otherwise remains first. */
+ if(pending&&previous[0]==R2_USB_OBSERVATION_MAGIC&&(current_terminal||hard_reset))pending=false;
  if(!pending){
   memset(previous,0,sizeof previous);
-  unsigned last=r2_watchdog_capsule[4];
-  bool terminal=(last>=2&&last<=WD_USB_FAULT)||(last>=WD_FATAL&&last<WD_UF2);
-  if((!updater||terminal)&&id->reset_cause==RESET_WATCHDOG&&prior&&prior!=id->boot&&
-     r2_watchdog_capsule[0]==WD_MAGIC&&watchdog_any_bound(r2_watchdog_capsule,id->silicon))
+  bool usb_observed=r2_watchdog_capsule[0]==R2_USB_OBSERVATION_MAGIC;
+  if(current&&(current_terminal||(usb_observed&&!hard_reset)||
+     ((!updater||terminal)&&id->reset_cause==RESET_WATCHDOG&&r2_watchdog_capsule[0]==WD_MAGIC)))
    memcpy(previous,(const void *)r2_watchdog_capsule,sizeof previous);
-  else if(!updater&&(id->reset_cause&(RESET_WATCHDOG|RESET_CPU_LOCKUP)))
+  else if(hard_reset)
    observe_hardware_reset(id);
  }
  pending_attributed=immediate&&!memcmp(previous,(const void *)r2_watchdog_capsule,sizeof previous);
@@ -407,11 +454,15 @@ void r2_watchdog_console(char *line,size_t capacity)
   (unsigned)atomic_get(&observations),(unsigned)atomic_get(&useful_observations),
   (unsigned)atomic_get(&future_observations),(unsigned)atomic_get(&stale_observations),
   (unsigned long long)physical_boot,
-  (unsigned long long)(previous[0]==WD_MAGIC?((uint64_t)previous[2]|((uint64_t)previous[3]<<32)):0),previous_reason_name());
+  (unsigned long long)((previous[0]==WD_MAGIC
+#ifdef R2_FAULT_DURABLE
+   ||previous[0]==R2_USB_OBSERVATION_MAGIC
+#endif
+  )?((uint64_t)previous[2]|((uint64_t)previous[3]<<32)):0),previous_reason_name());
  if(n<0||(size_t)n>=capacity)return;
  bool previous_available=previous[0]==WD_MAGIC;
 #ifdef R2_FAULT_DURABLE
-  previous_available=previous_available||previous[0]==R2_FAULT_RESET_MAGIC;
+  previous_available=previous_available||previous[0]==R2_FAULT_RESET_MAGIC||previous[0]==R2_USB_OBSERVATION_MAGIC;
 #endif
   for(unsigned i=0;previous_available&&i<WD_WORDS;i++){
   int added=snprintf(line+n,capacity-(size_t)n,"%s%u",i?",":"",previous[i]);

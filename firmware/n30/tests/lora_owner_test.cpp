@@ -78,7 +78,7 @@ extern "C" bool clock_reference_read(uint64_t* out){++fake::fine_reference_reads
 // Separate codec/policy tests exercise real authenticated RC8. These stubs only
 // let the peripheral test observe whether the owner invents or loses an edge.
 #ifndef PTOB_N30_TEST_REAL_RC8
-extern "C" bool n30_rc8_init(uint64_t f,uint64_t t,uint64_t,uint32_t,const uint8_t*){return f==2&&t==1;}
+extern "C" bool n30_rc8_init(uint64_t f,uint64_t t,uint64_t,uint32_t,const uint8_t*){return f==2&&t==0;}
 extern "C" uint32_t n30_rc8_switch(bool){return ++fake::core_gen;}
 extern "C" bool n30_rc8_receive(const uint8_t*,size_t n,uint64_t tick,uint64_t epoch,uint64_t local,uint64_t now,uint32_t gen){assert((n==112||n==24||n==32)&&epoch&&gen&&tick<=fake::us*16&&local<=now);fake::core_inputs++;return false;}
 extern "C" void n30_rc8_clock(uint64_t,uint64_t,uint64_t){}

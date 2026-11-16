@@ -1,5 +1,45 @@
 # W12 changelog
 
+## 0.2.42 — Bounded paused relay capability recovery
+
+After three controller capacity refusals, recreate the stopped W12 relay
+capability advertising instance once within the original 500 ms retry budget.
+Recheck ACL/capability ownership after HCI stop and before recreation. This does
+not stop/reconfigure the upstream periodic receiver or the downstream periodic
+advertising instance, change source admission, renew a lease, or count failed
+data commands as publications. Persistent capacity, stop/remove/configuration
+failures and other API errors keep the existing fatal path. N30 retry behavior
+is unchanged. The LoRa page explicitly identifies BLE faults that block its
+receiver. Hardware failures from 0.2.41 remain retained separately.
+
+## 0.2.41 — LoRa acquisition and independent UI clock
+
+The LoRa screen identifies its authenticated transmitter and distinguishes missing
+metadata, source withdrawal, first-pair wait, physical training span, expired pairs,
+stale worker status and radio faults. Its UTC digits and second-boundary repaint
+use the independent live LoRa model even while BLE supplies the front clock.
+Invalid LoRa time clears immediately; BLE/GNSS lamps and the selected BLE header
+are not shown on this page. Training progress measures actual fit history, never
+elapsed polling. The precision page labels fit RMS and unknown UTC accuracy.
+`W12_UI_CLOCK lui=<phase>/<UTC-second>` records the last-rendered LoRa capsule;
+existing selected-clock fields retain their meaning. These changes do not qualify
+RF/UTC accuracy or alter admission, leases, fitting or source-selection policy.
+
+## 0.2.40 — 2026-11-16
+
+Discover passive LoRa transmitters from authenticated wire3/schedule8 META,
+following the T096 and N30 field-emitter policy. Remove the compiled emitter
+filter and retain four non-evicting per-emitter replay floors across RX OFF/ON,
+including consumed pair cursors and retired transmitter boots. A context change
+clears pending captures and trained/display models before fresh physical pairs
+can supply time. Self-emission, invalid authentication and a fifth emitter are
+refused; a same-context refresh preserves the original model and expiry fences.
+
+The fine-clock/RadioLib profile enables LoRa independently of the legacy
+transmitter argument. Preserve LR2021 capture/wiring, BLE calibration, source
+expiry and the RC9 passive-envelope gate. Host regressions cover dynamic source
+changes and replay isolation; installed-device reception remains separate.
+
 ## 0.2.39 — 2026-11-06
 
 Keep the full GNSS/radio image within its existing 1 MiB slot by sharing

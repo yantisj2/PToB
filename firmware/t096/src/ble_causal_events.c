@@ -1,3 +1,4 @@
+#include "bounded_json.h"
 /* Copyright(c)2026 Jonathan Yantis. SPDX-License-Identifier: MIT
  * Actual owners observe; main copies/formats/drains. No time authority. */
 #include "ble_causal_events.h"
@@ -302,12 +303,12 @@ static int summary_json(char *out, size_t cap, uint64_t boot) {
          "\"found\":%s,\"sequence\":%u,\"root\":\"%016llx\",\"root_boot\":\"%016llx\",\"source_"
          "epoch\":%u,\"train\":%u,\"capture_gen\":%u,\"detected_kernel_us\":%llu,\"preceding_"
          "paired_hf_tick\":%llu,\"counter_epoch\":%llu,\"primary\":\"%s\",\"caller_pc\":%u",
-         R2_SOURCE_SHA, (unsigned long long)boot, m.flags & SEEN ? "true" : "false",
-         m.flags & USABLE ? "true" : "false", m.flags & AVAILABLE ? "true" : "false", m.serial,
+         R2_SOURCE_SHA, (unsigned long long)boot, r2_json_bool(m.flags & SEEN),
+         r2_json_bool(m.flags & USABLE), r2_json_bool(m.flags & AVAILABLE), m.serial,
          m.observations, m.losses, m.recoveries, m.cause_changes, m.context_changes, m.repeats,
          m.atomic_refreshes, m.coalesced, m.losses ? m.losses - 1 : 0, m.journal_attempts,
          (unsigned long long)m.last_seen_us, (unsigned long long)m.last_seen_tick,
-         m.serial == UINT32_MAX ? "true" : "false", m.first_sequence ? "true" : "false",
+         r2_json_bool(m.serial == UINT32_MAX), r2_json_bool(m.first_sequence),
          m.first_sequence, (unsigned long long)f.root, (unsigned long long)f.boot, f.source,
          f.train, f.capture, (unsigned long long)f.detected_us, (unsigned long long)f.tick,
          (unsigned long long)f.epoch,
@@ -359,19 +360,19 @@ static int record_json(char *out, size_t cap, uint64_t boot, unsigned page) {
          "kernel_us\":%llu,\"full_scope_equal\":%s,\"actual_binding_ok\":%s,\"header_root\":\"%"
          "016llx\",\"header_boot\":\"%016llx\",\"header_source_epoch\":%u,\"header_train\":%u,"
          "\"header_capture_gen\":%u,\"header_publication\":%u,\"header_matches_PT\":%s",
-         R2_SOURCE_SHA, (unsigned long long)boot, page, r.sequence ? "true" : "false", r.sequence,
+         R2_SOURCE_SHA, (unsigned long long)boot, page, r2_json_bool(r.sequence), r.sequence,
          r.incident, kind_name(R2_BLE_KIND(r)), primary_name(R2_BLE_PRIMARY(r)),
          (unsigned long long)r.sample_us, (unsigned long long)r.commit_us,
-         r.flags & R2_BLE_AVAILABLE ? "true" : "false", (unsigned long long)r.root,
+         r2_json_bool(r.flags & R2_BLE_AVAILABLE), (unsigned long long)r.root,
          (unsigned long long)r.boot, r.source, r.train, r.capture,
          (unsigned long long)r.physical_until, (unsigned long long)r.data_until,
          (unsigned long long)r.last_accepted, (unsigned long long)r.scope_until,
          (unsigned long long)r.effective_until, (unsigned long long)r.grant_root,
          (unsigned long long)r.grant_boot, r.grant_source, r.grant_train, r.grant_capture,
-         (unsigned long long)r.grant_until, r.flags & R2_BLE_SCOPE_EQUAL ? "true" : "false",
-         r.flags & R2_BLE_BOUND ? "true" : "false", (unsigned long long)r.header_root,
+         (unsigned long long)r.grant_until, r2_json_bool(r.flags & R2_BLE_SCOPE_EQUAL),
+         r2_json_bool(r.flags & R2_BLE_BOUND), (unsigned long long)r.header_root,
          (unsigned long long)r.header_boot, r.header_source, r.header_train, r.header_capture,
-         r.header_publication, r.flags & R2_BLE_HEADER_MATCHES ? "true" : "false");
+         r.header_publication, r2_json_bool(r.flags & R2_BLE_HEADER_MATCHES));
   bool hf = r.flags & R2_BLE_CAPTURED, header = r.flags & R2_BLE_HEADER_KNOWN,
        matched = r.flags & R2_BLE_MATCHED_KNOWN;
   bool sample_known = r.flags & R2_BLE_SAMPLE_KNOWN;

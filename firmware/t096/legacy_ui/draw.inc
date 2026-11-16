@@ -585,7 +585,7 @@ static bool rf_live(uint8_t *fb, const ui_snapshot_t *s) {
     }else R2_UI_BOOL_CALL(metric(fb,74,"BLE",ble_state,C_BLUE));
     R2_UI_BOOL_CALL(rf_time(fb, 85, &s->rf_sources.ble));
     R2_UI_BOOL_CALL(metric(fb, 99, "LORA", s->lora_fault ? "FAULT" : s->lora_tx_mode ? s->lora_locked?"TX ON":"TX WAIT" : s->native_rf_lora_estimated?"EST":rf_source_state(&s->rf_sources.lora), s->lora_fault ? C_RED : (s->lora_tx_mode&&!s->lora_locked)||s->native_rf_lora_estimated?C_AMBER:C_GREEN));
-    if(s->lora_tx_mode)R2_UI_BOOL_CALL(label(fb,11,110,"TX NO CLOCK",1,C_DIM));
+    if(s->lora_tx_mode)R2_UI_BOOL_CALL(label(fb,13,110,"TIMING TX",1,C_DIM));
     else R2_UI_BOOL_CALL(rf_time(fb, 110, &s->rf_sources.lora));
     R2_UI_BOOL_CALL(fill(fb, 5, 122, 70, 1, C_BEZEL));
     R2_UI_BOOL_CALL(row_label5(fb,126,"DELTA ns",C_DIM));

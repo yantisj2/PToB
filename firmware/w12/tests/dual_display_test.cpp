@@ -7,7 +7,7 @@
 #include "../legacy/display.hpp"
 #include <cassert>
 #include <cstring>
-uint64_t now=1000000;
+uint64_t now=1000000,last_ui=1;
 uint64_t micros(){return now;}
 w12_lora_view radio;
 w12::LoRaClockSelection display_clock_selection;bool display_lora_selected=false;
@@ -25,8 +25,17 @@ void apply(DisplayState& state,const v12::R2Status& mesh){
  [[maybe_unused]] uint64_t selected_utc=0,selected_at=0;
 #include "actual_dual_display.inc"
 }
+void page_deadline(DisplayState& state,uint8_t page,uint64_t selected_at,uint64_t selected_utc,w12::DisplaySecondDeadline& ui_deadline){
+#include "actual_page_deadline.inc"
+}
 int main(){
- radio.active=radio.requested=radio.time_valid=true;radio.state=2;radio.emitter=1;radio.root=2;radio.root_boot=3;radio.source_epoch=4;
+ {DisplayState state;w12::DisplaySecondDeadline d;state.valid=true;state.lora_time_valid=true;state.lora_ui_phase=w12::LoRaUiPhase::Live;
+  state.lora_sampled_us=now;state.lora_utc_us=1700000000250000;
+  page_deadline(state,display_pages::LoraRx,now,1700000000900000,d);assert(d.deadline()==now+750000);
+  page_deadline(state,display_pages::Front,now,1700000000900000,d);assert(d.deadline()==now+100000);
+  state.lora_time_valid=false;state.lora_ui_phase=w12::LoRaUiPhase::Off;page_deadline(state,display_pages::LoraRx,now,1700000000900000,d);assert(d.deadline()==now+1000000);}
+
+ radio.active=radio.requested=radio.time_valid=radio.metadata_known=true;radio.state=2;radio.emitter=1;radio.root=2;radio.root_boot=3;radio.source_epoch=4;
  radio.utc_us=1700000000000000;radio.sampled_us=now;radio.until_us=now+12000000;radio.link_samples=8;radio.link_rms_ns=123;
  v12::R2Status mesh;mesh.requested=true;
  observe(mesh);
@@ -35,6 +44,7 @@ int main(){
 #endif
  DisplayState s;apply(s,mesh);
  assert(s.precision_lora&&s.precision_live&&s.rms_ns==123&&s.lora_link_samples==8&&s.timing_source==DisplayState::Lora);
+ assert(s.lora_ui_phase==w12::LoRaUiPhase::Live&&s.lora_utc_us==radio.utc_us&&s.lora_sampled_us==now);
  assert(s.valid&&s.utc==1700000000&&!std::strcmp(s.role,"LORA"));
  const auto valid=radio;
  radio.link_samples=2;radio.link_rms_ns=UINT32_MAX;s={};apply(s,mesh);
@@ -47,7 +57,7 @@ int main(){
   if(failure==3)radio.fault=true;
   if(failure==4)radio.state=1;
   s={};apply(s,mesh);assert(!s.valid&&!s.precision_live&&s.rms_ns==UINT32_MAX);
-  assert(!std::strchr(s.role,' '));
+  assert(!std::strchr(s.role,' '));assert(!s.lora_utc_us&&s.lora_ui_phase!=w12::LoRaUiPhase::Live);
  }
  radio=valid;radio.root_boot=0;radio.time_valid=radio.metadata_known=false;
  s={};apply(s,mesh);assert(s.precision_lora&&s.precision_live&&s.rms_ns==123&&s.valid);
@@ -69,7 +79,7 @@ int main(){
    assert(s.precision_lora==(paints<30));paint.painted(now,true,radio.utc_us);
   }
  }
- now-=1000;assert(paints==31&&!s.precision_lora&&s.precision_live&&s.rms_ns==49&&s.timing_source==DisplayState::Ble);
+ now-=1000;assert(s.lora_ui_phase==w12::LoRaUiPhase::Live&&s.lora_utc_us==radio.utc_us);assert(paints==31&&!s.precision_lora&&s.precision_live&&s.rms_ns==49&&s.timing_source==DisplayState::Ble);
 #ifdef PTOB_RC9
  assert(!s.rc9_serving&&s.rc9_clients==1); // New passive source lacks original envelope.
  radio.edge_us=now-1;radio.until_us=now+10000000;radio.event_ns=1700000000000000000;radio.created_ns=radio.event_ns-100;radio.expires_ns=radio.event_ns+1000000000;

@@ -1,8 +1,9 @@
 {
-  "revision": "RC_USB_EP0_POWER_WORKER_DMA_HEALTH_V8",
+  "revision": "RC_USB_EP0_UNREADY_OVERFLOW_DISPATCH_V14",
   "upstream_commit": "7823374e872145b5bd018bfe447839eb36042611",
   "path": "drivers/usb/device/usb_dc_nrfx.c",
   "original": "7134b8da13a380f19b0426e1f693ec55b134308f681b4994f31b6bfa3c02d535",
-  "fixed": "1b3eadc2e0811d85ba640843a29f35c0b7efcc0c9549d28791a8c29945bbfddf",
-  "patch_sha256": "d13c54adf27eb5ff00727220a7000b52e195e1d626756c41555262eea7e6457a"
+  "fixed": "bcbd95e4cca7c4a08d90d9829c04bb4e093efd55942a03d1a4e95e81327e2e19",
+  "patch_sha256": "6893a950a5373f993ca2eed1a5d9a802ea2353c58661aadd23341c0ff37ece2b",
+  "observation_layout": "V13"
 }

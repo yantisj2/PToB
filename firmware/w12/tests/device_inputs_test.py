@@ -6,12 +6,15 @@ import sys,copy
 import unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
-from build import GNSS_PROFILE,device_header,validate_inputs,provisional_profile
+from build import GNSS_PROFILE,device_header,validate_inputs,provisional_profile,lora_header
 
 class DeviceInputs(unittest.TestCase):
  def setUp(self):
   self.enrollment={'group_id':'123456789abcdef0','key_epoch':1,'psk':'01'*32}
   self.device={'board':'meshnology_w12_esp32s3','factory_mac':'02:00:00:00:00:05','device_id':'0000020000000005','label':'Example','legacy_wire_id':2}
+ def test_dynamic_lora_enable_is_separate_from_legacy_hint(self):
+  self.assertIn('PTOB_W12_LORA_ENABLED 1',lora_header(self.device,self.enrollment,'0'*16,enabled=True))
+  self.assertIn('PTOB_W12_LORA_ENABLED 0',lora_header(self.device,self.enrollment,'0'*16,enabled=False))
  def test_default_has_no_gnss(self):
   validate_inputs(self.enrollment,self.device)
   self.assertIn('#define PTOB_GNSS_INDICATORS 0\n',device_header(self.device))

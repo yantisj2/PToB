@@ -22,4 +22,7 @@ bool diagnostic_tx_request(uint16_t bytes,uint32_t duration_ms,uint64_t request_
 void diagnostic_tx_stop();
 void diagnostic_tx_observe_lease(uint64_t now_us);
 DiagnosticTxStatus diagnostic_tx_status();
+#ifdef PTOB_TWATCH
+bool diagnostic_tx_watch_retire(); // Caller has current full controller-OFF proof.
+#endif
 }

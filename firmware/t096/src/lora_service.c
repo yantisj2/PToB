@@ -1167,3 +1167,5 @@ int r2_lora_utc_json(char *out,size_t capacity,int result){
 void r2_lora_rf_clock(struct r2_rf_clock_sample *out,struct r2_capture at,uint64_t now){
  (void)at;(void)now;if(out)*out=(struct r2_rf_clock_sample){0};
 }
+
+int r2_lora_mode_request(bool tx){if(tx!=transmitter)return -ENOTSUP;r2_lora_toggle();return 0;}

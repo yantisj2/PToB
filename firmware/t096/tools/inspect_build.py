@@ -50,7 +50,7 @@ def object_mutable_bytes(out,owner):
                    if q['sh_flags']&3==3)
 
 def fault_only_retention(gm7,version,symbols):
-    """Exact fault-only allocation, never an operational RAM-state allowance."""
+    """Exact diagnostic allocation, never an operational RAM-state allowance."""
     if not(gm7 and version>=(0,15,308)):return None
     expected={'r2_watchdog_capsule':(136,'noinit'),'r2_crash_record':(512,'noinit'),
               'r2_fault_capsule':(256,'bss'),'uf2_intent':(88,'noinit')}
@@ -70,7 +70,10 @@ def fault_only_retention(gm7,version,symbols):
                 prior_boot_identity='EXPLICIT_RECORD_HEADER',operational_restore=False,
                 flash_persistence=version>=(0,15,309),ram_survival='CONDITIONAL',
                 cross_image_ram_layout='CONDITIONAL_NO_FIXED_REGION_OR_PRE_CRT_COPY',
-                pending_old_image=version>=(0,15,309))
+                pending_old_image=version>=(0,15,309),
+                usb_observation=version>=(0,15,359),
+                usb_observation_is_reset_cause=False,
+                observation_runtime_flash_writer=False)
 
 def ui_partial_accounting(out,enabled,objects,passive):
     """All new writable UI objects, independently of the old LoRa composite."""
@@ -146,7 +149,7 @@ def inspect(out,allow_development=False):
     require(payload[:len(binary)]==binary and all(x==0 for x in payload[len(binary):]),'UF2/BIN mismatch')
     flash_end=0;ram_end=0;allocations={};ui_mutable_bytes=0;linked_names=set();holdover_mutable_bytes=0;audit_mutable_bytes=0
     lora_display_mutable={name:0 for name in (('main.c','ui_service.c','lora_passive_service.c','lora_hw.c') if passive else ('main.c','ui_service.c','lora_service.c','lora_hw.c'))}
-    lab_audit_bytes=0;rf_objects={};rf_ui_model_bytes=0;rc_check_allocation=None
+    manual_role_objects={};lab_audit_bytes=0;rf_objects={};rf_ui_model_bytes=0;rc_check_allocation=None
     if slow:lora_display_mutable['gm7_admission']=0
     ui_label_cache_allocation=None
     ui_partial_objects={n:{} for n in ("ui_service.c","ui_render.c","display.c")}
@@ -167,6 +170,7 @@ def inspect(out,allow_development=False):
             if symbol['st_info']['type']=='STT_FILE':symbol_owner=symbol.name
             index=symbol['st_shndx']
             if symbol['st_info']['type']=='STT_OBJECT' and isinstance(index,int) and elf.get_section(index)['sh_flags']&1:
+                if symbol_owner=='lora_passive_service.c' and symbol.name in ('role','mode_request','replay','replay_emitters'):manual_role_objects[symbol.name]=int(symbol['st_size'])
                 if (symbol_owner,symbol.name) in (('lora_passive_service.c','rf_observer'),('rc_dynamic_service.c','rf_rc')):
                     rf_objects[symbol_owner+':'+symbol.name]=int(symbol['st_size'])
                 if symbol_owner=='ui_service.c' and symbol.name=='model':rf_ui_model_bytes=int(symbol['st_size'])
@@ -271,6 +275,16 @@ def inspect(out,allow_development=False):
                 require(len(candidates)==1 and candidates[0].endswith('/r2_usb_cdc_recovery/'+entry['leaf']),'Unique USB compiled owner: '+entry['leaf'])
                 require(sha(out/'target/r2_usb_cdc_recovery'/entry['leaf'])==entry['output_sha256'],'USB generated output hash')
             require('R2_USB_CDC_RECOVERY=1' in commands,'Periodic console RX readiness integration')
+    if r.get('usb_source_stream') and tuple(map(int,r['version'].split('.'))) >= (0,15,353):
+        common=out/'target/r2_nrf_usbd_common.c'
+        pinned=json.loads((out/'source/cmake/usb-dma-health.json').read_text())
+        require(sha(common)==pinned['fixed'],'USB common/resume generated hash')
+        require('#define NRF_USBD_COMMON_USE_WORKAROUND_FOR_ANOMALY_211 1' in common.read_text(),
+                'Nordic supported USB frame-only resume workaround disabled')
+        common_commands=[c for c in json.loads(commands) if c['file'].endswith('/r2_nrf_usbd_common.c')]
+        require(len(common_commands)==1,'Unique USB common compiled owner')
+        require('NRF_USBD_COMMON_USE_WORKAROUND_FOR_ANOMALY_211=' not in str(common_commands),
+                'USB resume workaround overridden by compiler flags')
     if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,202):
         require_tz_compile_mode(json.loads(commands))
     ui_partial_enabled='R2_UI_PARTIAL_JOBS=1' in commands
@@ -316,14 +330,21 @@ def inspect(out,allow_development=False):
         ui_label_cache_added=24
     if gm7 and r['profile'] in ('GM','RC') and tuple(map(int,r['version'].split('.')))>=(0,15,320):
         require(ui_label_cache_added==24,'Missing independently bounded UI label keys')
+    manual_role_added=0
+    if passive and tuple(map(int,r['version'].split('.')))>=(0,15,347):
+        require(manual_role_objects.get('mode_request')==4,'Missing bounded manual role request')
+        peers=4 if slow and not r.get('lora_bw_experiment') else 1
+        require(manual_role_objects.get('replay')==96*peers and manual_role_objects.get('replay_emitters')==8*peers,'Emitter replay allocation changed')
+        manual_role_added=(manual_role_objects.get('role',0)-1280 if slow and r.get('lora_fixed500_experiment') else 0)+4+manual_role_objects.get('replay',0)-96+manual_role_objects.get('replay_emitters',0)
+        require(0<manual_role_added<=1792,'Separate RX/TX role storage and emitter replay exceed1792B')
     lora_stage2_total=max(0,sum(lora_display_mutable.values())-23795)
-    lora_stage2_added=max(0,sum(lora_display_mutable.values())-23795-rf_group_added-ui_label_cache_added-ui_partial['composite_bytes'])
+    lora_stage2_added=max(0,sum(lora_display_mutable.values())-23795-rf_group_added-ui_label_cache_added-ui_partial['composite_bytes']-manual_role_added)
     lora_enhanced_added=max(0,lora_stage2_added-1510-lab_audit_added) if lora_enhanced_allowance else 0
     require(lora_enhanced_added<=lora_enhanced_allowance,'Sparse LoRa servo exceeds128B added native state')
     if lora_stage2_allowance:
         require(lora_stage2_added<=lora_stage2_allowance+lora_enhanced_allowance+lab_audit_allowance,'LoRa runtime exceeds its bounded mutable state allocation: '+str(lora_display_mutable))
         require((({'lp_decode','lp_tx_reserve_control','lp_rx_follow','lp_tx_start','r2_lora_hw_passive_configure','r2_lora_shadow_publish'}| (set() if r.get('lora_tx_diagnostic') else {'lp_encode'})) if passive else {'rc8_probe_encode','rc8_probe_decode','r2_lora_hw_idle','r2_lora_tz_publish'})<=linked_names,'Missing selected LoRa integration')
-    lora_display_added=max(0,sum(lora_display_mutable.values())-23606-rf_group_added-ui_label_cache_added-ui_partial['composite_bytes'])
+    lora_display_added=max(0,sum(lora_display_mutable.values())-23606-rf_group_added-ui_label_cache_added-ui_partial['composite_bytes']-manual_role_added)
     if lora_display_allowance:
         require(({'r2_lora_name_publish','lp_context'} if passive else {'r2_lora_name_publish','rc8_name_encode','rc8_name_decode'})<=linked_names,'Missing authenticated LoRa metadata')
         require(all(lora_display_mutable.values()),'Missing linked LoRa display allocation accounting')
@@ -346,7 +367,7 @@ def inspect(out,allow_development=False):
         require(hashlib.sha256(image).hexdigest()==r.get('time_zone',{}).get('database_sha256'),'Linked TZ image identity mismatch')
         # .205 same normal configuration leaves4372B. Charge at most256B for
         # the complete auto feature, including position, queue and snapshots.
-        require(0x20040000-ram_end+menu_allowance+lora_display_allowance+lora_stage2_allowance+rf_added>=4372-256,'Automatic TZ exceeds256B added static state')
+        require(0x20040000-ram_end+menu_allowance+lora_display_allowance+lora_stage2_allowance+rf_added+manual_role_added>=4372-256,'Automatic TZ exceeds256B added static state')
         require(r.get('time_zone',{}).get('mode') in ('auto','manual-zone','manual-offset'),'Missing TZ build binding')
         tz=r['time_zone']
         require(tz['mode_number']=={'manual-offset':0,'manual-zone':1,'auto':2}[tz['mode']],'TZ mode binding disagreement')
@@ -580,7 +601,7 @@ def inspect(out,allow_development=False):
         # separately agreed4096B incremental RC8 ceiling as well as1024B gate.
         # .180-.186 GM have a separately verified512B retained crash record and
         #896B ISR allocation; neither changes the RC8 budget or absolute floor.
-        require(0x20040000-ram_end+crash_allowance+hot_allowance+tz_allowance+auto_tz_allowance+menu_allowance+lora_display_allowance+lora_stage2_allowance+rf_added>=8740-4096,'RC8 exceeds4096B incremental static budget')
+        require(0x20040000-ram_end+crash_allowance+hot_allowance+tz_allowance+auto_tz_allowance+menu_allowance+lora_display_allowance+lora_stage2_allowance+rf_added+manual_role_added>=8740-4096,'RC8 exceeds4096B incremental static budget')
         private_sha=hashlib.sha256((private_sha+':lora-tx:'+transmitter).encode()).hexdigest()
     if dc or pc:
         with (out/'target/zephyr/zephyr.elf').open('rb') as f:
@@ -690,9 +711,14 @@ def inspect(out,allow_development=False):
         private_sha=hashlib.sha256((private_sha+(':bw-experiment:SWEEP_SF7_SLOW30_600S_FIXED16_48' if slow else ':bw-experiment:ABBA_SF7_240S')).encode()).hexdigest()
     else:require('R2_LORA_BW_EXPERIMENT=1' not in commands,'Unexpected bandwidth experiment')
     if diagnostic:private_sha=hashlib.sha256((private_sha+':controller-diag:1').encode()).hexdigest()
+    boot_rx=r.get('lora_boot_rx',False)
+    require(('R2_LORA_BOOT_RX=1' in commands)==boot_rx,'LoRa boot RX definition binding')
+    if boot_rx:
+        require(slow and not r.get('lora_bw_experiment') and not r.get('lora_tx_diagnostic') and r['profile'] in ('GM','RC'),'LoRa boot RX profile')
+        private_sha=hashlib.sha256((private_sha+':lora-boot-rx:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
-    return {'ui_partial':ui_partial,'ui_partial_build_definition':('R2_UI_PARTIAL_JOBS=1' if ui_partial_enabled else None),'ui_label_cache_mutable_bytes':ui_label_cache_added,'ui_label_cache_allocation':ui_label_cache_allocation,'ui_label_cache_budget_bytes':24 if ui_label_cache_added else 0,'fault_durable_NV_boundary':boot_fault_store,'boot_fault_store':boot_fault_store,'fault_only_retention':fault_retention,'rf_presentation_mutable_bytes':rf_added,'rf_presentation_mutable_budget_bytes':192 if rf_enabled else 0,'rf_presentation_owner_allocations':rf_objects,'rf_presentation_UI_copy_bytes':rf_ui_added,'rf_presentation_UI_model_bytes':rf_ui_model_bytes,'lora_stage2_total_including_rf_bytes':lora_stage2_total,'ble_causal_mutable_bytes':causal_mutable_bytes,'ble_causal_added_mutable_bytes':causal_added,'ble_causal_budget_bytes':1024 if causal_expected else 0,'lab_audit_mutable_bytes':lab_audit_bytes,'lab_audit_added_mutable_bytes':lab_audit_added,'lab_audit_increment_budget_bytes':lab_audit_allowance,'lora_enhanced_added_mutable_bytes':lora_enhanced_added,'lora_enhanced_mutable_budget_bytes':lora_enhanced_allowance,'audit_mutable_bytes':audit_mutable_bytes,'audit_mutable_budget_bytes':1108,'holdover_mutable_bytes':holdover_mutable_bytes,'holdover_mutable_budget_bytes':1280,'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
+    return {'lora_manual_role_added_bytes':manual_role_added,'lora_manual_role_allocations':manual_role_objects,'ui_partial':ui_partial,'ui_partial_build_definition':('R2_UI_PARTIAL_JOBS=1' if ui_partial_enabled else None),'ui_label_cache_mutable_bytes':ui_label_cache_added,'ui_label_cache_allocation':ui_label_cache_allocation,'ui_label_cache_budget_bytes':24 if ui_label_cache_added else 0,'fault_durable_NV_boundary':boot_fault_store,'boot_fault_store':boot_fault_store,'fault_only_retention':fault_retention,'rf_presentation_mutable_bytes':rf_added,'rf_presentation_mutable_budget_bytes':192 if rf_enabled else 0,'rf_presentation_owner_allocations':rf_objects,'rf_presentation_UI_copy_bytes':rf_ui_added,'rf_presentation_UI_model_bytes':rf_ui_model_bytes,'lora_stage2_total_including_rf_bytes':lora_stage2_total,'ble_causal_mutable_bytes':causal_mutable_bytes,'ble_causal_added_mutable_bytes':causal_added,'ble_causal_budget_bytes':1024 if causal_expected else 0,'lab_audit_mutable_bytes':lab_audit_bytes,'lab_audit_added_mutable_bytes':lab_audit_added,'lab_audit_increment_budget_bytes':lab_audit_allowance,'lora_enhanced_added_mutable_bytes':lora_enhanced_added,'lora_enhanced_mutable_budget_bytes':lora_enhanced_allowance,'audit_mutable_bytes':audit_mutable_bytes,'audit_mutable_budget_bytes':1108,'holdover_mutable_bytes':holdover_mutable_bytes,'holdover_mutable_budget_bytes':1280,'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

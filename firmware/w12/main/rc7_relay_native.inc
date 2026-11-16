@@ -365,6 +365,15 @@ void relay_input(const rc7_path& parent,const rc5_origin& origin,const uint8_t* 
     }
   }else inc(relay_queue_diagnostic.input_refused);
 }
+bool relay_cap_configure(){
+  ble_gap_ext_adv_params a{};a.own_addr_type=BLE_OWN_ADDR_RANDOM;a.itvl_min=a.itvl_max=160;
+  a.primary_phy=a.secondary_phy=Rc7TxReference::Ble1MPhy;a.tx_power=0;int8_t power=127;
+  a.sid=13;a.connectable=1;
+#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+  if(relay_profile==9)a.sid=15;
+#endif
+  return relay_api(ble_gap_ext_adv_configure(1,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure);
+}
 bool relay_cap_update(uint64_t now){
 #ifdef PTOB_N30
   static n30::AdvDataRetry capacity_retry;
@@ -376,6 +385,10 @@ bool relay_cap_update(uint64_t now){
 #endif
   if(relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
   relay_pause_cap();
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  // A stop can yield to GAP callbacks. Recheck owners before another HCI call.
+  if(fault||relay_advertising||relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
+#endif
   auto c=relay_map.capability(provision.identity,boot_id,relay_challenge,relay_pa);
 #ifdef R2_TZ_WIRE
   c.tz=r2_tz_current(&coarse_tz,now);
@@ -392,6 +405,15 @@ bool relay_cap_update(uint64_t now){
   const int cap_result=ble_gap_ext_adv_set_data(1,mb);
 #if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
   if(capacity_retry.defer(cap_result,micros())){note(cap_result,R2Api::AdvData);inc(setup_retries);return false;}
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  if(cap_result==0x207&&!fault&&!relay_advertising&&relay_session.handle==None&&!peer.connecting&&peer.handle==None&&capacity_retry.recreate(micros())){
+    // No CAP/ACL owner is active here. Recreate handle1 only; never stop or
+    // reconfigure the upstream PA receiver or downstream periodic handle0.
+    note(cap_result,R2Api::AdvData);inc(setup_retries);
+    if(relay_api(ble_gap_ext_adv_remove(1),R2Api::AdvRemove))relay_cap_configure();
+    return false;
+  }
+#endif
   if(cap_result){error(cap_result,R2Api::AdvData,61);return false;}
 #else
   if(!relay_api(cap_result,R2Api::AdvData))return false;
@@ -411,11 +433,7 @@ bool relay_configure(){
   int8_t power=127;if(!relay_api(ble_gap_ext_adv_configure(0,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure))return false;
   relay_configured=true;
   if(!relay_api(ble_gap_periodic_adv_configure(0,&p),R2Api::AdvConfigure))return false;
-  a.sid=13;a.connectable=1;
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
-  if(relay_profile==9)a.sid=15;
-#endif
-  return relay_api(ble_gap_ext_adv_configure(1,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure);
+  return relay_cap_configure();
 }
 void relay_requests(uint64_t now,uint64_t now20){
   RelayWrite row{};for(unsigned n=0;n<2&&relay_writes.pop(row);n++){

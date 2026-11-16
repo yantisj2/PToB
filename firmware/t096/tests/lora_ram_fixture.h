@@ -14,6 +14,7 @@
 #include "../src/bounded_json.c"
 #include <assert.h>
 #include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,10 +53,23 @@ static int r2_diag_state(void){return 1;}
 static int r2_diag_lora(const uint32_t p[16],bool t,uint64_t *token){(void)p;(void)t;(void)token;return -EAGAIN;}
 static int r2_diag_record_result(uint64_t t){(void)t;return 0;}
 static bool r2_diag_busy(void){return false;}
+/* Console boundary: cached DTR sampling is independent of the LoRa lock.
+ * Keep the host shape in sync with app.h; the note runner checks it. */
+struct r2_io { uint32_t rx_bytes, tx_bytes, rx_overflow, command_drops, tx_drops, tx_expired, fifo_errors, usb_events, dtr_changes,note_drops; int usb_rc; bool dtr; };
+static bool console_reader=true,console_drop_after_snapshot;
+static unsigned console_snapshots,console_formats;
+static void r2_console_snapshot(struct r2_io *out){
+ *out=(struct r2_io){.dtr=console_reader};++console_snapshots;
+ if(console_drop_after_snapshot){console_drop_after_snapshot=false;console_reader=false;}
+}
+static int console_snprintf(char *out,size_t size,const char *format,...){
+ ++console_formats;va_list ap;va_start(ap,format);
+ int n=vsnprintf(out,size,format,ap);va_end(ap);return n;
+}
 static unsigned console_notes,console_attempts;static char console_note[448];static bool console_busy;
 static int r2_console_note(const char *bytes,size_t size,uint64_t expiry){
  ++console_attempts;assert(size<sizeof console_note&&expiry>now_us/1000);
- if(console_busy)return -EAGAIN;
+ if(!console_reader||console_busy)return -EAGAIN;
  memcpy(console_note,bytes,size);console_note[size]=0;++console_notes;return 0;
 }
 static void r2_watchdog_lora(int e,uint32_t s,uint32_t g,uint32_t c,int j){(void)e;(void)s;(void)g;(void)c;(void)j;}
@@ -165,7 +179,9 @@ static bool start_hop_delayed(struct lp_tx *t,uint32_t seed,uint64_t now,uint64_
 #define lp_encode encode_delayed
 #define lp_charged charged_unlocked
 #define rc8_export_event event_unlocked
+#define snprintf console_snprintf
 #include R2_PASSIVE_SERVICE_BODY
+#undef snprintf
 #undef rc8_export_event
 #undef lp_charged
 #undef lp_encode

@@ -80,6 +80,7 @@ def main():
     parser.add_argument('--profile', choices=['GM', 'RC', 'DC', 'PC'], required=True)
     parser.add_argument('--pc-parent', help='Exact direct-GM identity, or auto for authenticated direct-GM discovery')
     parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
+    parser.add_argument('--lora-boot-rx', action='store_true', help='Boot passive slow in RX even on designated TX; manual TX remains available')
     parser.add_argument('--lora-transmitter-factory', help='Explicit normal-image sole LoRa TX factory ID; absent disables LoRa')
     parser.add_argument('--lora-passive-fast', action='store_true', help='Default-off RAM_LAB_4_12 image; explicit per-boot console selection required')
     parser.add_argument('--lora-tx-diagnostic', action='store_true', help='Finite default-off non-timing PHY TX test; requires GM passive-fast and own exact factory')
@@ -157,6 +158,8 @@ def main():
     enrollment = json.loads(args.enrollment.read_text()) if not dc else None
     device = json.loads(args.device_config.read_text())
     registry = load_registry(args.registry)
+    if args.lora_boot_rx and (not args.lora_passive_slow or args.profile not in ('GM','RC') or args.lora_bw_experiment or args.lora_tx_diagnostic):
+        raise ValueError('RX boot override requires ordinary passive slow GM/RC')
     transmitter = lora_binding(args.lora_transmitter_factory, args.profile, registry)
     backup = lora_binding(args.lora_backup_transmitter_factory, args.profile, registry)
     if int(backup,16):raise ValueError('RAM profile has one designated emitter; automatic backup TX disabled')
@@ -192,7 +195,7 @@ def main():
                'registry_sha256':sha(args.registry),
                'registry_generator_sha256':sha(REPO/'registry/registry.py'),
                'device_config_sha256':sha(args.device_config),
-               'lora_transmitter_factory':transmitter,
+               'lora_transmitter_factory':transmitter,'lora_boot_rx':args.lora_boot_rx,
                'lora_backup_transmitter_factory':backup,'lora_passive_slow':args.lora_passive_slow,
                'lora_tx_diagnostic':args.lora_tx_diagnostic,
                'lora_bw_experiment':args.lora_bw_experiment,
@@ -312,6 +315,7 @@ def main():
              *(['-DR2_TZ_MODE='+str(tz['mode_number']),'-DR2_TZ_MANUAL_ID='+str(tz['id']),
                 '-DR2_TZ_MANUAL_MIN='+str(tz['offset_min'])] if tz else []),
              '-DR2_LORA_TRANSMITTER_FACTORY='+transmitter,
+             '-DR2_LORA_BOOT_RX='+('ON' if args.lora_boot_rx else 'OFF'),
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
              *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf'),'-DDTC_OVERLAY_FILE='+str(APP/'dc.overlay')] if dc else
                [*(['-DR2_PC_PROFILE=ON'] if pc else ['-DDTC_OVERLAY_FILE='+str(APP/('lora_passive.overlay' if (args.lora_passive_fast or args.lora_passive_slow) else 'lora.overlay'))]),*(['-DR2_PC_AUTO_PARENT=ON'] if pc_auto else []),'-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf']+([] if pc else ['lora.conf']+(['lora_passive.conf'] if (args.lora_passive_fast or args.lora_passive_slow) else [])))])]
@@ -330,6 +334,7 @@ def main():
             private_hash=hashlib.sha256((private_hash+':fixed500:922400000_SF11_CR8_P30_M300').encode()).hexdigest()
             private_hash=hashlib.sha256((private_hash+':event-delay-ns:'+str(args.lora_fixed500_event_delay_ns)).encode()).hexdigest()
         if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()
+        if args.lora_boot_rx:private_hash=hashlib.sha256((private_hash+':lora-boot-rx:1').encode()).hexdigest()
         binding=hashlib.sha256((source_hash+':'+private_hash+':'+sha(target/'.config')).encode()).hexdigest()
         if '#define R2_WATCHDOG_BINDING "'+binding+'"' not in (out/'target/build_identity.h').read_text():
             raise ValueError('Watchdog binding mismatch')

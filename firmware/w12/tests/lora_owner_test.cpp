@@ -29,7 +29,7 @@ bool w12_fine_lora_start(bool(*)(uint64_t)){fake::capture=true;return !fake::cap
 bool w12_fine_fault(){return false;}
 bool w12_fine_lora_stop(){fake::capture=false;return true;}
 #ifndef PTOB_W12_TEST_REAL_PASSIVE
-extern "C" bool w12_rc8_init(uint64_t f,uint64_t t,uint64_t,uint32_t,const uint8_t*){return f==2&&t==1;}
+extern "C" bool w12_rc8_init(uint64_t f,uint64_t t,uint64_t,uint32_t,const uint8_t*){return f==2&&t==0;}
 extern "C" uint32_t w12_rc8_switch(bool){return ++fake::gen;}
 extern "C" void w12_rc8_clock(uint64_t t,uint64_t e,uint64_t n){assert(t&&e&&n);}
 extern "C" bool w12_rc8_receive(const uint8_t*,size_t n,uint64_t t,uint64_t e,uint64_t l,uint64_t now,uint32_t g){assert((n==24||n==32||n==112)&&t&&e&&g&&l<=now);++fake::inputs;return false;}

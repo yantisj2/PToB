@@ -26,6 +26,8 @@ int main(int argc,char **argv){
  assert(r2_fault_capsule[1]==3&&r2_fault_capsule[21]==0xc1590005&&r2_fault_capsule[22]==0x80000000);
  assert(!memcmp((const void *)&r2_fault_capsule[40],produced,sizeof produced)&&r2_fault_capsule[63]==crc(r2_fault_capsule));
  f=fopen(argv[2],"wb");assert(f&&fwrite((const void *)r2_fault_capsule,4,64,f)==64&&!fclose(f));
- r2_health_init(9);assert(previous[1]==3&&previous[46]==8&&previous[21]==0xc1590005);
- puts("PASS actual schema3 fatal-copy/CRC and PA C1, scanner UNKNOWN, source/boot retained, actual LoRa prefix preserves observer");
+ /* Reboot clears operational capsules; durable records use a separate path. */
+ r2_health_init(9);
+ for(unsigned i=0;i<FAULT_WORDS;i++)assert(!previous[i]&&!r2_fault_capsule[i]);
+ puts("PASS actual schema3 fatal-copy/CRC and PA C1, scanner UNKNOWN, source/boot captured, operational reboot clearing, actual LoRa prefix preserves observer");
 }

@@ -27,15 +27,16 @@ if(V12_R2_PROFILE)
     endif()
   endif()
 endif()
-idf_component_register(SRCS "native_main.cpp" "board.cpp" "${w12}/main/fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_core.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_counter.c"
+idf_component_register(SRCS "imu.cpp" "../vendor/bhi260/bhy2.c" "../vendor/bhi260/bhy2_hif.c" "native_main.cpp" "board.cpp" "fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp" "lora_core.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_counter.c"
   "${w12}/../t096/protocol/lora_passive.c" "${w12}/../t096/src/lora_passive_core.c"
   "${w12}/main/native_direct.cpp" "${w12}/main/native_credentials.cpp" "${w12}/main/native_diagnostic_tx.cpp" "${w12}/main/periodic_rx.cpp" "${w12}/main/periodic_tx.cpp" "${w12}/main/s3_clock_reference.c" "${w12}/main/direct_auth.cpp" "${control_source}" ${r2_sources}
   "${w12}/main/shared/public_codec.c" "${w12}/main/shared/p256_canonical.c" "${w12}/main/public_observer.cpp"
-  "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/gnss_absent.cpp" "power.cpp" "display.cpp" "watch.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/ui_model.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/timing_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/relative_rate.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/fine_capture.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/window_diagnostics.cpp"
-  INCLUDE_DIRS "." "${CMAKE_CURRENT_LIST_DIR}/../../n30/main" "${w12}/main" "${w12}/legacy" "${w12}/legacy/reference" ${r2_includes} "${w12}/../t096/include" "${w12}/../t096/protocol"
+  "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/gnss_absent.cpp" "power.cpp" "display.cpp" "watch.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/ui_model.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/timing_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/relative_rate.cpp" "fine_capture.cpp" "window_diagnostics.cpp"
+  INCLUDE_DIRS "." "../vendor/bhi260" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main" "${w12}/main" "${w12}/legacy" "${w12}/legacy/reference" ${r2_includes} "${w12}/../t096/include" "${w12}/../t096/protocol"
   LDFRAGMENTS "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_map.lf"
   REQUIRES bt mbedtls esp_driver_spi esp_driver_gptimer esp_driver_i2c esp_driver_gpio
     esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_pm esp_timer esp_hw_support nvs_flash)
+target_sources(${COMPONENT_LIB} PRIVATE "watch_holdover.cpp" "calendar.cpp" "lora_shadow_diagnostics.cpp")
 if(V12_R2_RX_SHADOW)
   file(SHA256 "$ENV{IDF_PATH}/components/esp_driver_gptimer/src/gptimer_priv.h" timer_abi_sha)
   if(NOT timer_abi_sha STREQUAL "1b75930c75158fd6f32640d0ff094919a786d4057c0b9e9258e71ce6495542d4")
@@ -108,9 +109,9 @@ target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=printf" "-Wl,--wrap
 target_compile_options(${COMPONENT_LIB} PRIVATE -fstack-usage)
 # Keep N30 presentation/observer and radio-wrapper code within the original
 # fixed1MiB slot. Shared timing cores and BLE capture/SDK options are unchanged.
-set_source_files_properties("watch.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
-set_source_files_properties("native_lora.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_core.c" "display.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/ui_model.cpp"
-  "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/timing_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/window_diagnostics.cpp" "native_main.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_counter.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" PROPERTIES COMPILE_OPTIONS "-Os")
+set_source_files_properties("watch.cpp" "board.cpp" PROPERTIES COMPILE_OPTIONS "-O2")
+set_source_files_properties("native_lora.cpp" "lora_core.c" "display.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/ui_model.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/timing_diagnostics.cpp" "window_diagnostics.cpp" "native_main.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_counter.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" PROPERTIES COMPILE_OPTIONS "-Os")
 
 if(V12_R2_PROFILE STREQUAL "r2-g1")
   target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=ble_hs_hci_cmd_tx" "-Wl,--wrap=ble_hs_hci_rx_evt")
@@ -121,7 +122,7 @@ if(V12_UNIT STREQUAL "C3" AND V12_R2_PROFILE STREQUAL "r2-g1")
   target_compile_definitions(${COMPONENT_LIB} PRIVATE V12_GPS_SHADOW_OBSERVER=1 PTOB_GPS_PHYSICAL_REFERENCE_ONLY=1 PTOB_N30_LORA_RX_ONLY=1)
 endif()
 
-target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_N30=1 PTOB_RC9=1 PTOB_GNSS_DISABLED=1 V12_G1_FAILED_PARENT_RETRY_US=60000000 V12_NO_TIME_SYNC_US=720000000)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_TWATCH=1 PTOB_N30=1 PTOB_RC9=1 PTOB_GNSS_DISABLED=1 V12_G1_FAILED_PARENT_RETRY_US=60000000 V12_NO_TIME_SYNC_US=720000000)
 if(PTOB_GM_SUCCESSOR)
   target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_GM_SUCCESSOR=1)
 endif()
@@ -131,11 +132,11 @@ configure_file("${PTOB_LORA_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/n30_lora_confi
 # Keep independent CURRENT/wrap guards in the original application slot.
 # No wire, acceptance, buffer, owner-drain or error checks are removed.
 set_source_files_properties("native_lora.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
-set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_core.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("lora_core.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" PROPERTIES COMPILE_OPTIONS "-Oz")
 set_source_files_properties("bounded_log.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
 set_source_files_properties("display.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/ui_model.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
 # N30-only build choice; W12 keeps its existing supervisor compilation.
-set_source_files_properties("${w12}/main/fault_watchdog.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
+set_source_files_properties("fault_watchdog.cpp" PROPERTIES COMPILE_OPTIONS "-Oz")
 
 # This adapter is explicitly private and bound to the reviewed SDK implementation.
 foreach(pair

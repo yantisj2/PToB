@@ -561,6 +561,9 @@ static void worker(void *a,void *b,void *c){
     atomic_set(&ui_worker_phase,UI_READY);k_sleep(K_MSEC(1));continue;
    }
    bool enter=!s.screensaver&&allowed&&!s.menu.open&&!job.stable&&!job.wake_press&&
+#ifdef R2_USB_SOURCE_STREAM
+    s.page!=4&&
+#endif
     now>=idle&&now-idle>=R2_UI_IDLE_MS;
    uint64_t period=s.screensaver?(now-saver_since)/R2_UI_SAVER_MOVE_MS:0;
    bool move=s.screensaver&&period!=saver_period;

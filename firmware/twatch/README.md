@@ -1,114 +1,104 @@
-# T-Watch Ultra · precision instrument watch
+# LILYGO T-Watch Ultra
 
-PToB firmware for the **LILYGO T-Watch Ultra V1 with SX1262**: a touchscreen
-watch with a Casio-inspired Digital face and an olive mechanical Instrument
-face. Both follow authenticated BLE mesh time, with passive LoRa kept ready as
-a fallback. The watch boots into its last selected face.
+A PToB timing watch with three faces, authenticated BLE time and passive LoRa
+fallback. Built for the **T-Watch Ultra V1 with SX1262**, ESP32-S3 and
+**410 × 502 AMOLED**. The watch remembers your selected face.
 
-[Build and set up](../../docs/twatch/build.md) ·
-[Group setup](../../docs/GETTING_STARTED.md) ·
-[Power plan](../../docs/twatch/power.md) · [Changelog](CHANGELOG.md)
+| Digital | Instrument | Solar |
+| :---: | :---: | :---: |
+| [<img src="../../docs/twatch/images/digital.png" width="205" alt="Segmented digital time and timing status">](../../docs/twatch/images/digital.png) | [<img src="../../docs/twatch/images/instrument.png" width="205" alt="Olive mechanical dial with pilot hands and timing complications">](../../docs/twatch/images/instrument.png) | [<img src="../../docs/twatch/images/solar.png" width="205" alt="Solar path, twilight bands, moon and four corner subdials">](../../docs/twatch/images/solar.png) |
 
-| Digital | Instrument |
-| :---: | :---: |
-| [<img src="../../docs/twatch/images/digital.png" width="205" alt="Digital watch face with segmented time, source, Sync RMS, PLL lock and P99 hold duration">](../../docs/twatch/images/digital.png) | [<img src="../../docs/twatch/images/instrument.png" width="205" alt="Olive Instrument face with pilot hands, source aperture, PLL phase well, RMS and hold subdials, and battery reserve">](../../docs/twatch/images/instrument.png) |
+**Digital** puts time and timing status at a glance. **Instrument** uses smooth
+analog complications for reception, lock, RMS, hold and battery reserve.
+**Solar** follows the sun through sunrise, sunset and twilight, with a moon-phase
+graphic and corner dials for RMS, P99 hold, source strength and tides.
 
-*Native production-renderer screenshots with synthetic inputs, not hardware
-photographs or timing measurements. [Image provenance](../../docs/twatch/images/README.md).*
+These are [native-renderer previews](../../docs/twatch/images/README.md) with
+synthetic timing inputs, not photographs or accuracy measurements.
 
-## Capabilities and specifications
-
-| Area | Current configuration |
-| --- | --- |
-| Hardware | LILYGO T-Watch Ultra V1, **ESP32-S3**, **16 MiB flash** configuration and PSRAM-backed rendering. **SX1262** radio; SX1280 variants are unsupported. |
-| Display | **410 × 502 CO5300 AMOLED**, CST9217 touch, corner-safe face layouts and adjustable brightness. |
-| Faces | Digital instrument display and mechanical Instrument with pilot hands, reception apertures, PLL phase, RMS/hold subdials and battery reserve. |
-| BLE | Authenticated **G1/RC7** receiver at **BLE100**, using the shared W12/N30 backend. Nearby mesh discovery and fresh admission remain separate from trusted enrollment. |
-| LoRa | Passive SX1262 fallback using N30 source selection. Reception stays warm with a configured compatible transmitter; BLE is preferred. |
-| Clock | **20 MHz** baseline backend. No transplanted W12/N30 fine-capture wiring or calibration. Authenticated time-zone metadata supplies the display offset. |
-| Settings | Persistent face, brightness and display timeout. **90 seconds** by default; **120** and **180 seconds** are available. |
-| USB | Native Serial/JTAG diagnostics and bounded software ROM entry for maintenance. Not a T096 USB timing source. |
-| Power | GNSS is powered off. Wi-Fi, NFC, audio, SD and motion processing are not started. Screen sleep leaves timing reception and USB running. |
-
-## Get started
-
-1. **Verify the watch and radio.** Confirm Ultra V1, SX1262 and the factory MAC.
-   The USB serial alone does not identify the radio variant. Follow the
-   [build guide](../../docs/twatch/build.md) for board routes and pinned dependencies.
-2. **Prepare trust and sources.** Use private enrollment and the
-   [shared registry](../../registry/README.md), with a compatible BLE mesh.
-   Configure a matching LoRa transmitter to enable the fallback receiver.
-   Keep actual device bindings, credentials and enrolled images in ignored files.
-3. **Build and preview offline.** Run the native builder and host UI tests in
-   the build guide. The builder opens no hardware; its output is not installation
-   authorization or a timing qualification.
-4. **Install on the verified device.** Use compatible recovery, the original
-   bounded application drain, app-only write bounds and full application readback.
-   The [USB ROM tool](../../docs/twatch/build.md#usb-rom-entry) avoids button
-   handling when the application is responsive; physical recovery remains available.
-5. **Choose a face.** Swipe horizontally, or open **MODE → Watch faces**.
-   Use **MODE → Settings** for brightness and sleep time.
-
-## Screens and controls
-
-| Launcher | Settings |
-| :---: | :---: |
-| [<img src="../../docs/twatch/images/launcher.png" width="164" alt="Watch launcher with Watch faces and Settings entries">](../../docs/twatch/images/launcher.png) | [<img src="../../docs/twatch/images/settings.png" width="164" alt="Display settings for brightness and sleep timeout">](../../docs/twatch/images/settings.png) |
+## Use the watch
 
 | Control | Action |
 | --- | --- |
-| Swipe left or right on a face | Switch between Digital and Instrument, and remember the selection. |
-| Tap MODE or press the user button | Open the launcher. |
-| Watch faces | Select Digital or Instrument. |
-| Settings | Cycle brightness or the 90/120/180-second timeout. |
-| First touch or button after display sleep | Wake only; a second gesture operates the interface. |
+| Swipe left / right | Switch faces. |
+| Tap MODE or click the lower-left button | Open the launcher. |
+| Settings | Adjust brightness, choose **15 / 30 / 60 / 90 seconds** of screen time, or turn either radio on/off. Default: **30 seconds**. |
+| Touch or click after screen sleep | Wake the screen; use a second gesture to operate it. |
+| Double-click the lower-left button | Power down. Hold the upper-left POWER button for about one second to start again. |
 
-Swipes resolve on release, so crossing MODE does not accidentally open it.
-The complete first gesture after sleep is consumed. Invalid saved settings use
-defaults; older short timeouts migrate to 90 seconds. Storage errors do not erase
-whole-device NVS.
+| Launcher | Settings |
+| :---: | :---: |
+| <img src="../../docs/twatch/images/launcher.png" width="164" alt="Watch faces and Settings launcher"> | <img src="../../docs/twatch/images/settings.png" width="164" alt="Brightness, screen timeout and radio settings"> |
 
-## Read the faces
+USB power keeps the display on. Face, brightness and timeout are saved; both
+radios start enabled after reboot. Wrist wake is experimental and can miss
+raises or wake unexpectedly; touch and button wake remain available.
 
-Digital shows time, date, selected source, **Sync RMS**, **PLL** state and the
-sampled **P99 sub-1 µs hold duration**. Unknown or expired evidence shows `--`.
-Instrument presents those measurements mechanically:
+BLE is preferred, with LoRa receiving in parallel when enabled. **HOLD** means
+the watch is keeping time from its last valid clock; it can continue until reboot,
+but its accuracy is unknown. **Sync RMS** describes internal timing fit quality.
+**P99** is a sampled sub-1 µs hold statistic; `--` means evidence is not ready.
+Neither value certifies UTC accuracy.
 
-| Indication | Meaning |
-| --- | --- |
-| Source aperture | **BLE** includes BLE-derived RC1/RC2; **LOR** is LoRa; **RC9** remains distinct. **HOLD** marks retained time and `---` means unavailable. |
-| PLL phase well | Full means current relative lock, half means hold, dark means acquisition/unavailable. **NO TIME** is separately indicated. |
-| RX jewel | LoRa receiver powered; it does not mean a fresh packet or selected timing source. |
-| Sync RMS | Linear **0 ns–10 µs** dial. **OVER** marks values above 10 µs. |
-| P99 hold | Sampled duration on a **1–60 second** scale, with inclusive endpoint limits. Lower-bound-only evidence is unavailable on this analog dial. |
-| Reserve | Battery level from E to F, not a prediction of remaining runtime. |
+## Build and flash
 
-Red parked subdial hands mean unavailable. RMS is internal prediction quality;
-PLL lock is the shared model's relative-lock state. P99 is an empirical sampled
-hold statistic, distinct from a model-estimated horizon or calibrated UTC accuracy.
+1. Confirm **Ultra V1 / SX1262**; SX1280 variants are not supported. Prepare
+   private enrollment and a verified device entry using [group setup](../../docs/GETTING_STARTED.md)
+   and the [build guide](../../docs/twatch/build.md#inputs-and-build).
+2. Install the pinned ESP-IDF toolchain from that guide, then build:
 
-## Timing, power and limits
+   ```sh
+   python3 firmware/twatch/tools/build.py --idf "$IDF_PATH" \
+     --out artifacts/watch-build-01 \
+     --enrollment artifacts/local/enrollment.json \
+     --device-config artifacts/local/watch.json \
+     --registry artifacts/local/registry.json
+   ```
 
-BLE is preferred; passive LoRa stays warm when configured. Returning from live
-LoRa uses N30's qualified **30-second BLE-return dwell**. Each source retains its
-own authentication, freshness and timing permissions. See the
-[N30 recovery guide](../../docs/n30/dual-timing-state-machines.md) for backend rules.
+3. Connect USB and follow [USB update entry](../../docs/twatch/build.md#usb-rom-entry).
+   Install only the application into the verified application partition; preserve
+   enrollment and other partitions, then verify application readback before restarting.
+   The ROM helper enters/exits download mode; it does **not** write firmware.
+4. If the application cannot enter download mode, hold the lower-left **BOOT**
+   button, press and release recessed **RESET** on the right between USB-C and
+   the SD slot, then release BOOT. Use the verified recovery procedure in the build guide.
 
-A separate display-only clock bridges missing snapshots for up to **24 hours**
-from its last valid anchor. It retains the timezone, shows HOLD and withdraws
-precision indicators. This does not extend a source lease, synchronization
-permission or the measured P99 statistic. It clears on reboot.
+There is no generic pre-enrolled download or one-command public installer yet.
+Build output requires device-specific installation review; do not erase the
+whole flash or use another watch's enrolled image.
 
-Display sleep saves panel power while BLE, LoRa and USB remain available.
-GNSS shadow PPS is deferred. Battery endurance, sleep current and uptime targets
-remain in the [power and qualification plan](../../docs/twatch/power.md).
+## Set the location
 
-This target is under development. Host tests and native screenshots establish
-software properties; finite hardware checks do not establish continuous
-availability, calibrated UTC/output accuracy, qualified failover or battery life.
-No W12/N30 calibration or hardware acceptance transfers to the watch, and no
-enrolled binary is distributed. [Source provenance](imports.json) and
-[dependency notices](NOTICE.md) describe the reused components.
+Solar ships for **Santa Rosa Beach / 30A, Florida**, with automatic US Central
+DST and **Destin / East Pass** predicted tides for **2026–2027**. GNSS stays off;
+location does not update automatically.
 
-Copyright (c) 2026 Jonathan Yantis. Original documentation: [MIT](../../LICENSE).
-Preserved dependency notices apply.
+- Change `Latitude` and `Longitude` in [calendar.hpp](main/calendar.hpp), then
+  rebuild and flash. Longitude west of Greenwich is negative. Update the
+  `SANTA ROSA BEACH` caption in [watch.cpp](main/watch.cpp) to match.
+- For another time zone, also update the Central-time rules in
+  [calendar.cpp](main/calendar.cpp) and the corresponding calendar tests. There
+  is no location or time-zone picker on the watch yet.
+- For another tide reference, update the station ID and station metadata in
+  [calendar_data.py](tools/calendar_data.py), plus `TideStation` in
+  [calendar.hpp](main/calendar.hpp). Regenerate the table using the
+  [calendar guide](data/README.md#reproduce-and-refresh), test, then rebuild.
+  Coordinates alone do not change the tide station.
+
+Tides are nearby predictions, not measured beach conditions. Expired coverage
+shows unavailable. Brightness is currently manual; automatic solar brightness
+is not enabled.
+
+## Development status
+
+This is an experimental source target. BLE roaming/failover, wrist recognition,
+independent timing accuracy and battery endurance still need field qualification.
+LoRa stays in continuous receive; its power-saving schedule is shadow-only.
+Radio recovery preserves the running clock and first-fault diagnostics, but an
+unsafe shutdown remains contained rather than forcing a whole-watch restart.
+
+[Changes](CHANGELOG.md) · [Build and diagnostics](../../docs/twatch/build.md) ·
+[Power plan](../../docs/twatch/power.md) · [Source provenance](imports.json) ·
+[Dependency notices](NOTICE.md)
+
+Copyright (c) 2026 Jonathan Yantis. Original code and documentation: [MIT](../../LICENSE).

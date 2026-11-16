@@ -20,4 +20,7 @@ bool direct_request(LinkRole role,uint8_t address_type,const uint8_t address_le[
                     uint64_t root_permit,uint32_t duration_ms);
 void direct_stop();
 DirectStatus direct_status();
+#ifdef PTOB_TWATCH
+bool direct_watch_retire_unused(); // No active legacy credential/ACL lifetime may be erased.
+#endif
 }

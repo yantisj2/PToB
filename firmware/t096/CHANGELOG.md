@@ -1,5 +1,172 @@
 # T096 changelog
 
+## Unreleased
+
+- Align controller-fault and register-capture regressions with boot-local operational diagnostics:
+  reboot clears every capsule word; durable crash evidence is tested separately.
+  Refresh the initialization-order assertion and formatter fixture for shared
+  diagnostic scratch, input servicing and the LoRa menu boolean.
+  The UI closure fixture now distinguishes pending buffer release from the
+  retained draw timeout. Publication checks still fail UI shadow cases 11
+  (page return) and 25 (wake after dimming); these remain unresolved and the
+  full T096 host suite is not passing. No hardware acceptance is implied.
+
+## 0.15.359
+
+- Deliver an already queued USB overflow-reinitialization event even when the
+  driver is not ready. Previously the worker dropped its own recovery request.
+  Production-body positive and old-behavior negative controls reproduce this
+  defect; it is not established as the cause of the field TX-associated outage.
+- Retain a distinct USB lifecycle observation in the existing 136 B capsule and
+  append it through the startup-only journal after a surviving reset. Genuine
+  fault evidence takes priority. No runtime flash write, automatic erase or
+  new reset trigger is introduced; power loss before startup commit can lose it.
+- Include NVIC pending separately from interrupt enable/mask in raw USB state.
+  Keep System visible in the actual GM7 partial worker as well as the alternate
+  worker, and test both predicates. Restrict display compilation layout to fit
+  the unchanged application partition; radio/IRQ compilation is unchanged.
+- Skip optional LoRa note snapshots and formatting while cached console DTR is
+  closed. Retain latest-state reporting on reopen and queue-side close-race
+  checks. Manual TX, RX boot defaults, menu controls and dial indications remain.
+
+## 0.15.358
+
+- Add a read-only raw USB state view to System for physical-button inspection
+  when the console/control endpoint is unavailable. Uptime/reset remain visible;
+  the GM7 production worker can still enter its normal screensaver, so button
+  wake and System selection may be needed before a photograph. Normal
+  TX/dial/menu pages add no sampling. No USB recovery policy, remote wake,
+  runtime flash write or persistent automatic capture is added. This observation
+  change does not establish a fix for the reproduced TX-associated USB outage.
+
+## 0.15.357 — Explicit RX boot default
+
+- Add `--lora-boot-rx` for passive slow GM/RC images. The designated
+  transmitter can boot as a receiver while retaining manual menu TX.
+- Bind the override into the build receipt, native inspection and watchdog
+  identity. Preserve transmitter identity, airtime accounting and radio gates.
+
+## 0.15.356 — Bound USB lifecycle and endpoint teardown
+
+- Bound USB lifecycle waits and report failure through the existing retained
+  watchdog path. Preserve real DMA ownership and endpoint buffers when a
+  transfer cannot retire; a timeout does not authorize memory reuse.
+- Fence readiness and control-transfer generations during detach/restart so
+  an attached bus cannot inherit stale readiness and skip signaling startup.
+- Exit suspended PHY state only for an actual close request, with bounded
+  wake and parity-DMA completion checks. Explicit remote-wake provenance
+  prevents a delayed local-close event from driving a host wake signal.
+- Validate close/restart ordering with production-body tests, including
+  suspended close, incomplete DMA and missing hardware readiness. These are
+  fixes for reproduced software defects; attribution of the LoRa-associated
+  physical USB outage and hardware acceptance remain open.
+- Extend the offline resource audit to verify both string-formatting callback
+  bindings and report direct USB worker/control roots and its stack budget.
+- Limit compiler branch duplication in the UI service and console owner to
+  fit the unchanged application partition without removing controls or guards.
+
+## 0.15.355 — Detect USB freezes without queued work
+
+- Observe hardware frame progress while USB is fully enabled and awake, even
+  when no transfers are queued. A 30-second freeze uses the existing captured
+  watchdog failure path. Suspend, unplug and ambiguous polling gaps disarm
+  this check; normal idle suspend does not require periodic wake or reset.
+- Distinguish hardware low power from the software bus-suspend state in USB
+  health evidence and expose silicon errata applicability for diagnosis.
+- These changes close observable recovery gaps. The LoRa TX-associated USB
+  outage remains under investigation; this is not a confirmed root-cause fix
+  or hardware acceptance result.
+
+## 0.15.354 — Preserve admitted LoRa copy at conservative expiry
+
+- Recognize expiry of the frozen LoRa capture cap even when the normal BLE
+  permission remains live for a few more milliseconds. Retain only the prior
+  admitted copy, within its original bounds, instead of restarting TX.
+- Separate permission to construct expiry constraints from fresh publication.
+  An expired candidate has no validity or authentication authority. Its raw
+  capture and UTC bounds still restrict the retained copy, including after
+  normal BLE expiry; tighter limits, context changes and stop fences remain.
+- Reproduce the boundary failure with the production managed BLE producer;
+  exercise fresh-quality refusals, changed domains, malformed permissions,
+  overflow, tighter restrictions and non-renewal in producer/owner tests.
+
+- Share identical follower quality/cap helpers and limit compiler branch
+  duplication in the radio service to preserve the application partition.
+
+## 0.15.353 — USB resume workaround candidate
+
+- Enable the pinned Nordic driver’s silicon-gated anomaly 211 workaround.
+  It preserves the supported workaround across the enabled USB lifetime for
+  affected chips, covering host frame activity that resumes without a RESUME
+  condition. Unaffected chips retain the existing enable/disable behavior.
+- Share the existing JSON array encoder and boolean literals to fit the
+  unchanged application partition, preserving diagnostic fields and bounds.
+- Keep legitimate idle suspend, DMA/worker watchdogs, LoRa roles and source
+  permissions unchanged. No periodic USB reset or forced wake is introduced.
+- This is a candidate for the recurring USB outage, not a confirmed hardware
+  root-cause finding or acceptance result. Offline formatter/role stress did
+  not reproduce memory corruption; physical suspend/resume validation remains.
+
+## 0.15.352 — Fence tighter expired candidates
+
+- Preserve the previous admitted LoRa map only when the expired candidate
+  would not shorten either its capture interval or UTC permission. A tighter
+  authenticated restriction still stops transmission, even when discovered
+  after the candidate expires.
+
+## 0.15.351 — Preserve admitted LoRa source across candidate expiry
+
+- When a selected-BLE candidate expires between producer validation and LoRa
+  admission, discard it without withdrawing an unchanged, still-valid admitted
+  copy. The existing copy retains its original bounds; it is never renewed by
+  the expired candidate. Context changes, invalid captures, revoked authority
+  and expired retained copies still fence transmission.
+- Retire the temporary withdrawal-gate field after capturing the live path;
+  existing caller/counter diagnostics remain.
+- Exercise the production owner against the failing expiry race and hard-fence
+  negatives, alongside the existing scheduling, airtime and role regressions.
+
+## 0.15.350 — Retained LoRa interruption cause
+
+- Retain the source gate at the last actual TX source withdrawal alongside its
+  caller address. Later READY snapshots and repeated absent-source polls cannot
+  overwrite the cause. This is diagnostic evidence; source permissions and radio
+  scheduling are unchanged.
+
+## 0.15.349 — USB suspend continuity
+
+- Do not infer a disconnected pull-up from USBPULLUP while the controller is
+  in low-power suspend: that register is inaccessible in this state. This
+  prevents an idle host suspend from falsely triggering the USB watchdog.
+- Preserve detection of pending work, DMA stalls, missing readiness, disabled
+  hardware/IRQ and a missing pull-up while awake. Manual LoRa role and RX boot
+  default semantics remain unchanged.
+
+## 0.15.348 — LoRa transmitter status screen
+
+- Give TX a dedicated LoRa page: source, completed local timing pairs, last-pair
+  age, restart countdown and charged airtime in the rolling hour. Replace
+  receiver clock/META placeholders and the RF page's misleading TX NO CLOCK.
+- Distinguish source wait, restart wait, airtime limit, disabled, fault and stale
+  snapshots. Keep RX presentation, dial mast, radio policy and RX boot defaults.
+- TX counters describe local sends, not receiver delivery or UTC accuracy.
+
+## 0.15.347 — Manual LoRa roles
+
+- Add a LoRa submenu with RX, GM-only TX and Back. Preserve designated-TX and
+  listener-RX boot defaults, existing timing/source guards and the TX dial mast.
+- Close the physical radio before role changes; retain TX accounting/cooldowns
+  and per-emitter replay floors. Separate RX and TX storage prevents role changes
+  from overwriting these records. Ordinary slow RX accepts authenticated field
+  emitters (four retained identities per boot); older pinned RX images need updates.
+- Keep the application partition and stack reserves unchanged. Share compiled
+  display helper bodies and compact identical diagnostic boolean strings to
+  accommodate the controls.
+- Validate with production menu pixels, button transitions, actual-owner role,
+  replay, timing and TX-indicator regressions plus native resource inspection.
+  These checks do not establish field range or independent UTC accuracy.
+
+
 ## 0.15.346
 
 - Observe held USB DMA independently of worker events. Suspend no longer masks

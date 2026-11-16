@@ -90,6 +90,47 @@ int main(int argc,char **argv){
  if(test>=100){char mode_text[16];snprintf(mode_text,sizeof mode_text,"%u",test-100);char *historical[]={argv[0],mode_text};return historical_radio_main(2,historical);}
  setup_pt();
 #ifdef R2_LORA_FIXED500_EXPERIMENT
+ if(test==95){
+  lora_needed=true;ble_needed=false;
+  r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);
+  drive_stream(900);assert(lora_publishes&&pt_output.utc_valid);
+  struct r2_radio_precision original=precision;struct pt_output output=pt_output;
+  struct pt_input input=pt_input;struct r2_radio_scope active=active_scope;
+  uint64_t base_tick=capture_tick,base_us=fake_time;
+  lora_hold_limit=lora_export;
+  for(unsigned expired=0;expired<2;expired++)for(unsigned fence=0;fence<10;fence++){
+   precision=original;pt_output=output;pt_input=input;active_scope=active;
+   capture_tick=expired?original.data_until+16:lora_hold_limit.until_tick;
+   fake_time=capture_us=base_us+(capture_tick-base_tick)/16;
+   capture_test_epoch=1;capture_test_available=true;lora_hold_available=true;
+   if(fence==1)precision.data_until=lora_hold_limit.until_tick; /* Tighter capture permission. */
+   if(fence==2)precision.origin_expires_ns-=1000; /* Tighter authenticated UTC permission. */
+   if(fence==3)capture_test_epoch=2;
+   if(fence==4)pt_input.stopped=true;
+   if(fence==5)++pt_input.grant.boot;
+   if(fence==6)precision.servo.fault=true;
+   if(fence==7)++pt_output.scope.remote_capture_epoch;
+   if(fence==8)lora_hold_available=false;
+   if(fence==9)for(unsigned j=0;j<32;j++)precision.servo.output_quality.squares[j]=
+    UINT64_C(1000000)*precision.servo.output_quality.predictions[j];
+   unsigned withdrawn=lora_withdraws,published=lora_publishes,held=lora_hold_queries;
+   precision_step(fake_time);
+   if(!fence){
+    assert(lora_hold_queries==held+1&&lora_withdraws==withdrawn&&lora_publishes==published);
+    assert(source_gate==R2_LORA_SOURCE_BLE_HOLDOVER);
+    if(!expired)assert(pt_output.utc_valid&&fake_time<pt_output.valid_until);
+    else assert(!pt_output.utc_valid);
+   }else if(fence==9&&expired){
+    /* Expired normal quality is not renewed by the existing bounded copy. */
+    assert(lora_publishes==published);
+   }else{
+    if(!(lora_withdraws>withdrawn&&lora_publishes==published))
+     fprintf(stderr,"expiry fence%u expired%u publish%u withdraw%u holds%u gate%u\n",fence,expired,lora_publishes-published,lora_withdraws-withdrawn,lora_hold_queries-held,source_gate);
+    assert(lora_withdraws>withdrawn&&lora_publishes==published);
+   }
+  }
+  puts("PASS managed producer retains unchanged admitted LoRa at conservative-cap and BLE expiry; tighter capture/UTC, scope, stop, capture, fault and absent-copy fences remain");return 0;
+ }
  if(test==94){
   lora_needed=true;ble_needed=false;
   r2_radio_service_source(&(struct r2_source_clock){0},false,0);follower();precision_poll(fake_time,&running);

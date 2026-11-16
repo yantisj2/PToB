@@ -1,6 +1,6 @@
 ---
 name: T-Watch Ultra instruments
-description: Target-scoped Digital and mechanical Instrument native watch faces
+description: Target-scoped Digital, Instrument and Solar native watch faces
 colors:
   black: "#040809"
   face: "#111A1B"
@@ -25,6 +25,33 @@ colors:
   well-groove: "#1E2B1D"
   dial-highlight: "#31412B"
   hand-shadow: "#060D08"
+  solar-ink: "#D3EBFA"
+  solar-muted: "#8BB5D2"
+  solar-night: "#050F1E"
+  solar-track: "#20394C"
+  solar-blue: "#71BFEB"
+  solar-case-top: "#0C1B2B"
+  solar-moon-dark: "#283C53"
+  solar-moon-lit: "#9BB5CA"
+  solar-zenith-night: "#091731"
+  solar-zenith-day: "#2373B0"
+  solar-horizon-night: "#223A57"
+  solar-horizon-day: "#74AAC0"
+  solar-horizon-warm: "#FFB16F"
+  solar-civil-top: "#275374"
+  solar-civil-bottom: "#1E3E5F"
+  solar-nautical-top: "#1B3656"
+  solar-nautical-bottom: "#142642"
+  solar-astronomical-top: "#12223C"
+  solar-astronomical-bottom: "#0A172A"
+  solar-deep-night: "#050E1B"
+  solar-hour-dark: "#04111E"
+  solar-hour-light: "#ECF7FF"
+  solar-medallion: "#071422"
+  solar-tide: "#85CECD"
+  solar-sun-limb: "#FFCF8B"
+  solar-sun-disc: "#FFE5B3"
+  solar-sun-core: "#FFF6DD"
 typography:
   title:
     fontFamily: Rajdhani
@@ -84,12 +111,12 @@ components:
 
 **Creative North Star: "The Wrist Instrument"**
 
-Digital retains the Casio-inspired dark segmented display, pale phosphor time and amber controls within a chamfered bezel and inset LCD frame. Instrument translates the approved olive perpetual-calendar reference into original PToB mechanical indicators inside a squarish instrument case, with pale lume and restrained red needles. Directional bevels, grooved recessed wells and broad outlined pilot hands give Instrument physical depth. Neither face copies a brand mark.
+Digital retains the Casio-inspired dark segmented display, pale phosphor time and amber controls within a chamfered bezel and inset LCD frame. Instrument translates the approved olive perpetual-calendar reference into original PToB mechanical indicators inside a squarish instrument case, with pale lume and restrained red needles. Directional bevels, grooved recessed wells and broad outlined pilot hands give Instrument physical depth. Neither face copies a brand mark. Solar adds the approved daily-orbit reference as a third visual world: marine blue sky, calculated twilight, a warm sun and pale blue corner scales. Digital and Instrument retain their established visual systems.
 
 This visual authority applies only to firmware/twatch. The native C++ framebuffer is authoritative; sidecar swatches illustrate components. Host captures and offline finish reviews establish source/render quality only. The operator has confirmed physical rendering of the earlier Digital face; Instrument appearance on hardware, optical timing, precision and power remain unqualified.
 
 **Key Characteristics:**
-- Time-first segmented Digital or mechanical Instrument display.
+- Time-first segmented Digital, mechanical Instrument or daily-orbit Solar display.
 - Chamfered case geometry and inset readable content.
 - Face-specific palette with shared utility screens and controls.
 - Explicit unavailable evidence and display-only local hold.
@@ -110,6 +137,8 @@ Black surrounds the face and supports utility screens. Face is the deep green di
 
 Instrument uses olive case and dial, bevel/etch rings, pale lume hands and lettering, dark recesses and red seconds or unavailable needles. Red parking below the subdial range distinguishes missing evidence; color alone never indicates a numeric value.
 
+Solar uses its own marine-blue sky and twilight ramps, warm solar marker, pale blue text and scales, and muted teal tide indication. The frontmatter records every Solar source RGB endpoint; blends and RGB565 quantization are computed by the renderer.
+
 The frontmatter records the source RGB values. The renderer packs them to RGB565 and alpha-blends the atlas, so sampled screenshot colors can differ through quantization.
 
 ## Typography
@@ -126,7 +155,7 @@ The only viewport is 410 × 502 pixels; there are no responsive breakpoints. Dig
 
 Inset utility text starts at x=42, with 326px rules, header text at y=42 and a separator at y=96. Bottom copy is inset further. Review all screens under the conservative synthetic 100px rounded-corner aperture; this is a design check, not measured panel geometry. Keep vital labels and controls away from corner cutouts.
 
-Both faces retain the y>=430 MODE touch zone. The common header touch region is y<95. Face-selection rows begin at y=116 and y=266; their hit regions divide at y=250 and end at y=390. Keep these regions in sync with View::touch.
+All three faces retain the y>=430 MODE touch zone. The common header touch region is y<95. Face-selection rows begin at y=111, 216 and 321; their hit regions are 105<=y<210 (Digital), 210<=y<315 (Instrument) and 315<=y<425 (Solar). Keep these regions in sync with View::touch.
 
 ## Elevation & Depth
 
@@ -148,7 +177,7 @@ Large text, a supporting line, a right chevron and a thin bottom separator ident
 
 ### Settings
 
-Brightness cycles from 10 through 100 percent in ten-point increments; display sleep cycles through 90, 120 and 180 seconds (90 is the default and minimum). Both rows state that they can be tapped. Save failure replaces the persistence footer with an amber retry instruction. GNSS OFF is a status, not a control. First touch or button after sleep only wakes the display. Timing stays active during display sleep; this is not a measured battery-life claim.
+Brightness cycles from 10 through 100 percent in ten-point increments; display sleep cycles through 15, 30, 60 and 90 seconds (30 is the default). Both rows state that they can be tapped. Save failure replaces the persistence footer with an amber retry instruction. GNSS OFF is a status, not a control. First touch or button after sleep only wakes the display. Timing stays active during display sleep; this is not a measured battery-life claim.
 
 ### Instrument face
 
@@ -158,26 +187,43 @@ Both source/RX apertures are 41 × 25px at (136, 142) and (234, 142), centered o
 
 The calendar bridge is part of the Instrument face. Native previews remain synthetic; hardware appearance, continuous reliability and timing qualification are separate checks.
 
-The Sync RMS dial is linear from `0ns` to `10us`, with 2.5us quarter divisions. Values above 10000ns park at the maximum scale and show `OVER`; exactly 10000ns has no overflow flag. Missing RMS parks red below the sweep, distinctly from overflow. Sampled P99 hold spans 1–60s with `<=1` and `>=60` bounds. Lower-bound-only hold evidence uses the unavailable parking position below the sweep; the analog dial has no MIN annotation. LoRa/RC9 never gain an unsupported sampled-hold value. Battery reserve is an E–F sector with its own unavailable parking position, not a runtime estimate. These are internal/sampled metrics, not calibrated accuracy.
+The Sync RMS dial is linear from `0ns` to `10us`, with 2.5us quarter divisions. Values above 10000ns park at the maximum scale and show `OVER`; exactly 10000ns has no overflow flag. Missing RMS holds its last visual position for 500 ms, then travels slowly toward the maximum over roughly 30 seconds; no red bar or parked red needle appears. Sampled P99 hold spans 1–60s with `<=1` and `>=60` bounds. Lower-bound evidence moves the needle toward its sampled duration and replaces the small `s` unit with `>=s`; an exact bounded result keeps `s`. LoRa/RC9 never gain an unsupported sampled-hold value. Battery reserve is a smoothly slewed E–F sector with unavailable input moving toward E, not a runtime estimate. These are internal/sampled metrics, not calibrated accuracy.
+
+### Solar face
+
+Solar follows the approved `solarpath.webp` reference with original native geometry. Its 332px sky dial centers on (205, 251). The case starts at (18, 22), measures 374 × 458px and has 55px chamfers. Four compact circular subdials have radius 34px: RMS at (77.5, 81.5), P99 at (331.5, 81.5), SRC at (77.5, 419.5) and TIDE ~ at (331.5, 419.5). Centers derive from a 32px inward-normal inset from the actual frame chamfer midpoints of (18, 22)..(391, 479). Antialias-aware chamfer clearance is 10.75px for all four. Clearance to the main circle is 9.70–11.10px because its established center remains (205, 251): variation is at most 1.4px, not exact equality. Each contains 24 ticks and a 300-degree progress ring. Labels use the 14px atlas; values use 20px, falling back to 14px when their advance exceeds 54px. These self-contained complications replace the perimeter arcs.
+
+The clock medallion has an 83px outer radius and an 81px dark interior with a pale, nearly complete rim and a quiet upper-left break. Its center travels opposite the sun on a 35px-radius internal circle around (205, 251). Elapsed-time acquisition motion stays within that circle at no more than 12px/s; missing astronomy retains the last position. Date, Central time, seconds/status and the lunar graphic travel together inside the medallion. The 36px Rajdhani atlas is resampled at 1.5× for the time. There is no SOLAR title or lunar-percentage caption.
+
+The horizon/twilight boundaries derive from the Santa Rosa Beach coordinates (30.35, -86.23). The fixed civil 24-hour scale has 12 at top, 18 at right, 00 at bottom and 06 at left; it never rotates to solar noon. Current Central civil time (CST/CDT) determines sun and opposing clock position independently of the mesh display zone. Seasonal changes affect the horizon behind the fixed scale, not an extra seasonal clock displacement. Sunrise/sunset use -0.833 degrees; civil, nautical and astronomical twilight use -6/-12/-18 degrees. All eight actual morning/evening crossings have ticks and dots on the 124px-radius inner solar orbit, with larger sunrise/sunset dots. The chord joining actual sunrise and sunset sets horizon height and tilt. Separate morning/evening chords define the three twilight bands. Every crossing uses `calendar::central_offset(eventUTC)` for its own civil angle, including DST-change dates; neither midnight nor the current snapshot offset substitutes for the event offset. Current calculated altitude drives the sky palette. The sun advances between minute ephemerides; the moon depicts calculated phase without a numeric illumination caption. Stars are illustrative, not a constellation map. The lunar disc is distinct from Instrument's PLL phase well.
+
+RMS spans linear 0–10us; the numeric label retains ns/us and shows `>10 us` above range. P99 shows a clean integer with appropriate `s`/`ms`/`us` units and no `>=` prefix; its 1–60s ring remains a sampled-hold indication. Bound metadata remains diagnostic, and LoRa/RC9 do not acquire unsupported hold evidence. SRC text reports only the selected source identifier. Actual RSSI drives the ring, clamped from -110 to -40dBm, with no numeric RSSI or percentage text. Missing strength dims the ring. Held time shows HOLD and withdraws live precision/source evidence.
+
+`TIDE ~` marks approximate progress interpolated between predicted Destin high/low events: low=0, high=1. `RISE`/`FALL` describes direction, not measured water level. Unknown, unbracketed or out-of-range tide input dims the ring and removes its active endpoint; expired coverage explicitly shows `EXP`, other unavailable states show `--`. Unknown astronomy suppresses the sun/moon, shows `SKY --`, and retains explicit unavailable time. Calculations from display-only held time never grant timing authority.
+
+The UI worker caches ephemerides per UTC minute. A 411640-byte PSRAM Solar backdrop rebuilds when the sampled minute or known-state changes. The rebuild evaluates one column of event-chord heights at a time and uses a 256-entry daylight palette, avoiding per-pixel power/trigonometric work without retaining a large internal-RAM height array. Generation-aware 32px tile damage restores old and new dynamic regions only while face, buffer and backdrop generation match; otherwise the renderer restores the full backdrop. Allocation failure draws the same base directly. This is a single-owner rendering optimization, not a hardware performance or power qualification. Synthetic fixtures and cache-equivalence checks remain separate from installed-device acceptance.
+
+Solar also allocates one 63,600-byte immutable geometry cache explicitly in PSRAM at first use. It retains the subdial/rim coordinates, fixed subdial alpha operations, solar halo and resampled numeric glyph masks. Only its pointer and initialization guard live in internal RAM; a compile-time 64KiB cap prevents silent cache growth. The renderer preserves the original ordered RGB565 blending and exact fractional medallion position. Geometry-allocation failure uses the original calculations, and oversized future glyphs use the uncached path. No graphics cache falls back to scarce internal SPI/DMA/radio memory. The first Solar frame constructs this cache; subsequent frames reuse it. Host work counters and exact static/moving-frame comparisons verify the optimization, while actual device latency and power still require measurement. Moving soft-disc edges use hardware float square roots away from raster decision boundaries, reverting to double near integer span edges and 8-bit alpha thresholds or for squared distances above 84². The conservative guard preserves quantized pixels without adding cache memory. Its square-root work counter counts double-precision calls only; float roots are excluded. The performance check also runs an uninstrumented moving sequence to catch accidental float-to-double promotion by measurement wrappers.
+
 
 ### Face selection
 
-Digital and Instrument are two selectable text rows. SELECTED copy identifies the current choice. Tapping either returns to that face and saves its selection; the last selected face opens at boot. Either horizontal swipe on a face also switches and persists the face. Resolve taps and swipes on release, so swiping across MODE cannot first activate navigation. A switch requires at least 64px horizontal travel, more than twice the vertical travel, and at most 1.5 seconds; taps require less than 20px displacement on each axis. Vertical/long gestures do not switch. Wake consumes the whole initial contact gesture, including its release. MODE taps and physical-button navigation remain available. There is no obsolete one-face preview or future-library promise.
+Digital, Instrument and Solar are three selectable text rows. SELECTED copy identifies the current choice. Tapping one returns to that face and saves its selection; the last selected face opens at boot. A left swipe advances Digital → Instrument → Solar → Digital; a right swipe reverses that order. Both persist the choice using modulo-three selection. Resolve taps and swipes on release, so swiping across MODE cannot first activate navigation. A switch requires at least 64px horizontal travel, more than twice the vertical travel, and at most 1.5 seconds; taps require less than 20px displacement on each axis. Vertical/long gestures do not switch. Wake consumes the whole initial contact gesture, including its release. MODE taps and physical-button navigation remain available. There is no obsolete one-face preview or future-library promise.
 
 ### Display-only local hold
 
-A fresh valid presentation snapshot anchors a local clock. Missing/expired snapshots can continue its time for less than 24 hours from that anchor, using monotonic elapsed time and retained time-zone offset. Monotonic rollback discards the anchor. This continuity never feeds a timing source, PLL, admission or precision metric. Source identity, lock, RMS and sampled hold are withdrawn: Digital shows HOLD and unavailable values; Instrument shows a half disc with unavailable precision pointers. A new valid snapshot restores current presentation. Without an anchor or after its limit, time is unavailable.
+A fresh valid presentation snapshot anchors a local clock. Missing/expired snapshots continue its time until reboot from that anchor, using monotonic elapsed time and retained time-zone offset. Monotonic rollback discards the anchor. This continuity never feeds a timing source, PLL, admission or precision metric. Source identity, lock, RMS and sampled hold are withdrawn: Digital shows HOLD and unavailable values; Instrument shows a half disc with unavailable precision pointers. A new valid snapshot restores current presentation through bounded clock slewing, without backward jumps. Without an anchor, time is unavailable. All analog pointers use elapsed-time motion; sub-500 ms evidence loss holds their positions. Bosch wrist tilt wakes the last face for 5 seconds, independently of the normal interactive timeout.
 
 ### Status labels
 
-Green LOCK and amber WAIT/HOLD/ACQ keep text meanings independent of color. The Digital footer distinguishes LOR RX from LOR OFF. Preserve these unavailable and attention states when adding screens.
+Green LOCK and amber WAIT/HOLD/ACQ keep text meanings independent of color. The Digital footer shows LOR with three reception bars for recent authenticated pairs, dim bars when merely enabled, and LOR OFF when disabled. Preserve these unavailable and attention states when adding screens.
 
 ## Do's and Don'ts
 
 - Do keep this visual authority scoped to firmware/twatch.
 - Do use the bundled Rajdhani atlas and original segment geometry.
 - Do preserve units, unavailable states and explicit status labels.
-- Do review both faces and all utility screens at native resolution, with the rounded aperture and unavailable, local-hold, overflow, RC9 and lower-bound states, plus release-resolved swipe and wake gestures.
+- Do review all three faces and all utility screens at native resolution, with the rounded aperture and unavailable, local-hold, overflow, RC9 and lower-bound states, plus release-resolved swipe and wake gestures.
 - Don't use synthetic preview values as hardware evidence.
 - Don't convey lock, selection, saturation or failure through color alone.
 - Don't treat display-only local hold as current timing authority or retain precision during it.
@@ -187,3 +233,7 @@ Green LOCK and amber WAIT/HOLD/ACQ keep text meanings independent of color. The 
 Original documentation © 2026 Jonathan Yantis. SPDX-License-Identifier: MIT.
 
 The Instrument static dial is cached in a single PSRAM layer at first presentation. Subsequent redraws copy that layer and paint the moving indications; cached and uncached fixture images match pixel-for-pixel. The renderer remains single-owner.
+
+Settings uses four 80-pixel rows: brightness, normal sleep timeout, BLE and LoRa. Radio feedback is actual owner state, with ON/OFF/WAIT/FAULT text independent of color. Radio choices are temporary until boot; the footer makes that explicit. Existing display settings stay persistent.
+
+Digital shows the authenticated local zone abbreviation (CST/CDT for Central), with integer P99 duration and s/ms/us units. Bounds remain diagnostic metadata. Valid USB power keeps the panel on; after unplugging, the saved timeout applies. Wake transfers a freshly sampled, complete frame while the panel is hidden, then reveals it.

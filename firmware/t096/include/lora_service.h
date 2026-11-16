@@ -4,6 +4,8 @@
 #include "../protocol/gm_coordination.h"
 #include <stddef.h>
 /* This is deliberately independent of normal source/precision/USB owners. */
+enum r2_lora_tx_wait {R2_LORA_TX_READY,R2_LORA_TX_PROFILE,R2_LORA_TX_BLOCKED,
+ R2_LORA_TX_CAP,R2_LORA_TX_FAULT};
 struct r2_lora_view {
  /* Presentation metadata; tz_observed means original observed META lifetime,
   * with no independently bounded source-age or timing/export permission. */
@@ -22,11 +24,16 @@ struct r2_lora_view {
  uint8_t state,assurance,choice,link_samples,kind,parent_class,parent_accuracy;
  uint8_t requested:1,active:1,transmitter:1,fault:1,quality_known:1,time_valid:1,parent_quality:1,coord_follow:1;
  uint8_t display_held:1,rssi_valid:1,rtt_base_count:2,rtt_positive:1,display_acquiring:1,tz_observed:1,context_known:1;
- uint8_t rtt_life_8s;
+ union {uint8_t rtt_life_8s;uint8_t tx_wait_reason;};
  /* Authenticated boot cache and causal pre-update error. These are human
   * observations, separate from time_valid/quality_known and live until_us. */
- uint32_t prediction_rms_ns,prediction_age_ms,prediction_n;
- bool metadata_cached,observer_available;
+ /* Role-exclusive presentation only; no extra snapshot RAM or RF authority. */
+ union {
+  struct {uint32_t prediction_rms_ns,prediction_age_ms,prediction_n;};
+  struct {uint32_t tx_pairs,tx_restart_ms,tx_airtime_ms;};
+ };
+ union {bool metadata_cached;bool tx_stats_valid;};
+ bool observer_available;
 };
 _Static_assert(sizeof(struct r2_lora_view)<=104,"LoRa view with retained observer diagnostics");
 /* Freshness limits from the original physical pair. Slow mode separately
@@ -59,7 +66,12 @@ void r2_lora_source_status(enum r2_lora_source_gate);
 /* Read-only check of an already-published fixed500 holdover permission. The
  * PT owner has verified the same live control/train binding under its lock. */
 struct r2_capture;
-bool r2_lora_source_hold(const struct rc8_scope *,struct r2_capture);
+/* Optional candidate already has the independent LoRa bounds applied. Any
+ * tighter candidate permission still fences the prior copy. NULL is the
+ * existing natural-expiry hold, never a new admission or renewal. */
+/* Candidate bounds are unextended source permissions. The existing fixed
+ * margin is compared once; no copy is renewed or made valid by this query. */
+bool r2_lora_source_hold(const struct rc8_scope *,struct r2_capture,const struct rc8_export *);
 /* Qualified BLE observation only; never a LoRa clock/authority input. */
 bool r2_lora_ble_needed(void);
 struct lp_ble_scope;
@@ -98,3 +110,6 @@ int r2_lora_json(char *,size_t,int result);
  * Query JSON also explains untrained/expired receiver UTC. No persistent mode. */
 int r2_lora_utc_request(uint64_t token,uint32_t delay_ms,bool allow_over_cap);
 int r2_lora_utc_json(char *,size_t,int result);
+
+/* Select an exclusive radio role after physical closure; requests remain volatile. */
+int r2_lora_mode_request(bool tx);

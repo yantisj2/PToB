@@ -2,6 +2,9 @@
 #include "client_lifecycle.hpp"
 #include "console_protocol.hpp"
 #include "periodic_rx_model.hpp"
+#ifdef PTOB_TWATCH
+#include "../../twatch/main/ble_power.hpp"
+#endif
 namespace v12 {
 struct Report {
   uint64_t callback_us=0;uint32_t cycle=0;uint16_t handle=0;
@@ -38,4 +41,20 @@ void transport_g1_cleanup_schedule();
 #endif
 #endif
 TransportStatus transport_status();
+#ifdef PTOB_TWATCH
+// Mailbox only. SDK host/controller lifecycle runs in its dedicated worker.
+bool transport_watch_ble_request(bool enabled,uint64_t now_us);
+// Bounded main observer retries task allocation, never SDK stop/deinit work.
+void transport_watch_ble_poll();
+bool transport_watch_ble_off_proven();
+bool transport_watch_ble_recover();
+watch::BlePower transport_watch_ble_status();
+bool transport_watch_ble_clock_allowed();
+bool transport_watch_ble_clock_begin();
+void transport_watch_ble_clock_end();
+bool transport_watch_ble_admit_allowed(bool host_sync=false);
+bool transport_watch_ble_admit_begin(bool host_sync=false);
+void transport_watch_ble_admit_end();
+void transport_watch_ble_stop_aux();
+#endif
 }

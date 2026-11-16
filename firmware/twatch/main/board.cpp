@@ -14,7 +14,7 @@
 #include <cstring>
 namespace watchboard {
 namespace {
-i2c_master_bus_handle_t bus=nullptr;i2c_master_dev_handle_t pmu=nullptr,io=nullptr,tp=nullptr;
+i2c_master_bus_handle_t bus=nullptr;i2c_master_dev_handle_t pmu=nullptr,io=nullptr,tp=nullptr,imu=nullptr;
 spi_device_handle_t panel=nullptr;bool initialized=false,storage=false,panel_failed=false,in_flight=false;
 DMA_ATTR uint16_t strip[watch::Width*8];
 bool read(i2c_master_dev_handle_t d,uint8_t reg,uint8_t& out){return i2c_master_transmit_receive(d,&reg,1,&out,1,20)==ESP_OK;}
@@ -42,6 +42,14 @@ bool init(){if(initialized)return true;i2c_master_bus_config_t c{};c.i2c_port=I2
  storage=nvs_flash_init()==ESP_OK; // Never erase or migrate unknown factory storage on an error.
  initialized=true;return true;
 }
+// UI owns PMU/IMU; the touch worker owns CST9217. ESP-IDF serializes
+// individual master transactions on the shared bus; all calls are bounded.
+bool imu_bus_open(){
+ if(!initialized||!bits(pmu,0x95,0x1f,13)||!bits(pmu,0x90,0x08,0x08))return false;
+ vTaskDelay(pdMS_TO_TICKS(20));return imu!=nullptr||device(0x28,&imu);
+}
+int imu_read(uint8_t reg,uint8_t* data,unsigned n){if(!imu||n>256)return ESP_ERR_INVALID_ARG;return i2c_master_transmit_receive(imu,&reg,1,data,n,30);}
+int imu_write(uint8_t reg,const uint8_t* data,unsigned n){if(!imu||n>256)return ESP_ERR_INVALID_ARG;uint8_t packet[257];packet[0]=reg;std::memcpy(packet+1,data,n);return i2c_master_transmit(imu,packet,n+1,30);}
 bool idle(){return !in_flight;}
 bool display_init(){if(!initialized)return false;gpio_config_t pins{};pins.pin_bit_mask=(1ULL<<37)|(1ULL<<41);pins.mode=GPIO_MODE_OUTPUT;if(gpio_config(&pins)!=ESP_OK)return false;gpio_set_level(GPIO_NUM_41,1);gpio_set_level(GPIO_NUM_37,0);vTaskDelay(pdMS_TO_TICKS(20));gpio_set_level(GPIO_NUM_37,1);vTaskDelay(pdMS_TO_TICKS(120));
  spi_bus_config_t b{};b.sclk_io_num=40;b.data0_io_num=38;b.data1_io_num=39;b.data2_io_num=42;b.data3_io_num=45;b.data4_io_num=b.data5_io_num=b.data6_io_num=b.data7_io_num=-1;b.max_transfer_sz=sizeof strip;
@@ -51,9 +59,32 @@ bool display_init(){if(!initialized)return false;gpio_config_t pins{};pins.pin_b
 }
 bool brightness(uint8_t percent){return byte(0x51,uint8_t(unsigned(std::min(percent,uint8_t(100)))*255/100));}
 bool sleep(bool asleep){return command(asleep?0x28:0x29);}
-bool flush(const uint16_t* frame){if(panel_failed)return false;for(int y=0;y<watch::Height;y+=8){int h=std::min(8,watch::Height-y);uint8_t xs[]={0,22,1,0xaf},ys[]={uint8_t(y>>8),uint8_t(y),uint8_t((y+h-1)>>8),uint8_t(y+h-1)};if(!command(0x2a,xs,4)||!command(0x2b,ys,4))return false;for(int i=0;i<watch::Width*h;++i){auto v=frame[y*watch::Width+i];strip[i]=uint16_t((v>>8)|(v<<8));}if(!transfer(0x32,0x002c00,strip,watch::Width*h*2,SPI_TRANS_MODE_QIO))return false;taskYIELD();}return true;}
-bool touch(int& x,int& y){uint8_t reg[]={0xd0,0},buf[30]{},ack[]={0xd0,0,0xab};if(i2c_master_transmit_receive(tp,reg,2,buf,sizeof buf,10)!=ESP_OK||i2c_master_transmit(tp,ack,3,10)!=ESP_OK)return false;if(buf[0]==0xab||buf[6]!=0xab||(buf[0]&15)!=6||(buf[5]&0x7f)==0||(buf[4]&0xf0))return false;x=(buf[1]<<4)|(buf[3]>>4);y=(buf[2]<<4)|(buf[3]&15);return x<watch::Width&&y<watch::Height;}
+bool flush(const uint16_t* frame,const watch::RenderCache* cache){
+ if(panel_failed)return false;
+ constexpr int tile=watch::RenderCache::Tile,cols=watch::RenderCache::Cols;
+ for(int y=0;y<watch::Height;y+=8){
+  const int h=std::min(8,watch::Height-y);
+  for(int col=0;col<cols;){
+   if(cache&&!cache->changed[(y/tile)*cols+col]){++col;continue;}
+   const int first=col++;while(col<cols&&(!cache||cache->changed[(y/tile)*cols+col]))++col;
+   const int x=first*tile,w=std::min(watch::Width,col*tile)-x;
+   const int left=22+x,right=left+w-1;
+   uint8_t xs[]={uint8_t(left>>8),uint8_t(left),uint8_t(right>>8),uint8_t(right)},ys[]={uint8_t(y>>8),uint8_t(y),uint8_t((y+h-1)>>8),uint8_t(y+h-1)};
+   if(!command(0x2a,xs,4)||!command(0x2b,ys,4))return false;
+   for(int j=0;j<h;++j)for(int i=0;i<w;++i){auto v=frame[(y+j)*watch::Width+x+i];strip[j*w+i]=uint16_t((v>>8)|(v<<8));}
+   if(!transfer(0x32,0x002c00,strip,w*h*2,SPI_TRANS_MODE_QIO))return false;
+   taskYIELD();
+  }
+ }
+ return true;
+}
+bool touch(int& x,int& y,bool* valid){if(valid)*valid=false;uint8_t reg[]={0xd0,0},buf[30]{},ack[]={0xd0,0,0xab};if(i2c_master_transmit_receive(tp,reg,2,buf,sizeof buf,10)!=ESP_OK||i2c_master_transmit(tp,ack,3,10)!=ESP_OK)return false;if(valid)*valid=true;if(buf[0]==0xab||buf[6]!=0xab||(buf[0]&15)!=6||(buf[5]&0x7f)==0||(buf[4]&0xf0))return false;x=(buf[1]<<4)|(buf[3]>>4);y=(buf[2]<<4)|(buf[3]&15);return x<watch::Width&&y<watch::Height;}
 int battery(){uint8_t b;return read(pmu,0xa4,b)&&b<=100?b:-1;}
+// AXP2101 STATUS1 bit5: valid VBUS, including a full battery or charge-only USB.
+bool usb_power(bool& present){uint8_t status;if(!read(pmu,0x00,status))return false;present=(status&0x20)!=0;return true;}
+// AXP2101 COMMON_CONFIG bit0, matching XPowersAXP2101::shutdown().
+// UI task has stopped before this main-task ownership transfer; no live I2C peer.
+bool power_off(){return initialized&&idle()&&bits(pmu,0x10,0x01,0x01);}
 bool settings_load(void* data,unsigned size){if(!storage)return false;nvs_handle_t h;if(nvs_open("ptobwatch",NVS_READONLY,&h)!=ESP_OK)return false;size_t n=size;bool ok=nvs_get_blob(h,"settings",data,&n)==ESP_OK&&n==size;nvs_close(h);return ok;}
 bool settings_save(const void* data,unsigned size){if(!storage)return false;nvs_handle_t h;if(nvs_open("ptobwatch",NVS_READWRITE,&h)!=ESP_OK)return false;bool ok=nvs_set_blob(h,"settings",data,size)==ESP_OK&&nvs_commit(h)==ESP_OK;nvs_close(h);return ok;}
 }

@@ -11,7 +11,7 @@ before={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for 
 main=(app/'src/main.c').read_text();begin=main.index('    /* A latched GNSS driver failure');end=main.index('\n#endif\n    unsigned watchdog_retry',begin)
 hook=main[begin:end]
 assert main[begin-len('#ifndef R2_PC_PROFILE\n'):begin]=='#ifndef R2_PC_PROFILE\n'
-for n in ['zephyr/kernel.h','zephyr/device.h','zephyr/drivers/gpio.h','zephyr/drivers/uart.h','zephyr/sys/atomic.h','zephyr/sys/reboot.h','zephyr/drivers/watchdog.h','zephyr/drivers/hwinfo.h','cmsis_core.h','build_identity.h']:
+for n in ['zephyr/kernel.h','zephyr/irq.h','zephyr/device.h','zephyr/drivers/gpio.h','zephyr/drivers/uart.h','zephyr/sys/atomic.h','zephyr/sys/reboot.h','zephyr/drivers/watchdog.h','zephyr/drivers/hwinfo.h','cmsis_core.h','build_identity.h']:
  p=out/n;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('/* Existing fixture supplies public boundary. */\n')
 base=[os.environ.get('CC') or ('/opt/homebrew/opt/llvm/bin/clang' if Path('/opt/homebrew/opt/llvm/bin/clang').exists() else shutil.which('clang')),'-std=gnu11','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-unused-function','-Wno-unused-variable','-fsanitize=address,undefined','-fno-sanitize-recover=all','-g','-I'+str(out),'-I'+str(app/'tests'),'-I'+str(app/'include'),'-I'+str(app/'protocol')]
 g=(app/'tests/gnss_test.c').read_text().split('int main(',1)[0].replace('../src/gnss.c',str(app/'src/gnss.c'))

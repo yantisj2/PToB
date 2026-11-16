@@ -64,6 +64,18 @@ docs/t096/build.md before firmware changes. Keep device/group enrollment and
 secret-bearing images under ignored local artifacts. Hardware operations still
 require explicit scope, exact identity, ownership, recovery and review checks.
 
+## Diagnostic capacity during authorized hardware maintenance
+
+Before a firmware reliability run, inspect crash-report capacity. When practical
+within the authorized device maintenance, archive existing records with exact
+factory/source/boot provenance and verified durable file hashes, then use the
+reviewed exact diagnostic-page cleanup path and verify available capacity by
+readback. Preserve application, enrollment, history and all other protected
+regions. Record any pending or newly appended fault instead of silently erasing
+it again. Restore the requested runtime role after maintenance, and report when
+cleanup cannot safely complete. Never add automatic runtime erasure or discard
+unarchived evidence; do not represent a full journal as working crash capture.
+
 ## W12 development authority
 
 PToB owns normal W12 native G1/RC7 development. Read firmware/w12/README.md and

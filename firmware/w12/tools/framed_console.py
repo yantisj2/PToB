@@ -19,8 +19,8 @@ def require(ok,reason):
 
 def validate_compact_discovery_manifest(manifest):
     # Callable during offline candidate review before opening or resetting USB.
-    require(manifest.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39') and manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
-    if manifest.get('version') in ('0.2.36','0.2.37','0.2.38','0.2.39'):require(manifest.get('lora_contract')=='PASSIVE_WIRE3_SCHEDULE8_LR2021_HEADER_VALID_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1','Version36 compact discovery requires passive LR2021 contract')
+    require(manifest.get('version') in ('0.2.0','0.2.1','0.2.2','0.2.3','0.2.4','0.2.5','0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42') and manifest.get('lora_rx') is True,'Compact discovery requires exact W12 LoRa image contract')
+    if manifest.get('version') in ('0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42'):require(manifest.get('lora_contract')=='PASSIVE_WIRE3_SCHEDULE8_LR2021_HEADER_VALID_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1','Version36 compact discovery requires passive LR2021 contract')
 
 def fields(line):
     parts=line.split()
@@ -130,10 +130,10 @@ class Parser:
                 status=self.rows['W12_V12_STATUS']
                 if len(self.expected_rows)==9:
                     mesh=self.rows['W12_R2_STATUS']
-                    if self.manifest.get('version') in ('0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39'):require(self.manifest.get('holdover_horizon_contract')==('SAMPLED_PREFIX_Q99_1US_WITNESS_V2' if self.manifest['version'] in ('0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39') else 'SAMPLED_PREFIX_Q99_1US_V1'),'Sampled hold-duration UI contract missing')
-                    if self.manifest.get('version') in ('0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39'):
-                        rate_only=self.manifest.get('version') in ('0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39')
-                        require(self.manifest.get('holdover_servo_contract')==('BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3' if self.manifest.get('version') in ('0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39') else 'BLE_RATE_RETAINED_TEMPERATURE_SHADOW_V2' if rate_only else 'BLE_THERMAL_RETAINED_PRODUCTION_V1'),'Production holdover model/readout mismatch')
+                    if self.manifest.get('version') in ('0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42'):require(self.manifest.get('holdover_horizon_contract')==('SAMPLED_PREFIX_Q99_1US_WITNESS_V2' if self.manifest['version'] in ('0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42') else 'SAMPLED_PREFIX_Q99_1US_V1'),'Sampled hold-duration UI contract missing')
+                    if self.manifest.get('version') in ('0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42'):
+                        rate_only=self.manifest.get('version') in ('0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42')
+                        require(self.manifest.get('holdover_servo_contract')==('BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3' if self.manifest.get('version') in ('0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42') else 'BLE_RATE_RETAINED_TEMPERATURE_SHADOW_V2' if rate_only else 'BLE_THERMAL_RETAINED_PRODUCTION_V1'),'Production holdover model/readout mismatch')
                         if rate_only:require(self.manifest.get('holdover_temperature_policy')=='SHADOW_ONLY','Temperature shadow policy missing')
                     require(mesh.get('profile')==self.manifest['r2_profile'] and mesh.get('enrollment_sha')==self.manifest['r2_enrollment_sha256'] and mesh.get('self')=='3','R2 compiled profile/enrollment/self mismatch')
                     if self.manifest['r2_profile'] in ('r2-a5-16','r2-g1'):
@@ -202,9 +202,9 @@ class Parser:
                         for key in ('rx_installed','rx_armed','rx_fault','rx_calls','rx_candidates','rx_matched','rx_missed','rx_ambiguous','rx_overflow','rx_epoch','rx_peak','rx_hook_max_cycles','discipline_accepted','discipline_refused','rms_ns','hold_p99_ms','hold_p99_samples'):
                             require(re.fullmatch(r'[0-9]+',mesh.get(key,'')) is not None,'Missing/invalid periodic RX diagnostic '+key)
                         require(mesh['discipline_accepted']=='0' and mesh['hold_p99_ms']=='0','Unqualified shadow capture fed precision')
-                    if self.manifest.get('version') in ('0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39'):
+                    if self.manifest.get('version') in ('0.2.8','0.2.9','0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42'):
                         offsets=self.manifest.get('phase_offsets')
-                        require(isinstance(offsets,dict) and offsets.get('receive_ns')==7671 and offsets.get('relay_residual_ns')==(4026 if self.manifest.get('version') in ('0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39') else 3030),'Missing phase offset disclosure')
+                        require(isinstance(offsets,dict) and offsets.get('receive_ns')==7671 and offsets.get('relay_residual_ns')==(4026 if self.manifest.get('version') in ('0.2.10','0.2.11','0.2.12','0.2.13','0.2.14','0.2.15','0.2.16','0.2.17','0.2.18','0.2.19','0.2.20','0.2.21','0.2.22','0.2.23','0.2.24','0.2.25','0.2.26','0.2.27','0.2.28','0.2.29','0.2.30','0.2.31','0.2.32','0.2.33','0.2.34','0.2.35','0.2.36','0.2.37','0.2.38','0.2.39','0.2.40','0.2.41','0.2.42') else 3030),'Missing phase offset disclosure')
                         require(mesh.get('rxcal') in ('0','7671'),'Missing/invalid delivered receive phase')
                     if self.manifest.get('r2_rx_reference')=='CONTROLLER_1M_REF_DIRECT_BRACKET_V1':
                         require(mesh.get('cal') in ('0/0','3056/1'),'Missing/invalid experimental output correction status')
@@ -236,7 +236,7 @@ def require_coverage(frame,capture_id=None):
         require(all(v==0 for v in frame['capture_delta'].values()),'Current finite capture console coverage incomplete')
     return frame
 
-def require_off(frame, recovered_history=False):
+def require_off(frame, recovered_history=False, *, controller_off=False):
     r=frame['rows']
     if 'W12_R2_STATUS' in r:
         expected={'mode':'0','requested':'0','scan':'0','advertising':'0','sync_pending':'0','synced':'0','connecting':'0','connections':'0','owner_busy':'0','off_ack':'1','fault':'0','api_errors':'0','serving':'0','following':'0','precision':'UNAVAILABLE','WiFi':'OFF','PTS':'OFF'}
@@ -261,9 +261,9 @@ def require_off(frame, recovered_history=False):
         if 'client_generation' in mesh:
             require(all(mesh.get(k)=='0' for k in ('client_pending','client_running','client_stopping','client_deadline_exceeded')) and mesh.get('client_stop_generation')==mesh.get('client_stop_completed'),'Persistent client actual drain gate')
             require(mesh['client_generation']=='0' or int(mesh.get('client_completed_us','0'))>0,'Persistent client completion missing')
-    return require_aux_off(frame)
+    return require_aux_off(frame,controller_off=controller_off)
 
-def require_aux_off(frame,r2_shared_host=False):
+def require_aux_off(frame,r2_shared_host=False, *, controller_off=False):
     """Every non-R2 owner must remain OFF, including in an active field client."""
     r=frame['rows']
     rules={'W12_V12_STATUS':{'requested':'0','scan':'0','pending':'0','sync':'0','host_busy':'0','command_pending':'0','off_ack':'1','lifecycle':'0','host_ready':'1','api_errors':'0','lease_faults':'0','WiFi':'OFF','PTS':'OFF','authority':'NONE','precision':'UNAVAILABLE'},
@@ -271,6 +271,14 @@ def require_aux_off(frame,r2_shared_host=False):
       'W12_V12_LORA_STATUS':{'enabled':'0','requested':'0','worker_busy':'0','off_ack':'1','failed':'0','errors':'0','TX':'OFF'},
       'W12_V12_DIRECT':{'stage':'0','api_errors':'0','crypto_errors':'0','queue_drops':'0'},
       'W12_V12_PUBLIC':{'queue_drops':'0'}}
+    if controller_off:
+        # Watch-only full teardown: require actual controller retirement, not
+        # the normal W12 initialized-but-idle host acknowledgement.
+        require(not r2_shared_host,'Controller OFF cannot share a live host')
+        power=r.get('TWATCH_UI',{})
+        for key,value in {'ble_power_stage':'6','ble_power_requested':'0','ble_controller':'0','ble_host_running':'0','ble_power_off_ack':'1','ble_power_rc':'0'}.items():
+            require(power.get(key)==value,'Controller OFF gate/'+key)
+        rules['W12_V12_STATUS']['host_ready']='0'
     if r2_shared_host:
         # HostWork covers the one shared NimBLE task, including the active R2
         # owner. Its busy/OFF ledger cannot be idle during that owner's HCI.

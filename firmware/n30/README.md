@@ -26,7 +26,7 @@ These values are not specifications or independent output accuracy.
 | Display | **64 × 128** portrait monochrome OLED with clockwise/counterclockwise mount selection, digital/analog clock and moving savers. |
 | BLE receiver | Authenticated **G1/RC7**. **BLE100** is standard; **BLE50** is client-only. Optional BLE100 relay uses estimated TX timing with unknown RF/UTC bounds. |
 | Fine clock | Optional continuous **80 MHz counter**, **12.5 ns ticks**, delivered on a **50 ns grid**. Requires N30-specific capture routing and calibration; unconfigured builds retain the **20 MHz** backend. |
-| LoRa | Passive **wire 3 / schedule 8**, fixed **922.4 MHz**, SF11/BW500 kHz/CR4/8 with SX1262 boosted RX gain, matching an independently configured T096 transmitter. Independent **80 MHz MCPWM group0** HeaderValid capture/model. |
+| LoRa | Passive **wire 3 / schedule 8**, fixed **922.4 MHz**, SF11/BW500 kHz/CR4/8 with SX1262 boosted RX gain, discovering authenticated field transmitters. Independent **80 MHz MCPWM group0** HeaderValid capture/model. |
 | Functional fallback | Distinct **RC9** direct-client UTC reception with unknown transport/precision bounds; it cannot relay further or train the BLE fitter. |
 | Time zone | Clock and savers retain the latest learned authenticated BLE/LoRa time-zone offset in RAM until reboot. New metadata updates it. Timing diagnostics remain UTC. |
 | Power and console | GPIO0 page/menu controls and bounded deep-sleep request. UART diagnostic console, not a T096 USB timing source. |
@@ -96,7 +96,7 @@ continued 2.0 s hold opens the menu.
 | UPSTR AUTO / UPSTR RLY | Select the opposite upstream parent policy: automatic or relay-only reception. N30 remains RC-only; it has no GM mode. |
 | POWER OFF | Request bounded shutdown. |
 | BLE RX OFF / ON | Park BLE reception, or request a fresh authenticated client activation. Continuous AUTO reception remains available; manual LoRa ON/OFF choices remain unchanged. |
-| LoRa RX OFF / ON | Set a volatile KEEP OFF / KEEP ON override. The row is omitted without an enrolled transmitter. AUTO remains available through the bound `lora auto` console command and is restored at boot. |
+| LoRa RX OFF / ON | Set a volatile KEEP OFF / KEEP ON override. The row is omitted when passive LoRa is not enabled. AUTO remains available through the bound `lora auto` console command and is restored at boot. |
 | EXIT | Return to the invoking page. |
 
 While BLE is parked, only fresh LoRa can supply time. BLE/RC9 clocks and cached

@@ -20,7 +20,7 @@ endif()
 set(R2_USB_SOURCE_STREAM ON)
 set(R2_USB_SOF_PROBE ON)
 set(R2_USB_REFERENCE_PROBE ON)
-project(ptob_t096 VERSION 0.15.346)
+project(ptob_t096 VERSION 0.15.359)
 option(R2_LEGACY_GM_REGRESSION "Historical GM5/6 regression backend only" OFF)
 if(R2_DC_PROFILE OR R2_PC_PROFILE)
  set(R2_GM7_NATIVE OFF)
@@ -50,6 +50,10 @@ if(R2_LORA_TX_DIAGNOSTIC AND (NOT R2_LORA_PASSIVE_FAST OR R2_LORA_PASSIVE_SLOW O
  message(FATAL_ERROR "Diagnostic TX requires explicit normal passive fast")
 endif()
 option(R2_LORA_PASSIVE_SLOW "Production30/120/300, default RX, local TX recovery" OFF)
+option(R2_LORA_BOOT_RX "Boot in RX even on the designated transmitter" OFF)
+if(R2_LORA_BOOT_RX AND (NOT R2_LORA_PASSIVE_SLOW OR R2_LORA_BW_EXPERIMENT OR R2_LORA_TX_DIAGNOSTIC OR R2_DC_PROFILE OR R2_PC_PROFILE))
+ message(FATAL_ERROR "RX boot override requires ordinary passive slow GM/RC")
+endif()
 if(R2_LORA_PASSIVE_FAST AND R2_LORA_PASSIVE_SLOW)
  message(FATAL_ERROR "Select one passive schedule")
 endif()
@@ -147,6 +151,10 @@ endif()
 file(SHA256 "${PROJECT_BINARY_DIR}/zephyr/.config" R2_KERNEL_CONFIG_SHA)
 if(R2_CONTROLLER_DIAGNOSTICS)
  string(SHA256 R2_PRIVATE_CONFIG_SHA "${R2_PRIVATE_CONFIG_SHA}:controller-diag:1")
+endif()
+if(R2_LORA_BOOT_RX)
+ target_compile_definitions(app PRIVATE R2_LORA_BOOT_RX=1)
+ string(SHA256 R2_PRIVATE_CONFIG_SHA "${R2_PRIVATE_CONFIG_SHA}:lora-boot-rx:1")
 endif()
 string(SHA256 R2_WATCHDOG_BINDING "${R2_SOURCE_SHA}:${R2_PRIVATE_CONFIG_SHA}:${R2_KERNEL_CONFIG_SHA}")
 set(R2_CONTROLLER_DIAGNOSTICS_ENABLED ${R2_CONTROLLER_DIAGNOSTICS})
@@ -268,3 +276,22 @@ target_compile_definitions(app PRIVATE PTOB_NAME_REGISTRY=1)
 # small helper calls instead of duplicating their bodies in the large owners.
 set_source_files_properties(src/radio_precision.c src/radio_service.c PROPERTIES
  COMPILE_OPTIONS "-fno-inline-functions-called-once;-fno-inline-small-functions")
+# Avoid code duplication in the radio service expiry/publication branches.
+set_property(SOURCE src/radio_service.c APPEND PROPERTY COMPILE_OPTIONS
+ -fno-tree-dominator-opts -fno-schedule-insns2 -fno-thread-jumps)
+
+# Keep the manual LoRa role controls within the unchanged app partition.
+# Preserve renderer helper calls; radio/interrupt compilation is unchanged.
+set_source_files_properties(src/ui_render.c PROPERTIES
+ COMPILE_OPTIONS "-fno-inline;-fno-tree-dominator-opts;-fno-schedule-insns2;-fno-if-conversion;-fno-if-conversion2")
+set_source_files_properties(src/ui_service.c PROPERTIES
+ COMPILE_OPTIONS "-fno-inline;-fno-tree-dominator-opts;-fno-tree-vrp;-fno-thread-jumps")
+# Keep USB observation capture within the same application boundary by limiting
+# display code duplication/layout expansion. Radio and IRQ options are unchanged.
+set_property(SOURCE src/ui_render.c APPEND PROPERTY COMPILE_OPTIONS
+ -fno-reorder-blocks -fno-expensive-optimizations -fno-tree-tail-merge)
+set_property(SOURCE src/ui_service.c APPEND PROPERTY COMPILE_OPTIONS
+ -fno-reorder-blocks -fno-tree-tail-merge)
+# Bound branch duplication in the console owner while retaining all controls.
+set_property(SOURCE src/main.c APPEND PROPERTY COMPILE_OPTIONS
+ -fno-tree-dominator-opts -fno-thread-jumps)

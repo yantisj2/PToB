@@ -24,6 +24,7 @@ int main(void){
   p.kind=LP_FOLLOW;p.utc_ns=base+local*1000-UINT64_C(99328000);encode(p);
   assert(w12_rc8_receive(wire,32,(local+2500000)*16,7,local+2500000,local+2500000,gen));
   w12_rc8_clock((local+2500000)*16,7,local+2500000);w12_rc8_snapshot(&v,local+2500000);
+  assert(v.fit_span_ms==30000*i);
   assert(v.accepted==i+1&&v.root==1&&v.root_boot==22&&v.authority==0&&v.assurance==0);
   if(i>=6){assert(v.state==2&&v.trained&&v.model_valid&&v.link_rms_ns<=1&&v.utc_us==base/1000+local+2500000);assert(v.age_ms==2500&&v.reference_age_ms==2500&&v.snapshot_age_ms>v.reference_age_ms);
    const uint64_t observed=local+2500000,utc=v.utc_us,until=v.until_us;
@@ -40,5 +41,5 @@ int main(void){
  struct lp_packet p={.kind=LP_SYNC,.schedule=8,.cursor=100};encode(p);assert(!w12_rc8_receive(wire,24,local*16,7,local,local,gen));p.kind=LP_FOLLOW;p.utc_ns=base+local*1000-99328000;encode(p);assert(w12_rc8_receive(wire,32,(local+2500000)*16,7,local+2500000,local+2500000,gen));
  w12_rc8_clock((local+LP_HOLD_US)*16,7,local+LP_HOLD_US);w12_rc8_snapshot(&v,local+LP_HOLD_US);assert(v.state==3&&!v.utc_us&&!v.until_us&&!v.trained&&v.link_rms_ns==UINT32_MAX);
  w12_rc8_switch(false);w12_rc8_snapshot(&v,local+LP_HOLD_US);assert(v.state==0&&!v.utc_us&&!v.metadata_known);
- assert(!w12_rc8_init(1,1,group.id,group.epoch,group.psk));
+ assert(!w12_rc8_init(0,1,group.id,group.epoch,group.psk));
 }

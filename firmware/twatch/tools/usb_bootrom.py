@@ -58,8 +58,13 @@ def main():
     while f['rows']['TWATCH_UI']['ready']=='0' and f['rows']['TWATCH_UI']['errors']=='0' and f['rows']['W12_V12_COMMAND']['update_stage']=='0':
      assert time.monotonic()<startup_until,'Display startup not ready; no maintenance requested'
      time.sleep(.1);f=request()
-    f=request('prepare_update',f)
-    assert f['rows']['W12_V12_COMMAND']['accepted']=='1','Maintenance refused'
+    stage=f['rows']['W12_V12_COMMAND']['update_stage']
+    if stage=='0':
+     f=request('prepare_update',f)
+     assert f['rows']['W12_V12_COMMAND']['accepted']=='1','Maintenance refused'
+    else:
+     # Resume only an already completed original drain, never renew its lease.
+     assert stage=='2' and f['rows']['W12_V12_COMMAND']['application_drained']=='1','Original maintenance not ready'
     deadline=int(f['rows']['W12_V12_COMMAND']['update_deadline_us'])
     while True:
      f=request();cmd=f['rows']['W12_V12_COMMAND']
@@ -67,7 +72,7 @@ def main():
      if cmd['application_drained']=='1':break
      assert int(f['rows']['W12_V12_STATUS']['monotonic_us'])<deadline
      time.sleep(.02)
-    console.base.require_off(f)
+    console.require_update_off(f,r)
     assert int(cmd['update_completed_us'])<deadline
     f=request('bootrom',f);assert f['rows']['W12_V12_COMMAND']['accepted']=='1'
     # A software reset re-enumerates USB. Close before rediscovering identity.

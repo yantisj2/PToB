@@ -31,7 +31,7 @@ receipt={'sources':before,'status':'INCOMPLETE','compiler':cc,'command':command,
 try:
  with (out/'compile.log').open('w') as f:subprocess.run(command,stdout=f,stderr=subprocess.STDOUT,check=True,timeout=45)
  with (out/'run.log').open('w') as f:subprocess.run([str(out/'gm7-test')],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=30)
- for name in ['kernel.h','sys/atomic.h','random/random.h','bluetooth/bluetooth.h','bluetooth/conn.h','bluetooth/gatt.h','bluetooth/hci.h']:
+ for name in ['kernel.h','irq.h','sys/atomic.h','random/random.h','bluetooth/bluetooth.h','bluetooth/conn.h','bluetooth/gatt.h','bluetooth/hci.h']:
   header=out/'zephyr'/name;header.parent.mkdir(parents=True,exist_ok=True);header.write_text('/* Fake public BLE boundary. */\n')
  compatibility=[app/'tests/gm7_admission_test.c',*[app/'protocol'/n for n in ['network.c','election_policy.c','gm_diagnostics.c','group_join.c','group_auth.c','group_control.c','authority_codec.c','precision_codec.c','relay_codec.c']],*[tiny/'source'/n for n in ['hmac.c','sha256.c','utils.c']]]
  compat=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-Wno-unused-parameter','-Wno-default-const-init-var-unsafe','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DR2_GM5_NATIVE=1',*['-I'+str(x) for x in [app/'include',app/'protocol',app/'tests',tiny/'include',out]],*map(str,compatibility),'-o',str(out/'admission-test')]

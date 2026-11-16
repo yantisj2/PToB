@@ -70,7 +70,12 @@ int main(int argc,char **argv){
  assert(tap()==R2_MENU_NEXT&&menu.item==R2_MENU_BLE);
  assert(hold()==R2_MENU_BLE_TOGGLE);
  assert(tap()==R2_MENU_NEXT&&menu.item==R2_MENU_LORA);
- assert(hold()==R2_MENU_LORA_TOGGLE);
+ assert(hold()==R2_MENU_LORA_OPEN&&menu.lora);
+ assert(hold()==R2_MENU_RX_TOGGLE);
+ assert(tap()==R2_MENU_NEXT&&menu.item==R2_MENU_POWER);
+ assert(hold()==R2_MENU_TX_TOGGLE);
+ assert(tap()==R2_MENU_NEXT&&menu.item==R2_MENU_EXIT);
+ assert(hold()==R2_MENU_BACK&&!menu.lora&&menu.item==R2_MENU_LORA);
  assert(tap()==R2_MENU_NEXT&&menu.item==R2_MENU_EXIT);
  assert(tap()==R2_MENU_NEXT&&menu.item==R2_MENU_MODE); /* Wrap. */
  assert(step(false,4999,false)==R2_MENU_NONE&&menu.open);
@@ -100,9 +105,12 @@ int main(int argc,char **argv){
  m.profile_switching=true;save(argv[1],"menu-switching",&m,&s);m.profile_switching=false;
 #ifdef R2_LORA
  m.lora.transmitter=true;m.lora.requested=true;strcpy(m.unit,"TC-03");s.menu.item=R2_MENU_MODE;save(argv[1],"menu-tc03-rc",&m,&s);
- assert(!(r2_ui_menu_enabled(&m)&(1u<<R2_MENU_LORA)));
+ assert(r2_ui_menu_enabled(&m)&(1u<<R2_MENU_LORA));
  m.profile_rc=false;s.menu.item=R2_MENU_LORA;m.lora.active=true;save(argv[1],"menu-tc03-gm",&m,&s);
  assert(r2_ui_menu_enabled(&m)&(1u<<R2_MENU_LORA));
+ s.menu.lora=true;s.menu.item=R2_MENU_MODE;save(argv[1],"submenu-rx",&m,&s);
+ s.menu.item=R2_MENU_POWER;save(argv[1],"submenu-tx",&m,&s);
+ m.profile_rc=true;save(argv[1],"submenu-rc",&m,&s);m.profile_rc=false;
  m.lora.requested=false;s.menu_result_item=R2_MENU_LORA;s.menu_result_until=2000;save(argv[1],"menu-tc03-off",&m,&s);
 #endif
  puts("PASS menu: separate holds, all actions, wrap/skip, wake, exact idle/release deadlines, parser refusal and actual native render states");

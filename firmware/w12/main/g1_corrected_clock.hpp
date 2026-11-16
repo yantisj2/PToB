@@ -11,6 +11,9 @@
 #ifdef PTOB_N30
 #include "g1_retained_estimate.hpp"
 #endif
+#ifdef PTOB_TWATCH
+#include "../../twatch/main/roaming_clock.hpp"
+#endif
 #ifdef PTOB_W12_SYNC_WATCHDOG
 #include "w12_phase_offsets.hpp"
 #endif
@@ -445,7 +448,7 @@ class G1CorrectedClock {
       originals_[slot].predicted=clock_.relative_at(capture.tick20);
       auto nominal=clock_;nominal.rate=0;
       originals_[slot].nominal=nominal.relative_at(capture.tick20);
-#ifdef PTOB_N30
+#if defined(PTOB_N30) && !defined(PTOB_TWATCH)
       if(!clock_.tick&&handoff&&p.origin.utc_offset_ns>=0&&handoff->handoff_ready(capture.tick20)){
         // Freeze the clock actually held at this physical RX. Translate its
         // UTC value into the successor's signed correction-tick coordinate;
@@ -545,6 +548,12 @@ class G1CorrectedClock {
     // require a new pair; no corrupt sample trains the replacement clock.
     uint64_t held20=0;
 #ifdef PTOB_N30
+#ifdef PTOB_TWATCH
+    // A successor supplies its own phase and UTC coordinate. Keep only the
+    // last trained local oscillator rate, after this new physical pair passed
+    // every authentication, association and permission check above.
+    if(!clock_.tick)clock_.rate=watch::roaming_rate(handoff,best->local,available20);
+#else
     if(!clock_.tick&&handoff&&handoff->handoff_ready(available20)&&
        handoff->handoff_ready(best->local)&&best->predicted>0){
       // No old tuples, fit points, quality, source permission or lock cross
@@ -554,7 +563,8 @@ class G1CorrectedClock {
       clock_={best->local,best->predicted,handoff->clock.phase_remaining(best->local),
         handoff->clock.rate,best->offset};
     }
-    if(!clock_.tick){best->predicted=best->nominal=0;} // Expired/invalid carry uses ordinary cold acquisition.
+#endif
+    if(!clock_.tick){best->predicted=best->nominal=0;} // A starting rate is not an old phase/quality observation.
 #endif
     shadow_pair(best->local,remote,available20);
     if(discontinuity(*best,remote,held20))return refuse();
@@ -573,7 +583,11 @@ class G1CorrectedClock {
     mapped_original20=0,map_tick20=0,mapped_hold_until_us=0,permission_until_us=0;
     uint32_t tuple_age_us=0;};
   Rc7Update receive_admitted_rc7(const Rc7Client& client,uint64_t available20,
-      uint64_t now,const G1Anchor& anchor,const r2_group_config& group){
+      uint64_t now,const G1Anchor& anchor,const r2_group_config& group
+#ifdef PTOB_TWATCH
+      ,const G1RetainedEstimate* handoff=nullptr
+#endif
+      ){
     auto denied=[&](){refuse();return Rc7Update{};};
     const auto& state=client.receiver.clock;const auto& path=client.receiver.path;
     const auto& r=state.reference;const auto& capture=client.completed;
@@ -631,6 +645,9 @@ class G1CorrectedClock {
     if(mapped){
       Original original{stamp.tick20,r.origin.issued,r.origin.expires,r.origin.frame,r.origin.utc_offset,
         r.publication,stamp.map_enclosure_ns,stamp.epoch,r.event,r.channel,true};
+#ifdef PTOB_TWATCH
+      if(!clock_.tick)clock_.rate=watch::roaming_rate(handoff,stamp.tick20,available20);
+#endif
       shadow_pair(stamp.tick20,r.parent_tx_ns,available20);
       if(discontinuity(original,r.parent_tx_ns))return denied();
       scope(anchor);hold_pair(stamp.tick20,r.parent_tx_ns,available20,r.channel);observe_clock(original,r.parent_tx_ns,available20);

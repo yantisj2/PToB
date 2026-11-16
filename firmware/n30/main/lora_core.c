@@ -8,9 +8,12 @@
 #include <math.h>
 #include <string.h>
 static struct lp_rx receiver;
-static struct lp_replay replay;
+// Non-evicting boot-local replay floors. Radio OFF/ON fences time state,
+// never the ordering already observed from any authenticated field emitter.
+enum { ReplayPeers=4 };
+static struct {uint64_t emitter;struct lp_replay floor;} replay[ReplayPeers];
 static struct r2_group_config group;
-static uint64_t transmitter,current_tick,current_epoch,current_us,meta_us;
+static uint64_t factory_id,current_tick,current_epoch,current_us,meta_us;
 static uint32_t generation,metadata,rejected,replayed;
 static bool enabled,time_valid;
 static struct gm_clock thermal;
@@ -125,10 +128,13 @@ bool n30_rc8_hold60(uint64_t id,uint64_t now){
  hold_state=1;hold_abort=0;++hold_runs;return true;
 }
 bool n30_rc8_init(uint64_t factory,uint64_t source,uint64_t id,uint32_t epoch,const uint8_t key[32]){
- if(!key||!factory||!source||factory==source)return false;
+ // source is an obsolete build-time hint, retained only for API compatibility.
+ // Trusted group credentials do not select the runtime emitter.
+ (void)source;
+ if(!key||!factory)return false;
  group=(struct r2_group_config){.id=id,.epoch=epoch};memcpy(group.psk,key,32);
  if(!r2_group_valid(&group))return false;
- lp_rx_clear(&receiver);clear_context();gm_clear(&thermal);memset(&watch,0,sizeof watch);memset(&watch_description,0,sizeof watch_description);memset(&watch_model,0,sizeof watch_model);memset(&watch_forecast,0,sizeof watch_forecast);memset(&hold60,0,sizeof hold60);hold_id=hold_start=hold_until=hold_grant=0;hold_state=hold_abort=0;hold_runs=0;memset(&replay,0,sizeof replay);transmitter=source;
+ lp_rx_clear(&receiver);clear_context();gm_clear(&thermal);memset(&watch,0,sizeof watch);memset(&watch_description,0,sizeof watch_description);memset(&watch_model,0,sizeof watch_model);memset(&watch_forecast,0,sizeof watch_forecast);memset(&hold60,0,sizeof hold60);hold_id=hold_start=hold_until=hold_grant=0;hold_state=hold_abort=0;hold_runs=0;memset(&replay,0,sizeof replay);factory_id=factory;
  generation=metadata=rejected=replayed=0;current_tick=current_epoch=current_us=meta_us=0;enabled=time_valid=false;return true;
 }
 uint32_t n30_rc8_switch(bool on){
@@ -150,13 +156,17 @@ bool n30_rc8_receive(const uint8_t* wire,size_t size,uint64_t tick,uint64_t epoc
  expire(now);struct lp_packet packet;
  if(lp_decode(&packet,wire,size,receiver.cached?receiver.context:NULL,&group)||packet.kind==LP_DISC){inc(&rejected);return false;}
  if(packet.kind==LP_META){
-  if(packet.scope.emitter!=transmitter||!lp_replay_admit(&replay,&packet)){inc(&replayed);return false;}
+  if(packet.scope.emitter==factory_id){inc(&rejected);return false;}
+  unsigned peer=0;
+  for(;peer<ReplayPeers;++peer)if(replay[peer].emitter==packet.scope.emitter||!replay[peer].emitter)break;
+  if(peer==ReplayPeers){inc(&rejected);return false;}
+  if(!lp_replay_admit(&replay[peer].floor,&packet)){inc(&replayed);return false;}
   // No independent UTC age/source-error interval exists on this no-GNSS target.
   // Authenticated observation leases are not calibrated age/accuracy bounds.
   uint8_t old_context[16];memcpy(old_context,receiver.context,16);
   if(!lp_rx_meta(&receiver,&packet,&group,NULL,local,now)){inc(&rejected);return false;}
   if(memcmp(old_context,receiver.context,16)||!packet.time_valid){clear_context();if(hold_state==3&&hold_abort==1)hold_abort=packet.time_valid?2:3;}
-  watch_meta(&packet,receiver.context,local);lp_replay_commit(&replay,&packet);time_valid=packet.time_valid;meta_us=local;inc(&metadata);return false;
+  watch_meta(&packet,receiver.context,local);replay[peer].emitter=packet.scope.emitter;lp_replay_commit(&replay[peer].floor,&packet);time_valid=packet.time_valid;meta_us=local;inc(&metadata);return false;
  }
  if(!receiver.cached||!time_valid){inc(&rejected);return false;}
  if(packet.kind==LP_SYNC){
@@ -168,6 +178,16 @@ bool n30_rc8_receive(const uint8_t* wire,size_t size,uint64_t tick,uint64_t epoc
  if(!ok)inc(&rejected);
  else physical_point();
  const bool observed=watch_follow(&packet,epoch,now);if(ok&&!observed)clear_model();
+ if(ok||observed){
+  // A consumed physical pair cannot be readmitted after changing emitter or
+  // toggling RX. Advance that emitter's floor, including unqualified human
+  // observations after a live META lease expires. No other peer is changed.
+  for(unsigned peer=0;peer<ReplayPeers;++peer)if(replay[peer].emitter==receiver.scope.emitter){
+   const uint32_t next=packet.cursor<=UINT32_MAX-2?packet.cursor+2:UINT32_MAX;
+   if(next>replay[peer].floor.cursor)replay[peer].floor.cursor=next;
+   break;
+  }
+ }
  return ok;
 }
 void n30_rc8_snapshot_sample(struct n30_lora_view* out,uint64_t sampled,uint64_t now){

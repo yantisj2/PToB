@@ -151,7 +151,7 @@ try:
  passed.append('pinned-generation-negative-controls')
  diag=(app/'src/diagnostic.c').read_text();main=(app/'src/main.c').read_text()
  assert diag.index('r2_controller_diag_init();')<diag.index('phase=1;return 0;')
- assert diag.index('r2_controller_diag_init();')>diag.index('memset(scan_page,0,sizeof scan_page);')
+ assert diag.index('r2_controller_diag_init();')>diag.index('memset(&r2_diag_scratch,0,sizeof r2_diag_scratch);')
  assert 'r2_controller_diag_init();' not in main
  assert main.index('r2_diag_init(&identity)')<main.index('r2_lora_init(')<main.index('r2_platform_start();')
  # Conditional streams remain tied to the explicit verbose macro.

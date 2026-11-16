@@ -26,7 +26,19 @@ try:
   run('passive-radio-compile',flags+['-DR2_LORA=1','-DR2_LORA_PASSIVE_FAST=1']+list(map(str,radio))+['-o',str(O/'passive-radio')])
   for n in range(31):run('passive-radio-'+str(n),[str(O/'passive-radio'),str(n)])
  run('fixed-observer-compile',flags+['-DR2_LORA=1','-DR2_LORA_PASSIVE_SLOW=1','-DR2_LORA_FIXED500_EXPERIMENT=1']+list(map(str,radio))+['-o',str(O/'fixed-observer')])
- for n in (90,91,92,93,94):run('fixed-observer-'+str(n),[str(O/'fixed-observer'),str(n)])
+ for n in (90,91,92,93,94,95):run('fixed-observer-'+str(n),[str(O/'fixed-observer'),str(n)])
+ # Restore only the old natural-BLE-expiry condition: the same real producer
+ # must fail to retain its admitted copy at the earlier conservative LoRa cap.
+ source=(A/'src/radio_service.c').read_text();needle='(ble_expired||(out.utc_valid&&follower_export))'
+ assert source.count(needle)==1
+ old=O/'old_lora_cap_service.c';old.write_text(source.replace(needle,'ble_expired'))
+ historical=fixture.replace('"../src/radio_service.c"','"'+str(old)+'"')
+ (O/'gm7_pt_radio_fixture.inc').write_text(historical[:-2]+' return 0;\n}\n')
+ run('old-lora-cap-compile',flags+['-DR2_LORA=1','-DR2_LORA_PASSIVE_SLOW=1','-DR2_LORA_FIXED500_EXPERIMENT=1']+list(map(str,radio))+['-o',str(O/'old-lora-cap')])
+ old_result=subprocess.run([str(O/'old-lora-cap'),'95'],capture_output=True,text=True)
+ (O/'old-lora-cap-negative.log').write_text(old_result.stdout+old_result.stderr)
+ assert old_result.returncode!=0 and 'lora_hold_queries==held+1' in old_result.stderr
+ (O/'gm7_pt_radio_fixture.inc').write_text(fixture[:-2]+' return 0;\n}\n')
  import re
  replay=[re.search(r'BLE_MODEL_REPLAY ([0-9a-f]+) accepted(\d+) rejected(\d+) until(\d+) observer(\d+)',(O/('fixed-observer-'+str(n)+'.log')).read_text())for n in (90,91,92)]
  assert all(replay)and replay[0].groups()[:4]==replay[1].groups()[:4]==replay[2].groups()[:4]and int(replay[0][5])>400 and replay[1][5]=='0'

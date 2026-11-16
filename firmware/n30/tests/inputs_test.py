@@ -45,6 +45,8 @@ class Inputs(unittest.TestCase):
   for factory in ('bad','0000000000000002',d1['device_id']):
    with self.assertRaises(ValueError):validate_transmitter(factory,d1,data)
   self.assertIn('PTOB_N30_LORA_TX_FACTORY UINT64_C(0x0000000000000001)',lora_config_header(d1,e,'0000000000000001'))
+  self.assertIn('PTOB_N30_LORA_ENABLED 1',lora_config_header(d1,e,'0000000000000000',enabled=True))
+  self.assertIn('PTOB_N30_LORA_ENABLED 0',lora_config_header(d1,e,'0000000000000000',enabled=False))
   validate_inputs(e,d1);validate_inputs(e,d2);self.assertIn('PTOB_GNSS_INDICATORS 0',device_header(d1))
   for bad in ({**d1,'gnss_profile':'any'},{**d1,'board':'meshnology_w12_esp32s3'},{**d1,'label':'GM'},{**d1,'display_rotation':'guess'},{**d1,'device_id':d2['device_id']}):
    with self.assertRaises(ValueError):validate_inputs(e,bad)

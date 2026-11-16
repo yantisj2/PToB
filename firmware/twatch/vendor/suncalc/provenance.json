@@ -1,0 +1,7 @@
+{
+  "upstream": "https://raw.githubusercontent.com/mourner/suncalc/v1.9.0/suncalc.js",
+  "version": "1.9.0",
+  "sha256": "5bfe4127cb91b7436295135d491e2d8abeccacbc8c4d450fb30771183b1e24d2",
+  "license": "BSD-2-Clause",
+  "selection": "Selected sun/moon coordinate and illumination equations ported to astronomy.hpp; event calendar remains NOAA equations."
+}

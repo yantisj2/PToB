@@ -35,6 +35,11 @@
 #include "soc/rtc_cntl_reg.h"
 #include "n30_power.hpp"
 #include "fault_watchdog.hpp"
+#include "radio_watchdog.hpp"
+#include "radio_recovery.hpp"
+#include "maintenance_proof.hpp"
+#include "radio_power_fault.hpp"
+#include "lora_shadow_input.h"
 #include "driver/gptimer.h"
 #include "lora_counter.h"
 #include "command_scan.hpp"
@@ -49,6 +54,8 @@
 #include "timing_command.hpp"
 #include "fine_capture.hpp"
 #include "fine_backend_api.hpp"
+#include "watch_holdover.hpp"
+#include "watch_button.hpp"
 #include "window_diagnostics_api.hpp"
 #include "window_command.hpp"
 #include "esp_mac.h"
@@ -69,6 +76,9 @@
 // main_stack_free_words console key compatible; its value is bytes here.
 static_assert(sizeof(StackType_t)==1,"W12 main stack watermark unit changed");
 extern "C" bool clock_reference_read(uint64_t*);
+bool n30_display_radio_toggle(unsigned);
+bool n30_display_imu_restart();
+void n30_display_imu_frame(v12::ConsoleFrame&);
 namespace {
 gptimer_handle_t clock_timer=nullptr;
 uint64_t session=0,last_ui=0,console_bytes=0,console_work=0;
@@ -108,6 +118,7 @@ v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false,rc9_diagnostic_response=false;
 bool timing_diagnostic_response=false;uint32_t timing_after=0;
+bool imu_diagnostic_response=false;
 bool dual_diagnostic_response=false;uint32_t dual_after=0,dual_parent_after=0;
 bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=0;
 bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;
@@ -202,7 +213,7 @@ void pps(const gnss_pps::Observation& edge){
  const auto mesh=v12::r2_status();
   response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " following=%u requested=%u fault=%u pcfg=%08" PRIx32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.following),unsigned(mesh.requested),unsigned(mesh.fault),uint32_t(v12::rc7_provisional_config().id>>32));
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=0\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session);
- if(dual_diagnostic_response)n30_display_dual_frame(response,dual_after,dual_parent_after,begin);else if(rc9_diagnostic_response)n30_rc9_diagnostics(response);else if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else n30_lora_diagnostics(response);
+ if(imu_diagnostic_response)n30_display_imu_frame(response);else if(dual_diagnostic_response)n30_display_dual_frame(response,dual_after,dual_parent_after,begin);else if(rc9_diagnostic_response)n30_rc9_diagnostics(response);else if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else {n30_lora_diagnostics(response);watch_lora_shadow_diagnostics(response);}
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  n30_display_status(response);v12::frame_submit(response);
 }
@@ -345,8 +356,8 @@ void pps(const gnss_pps::Observation& edge){
   // These peripherals are absent/disabled in this target. Compact literal
   // rows reserve the display row within the unchanged shared whole-frame cap.
   response.format("W12_V12_GPS inputs=0 coarse=0 PPS=0 GPS=ABSENT\n");
-  response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u errors=%" PRIu32 " TX=OFF\n",
-    unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.radio_errors);
+  response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u errors=%" PRIu32 " generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " off_proof=%u cleanup_fault=%u TX=OFF\n",
+    unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.radio_errors,lora.request_generation,lora.off_ack_generation,n30_lora_off_proof(),unsigned(n30_lora_cleanup_fault()));
   const auto public_status=v12::public_observer_status();const auto& p=public_status.records;
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
   response.format("W12_V12_PUBLIC malformed=%" PRIu32 " invalid_signature=%" PRIu32 " authenticated=%" PRIu32 " queue_drops=%" PRIu32
@@ -427,7 +438,7 @@ void pps(const gnss_pps::Observation& edge){
   n30_display_status(response);
   v12::frame_submit(response);
 }
-void respond_status(uint64_t nonce,uint64_t begin){if(dual_diagnostic_response||rc9_diagnostic_response||lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
+void respond_status(uint64_t nonce,uint64_t begin){if(imu_diagnostic_response||dual_diagnostic_response||rc9_diagnostic_response||lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
 [[gnu::noinline]] void ui(){
   if(!ui_ready)return;
   const auto s=v12::transport_status();const auto gps=gnss_pps::shadow_view(ticks());
@@ -496,7 +507,9 @@ void respond_status(uint64_t nonce,uint64_t begin){if(dual_diagnostic_response||
   n30_display_publish(mesh,state,micros(),ble_ui_off);
 }
 void stop_all(){
-  ble_ui_off=false;
+  if(update_gate.latched()||power_off.requested())watch::radio_journal_stop();
+  ble_ui_off=true;
+  (void)v12::transport_watch_ble_request(false,micros());
   lora_app_wanted=false;
   // The host still reads the production clock while draining its RX hook.
   // WINDOW stop also stops that clock, so defer both until consumers close.
@@ -507,7 +520,7 @@ void stop_all(){
 #ifdef V12_R2_ENABLED
   v12::r2_stop();
 #endif
-  v12::transport_stop();v12::direct_stop();v12::diagnostic_tx_stop();v12::lora_request(false,0);}
+  v12::transport_watch_ble_stop_aux();v12::lora_request(false,0);}
 #ifdef V12_R2_ENABLED
 // Keep the whole status snapshot out of command's frame. A read-only status
 // response calls status() from this parser and must not stack both snapshots.
@@ -543,6 +556,12 @@ void stop_all(){
   else if(!std::strcmp(action,"ui page 0")||!std::strcmp(action,"ui page 1")||!std::strcmp(action,"ui page 2")||!std::strcmp(action,"ui page 3")){
     const bool ok=n30_display_page(action[8]-'0');last_command={nonce,admitted,ok,"UI_PAGE",ok?"DISPLAY_ONLY":"INVALID_PAGE"};
   }
+  else if(!std::strcmp(action,"ui radio ble")||!std::strcmp(action,"ui radio lora")){
+    const bool ok=n30_display_radio_toggle(!std::strcmp(action,"ui radio ble")?0:1);
+    last_command={nonce,admitted,ok,"UI_RADIO",ok?"QUEUED_OWNER_ACTION":"BUSY_OR_MAINTENANCE"};
+  }
+  else if(!std::strcmp(action,"imu restart")){const bool ok=n30_display_imu_restart();last_command={nonce,admitted,ok,"IMU_RESTART",ok?"QUEUED_UI_OWNER":"BUSY_OR_MAINTENANCE"};}
+  else if(!std::strcmp(action,"imu diag")){imu_diagnostic_response=true;last_command={nonce,admitted,true,"IMU_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strcmp(action,"lora diag")){lora_diagnostic_response=true;last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strcmp(action,"lora hold60")){const bool ok=n30_lora_hold60(nonce);last_command={nonce,admitted,ok,"LORA_HOLD60",ok?"REQUESTED":"DISABLED_FAULT_OR_RESOURCE"};}
   else if(!std::strcmp(action,"rc9 diag")){rc9_diagnostic_response=true;last_command={nonce,admitted,true,"RC9_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
@@ -656,7 +675,7 @@ void stop_all(){
     const bool ok=v12::capture_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE",ok?"FINITE_OBSERVER_LEASE":"BUSY_OR_BOUND"};
   }else{last_command.reason="UNKNOWN_OR_UNAVAILABLE_PROTOCOL";}
   if(!last_command.accepted&&commands_rejected!=UINT32_MAX)++commands_rejected;
-  respond_status(nonce,admitted);dual_diagnostic_response=rc9_diagnostic_response=lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
+  respond_status(nonce,admitted);imu_diagnostic_response=dual_diagnostic_response=rc9_diagnostic_response=lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
 }
 [[gnu::noinline]] void input(){
   static char line[192]{};static unsigned used=0;static bool discard=false;
@@ -706,53 +725,48 @@ void stop_all(){
 }
 #endif
 [[gnu::noinline]] void poll_update_drain(uint64_t now){
-    if(update_gate.stage==v12::UpdateStage::Draining||fine_stop_pending){
-      const auto rx=v12::transport_status();const auto tx=v12::diagnostic_tx_status();
-      const auto acl=v12::direct_status();const auto lora=v12::lora_status();
-      v12::Services services;services.scan=rx.client.scan||rx.radio_requested;services.pending=rx.client.pending;
-      services.host=rx.host_work_busy||rx.command_pending||!rx.off_acknowledged||tx.owner_busy||tx.lease.pending||!tx.off_acknowledged;services.sync=rx.client.synced;services.periodic=tx.periodic||tx.requested;services.discovery=tx.discovery;
-      services.acl=acl.stage!=v12::DirectStage::Off;services.lora=lora.enabled||lora.requested||lora.worker_busy||!lora.off_acknowledged;
-      // A retained radio operating error does not undo a fresh physical OFF
-      // acknowledgement. Cleanup failures still fault; all original enabled,
-      // busy, generation-matched offAck, DMA/host and two-second gates remain.
-      services.fault=n30_fine_cleanup_fault()||rx.client.state==v12::Lifecycle::Fault||tx.fault||acl.stage==v12::DirectStage::Fault||n30_lora_cleanup_fault();
-      bool consumers_closed=!services.scan&&!services.pending&&!services.sync&&!services.periodic&&!services.discovery&&!services.acl&&!services.lora&&!services.host;
-#ifdef V12_R2_ENABLED
-      const auto mesh=v12::r2_status();services.scan|=mesh.scan||mesh.requested;services.pending|=mesh.sync_pending||mesh.connecting;
-      services.sync|=mesh.synced;services.discovery|=mesh.advertising;services.acl|=mesh.connections!=0;
-      services.host|=mesh.owner_busy||!mesh.off_ack;services.fault|=mesh.fault;
-      consumers_closed&=!mesh.requested&&!mesh.scan&&!mesh.sync_pending&&!mesh.connecting&&!mesh.synced&&!mesh.advertising&&!mesh.connections&&!mesh.owner_busy&&!mesh.rx_capture.installed&&!mesh.client.pending&&!mesh.client.running&&!mesh.client.stopping;
-#endif
-      if(fine_stop_pending&&consumers_closed){n30_window_stop();n30_fine_stop();fine_stop_pending=!n30_fine_released();}
-      services.host|=!n30_fine_released();services.fault|=n30_fine_cleanup_fault();
-      if(update_gate.stage==v12::UpdateStage::Draining){
-        services.host|=!n30_display_power_ready();
-        update_gate.poll(now,services);
-        if(update_gate.stage==v12::UpdateStage::Ready||update_gate.stage==v12::UpdateStage::Fault)update_completed_us=micros();
-      }
-    }
-
+  if(update_gate.stage!=v12::UpdateStage::Draining&&!fine_stop_pending)return;
+  watch::MaintenanceProof proof;
+  const auto power=v12::transport_watch_ble_status();
+  proof.ble_off=v12::transport_watch_ble_off_proven();
+  proof.ble_cleanup_fault=power.cleanup_error!=0;
+  proof.lora_off=n30_lora_off_proof()==15;
+  proof.lora_cleanup_fault=n30_lora_cleanup_fault();
+  proof.journal_idle=watch::radio_journal_idle();
+  // Retire the shared timing counter only after all radio consumers and the
+  // flash journal have physically retired. Historical operating errors remain
+  // visible but cannot impersonate an unclosed hardware owner.
+  if(fine_stop_pending&&proof.consumers_closed()){
+    n30_window_stop();n30_fine_stop();fine_stop_pending=!n30_fine_released();
+  }
+  proof.fine_off=n30_fine_released();proof.fine_cleanup_fault=n30_fine_cleanup_fault();
+  if(update_gate.stage==v12::UpdateStage::Draining){
+    proof.display_off=n30_display_power_ready();
+    update_gate.poll(now,proof.services());
+    if(update_gate.stage==v12::UpdateStage::Ready||update_gate.stage==v12::UpdateStage::Fault)update_completed_us=micros();
+    if(power_off.requested()&&update_gate.stage==v12::UpdateStage::Fault)watch::button_power_stage(4,ESP_ERR_INVALID_STATE);
+  }
 }
 [[gnu::noinline]] void poll_display_action(){
   if(n30_display_take_poweroff()){
-    if(power_off.request(update_gate,micros())){stop_all();v12::capture_stop();n30_display_request_poweroff();}
-    else n30_display_action_result(n30::Action::PowerOff,false);
+    if(power_off.request(update_gate,micros())){watch::button_power_stage(2);stop_all();v12::capture_stop();n30_display_request_poweroff();}
+    else {watch::button_power_stage(3,ESP_ERR_INVALID_STATE);n30_display_action_result(n30::Action::PowerOff,false);}
   }
   // Consume during maintenance too: no deferred radio action after update.
   if(n30_display_take_upstream_toggle(micros())){
     const auto radio=v12::r2_activity();n30_display_action_result(n30::Action::ToggleRelayOnly,!update_gate.latched()&&v12::r2_set_relay_only(!radio.relay_only));
   }
   if(n30_display_take_ble_toggle(micros())){
-    const auto radio=v12::r2_activity();bool accepted=false;
+    bool accepted=false;
     if(!update_gate.latched()){
-      if(radio.requested){v12::r2_stop();ble_ui_off=true;accepted=true;}
-      else {accepted=v12::r2_client_start(micros());if(accepted){ble_ui_off=false;lora_app_wanted=true;}}
+      accepted=v12::transport_watch_ble_request(ble_ui_off,micros());
+      if(accepted){ble_ui_off=!ble_ui_off;if(!ble_ui_off)lora_app_wanted=true;}
     }
     n30_display_action_result(n30::Action::ToggleBle,accepted);
   }
   if(n30_display_take_lora_toggle(micros())){
     n30_lora_view lora;n30_lora_snapshot(lora);
-    n30_display_action_result(n30::Action::ToggleLoRa,!update_gate.latched()&&n30_lora_mode(lora.requested?n30::LoRaMode::KeepOff:n30::LoRaMode::KeepOn));
+    n30_display_action_result(n30::Action::ToggleLoRa,!update_gate.latched()&&n30_lora_mode(lora.mode!=uint8_t(n30::LoRaMode::KeepOff)?n30::LoRaMode::KeepOff:n30::LoRaMode::KeepOn));
   }
 }
 [[gnu::noinline]] void clock_fault_progress(){
@@ -769,6 +783,9 @@ void stop_all(){
   if(update_gate.stage==v12::UpdateStage::Fault)mask|=v12::FaultUpdate;
 #ifdef V12_R2_ENABLED
   const auto mesh=v12::r2_status();const auto source_now=micros();
+  const auto power_status=v12::transport_watch_ble_status();
+  const bool power_fault=watch::power_fault_active(power_status);
+  if(power_fault)mask|=v12::FaultR2;
   const auto ble_refusal=ble_ui_off?uint32_t(n30::BleDisabled):n30::ble_lock_refusal(mesh,source_now);
   n30_display_observe_source(mesh,source_now,ble_refusal);
   n30_lora_control(ble_refusal==0,source_now,lora_app_wanted&&!update_gate.latched()&&!power_off.requested(),ble_ui_off);
@@ -787,6 +804,54 @@ void stop_all(){
   else if(wd.parent_pending&&!update_gate.latched()&&mesh.client.running&&!mesh.rc_parent.pending()&&!mesh.fault)
     (void)(wd.parent_relay?v12::r2_rc_parent(wd.parent):v12::r2_gm_parent(wd.parent));
 #endif
+  // Independent radio timers never consume retained display time as health.
+  // No packet/source is not itself a radio fault and cannot trigger a reset.
+  static watch::RadioFaultTimer timers[2];static bool fault_seen[2]{};
+  static uint32_t episode_seen[2]{},rearmed_seen=0,refused_seen=0;static int32_t error_seen[2]{};
+  static uint8_t recovery_event_seen[2]{};
+  const auto recovery=v12::r2_watch_radio_recovery_status();
+  const auto cause=v12::r2_watch_radio_fault_status();
+  const bool faults[2]={bool(mask&v12::FaultR2),lora_time.fault||lora.failed};
+  const bool enabled[2]={!ble_ui_off,lora_app_wanted&&lora_time.mode!=uint8_t(n30::LoRaMode::KeepOff)};
+  for(unsigned i=0;i<2;++i){
+    watch::RadioFaultRecord f;f.radio=uint8_t(i);f.at_us=watchdog_now;
+    if(i==0){f.mask=mask&v12::FaultR2;f.api=cause.api;f.rc=cause.rc;f.site=cause.site;
+      f.reason=cause.reason;f.episode=cause.episode;f.capture_epoch=cause.capture_epoch;f.callback_epoch=cause.callback_epoch;
+      f.handle=cause.handle;f.interval=cause.interval;f.expected_sid=cause.expected_sid;f.observed_sid=cause.observed_sid;f.address_match=cause.address_match;
+      f.requested_parent=cause.requested_parent;f.boot_first_api=api;f.boot_first_rc=rc;f.boot_first_at=mesh.first_error_at_us;f.stage=uint8_t(mesh.rc_parent.state);
+      f.parent=cause.parent;f.root=mesh.root_identity;f.relay=cause.relay;f.generation=mesh.client.generation;f.capture_fault=mesh.rx_capture.fault;
+      f.owner_flags=unsigned(mesh.client.deadline_exceeded)|(unsigned(mesh.off_ack)<<1)|(unsigned(mesh.owner_busy)<<2)|(unsigned(mesh.client.stopping)<<3)|(unsigned(recovery.unretired_periodic)<<4)|(unsigned(ble_ui_off)<<5)|(unsigned(mesh.fault)<<6);
+      f.orphan_handle=recovery.unretired_handle;f.orphan_epoch=recovery.unretired_callback_epoch;f.orphan_at=recovery.unretired_at_us;
+      f.stop_us=mesh.client.stop_requested_us;f.deadline_us=mesh.client.stop_deadline_us;f.completed_us=mesh.client.completed_us;
+      f.error_at_us=cause.at_us;f.last_api=uint8_t(mesh.last_api);f.last_rc=mesh.last_api_rc;f.last_error_at_us=mesh.last_api_at_us;
+      // A capture/client-only fault need not have raised the G1 latch. Do not
+      // mislabel its cause with a capsule retained from an earlier episode.
+      if(!mesh.fault&&faults[i]&&!power_fault){
+        f.reason=v12::WatchFaultUnknown;f.episode=0;f.api=0;f.rc=0;f.site=0;f.error_at_us=0;
+        f.parent=mesh.joined_peer;f.requested_parent=parent;f.relay=mesh.rc7_bound;
+        f.capture_epoch=mesh.rx_capture.epoch;f.callback_epoch=0;f.handle=UINT16_MAX;
+        f.interval=0;f.expected_sid=0;f.observed_sid=0;f.address_match=0;
+      }
+      if(power_fault)watch::power_fault_record(f,power_status);}
+    else {f.reason=1;f.mask=v12::FaultLoRa;f.rc=lora_time.error;f.site=lora_time.current_reason;f.stage=lora_time.stage;
+      f.api=lora_time.opcode;f.parent=lora_time.parent;f.root=lora_time.root;f.generation=lora_time.request_generation;f.owner_flags=unsigned(lora_time.off_acknowledged)|(unsigned(lora_time.spi_retired)<<1)|(unsigned(lora_time.capture_released)<<2)|(unsigned(lora_time.reset_asserted)<<3)|(unsigned(n30_lora_cleanup_fault())<<4);f.error_at_us=lora_time.current_us;f.last_rc=lora_time.current_rc;}
+    const auto episode=f.episode?f.episode:f.generation;
+    if(faults[i]&&(!fault_seen[i]||episode_seen[i]!=episode||error_seen[i]!=f.rc)){
+      f.event=1;watch::radio_journal_record(f);episode_seen[i]=episode;error_seen[i]=f.rc;recovery_event_seen[i]=0;
+    }
+    if(i==0&&(recovery.recovered!=rearmed_seen||recovery.refused!=refused_seen)){
+      f.event=recovery.refused!=refused_seen?7:6;f.recovery_reason=recovery.reason;watch::radio_journal_record(f);
+      rearmed_seen=recovery.recovered;refused_seen=recovery.refused;
+    }
+    if(!faults[i]&&fault_seen[i]){f.event=4;watch::radio_journal_record(f);}
+    fault_seen[i]=faults[i];
+    if(timers[i].observe(watchdog_now,faults[i],enabled[i]&&!update_gate.latched()&&!power_off.requested())){
+      const bool queued=i==0?(power_fault?v12::transport_watch_ble_recover():v12::r2_watch_radio_recover()):n30_lora_fault_recover();
+      f.event=queued?2:3;
+      // Repeated identical refusals stay in RAM; persist changes, not a write every 90 seconds.
+      if(recovery_event_seen[i]!=f.event){watch::radio_journal_record(f);recovery_event_seen[i]=f.event;}
+    }
+  }
   v12::fault_watchdog_main_progress(mask,api,rc,parent,relay,applied);
 }
 #ifdef V12_R2_ENABLED
@@ -821,6 +886,8 @@ extern "C" bool IRAM_ATTR clock_reference_read(uint64_t* count){
 }
 extern "C" w12_ble_time_t r_rwip_time_get();
 extern "C" bool IRAM_ATTR clock_reference_bt_bracket(uint64_t* before,uint64_t* after,adv_rx::BleTime* time){
+  if(!v12::transport_watch_ble_clock_begin())return false;
+  struct Reader {~Reader(){v12::transport_watch_ble_clock_end();}} reader;
   if(n30_fine_backend_selected()){
     if(!before||!after||!time||xPortGetCoreID()!=CONFIG_BT_CTRL_PINNED_TO_CORE)return false;
     const auto saved=portSET_INTERRUPT_MASK_FROM_ISR();
@@ -849,6 +916,7 @@ extern "C" void app_main(){
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   for(const auto byte:factory)fine_factory=(fine_factory<<8)|byte;
   n30_timing_init();
+  watch::holdover_init();
   n30_window_init(clock_reference_read);
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes
@@ -888,7 +956,9 @@ extern "C" void app_main(){
   // The splash lives only in the independent low-priority display worker.
   ui_ready=display_init();
   if(!ui_ready){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=UI_INIT\n");return;}
+  watch::radio_journal_ready();
   while(true){
+    v12::transport_watch_ble_poll();
     // Independent of output and the NimBLE task: expiry remains visible even
     // when that owner is yielding inside an HCI enable/stop. This observer only
     // latches/queues cleanup; it cannot certify physical quiet or retry RF.
@@ -984,7 +1054,9 @@ extern "C" void app_main(){
       esp_restart();
     }
     if(power_off.ready(update_gate.stage,gpio_get_level(GPIO_NUM_0)==0,now)){
+      watch::button_power_stage(5);
       const int rc=n30::power_off();update_gate.stage=v12::UpdateStage::Fault;
+      watch::button_power_stage(6,rc);
       v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=POWER_OFF rc=%d\n",rc);
     }
     bool update_ui=now-last_ui>=125000;

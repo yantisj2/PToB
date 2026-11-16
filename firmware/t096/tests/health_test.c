@@ -56,9 +56,12 @@ int main(void){
 #endif
  assert(r2_fault_capsule[0]==FAULT_MAGIC&&r2_fault_capsule[FAULT_WORDS-1]==crc(r2_fault_capsule));
  assert(r2_fault_capsule[5]==esf.basic.pc&&r2_fault_capsule[8]==0x10&&r2_fault_capsule[18]==R2_HEALTH_WRITE);
- r2_health_init(9);assert(previous[2]==0x55667788&&previous[3]==0x11223344&&!r2_fault_capsule[0]);
+ /* Reboot clears operational capsules; durable records use a separate path. */
+ r2_health_init(9);
+ for(unsigned i=0;i<FAULT_WORDS;i++)assert(!previous[i]&&!r2_fault_capsule[i]);
  /* Full-width capsule must fit. Successful note admission is paced.
   * Actual refusal/retry and queue saturation use health_console_tests.py. */
+ previous[0]=FAULT_MAGIC; /* Explicit synthetic maximum-size formatter input. */
  for(unsigned i=1;i<FAULT_WORDS;i++)previous[i]=UINT32_MAX;
  clock_ms+=1000;dtr=true;
 #if defined(R2_WATCHDOG)

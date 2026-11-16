@@ -71,6 +71,7 @@ namespace {
 gptimer_handle_t clock_timer=nullptr;
 uint64_t session=0,last_ui=0,console_bytes=0,console_work=0;
 w12::DisplaySecondDeadline ui_deadline;
+static uint32_t ui_lora_utc=0;static unsigned ui_lora_phase=0;
 uint64_t ui_sampled_us=0,ui_utc_us=0,ui_drawn_us=0;uint32_t ui_paint_us=0;
 uint32_t console_max_us=0,commands_rejected=0,physical_pps=0;
 char factory_text[18]{};
@@ -212,9 +213,9 @@ void pps(const gnss_pps::Observation& edge){
  response.format("W12_RC9_LEASE until_us=%" PRIu64 " clients=%u serving=%u service_flags=%u radio_hold_ms=%" PRIu32 "\n",r.client_until_us,unsigned(r.clients),unsigned(r.serving),unsigned(r.service_flags),l.rc9_hold_remaining_ms);
  response.format("W12_RC9_CONTRACT wire=1 source=RC8 hops=1 precision=UNKNOWN BLE_training=NONE GM=NONE LoRa_TX=OFF lora_active=%u lora_accepted=%" PRIu32 " lora_rms_ns=%" PRIu32 "\n",unsigned(l.active),l.accepted,l.link_rms_ns);
 #ifdef R2_TZ_WIRE
- response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND tz_id=%u tz_offset=%d tz_until=%" PRIu64 " tz_rx=%u tz_conflicts=%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),unsigned(mesh.tz.id),int(mesh.tz.offset_min),mesh.tz_until_us,unsigned(mesh.tz_received),unsigned(mesh.tz_conflicts));
+ response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u tz_id=%u tz_offset=%d tz_until=%" PRIu64 " tz_rx=%u tz_conflicts=%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc),unsigned(mesh.tz.id),int(mesh.tz.offset_min),mesh.tz_until_us,unsigned(mesh.tz_received),unsigned(mesh.tz_conflicts));
 #else
- response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline());
+ response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc));
 #endif
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  v12::frame_submit_rc9(response);
@@ -244,9 +245,9 @@ void pps(const gnss_pps::Observation& edge){
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready));
  w12_lora_diagnostics(response);
 #ifdef R2_TZ_WIRE
- response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND tz_id=%u tz_offset=%d tz_until=%" PRIu64 " tz_rx=%u tz_conflicts=%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),unsigned(mesh.tz.id),int(mesh.tz.offset_min),mesh.tz_until_us,unsigned(mesh.tz_received),unsigned(mesh.tz_conflicts));
+ response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u tz_id=%u tz_offset=%d tz_until=%" PRIu64 " tz_rx=%u tz_conflicts=%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc),unsigned(mesh.tz.id),int(mesh.tz.offset_min),mesh.tz_until_us,unsigned(mesh.tz_received),unsigned(mesh.tz_conflicts));
 #else
- response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline());
+ response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc));
 #endif
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  v12::frame_submit_rc9(response);
@@ -553,6 +554,7 @@ void pps(const gnss_pps::Observation& edge){
 #endif
 #endif
 #ifdef PTOB_W12_DUAL_UI
+  state.lora_sampled_us=micros();
   state.precision_fine=
 #ifdef PTOB_W12_FINE_CLOCK
    true;
@@ -564,8 +566,12 @@ void pps(const gnss_pps::Observation& edge){
 #ifdef PTOB_W12_LORA_RX
   w12_lora_view lv;w12_lora_snapshot(lv);uint64_t lora_utc=0;
   state.lora_mode=lv.mode;state.lora_state=lv.state;state.lora_active=lv.active;state.lora_fault=lv.fault;
-  state.lora_configured=PTOB_W12_LORA_TX_FACTORY!=0;state.lora_transition_ms=lv.transition_remaining_ms;
-  state.lora_time_valid=w12::lora_time(lv,micros(),lora_utc);state.lora_link_rms_ns=lv.link_rms_ns;state.lora_link_samples=lv.link_samples;state.lora_accepted=lv.accepted;state.lora_crc=lv.crc_bad;
+  state.lora_configured=PTOB_W12_LORA_ENABLED!=0;state.lora_transition_ms=lv.transition_remaining_ms;
+  const auto lora_now=micros();
+  state.lora_time_valid=w12::lora_time(lv,lora_now,lora_utc);
+  state.lora_ui_phase=w12::lora_ui_phase(lv,state.lora_configured,lora_now,state.lora_time_valid,mesh.fault);
+  state.lora_sampled_us=lora_now;state.lora_utc_us=state.lora_ui_phase==w12::LoRaUiPhase::Live?lora_utc:0;state.lora_emitter=lv.metadata_known?v12::R2Dashboard::name(lv.emitter):"NONE";
+  state.lora_pair_age_ms=lv.age_ms;state.lora_meta_age_ms=lv.snapshot_age_ms;state.lora_fit_span_ms=lv.fit_span_ms;state.lora_rx_done=lv.rx_done;state.lora_link_rms_ns=lv.link_rms_ns;state.lora_link_samples=lv.link_samples;state.lora_accepted=lv.accepted;state.lora_crc=lv.crc_bad;
   const bool ble_precision=w12::ble_locked(mesh,micros());
 #ifdef PTOB_RC9
   const auto rc9=v12::r2_rc9_status();
@@ -579,12 +585,12 @@ void pps(const gnss_pps::Observation& edge){
   state.precision_lora=select_lora&&lv.requested&&lv.active&&!lv.fault;
   if(state.precision_lora){state.precision_live=state.lora_time_valid;state.rms_ns=UINT32_MAX;
    state.r2_relative_lock=false;state.hold_1us_ms=0;
-   if(!state.lora_time_valid){state.valid=false;state.utc=0;state.role="WAIT_RX";state.timing_source=DisplayState::Lora;state.followed_clock="LoRa";state.r2_connection="RC9";}
+   if(!state.lora_time_valid){state.valid=false;state.utc=0;state.role="WAIT_RX";state.timing_source=DisplayState::Lora;state.followed_clock=state.lora_emitter;state.r2_connection="RC9";}
   }
   if(select_lora&&state.lora_time_valid){
-   selected_utc=lora_utc;selected_at=micros();
+   selected_utc=lora_utc;selected_at=lora_now;
    state.valid=true;state.utc=uint32_t(lora_utc/1000000);state.timing_source=DisplayState::Lora;state.role="LORA";
-   state.r2_connection=state.rc9_serving?"RC9":"LORA";state.followed_clock="LoRa";state.r2_root_clock=v12::R2Dashboard::name(lv.root);state.r2_relative_lock=false;state.rms_ns=lv.link_samples>=4?lv.link_rms_ns:UINT32_MAX;state.hold_1us_ms=0;
+   state.r2_connection=state.rc9_serving?"RC9":"LORA";state.followed_clock=state.lora_emitter;state.r2_root_clock=v12::R2Dashboard::name(lv.root);state.r2_relative_lock=false;state.rms_ns=lv.link_samples>=4?lv.link_rms_ns:UINT32_MAX;state.hold_1us_ms=0;
    state.precision_live=true;
   }
 #endif
@@ -598,7 +604,14 @@ void pps(const gnss_pps::Observation& edge){
   }
 #endif
 #endif
+#ifdef PTOB_W12_DUAL_UI
+  ui_lora_phase=unsigned(state.lora_ui_phase);ui_lora_utc=state.lora_ui_phase==w12::LoRaUiPhase::Live?uint32_t(state.lora_utc_us/1000000):0;
+#endif
   ui_sampled_us=selected_at;ui_utc_us=state.valid?selected_utc:0;
+  #ifdef PTOB_W12_DUAL_UI
+  if(page==display_pages::LoraRx)ui_deadline.painted(state.lora_sampled_us,state.lora_ui_phase==w12::LoRaUiPhase::Live,state.lora_utc_us);
+  else
+#endif
   ui_deadline.painted(selected_at,state.valid,selected_utc);
   std::snprintf(ui_follow,sizeof ui_follow,"%s",state.followed_clock);
   for(auto& ch:ui_follow)if(ch==' ')ch='_'; // Console V3 fields remain single tokens; the OLED keeps spaces.
@@ -879,7 +892,11 @@ void stop_all(){
   const auto selection_now=micros();uint64_t selection_utc=0;
   // Observe every main turn, independently of the one-second repaint cadence.
   // This display dwell never enters authenticated relay/admission decisions.
+  const bool was_lora=display_lora_selected;
   display_lora_selected=display_clock_selection.select(w12::ble_locked(mesh,selection_now),w12::lora_time(lora_time,selection_now,selection_utc),mesh.root_identity,mesh.root_boot,mesh.source_epoch,mesh.g1_clock_origin,selection_now,w12::ble_permission_gap(mesh,selection_now),mesh.g1_relative_quality.scope_generation,mesh.publication,w12::ble_lock_refusal(mesh,selection_now));
+  static auto displayed_phase=w12::LoRaUiPhase::Disabled;
+  const auto phase=w12::lora_ui_phase(lora_time,PTOB_W12_LORA_ENABLED!=0,selection_now,selection_utc!=0,mesh.fault);
+  if(phase!=displayed_phase||was_lora!=display_lora_selected){displayed_phase=phase;last_ui=0;}
   auto sync_until=w12::synchronized_until(mesh,lora_time,micros());
 #ifdef PTOB_RC9
   if(rc9_current)sync_until=std::max(sync_until,std::min(rc9.until_us,rc9.sampled_us+w12::SyncSnapshotMaxUs));
@@ -1139,6 +1156,9 @@ extern "C" void app_main(){
       if(ui_subus&&!lamps.subus)last_ui=0; // Withdraw the header on the next main pass, too.
       ui_subus=lamps.subus;ui_gps_present=lamps.gps;
       ui_gps_lamps=uint8_t(lamps.pps)|(uint8_t(lamps.rx)<<1)|(uint8_t(lamps.tx)<<2);
+#ifdef PTOB_W12_DUAL_UI
+      if(page!=display_pages::LoraRx)
+#endif
       display_update_indicators(lamps.pps,lamps.rx,lamps.tx);
     }
 #endif

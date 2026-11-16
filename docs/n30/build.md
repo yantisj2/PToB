@@ -357,11 +357,19 @@ independently measured display-edge/UTC accuracy is established.
 
 ## Passive LoRa wire3 / schedule8 receiver
 
-Add `--lora-transmitter-factory "$VERIFIED_T096_LORA_FACTORY"` only with the
-exact independently verified T096 transmitter identity in the shared registry.
-The default zero disables LoRa hardware. Keep this private source binding and
-shared trust enrollment separate from authenticated runtime mesh discovery.
-The generated configuration and hash bind them into the runtime build ID.
+Add `--lora-rx` to enable passive reception and discover authenticated field
+transmitters. Shared group enrollment authenticates packets; it does not pin
+the emitter or select a mesh. The latest admissible META selects the complete
+source context. A different emitter, boot or context clears pending pairs,
+training and observer/delivered models; fresh matching SYNC/FOLLOW observations
+are required. Four non-evicting, per-emitter replay floors survive RX OFF/ON
+for the boot. A fifth emitter is refused until reboot rather than evicting replay
+history. Same-context META refresh preserves the model and original expiry fences.
+
+The deprecated `--lora-transmitter-factory` remains an enable hint for existing
+build commands; its nonzero value never filters runtime emitters. Without either
+option LoRa hardware stays off. The generated configuration and hash bind the
+receive enablement and separate trust enrollment into the runtime build ID.
 There are no NVS enrollment or mode writes.
 
 The Heltec V3 route uses SPI2 SCK9/MOSI10/MISO11/NSS8, reset12, BUSY13, DIO1 14,
@@ -392,7 +400,7 @@ live grants. Time availability alone therefore does not measure RF coverage. The
 transmitter/receiver, timing and airtime changes. Check both ends' correctly
 seated863–928MHz LoRa antennas, pigtails, orientation and placement separately.
 Compare the actual BLE parent/path with the LoRa emitter: a nearby BLE relay
-and the single designated LoRa transmitter are different RF paths.
+and the authenticated LoRa transmitter are different RF paths.
 
 A low-priority core1 worker owns SPI and MCPWM0 hardware DIO1 capture.
 HeaderValid freezes the precision edge; the subsequent RxDone freezes the
@@ -1142,8 +1150,8 @@ LoRa suite also compiles the actual exported readers and checks independent
 counter values, unavailable clocks and preserved BLE backend selection.
 These offline checks do not establish physical RF reception or UTC accuracy.
 
-KEEP_ON controls the receiver policy; it does not change the exact transmitter
-factory filter. Check the configured transmitter against the shared registry
+KEEP_ON controls the receiver policy; authenticated META selects the transmitter.
+Check the observed emitter against the shared registry
 when rebuilding. Device identities, enrolled images and live diagnostic traces
 remain in ignored local artifacts.
 

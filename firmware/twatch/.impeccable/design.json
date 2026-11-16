@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-15T00:52:05.836039+00:00",
+  "generatedAt": "2026-11-16T00:51:32.924418+00:00",
   "title": "Design System: T-Watch Ultra",
   "extensions": {
     "colorMeta": {
@@ -175,6 +175,141 @@
       "hand-shadow": {
         "role": "neutral",
         "displayName": "Pilot hand shadow"
+      },
+      "solar-ink": {
+        "role": "neutral",
+        "displayName": "Solar Ink",
+        "canonical": "#D3EBFA"
+      },
+      "solar-muted": {
+        "role": "neutral",
+        "displayName": "Solar Muted",
+        "canonical": "#8BB5D2"
+      },
+      "solar-night": {
+        "role": "neutral",
+        "displayName": "Solar Night",
+        "canonical": "#050F1E"
+      },
+      "solar-track": {
+        "role": "neutral",
+        "displayName": "Solar Track",
+        "canonical": "#20394C"
+      },
+      "solar-blue": {
+        "role": "secondary",
+        "displayName": "Solar Blue",
+        "canonical": "#71BFEB"
+      },
+      "solar-case-top": {
+        "role": "neutral",
+        "displayName": "Solar Case Top",
+        "canonical": "#0C1B2B"
+      },
+      "solar-moon-dark": {
+        "role": "neutral",
+        "displayName": "Solar Moon Dark",
+        "canonical": "#283C53"
+      },
+      "solar-moon-lit": {
+        "role": "neutral",
+        "displayName": "Solar Moon Lit",
+        "canonical": "#9BB5CA"
+      },
+      "solar-zenith-night": {
+        "role": "neutral",
+        "displayName": "Solar Zenith Night",
+        "canonical": "#091731"
+      },
+      "solar-zenith-day": {
+        "role": "neutral",
+        "displayName": "Solar Zenith Day",
+        "canonical": "#2373B0"
+      },
+      "solar-horizon-night": {
+        "role": "neutral",
+        "displayName": "Solar Horizon Night",
+        "canonical": "#223A57"
+      },
+      "solar-horizon-day": {
+        "role": "neutral",
+        "displayName": "Solar Horizon Day",
+        "canonical": "#74AAC0"
+      },
+      "solar-horizon-warm": {
+        "role": "neutral",
+        "displayName": "Solar Horizon Warm",
+        "canonical": "#FFB16F"
+      },
+      "solar-civil-top": {
+        "role": "neutral",
+        "displayName": "Solar Civil Top",
+        "canonical": "#275374"
+      },
+      "solar-civil-bottom": {
+        "role": "neutral",
+        "displayName": "Solar Civil Bottom",
+        "canonical": "#1E3E5F"
+      },
+      "solar-nautical-top": {
+        "role": "neutral",
+        "displayName": "Solar Nautical Top",
+        "canonical": "#1B3656"
+      },
+      "solar-nautical-bottom": {
+        "role": "neutral",
+        "displayName": "Solar Nautical Bottom",
+        "canonical": "#142642"
+      },
+      "solar-astronomical-top": {
+        "role": "neutral",
+        "displayName": "Solar Astronomical Top",
+        "canonical": "#12223C"
+      },
+      "solar-astronomical-bottom": {
+        "role": "neutral",
+        "displayName": "Solar Astronomical Bottom",
+        "canonical": "#0A172A"
+      },
+      "solar-deep-night": {
+        "role": "neutral",
+        "displayName": "Solar Deep Night",
+        "canonical": "#050E1B"
+      },
+      "solar-hour-dark": {
+        "role": "neutral",
+        "displayName": "Solar Hour Dark",
+        "canonical": "#04111E"
+      },
+      "solar-hour-light": {
+        "role": "neutral",
+        "displayName": "Solar Hour Light",
+        "canonical": "#ECF7FF"
+      },
+      "solar-medallion": {
+        "role": "neutral",
+        "displayName": "Solar Medallion",
+        "canonical": "#071422"
+      },
+      "solar-tide": {
+        "role": "secondary",
+        "displayName": "Solar Tide",
+        "canonical": "#85CECD"
+      },
+      "solar-sun-limb": {
+        "role": "neutral",
+        "displayName": "Solar Sun Limb",
+        "canonical": "#FFCF8B"
+      },
+      "solar-sun-disc": {
+        "role": "neutral",
+        "displayName": "Solar Sun Disc",
+        "canonical": "#FFE5B3"
+      },
+      "solar-sun-core": {
+        "role": "secondary",
+        "displayName": "Solar Sun Core",
+        "canonical": "#FFF6DD"
       }
     },
     "typographyMeta": {
@@ -212,6 +347,11 @@
         "name": "seconds-step",
         "value": "1s discrete",
         "purpose": "Discrete seconds updates for the Digital track and Instrument hands; no continuous decorative animation."
+      },
+      {
+        "name": "solar-indications",
+        "value": "Sun extrapolates minute ephemeris; metric rings use elapsed-time easing; clock acquisition <=12px/s",
+        "purpose": "Continuous sun progress and opposing medallion trajectory within 35px internal circle; retain clock position without known astronomy."
       }
     ],
     "breakpoints": [],
@@ -284,12 +424,98 @@
           187
         ],
         "qualification": "Native previews are synthetic; installation does not establish timing or endurance qualification."
+      },
+      "faceSelection": {
+        "rowTopY": [
+          111,
+          216,
+          321
+        ],
+        "hitYHalfOpen": [
+          [
+            105,
+            210
+          ],
+          [
+            210,
+            315
+          ],
+          [
+            315,
+            425
+          ]
+        ]
+      },
+      "solar": {
+        "case": [
+          18,
+          22,
+          374,
+          458,
+          55
+        ],
+        "dialCenter": [
+          205,
+          251
+        ],
+        "dialRadius": 166,
+        "medallionRadius": 81,
+        "timeAtlasScale": 1.5,
+        "medallionOuterRadius": 83,
+        "medallionOrbitRadius": 35,
+        "medallionRimRadius": 82,
+        "medallionRimSweepDegrees": 306,
+        "subdialRadius": 34,
+        "subdialCenters": [
+          [
+            77.5,
+            81.5
+          ],
+          [
+            331.5,
+            81.5
+          ],
+          [
+            77.5,
+            419.5
+          ],
+          [
+            331.5,
+            419.5
+          ]
+        ],
+        "subdialSweepDegrees": 300,
+        "solarOrbitRadius": 124,
+        "crossingCount": 8,
+        "subdialAlignment": {
+          "caseBoundsInclusive": [
+            18,
+            22,
+            391,
+            479
+          ],
+          "normalInsetPx": 32,
+          "antialiasAwareCaseClearancePx": 10.75,
+          "antialiasAwareMainCircleClearancePx": [
+            9.7,
+            11.1
+          ],
+          "maxMainCircleVariationPx": 1.4,
+          "note": "Main center retained at (205,251); main-circle margins are not exactly equal."
+        },
+        "civilCardinals": {
+          "top": "12",
+          "right": "18",
+          "bottom": "00",
+          "left": "06"
+        }
       }
     },
     "presentationPolicy": {
       "faces": [
         "Digital",
-        "Instrument"
+        "Instrument",
+        "Solar"
       ],
       "defaultSleepSeconds": 90,
       "sleepChoicesSeconds": [
@@ -299,9 +525,23 @@
       ],
       "localHold": "Display only, less than 24h from valid anchor; withdraw source, lock, RMS and sampled hold. Never feeds timing/admission.",
       "wake": "First touch/button wakes only",
-      "gesture": "Resolve on release: face switch for horizontal displacement >=64px and >2x vertical displacement, within 1.5s; tap displacement <20px on each axis. Wake consumes the entire gesture. Both directions switch and persist.",
+      "gesture": "Resolve on release: horizontal displacement >=64px and >2x vertical displacement within 1.5s; tap displacement <20px on each axis. Left advances Digital \u2192 Instrument \u2192 Solar \u2192 Digital; right reverses, modulo three. Selection persists. Wake consumes the entire gesture.",
       "receiver": "Calendar bridge: independent source drum and RX apertures flank a concentric PLL phase well. Source shows BLE for BLE/RC1/RC2, LOR, distinct RC9, HOLD during valid hold, or --- without time. Full/half/dark phase means lock/hold/acquisition or unavailable. RX jewel reports powered receiver independently of source selection and packet freshness. No source selector ring or triangle.",
-      "rms": "Linear 0ns\u201310us, 2.5us divisions; OVER above 10000ns, unavailable red parking outside sweep."
+      "rms": "Linear 0ns\u201310us, 2.5us divisions; OVER above 10000ns, unavailable red parking outside sweep.",
+      "solar": {
+        "location": [
+          30.35,
+          -86.23
+        ],
+        "zone": "Central CST/CDT, independent of mesh display zone",
+        "sky": "Fixed civil 24-hour scale. Actual morning/evening sunrise/sunset and three twilight chords set seasonal horizon height/tilt; eight crossing ticks/dots use each event\u2019s own Central offset, including DST-change dates. Calculated lunar phase graphic without percentage caption; illustrative stars.",
+        "rms": "Linear 0\u201310us; ns/us labels; >10 us above range.",
+        "p99": "Integer s/ms/us, no >= prefix; sampled 1\u201360s ring; bounds retained as diagnostic metadata.",
+        "source": "Identifier-only text. Actual RSSI drives ring clamped [-110,-40]dBm; no numeric RSSI or percentage text. Missing strength dims ring.",
+        "tide": "TIDE ~ approximate predicted event interpolation, low=0/high=1; RISE/FALL; unavailable ring dim with active endpoint removed, EXP at expiry and -- otherwise.",
+        "hold": "HOLD withdraws live source/precision; estimated sky never grants timing authority.",
+        "clock": "Pale-rimmed 83px-radius medallion moves opposite the sun according to current Central civil time on 35px internal circle, carrying Central date/time and lunar graphic; no SOLAR or lunar-percentage copy. Seasonal changes do not add clock displacement. Acquisition <=12px/s; unknown astronomy retains position."
+      }
     },
     "material": {
       "scope": "Instrument only",
@@ -319,6 +559,16 @@
         "redraw": "Copy the static Instrument layer, then draw source text, phase, RX contents, precision pointers and moving hands. Engravings, aperture frames and well geometry remain cached.",
         "visualContract": "Preserve the reviewed pixels; cached and uncached fixture images match pixel-for-pixel. No hardware timing, power or precision qualification follows from this comparison.",
         "allocationFallback": "If allocation fails, draw the same static base directly for each Instrument frame."
+      },
+      "solarLayer": {
+        "storage": "PSRAM",
+        "bytes": 411640,
+        "ephemeris": "UI worker caches per UTC minute",
+        "rebuild": "Sampled UTC minute or astronomy known-state changes",
+        "damage": "Generation-aware 32px tiles restore old/new dynamic regions; face, framebuffer or backdrop generation change requires full restore.",
+        "allocationFallback": "Draw the same base directly.",
+        "qualification": "Synthetic cache equivalence is not installed-device performance or timing qualification.",
+        "skyConstruction": "Cache four chord column-height arrays and a 256-entry daylight palette per backdrop rebuild; no per-pixel pow/trigonometry in sky bands."
       }
     }
   },
@@ -381,9 +631,9 @@
   ],
   "narrative": {
     "northStar": "The Wrist Instrument",
-    "overview": "Digital retains the Casio-inspired dark segmented display, pale phosphor time and amber controls within a chamfered bezel and inset LCD frame. Instrument translates the approved olive perpetual-calendar reference into original PToB mechanical indicators inside a squarish instrument case, with pale lume and restrained red needles. Directional bevels, grooved recessed wells and broad outlined pilot hands give Instrument physical depth. Neither face copies a brand mark.\n\nThis visual authority applies only to firmware/twatch. The native C++ framebuffer is authoritative; sidecar swatches illustrate components. Host captures and offline finish reviews establish source/render quality only. The operator has confirmed physical rendering of the earlier Digital face; Instrument appearance on hardware, optical timing, precision and power remain unqualified.",
+    "overview": "Digital retains the Casio-inspired dark segmented display, pale phosphor time and amber controls within a chamfered bezel and inset LCD frame. Instrument translates the approved olive perpetual-calendar reference into original PToB mechanical indicators inside a squarish instrument case, with pale lume and restrained red needles. Directional bevels, grooved recessed wells and broad outlined pilot hands give Instrument physical depth. Neither face copies a brand mark.\n\nThis visual authority applies only to firmware/twatch. The native C++ framebuffer is authoritative; sidecar swatches illustrate components. Host captures and offline finish reviews establish source/render quality only. The operator has confirmed physical rendering of the earlier Digital face; Instrument appearance on hardware, optical timing, precision and power remain unqualified.\n\nSolar adds the approved solarpath.webp daily orbit: calculated Santa Rosa Beach/Central sun, twilight and lunar phase, original native geometry and four compact circular corner subdials and a pale-rimmed clock moving opposite the sun. Its scope is this third face; Digital and Instrument retain their established visual systems. Synthetic previews do not establish hardware acceptance.",
     "keyCharacteristics": [
-      "Time-first segmented Digital or mechanical Instrument display.",
+      "Time-first segmented Digital, mechanical Instrument or daily-orbit Solar display.",
       "Chamfered case geometry and inset readable content.",
       "Face-specific palette with shared utility screens and controls.",
       "Explicit unavailable evidence and display-only local hold."
@@ -409,7 +659,7 @@
       "Do keep this visual authority scoped to firmware/twatch.",
       "Do use the bundled Rajdhani atlas and original segment geometry.",
       "Do preserve units, unavailable states and explicit status labels.",
-      "Do review both faces and all utility screens at native resolution, with the rounded aperture and unavailable, local-hold, overflow, RC9 and lower-bound states, plus release-resolved swipe and wake gestures."
+      "Do review all three faces and all utility screens at native resolution, with the rounded aperture and unavailable, local-hold, overflow, RC9 and lower-bound states, plus release-resolved swipe and wake gestures."
     ],
     "donts": [
       "Don't use synthetic preview values as hardware evidence.",

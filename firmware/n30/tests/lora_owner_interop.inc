@@ -35,7 +35,7 @@ int main(){
  }
  assert(!published.metadata_known&&!published.utc_us&&!published.until_us&&published.watch_valid&&published.watch_pairs==14&&!published.fault);
  const auto watch_pairs=published.watch_pairs,errors=published.watch_prediction_n;
- n30_test_packet(fake::packet.data(),2,36,base+fake::us*1000);packet_edge(112);run_for(10000);
+ n30_test_packet(fake::packet.data(),2,38,base+fake::us*1000);packet_edge(112);run_for(10000);
  assert(published.metadata_known&&published.watch_pairs==watch_pairs&&published.watch_prediction_n==errors&&!published.utc_us);
  assert(v12::lora_request(false,0));worker_step(true);assert(owner.drained());
  assert(published.metadata_cached&&!published.watch_valid);

@@ -60,10 +60,10 @@ its independent LoRa fallback and HOLD display.
 | --- | --- |
 | Hardware | Heltec T096 / HT-n5262G; Nordic **nRF52840**, **UC6580 GNSS** with PPS, **SX1262 LoRa** radio. |
 | Display | **80 × 160** portrait color TFT; digital/analog clock, RF activity, precision, GNSS quality, system and shadow-PPS pages; LoRa page when enabled. |
-| Display behavior | Front digital seconds, actual local PPS and clock-loss indications receive priority; other regions update opportunistically. Whole-page frame rate varies with timing work. Eligible screensaver starts after **5 minutes** idle at **50% brightness**. |
+| Display behavior | Front digital seconds, actual local PPS and clock-loss indications receive priority; other regions update opportunistically. Whole-page frame rate varies with timing work. Eligible screensaver starts after **5 minutes** idle at **50% brightness**; the USB diagnostic System page stays visible while selected. |
 | BLE timing | Authenticated **G1/RC7** precision reception and relay. Current coarse TZ wire uses **GM7 revision 4, JOIN revision 5, RC control/capability revision 8**. |
 | GM coordination | Broadcast ANN/STATUS/ROLE, persistent G1 following without GM admission, local HOT readiness and independent GNSS qualification. Client GATT admission remains required. |
-| LoRa timing | **Passive wire3** fallback with one designated transmitter, exporting qualified local GM time or authenticated locked BLE time. |
+| LoRa timing | **Passive wire3** fallback with a designated boot-default transmitter or manually enabled GM transmitter, exporting qualified local GM time or authenticated locked BLE time. |
 | USB | Hardware-captured USB frame boundaries; RC exports BLE time, DC exports local GNSS time to the macOS client. |
 | Local holdover | BLE-only guarded rate consensus, paired frozen shadow clocks and a120s local watch estimate; [policy and verification](../../docs/t096/holdover.md). |
 | Time zone | GM uses its GNSS location and pinned IANA offset calendars; manual-zone/fixed-offset overrides. Live mesh metadata remains leased. The display retains its learned zone for the current boot, with pinned DST calendars. |
@@ -87,15 +87,31 @@ UTC accuracy.
 
 The [current LoRa design](../../docs/t096/lora-protocol.md) defines passive wire3,
 separate from historical RC8. Select the slow 30/120/300 s variant and one exact
-transmitter factory at build time. Listeners request RX at boot in both GM and
+boot-default transmitter factory at build time. Listeners request RX at boot in both GM and
 RC profiles; GM participation does not suppress passive RX. The designated
-GM-profile device requests TX and may export qualified own-GNSS time or fresh
+GM-profile device requests TX unless built with `--lora-boot-rx`, and may export
+qualified own-GNSS time or fresh
 authenticated qualified BLE time from another GM. Becoming ACTIVE does not enable
-LoRa TX on another device. There is no automatic backup emitter.
+LoRa TX on another device. Use **Menu → LoRa → TX ON** to enable a field
+GM explicitly. RX and TX are exclusive; **RX ON** stops TX before receiving.
+There is no automatic backup emitter. Run only one transmitter on the selected
+LoRa channel. Updated receivers authenticate field emitters and retain replay
+floors for up to four emitter identities per boot; a fifth is refused. Older
+receivers pinned to the designated transmitter need compatible firmware to
+follow a field emitter.
+
+USB availability during sustained LoRa TX remains under investigation. The
+[diagnostic guide](../../docs/t096/diagnostics.md) explains live USB state,
+reset-retained observations and their persistence limits. The recovery-path
+repairs have offline regression coverage; a confirmed field root-cause fix
+and sustained hardware acceptance remain open.
 
 The second (RF) screen shows both BLE and available LoRa time in GM and RC,
 including while BLE is the primary source. The active transmitter shows its TX
-state instead of a receiver clock. During acquisition the display explains
+state instead of a receiver clock. Its LoRa page shows the timing source,
+completed local pairs, last-pair age, restart wait and charged airtime per rolling
+hour. Sends do not confirm receiver delivery. TX remains requested during source
+or restart waits; reboot restores the configured role. During acquisition the display explains
 whether it is waiting for META, waiting for a pair, building its fit, or missing
 pairs. RX lamps pulse for decoded timing or unknown payloads, rather than raw
 carrier activity.
@@ -231,14 +247,21 @@ Except for the RF help gesture, releases before **2.0 s** are short presses; the
 observed button edges so release debounce cannot turn it into a selection.
 
 The ordinary GM/RC menu contains **GM Mode / RC Mode**, **Power Off**, **BLE RX
-Off / On**, **LoRa RX Off / On**, and **Exit**. Rows name the next action; the
+Off / On**, **LoRa**, and **Exit**. Rows name the next action; the
 header shows the current mode. Changes keep the menu open and show a brief
 result. Power Off requires its own selection hold and uses orderly shutdown.
 The separate DC/PC images retain their own controls.
 
-The factory-bound LoRa transmitter has **LoRa TX Off / On** in the LoRa row
-instead of RX. Its TX row is unavailable in RC. Entering GM re-enables its TX
-request; a manual OFF otherwise remains in effect for that GM session.
+The **LoRa** submenu contains **RX OFF / ON**, **TX OFF / ON**, and **Back**.
+Rows describe the next action. TX is available only in GM mode and still needs
+an eligible GNSS or authenticated BLE source. Switching roles closes the radio,
+fences old time maps and preserves per-boot TX airtime/cooldowns and RX replay
+floors. The dial TX mast stays orange while enabled and waiting, and blue only
+with current permission and a recent completed timing pair.
+
+Boot retains the configured defaults: the designated device requests TX unless
+`--lora-boot-rx` selects RX; other devices request RX. Manual role and on/off choices are RAM-only. Reboot restores
+those defaults. No role selection changes mesh enrollment or grants timing authority.
 
 BLE RX OFF drains and parks the BLE owner in either GM or RC mode. It does
 not restart either profile, elect a GM, or restart the display, GNSS/capture or

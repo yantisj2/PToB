@@ -6,6 +6,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+// Legacy transmitter argument is ignored; authenticated META discovers the emitter.
+// Four per-emitter replay floors survive RX OFF/ON until reboot.
 bool w12_rc8_init(uint64_t factory,uint64_t transmitter,uint64_t group_id,uint32_t epoch,const uint8_t psk[32]);
 uint32_t w12_rc8_switch(bool enabled);
 bool w12_rc8_receive(const uint8_t*,size_t,uint64_t tick16,uint64_t capture_epoch,uint64_t local_us,uint64_t now_us,uint32_t generation);

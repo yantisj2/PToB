@@ -39,14 +39,6 @@ static void JSON_SHARED quoted(struct r2_json *j,const char *text,const char *en
  r2_json_text(j,"\"");r2_json_text(j,text);r2_json_text(j,end);
 }
 #undef JSON_SHARED
-void r2_json_u32_array(struct r2_json *j,const uint32_t *values,unsigned count){
- r2_json_text(j,"[");
- for(unsigned i=0;i<count&&!j->error;i++){
-  if(i)r2_json_text(j,",");
-  r2_json_format(j,"%u",values[i]);
- }
- r2_json_text(j,"]");
-}
 /* memcpy also permits a naturally aligned object's subfield/array member;
  * never introduce unaligned typed loads or a descriptor's aliasing fiction. */
 static void scalar(struct r2_json *j,unsigned type,const void *p){
@@ -59,11 +51,23 @@ static void scalar(struct r2_json *j,unsigned type,const void *p){
  case R2_J_U64:memcpy(&v.u64,p,8);r2_json_format(j,"%llu",(unsigned long long)v.u64);break;
  case R2_J_I64:memcpy(&v.i64,p,8);r2_json_format(j,"%lld",(long long)v.i64);break;
  case R2_J_HEX64:memcpy(&v.u64,p,8);r2_json_format(j,"\"%016llx\"",(unsigned long long)v.u64);break;
- case R2_J_BOOL:memcpy(&v.b,p,sizeof v.b);r2_json_text(j,v.b?"true":"false");break;
+ case R2_J_BOOL:memcpy(&v.b,p,sizeof v.b);r2_json_text(j,r2_json_bool(v.b));break;
  case R2_J_STRING:memcpy(&v.s,p,sizeof v.s);quoted(j,v.s,"\"");break;
  case R2_J_CHARS:quoted(j,p,"\"");break;
  default:j->error=-EINVAL;break;
  }
+}
+static void array(struct r2_json *j,const uint8_t *values,unsigned count,unsigned element){
+ unsigned stride=element==R2_J_U64?8:4;
+ r2_json_text(j,"[");
+ for(unsigned i=0;i<count&&!j->error;i++){
+  if(i)r2_json_text(j,",");
+  scalar(j,element,values+i*stride);
+ }
+ r2_json_text(j,"]");
+}
+void r2_json_u32_array(struct r2_json *j,const uint32_t *values,unsigned count){
+ array(j,(const uint8_t *)values,count,R2_J_U32);
 }
 void r2_json_fields(struct r2_json *j,const struct r2_json_field *fields,unsigned count,
  const void *const *bases,unsigned base_count){
@@ -78,10 +82,7 @@ void r2_json_fields(struct r2_json *j,const struct r2_json_field *fields,unsigne
   if(type>=R2_J_U32_ARRAY&&type<=R2_J_U64_ARRAY){
    unsigned n=f->type_count>>4;if(!n)n=16;
    unsigned element=type==R2_J_U32_ARRAY?R2_J_U32:type==R2_J_I32_ARRAY?R2_J_I32:R2_J_U64;
-   unsigned stride=element==R2_J_U64?8:4;
-   r2_json_text(j,"[");
-   for(unsigned k=0;k<n;k++){if(k)r2_json_text(j,",");scalar(j,element,p+k*stride);}
-   r2_json_text(j,"]");
+   array(j,p,n,element);
   }else scalar(j,type,p);
  }
 }

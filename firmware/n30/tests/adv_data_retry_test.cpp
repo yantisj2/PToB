@@ -13,7 +13,7 @@ using v12::G1TimeZoneOrder;
 constexpr unsigned None=65535,RC_DYNAMIC_CAPABILITY_BYTES=148;
 uint64_t now=1000000,relay_cap_at=0,relay_challenge=7,boot_id=3;
 unsigned calls=0,pauses=0,notes=0,details=0;uint32_t setup_retries=0;
-int result=0;bool fault=false,relay_cap_dirty=true,relay_pa=false;
+bool pause_owner_race=false,data_owner_race=false;int result=0;bool fault=false,relay_cap_dirty=true,relay_pa=false,relay_advertising=false;
 struct Peer {unsigned handle=None;bool connecting=false;}peer,relay_session;
 struct Path{};struct Cap {Path path;r2_tz tz{};uint64_t next_challenge=0;};
 Path relay_cap_path;
@@ -21,21 +21,29 @@ struct Map {Cap capability(uint64_t,uint64_t,uint64_t,bool){return {};}}relay_ma
 struct Provision {uint64_t identity=2;unsigned group=1;}provision;
 struct Service {uint8_t value[16]{};}rc_service;
 r2_tz_lease coarse_tz{};uint8_t relay_cap[216]{};
-enum class R2Api {AdvData};
+enum class R2Api {AdvData,AdvRemove};
+unsigned removes=0,configures=0;int remove_result=0,configure_result=0;
+int ble_gap_ext_adv_remove(unsigned instance){assert(instance==1);++removes;return remove_result;}
+bool relay_cap_configure(){++configures;if(configure_result)fault=true;return !configure_result;}
 uint64_t micros(){return now;}
 void inc(uint32_t& n){++n;}
 void note(int rc,R2Api){assert(rc==0x207);++notes;}
 void error(int,R2Api,uint8_t detail=0){fault=true;details=detail;}
 bool relay_api(int rc,R2Api site){if(rc)error(rc,site);return !rc;}
-void relay_pause_cap(){++pauses;}
+void relay_pause_cap(){++pauses;if(pause_owner_race)relay_session.handle=7;}
 int rc7_control_encode(uint8_t* out,const Cap* c,unsigned*){r2_tz_put(out+196,c->tz);return 0;}
 int rc7_capability_encode(uint8_t*,const Cap*,unsigned*){return 0;}
 void* ble_hs_mbuf_from_flat(const void*,unsigned n){assert(n==171);return reinterpret_cast<void*>(1);}
-int ble_gap_ext_adv_set_data(unsigned instance,void* data){assert(instance==1&&data);++calls;return result;}
+int ble_gap_ext_adv_set_data(unsigned instance,void* data){assert(instance==1&&data);++calls;if(data_owner_race)relay_session.handle=7;return result;}
 #include "actual_adv_cap_update.inc"
 int main(int argc,char** argv){
  (void)argv;
  assert(argc==2);coarse_tz.value={2,-360};coarse_tz.until_us=now+2000000;
+#ifdef PTOB_W12_BLE_RECOVERY
+ if(!std::strcmp(argv[1],"pause-owner-race")){pause_owner_race=true;assert(!relay_cap_update(now)&&!calls&&!fault&&relay_session.handle==7);return 0;}
+ if(!std::strcmp(argv[1],"deadline")){result=0x207;assert(!relay_cap_update(now));now+=500000;assert(!relay_cap_update(now)&&fault&&!removes&&!configures);return 0;}
+ if(!std::strcmp(argv[1],"data-owner-race")){result=0x207;assert(!relay_cap_update(now));now+=100000;assert(!relay_cap_update(now));now+=100000;data_owner_race=true;assert(!relay_cap_update(now)&&fault&&!removes&&!configures&&relay_session.handle==7);return 0;}
+#endif
  result=0x207;assert(!relay_cap_update(now));assert(calls==1&&!relay_cap_at&&relay_cap_dirty);
 #if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
  assert(!fault&&setup_retries==1&&notes==1);
@@ -49,7 +57,20 @@ int main(int argc,char** argv){
   assert(!accepted&&fault&&details==61&&calls==2&&!relay_cap_at&&relay_cap_dirty);
  }else{
   assert(!accepted&&!fault&&calls==2&&setup_retries==2);
-  now+=100000;assert(!relay_cap_update(now)&&fault&&details==61&&calls==3&&!relay_cap_at&&relay_cap_dirty);
+  now+=100000;
+#ifdef PTOB_W12_BLE_RECOVERY
+  if(!std::strcmp(argv[1],"remove-fail"))remove_result=12;
+  if(!std::strcmp(argv[1],"configure-fail"))configure_result=12;
+  assert(!relay_cap_update(now)&&calls==3&&!relay_cap_at&&relay_cap_dirty&&removes==1);
+  if(remove_result||configure_result){assert(fault);return 0;}
+  assert(!fault&&configures==1);now+=99999;assert(!relay_cap_update(now)&&calls==3);
+  ++now;if(!std::strcmp(argv[1],"recreate"))result=0;
+  const bool recovered=relay_cap_update(now);assert(calls==4&&removes==1&&configures==1);
+  if(!std::strcmp(argv[1],"recreate")){assert(recovered&&!fault&&relay_cap_at==now&&!relay_cap_dirty);}
+  else{assert(!recovered&&fault&&details==61&&!relay_cap_at&&relay_cap_dirty);}
+#else
+  assert(!relay_cap_update(now)&&fault&&details==61&&calls==3&&!relay_cap_at&&relay_cap_dirty);
+#endif
  }
 #else
  assert(fault&&calls==1&&setup_retries==0&&details==0);

@@ -11,5 +11,8 @@ bool r2_lora_source_own(struct rc8_export *,const struct r2_source_clock *,struc
  * The caller must still own a qualified local source; BLE grants are separate. */
 bool r2_lora_source_passive_own(struct rc8_export *,const struct r2_source_clock *,struct rc8_scope,
  struct r2_capture);
+/* On natural capture/UTC expiry only, false may retain the original candidate
+ * bounds with valid/authenticated both false. These cannot be published; they
+ * only restrict an already admitted LoRa copy. Other invalid inputs stay zero. */
 bool r2_lora_source_follower(struct rc8_export *,const r2_servo_map_t *,struct rc8_scope,
  struct r2_capture,uint64_t until_tick,uint64_t created,uint64_t expires,int64_t offset,uint32_t generation);

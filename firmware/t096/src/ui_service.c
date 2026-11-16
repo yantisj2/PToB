@@ -318,7 +318,7 @@ void r2_ui_menu_result(unsigned item,int result){
 }
 #ifdef R2_LORA
 static atomic_t lora_toggle;
-bool r2_ui_take_lora_toggle(void){return atomic_cas(&lora_toggle,1,0);}
+unsigned r2_ui_take_lora_toggle(void){return (unsigned)atomic_set(&lora_toggle,0);}
 #endif
 static bool started;
 static uint8_t framebuffer[R2_UI_FRAME_BYTES];
@@ -664,7 +664,7 @@ void __attribute__((noinline)) r2_ui_input_tick(uint64_t now){
 #else
   if(now-input_changed>=50)input_stable=input_last;
 
-  enum r2_ui_menu_action action=r2_ui_menu_sample_help(&status.menu,&input_button,button!=0,input_stable!=0,status.screensaver,r2_ui_menu_enabled(&model),status.page==1&&!status.help,input_changed,now);
+  enum r2_ui_menu_action action=r2_ui_menu_sample_help(&status.menu,&input_button,button!=0,input_stable!=0,status.screensaver,(uint8_t)(r2_ui_menu_enabled(&model)&~(status.menu.lora&&model.profile_rc?(1u<<R2_MENU_MODE):0)),status.page==1&&!status.help,input_changed,now);
   status.button_down=input_stable!=0;
   if(input_stable){status.screensaver=false;input_idle_since=now;}
   if(action!=R2_MENU_NONE){
@@ -673,14 +673,14 @@ void __attribute__((noinline)) r2_ui_input_tick(uint64_t now){
    else if(action==R2_MENU_PAGE){if(status.help)status.help=false;else status.page=(status.page+1)%R2_UI_PAGES;}
    else {status.help=false;}
    if(action==R2_MENU_OFF){status.poweroff=true;atomic_set(&poweroff_request,1);}
-   else if(action==R2_MENU_PROFILE||action==R2_MENU_BLE_TOGGLE||action==R2_MENU_LORA_TOGGLE){
-    status.menu_result_item=status.menu.item;status.menu_result_until=now+1500;
+   else if(action==R2_MENU_PROFILE||action==R2_MENU_BLE_TOGGLE||action==R2_MENU_RX_TOGGLE||action==R2_MENU_TX_TOGGLE){
+    status.menu_result_item=status.menu.lora?R2_MENU_LORA:status.menu.item;status.menu_result_until=now+1500;
     status.menu_result=(!model.platform_ready||model.profile_switching||((unsigned)atomic_get(&context_flags)&(R2_UI_CONTEXT_SWITCH|R2_UI_CONTEXT_STOP)))?-EBUSY:0;
     if(!status.menu_result){
      if(action==R2_MENU_PROFILE){atomic_set(&profile_toggle,1);add(&status.profile_toggles);}
      else if(action==R2_MENU_BLE_TOGGLE)atomic_set(&ble_toggle,1);
 #ifdef R2_LORA
-     else atomic_set(&lora_toggle,1);
+     else atomic_set(&lora_toggle,action==R2_MENU_RX_TOGGLE?2:3);
 #endif
     }
    }
@@ -856,9 +856,13 @@ static void worker(void *a,void *b,void *c)
   if((unsigned)atomic_get(&model_interval)!=interval)atomic_set(&model_interval,(int)interval);
    bool page_changed=s.page!=observed_page;
   if(page_changed){observed_page=s.page;atomic_set(&model_requested,1);}
-  /* Every page may idle into the saver. Its overlay does not end the
-   * selected measurement page's independent witness session. */
-  bool saver=!s.menu.open&&!stable&&!wake_press&&now>=idle_since&&now-idle_since>=R2_UI_IDLE_MS&&r2_ui_saver_allowed(&m,now);
+  /* The raw USB System view must stay visible for an unattended failure.
+   * Other pages retain their existing saver and measurement policy. */
+  bool saver=!s.menu.open&&!stable&&!wake_press&&now>=idle_since&&now-idle_since>=R2_UI_IDLE_MS&&r2_ui_saver_allowed(&m,now)
+#ifdef R2_USB_SOURCE_STREAM
+   &&s.page!=4
+#endif
+   ;
   uint64_t period=saver&&now>=saver_since?(now-saver_since)/R2_UI_SAVER_MOVE_MS:0;
   bool move=saver&&s.screensaver&&period!=saver_period;
   /* Existing public PRNG, outside the UI lock; no draw-time RNG or RF work. */

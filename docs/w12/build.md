@@ -732,22 +732,26 @@ BLE clock model or asynchronous counter map is substituted. GNSS keeps its group
 profile. LoRa OFF disconnects only CH1 and leaves the BLE counter alive.
 Maintenance stops every consumer before retiring that counter.
 
-Acquire the public MIT RadioLib 7.8.1 pin explicitly, then add both options to
+Acquire the public MIT RadioLib 7.8.1 pin explicitly, then add it to
 the ordinary fine-clock build command:
 
 ```sh
 python3 firmware/w12/tools/radio_dependencies.py --dest artifacts/radiolib-7.8.1
-# Add to the existing build invocation, using an exact enrolled registry identity:
-# --fine-clock --radiolib artifacts/radiolib-7.8.1 \
-# --lora-transmitter-factory <exact-16-hex-T096-factory>
+# Add to the existing build invocation:
+# --fine-clock --radiolib artifacts/radiolib-7.8.1
 ```
 
-Zero transmitter identity is the default and compiles the radio OFF. A nonzero
-identity requires the pinned dependency and fine clock. The generated header
-binds that factory, receiver identity and existing group enrollment into the
-runtime build ID. Never select a transmitter from an unverified alias. The
-image retains the public dependency source and license in its ignored artifact;
-there is no private dependency or implicit download during compilation.
+Without `--radiolib` the radio is OFF. With the pinned dependency and fine clock,
+reception discovers authenticated field transmitters from META. Trust enrollment
+remains separate from runtime discovery; a new source/context requires fresh
+physical timing pairs. Four per-emitter replay floors survive RX OFF/ON without
+eviction. See [source admission](lr2021.md) for the retained replay and expiry
+rules. The deprecated `--lora-transmitter-factory` is a legacy hint and never
+filters emitters; existing build commands remain accepted. The generated header
+binds receive enablement, receiver identity and separate group enrollment into
+the runtime build ID. The image retains public dependency source and license
+in its ignored artifact; there is no private dependency or implicit download
+during compilation.
 
 The fixed RX modem is 922.4MHz, SF11/BW500/CR4/8, preamble 12, explicit header,
 CRC 2 and private sync 0x12, matching passive wire3/schedule8. The HAL refuses

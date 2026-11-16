@@ -136,6 +136,10 @@ void diagnostic_tx_poll(){
 }
 void diagnostic_tx_reset(){if(lease.generation||pending||owned.requested||owned.periodic||owned.discovery)owned.fault=true;owned.requested=false;owned.periodic=owned.discovery=false;publish();}
 bool diagnostic_tx_request(uint16_t bytes,uint32_t duration,uint64_t request_id){
+#ifdef PTOB_TWATCH
+  struct Admission {bool ok=transport_watch_ble_admit_begin();~Admission(){if(ok)transport_watch_ble_admit_end();}} admission;
+  if(!admission.ok)return false;
+#endif
   bool size=bytes==RootBytes||bytes==RelayBytes;
 #ifdef V12_R2_TX_SHADOW
   size=bytes==190; // Narrow known-PDU probe only, never RC7 timing.
@@ -152,4 +156,12 @@ void diagnostic_tx_observe_lease(uint64_t now){
   snapshot.lease=lease;portEXIT_CRITICAL(&tx_mux);
 }
 DiagnosticTxStatus diagnostic_tx_status(){diagnostic_tx_observe_lease(micros());portENTER_CRITICAL(&tx_mux);const auto status=snapshot;portEXIT_CRITICAL(&tx_mux);return status;}
+#ifdef PTOB_TWATCH
+bool diagnostic_tx_watch_retire(){
+  const auto probe=periodic_tx::status();portENTER_CRITICAL(&tx_mux);
+  const bool ok=!pending&&!owned.owner_busy&&!owned.periodic&&!owned.discovery&&!owned.requested&&!probe.installed&&!probe.armed;
+  if(ok){stop_pending=false;lease.stopped(micros());}
+  portEXIT_CRITICAL(&tx_mux);if(ok)publish();return ok;
+}
+#endif
 }

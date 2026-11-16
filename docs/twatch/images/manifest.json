@@ -2,13 +2,19 @@
   "schema": 1,
   "scope": "SYNTHETIC_NATIVE_RENDERER_PREVIEWS_NOT_HARDWARE",
   "renderer": "firmware/twatch/main/watch.cpp",
-  "renderer_sha256": "179b6d8316c2e0559b76932461b2932df00fdb3d0d664cb0f6a8c7c2c9c7553e",
+  "renderer_sha256": "26408ca66df166459e2e87a647c648c4d1541c65aa27fc71f90c501202c036c8",
   "fixture": "firmware/twatch/tools/preview.cpp",
-  "fixture_sha256": "8bf2e18d5a4fc13114e7f0389800653c0ec6b185d7c8e1acb3e72f2048aff2d4",
+  "fixture_sha256": "2b24c0593b60357b1e404288edd0b626cfb1efefb282a81cf27c818819e5f5ef",
   "images": {
-    "launcher.png": "d40f968967b195eae04b42b2735342125034ecadf55bc61943803098d04e29ce",
-    "settings.png": "70667258b5789389009264ab7c9617a0eb78d2579cba821630c3280772e9a6de",
-    "digital.png": "31cddff0c26ef4c226c98bbd212be80db910c9097b1a13dc2f4b6de94729bcaf",
-    "instrument.png": "505a06f04667adf995e1831c6069660765e08d8590924dc796ea1915ddf94bef"
-  }
+    "launcher.png": "8fd8eb0f1a26d99202a8adaa18790c6ff533bbb19ea7f52473dde3058978791f",
+    "settings.png": "0e3aeeef14d1ea3f6339adb4b0ee1c0b87282b311ced137efd5e4823db1c817d",
+    "digital.png": "1baf74911568dd3ccb96d4768a2e844cda601f488ac79f0330bb87eb410e998e",
+    "instrument.png": "3278af330e6aacff413c3d1ddf01f5cfcbcfc51a6a461b8d3908d60956c1bbe3",
+    "solar.png": "b863e52406068b57ad990d114c4ed7dd9af8e390ce5890bebeb54869ff8ba8d6"
+  },
+  "calendar": "firmware/twatch/main/calendar.cpp",
+  "calendar_sha256": "58e39c74ee82ef527a598b578cb2dab0be67d48ef609128205359cbc793f2a69",
+  "solar_fixture": "solar: 2026-11-15 solar noon, calculated Santa Rosa Beach ephemeris and synthetic radio/precision values",
+  "geometry": "firmware/twatch/main/solar_geometry.hpp",
+  "geometry_sha256": "fee3acbbceabca49dc6d21cb30574ceb4aab77baf2fe86a48508564e0354a38a"
 }

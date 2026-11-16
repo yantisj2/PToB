@@ -204,7 +204,7 @@ void publish(){
  view.spi_retired=!inflight;view.capture_released=!capture_active&&!edge_enabled;view.reset_asserted=resources&&gpio_get_level(Reset)==0;
  portENTER_CRITICAL(&mux);view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
 }
-bool configured_receiver(){return PTOB_W12_LORA_TX_FACTORY&&w12_rc8_init(PTOB_W12_FACTORY_ID,PTOB_W12_LORA_TX_FACTORY,PTOB_W12_GROUP_ID,PTOB_W12_KEY_EPOCH,PTOB_W12_GROUP_KEY);}
+bool configured_receiver(){return PTOB_W12_LORA_ENABLED&&w12_rc8_init(PTOB_W12_FACTORY_ID,PTOB_W12_LORA_TX_FACTORY,PTOB_W12_GROUP_ID,PTOB_W12_KEY_EPOCH,PTOB_W12_GROUP_KEY);}
 W12_STACK_FRAME void worker_step(bool configured){
   const auto begin=now();bool permit,locked,cycle,change,held,rc9_current;uint8_t mode;uint32_t generation,serial;bool tripped;
   portENTER_CRITICAL(&mux);permit=allowed;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;portEXIT_CRITICAL(&mux);
@@ -259,11 +259,11 @@ void w12_lora_control(bool locked,uint64_t sampled,bool permit,uint64_t client_u
  portEXIT_CRITICAL(&mux);
 }
 bool w12_lora_mode(w12::LoRaMode mode){
- if(!PTOB_W12_LORA_TX_FACTORY||uint8_t(mode)>2)return false;
+ if(!PTOB_W12_LORA_ENABLED||uint8_t(mode)>2)return false;
  portENTER_CRITICAL(&mux);const bool ok=allowed&&!basic.failed;if(ok){requested_mode=uint8_t(mode);mode_pending=true;cycle_pending=false;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
 bool w12_lora_cycle(){
- if(!PTOB_W12_LORA_TX_FACTORY)return false;
+ if(!PTOB_W12_LORA_ENABLED)return false;
  portENTER_CRITICAL(&mux);const bool ok=allowed&&!basic.failed&&!cycle_pending&&!mode_pending;if(ok){cycle_pending=true;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
 void w12_lora_snapshot(w12_lora_view& out){portENTER_CRITICAL(&mux);out=published;if(emergency){out.fault=true;out.active=false;out.until_us=0;out.error=-ETIMEDOUT;out.spi_retired=out.capture_released=out.off_acknowledged=false;}portEXIT_CRITICAL(&mux);}

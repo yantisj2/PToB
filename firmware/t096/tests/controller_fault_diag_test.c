@@ -107,7 +107,11 @@ int main(int argc,char **argv){
  assert(r2_fault_capsule[21]==0xc1590005&&r2_fault_capsule[22]==0x80000000&&nested_interrupts==245);
  assert(r2_fault_capsule[2]==0x55667788&&r2_fault_capsule[3]==0x11223344);
  FILE *f=fopen(argv[1],"wb");assert(f);assert(fwrite((const void *)r2_fault_capsule,sizeof(uint32_t),64,f)==64);assert(!fclose(f));
- r2_health_init(9);assert(previous[21]==0xc1590005&&previous[22]==0x80000000);
+ /* Operational capsules are boot-local; durable crash retention has its own
+  * bound record and regression suite. The saved file above still decodes the
+  * original fault, while reboot must not restore it as current state. */
+ r2_health_init(9);
+ for(unsigned i=0;i<FAULT_WORDS;i++)assert(!previous[i]&&!r2_fault_capsule[i]);
  memset(previous,0,sizeof previous);r2_fault_capsule[0]=FAULT_MAGIC;r2_fault_capsule[21]^=1;
  r2_health_init(10);assert(!previous[0]);
  puts("PASS actual callback/helper/getter/fatal-copy/CRC: raw statuses, all marks/slots, invalid pointers, current slot reuse, nested IRQ and strict assertions");

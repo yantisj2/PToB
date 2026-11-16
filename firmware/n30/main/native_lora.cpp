@@ -289,7 +289,7 @@ void publish(){
  view.spi_retired=!inflight;view.capture_released=!capture_active&&!edge_enabled&&!map_enabled&&!current_enabled&&!timer_enabled&&!timer_started;view.reset_asserted=resources&&gpio_get_level(Reset)==0;
  portENTER_CRITICAL(&mux);view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;published_cleanup_fault=cleanup_failed||owner.stuck;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
 }
-bool configured_receiver(){return PTOB_N30_LORA_TX_FACTORY&&n30_rc8_init(PTOB_N30_FACTORY_ID,PTOB_N30_LORA_TX_FACTORY,PTOB_N30_GROUP_ID,PTOB_N30_KEY_EPOCH,PTOB_N30_GROUP_KEY);}
+bool configured_receiver(){return PTOB_N30_LORA_ENABLED&&n30_rc8_init(PTOB_N30_FACTORY_ID,PTOB_N30_LORA_TX_FACTORY,PTOB_N30_GROUP_ID,PTOB_N30_KEY_EPOCH,PTOB_N30_GROUP_KEY);}
 void worker_step(bool configured){
   const auto begin=now();bool permit,locked,cycle,change,parked;uint8_t mode;uint32_t generation,serial;bool tripped;uint64_t hold_id,hold_at;
   portENTER_CRITICAL(&mux);permit=allowed;parked=ble_parked;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;hold_id=hold_pending_id;hold_at=hold_pending_us;hold_pending_id=0;portEXIT_CRITICAL(&mux);
@@ -337,14 +337,14 @@ void n30_lora_control(bool locked,uint64_t sampled,bool permit,bool parked){
  portEXIT_CRITICAL(&mux);
 }
 bool n30_lora_mode(n30::LoRaMode mode){
- if(!PTOB_N30_LORA_TX_FACTORY||uint8_t(mode)>2)return false;
+ if(!PTOB_N30_LORA_ENABLED||uint8_t(mode)>2)return false;
  portENTER_CRITICAL(&mux);const bool ok=allowed&&!basic.failed;if(ok){requested_mode=uint8_t(mode);mode_pending=true;cycle_pending=false;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
 bool n30_lora_cycle(){
- if(!PTOB_N30_LORA_TX_FACTORY)return false;
+ if(!PTOB_N30_LORA_ENABLED)return false;
  portENTER_CRITICAL(&mux);const bool ok=allowed&&!basic.failed&&!cycle_pending&&!mode_pending;if(ok){cycle_pending=true;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
-bool n30_lora_configured(){return PTOB_N30_LORA_TX_FACTORY!=0;}
+bool n30_lora_configured(){return PTOB_N30_LORA_ENABLED!=0;}
 bool n30_lora_cleanup_fault(){
  portENTER_CRITICAL(&mux);
  const bool result=published_cleanup_fault||owner.stuck||owner.generation==UINT32_MAX||cancel_serial==UINT32_MAX;

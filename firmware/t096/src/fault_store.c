@@ -17,12 +17,13 @@ bool r2_fault_wd_valid(const volatile uint32_t *p,bool retained)
 {
  const volatile uint32_t *raw=p+R2_FAULT_WD_WORD;
  bool observed=p[26]==R2_FAULT_CONTEXT_HARDWARE_RESET;
+ bool usb=p[26]==R2_FAULT_CONTEXT_USB_OBSERVATION;
  if(p[0]!=R2_FAULT_WD_MAGIC||p[1]!=R2_FAULT_WD_SCHEMA||p[3]!=512||
     !(p[4]||p[5])||!(p[6]||p[7])||p[25]>R2_FAULT_WD_TERMINAL||
-    (p[26]!=R2_FAULT_CONTEXT_SOFTWARE_WD&&!observed)||p[127]!=R2_CRASH_COMMIT||p[126]!=r2_crash_crc(p)||
-    raw[0]!=(observed?R2_FAULT_RESET_MAGIC:UINT32_C(0x52325744))||raw[1]!=(observed?2u:1u)||raw[33]!=capsule_crc(raw)||
-    p[4]!=raw[2]||p[5]!=raw[3]||p[24]!=raw[4])return false;
- bool terminal=!observed&&((p[24]>=2&&p[24]<=7)||(p[24]>=16&&p[24]<256));
+    (p[26]!=R2_FAULT_CONTEXT_SOFTWARE_WD&&!observed&&!usb)||p[127]!=R2_CRASH_COMMIT||p[126]!=r2_crash_crc(p)||
+    raw[0]!=(usb?R2_USB_OBSERVATION_MAGIC:observed?R2_FAULT_RESET_MAGIC:UINT32_C(0x52325744))||raw[1]!=(observed?2u:1u)||raw[33]!=capsule_crc(raw)||
+    p[4]!=raw[2]||p[5]!=raw[3]||p[24]!=(usb?0:raw[4]))return false;
+ bool terminal=!observed&&!usb&&((p[24]>=2&&p[24]<=7)||(p[24]>=16&&p[24]<256));
  if(p[25]!=(terminal?R2_FAULT_WD_TERMINAL:0))return false;
  if(observed){if(p[24]||p[27]!=raw[5]||!p[27])return false;}
  else if(p[27])return false;

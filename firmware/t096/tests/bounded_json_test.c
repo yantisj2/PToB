@@ -21,6 +21,7 @@ static const struct r2_json_field fields[]={
 };
 #undef F
 int main(void){
+ assert(!strcmp(r2_json_bool(false),"false")&&!strcmp(r2_json_bool(true),"true")&&!strcmp(r2_json_bool(-7),"true"));
  struct values v={.u=UINT32_MAX,.i=INT32_MIN,.wide=UINT64_MAX,.negative=INT64_MIN,
   .yes=true,.string="pointer",.chars="inline",.b={INT32_MIN,INT32_MAX},.c={0,UINT64_MAX}};
  for(unsigned i=0;i<16;i++)v.a[i]=UINT32_MAX-i;

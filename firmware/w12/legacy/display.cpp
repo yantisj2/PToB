@@ -188,6 +188,12 @@ int64_t shown_clock(const DisplayState& s){
  return "UTC";
 }
 void header(const DisplayState& s){
+#ifdef PTOB_W12_DUAL_UI
+ if(s.page%display_pages::Count==display_pages::LoraRx){
+  char n[24];std::snprintf(n,sizeof n,"%.6s TX %.10s",s.unit_label,s.lora_emitter);text(1,0,n);
+  std::snprintf(n,sizeof n,"LORA RX %s",s.lora_mode==1?"KEEP ON":s.lora_mode==2?"OFF":"AUTO");text(1,8,n);return;
+ }
+#endif
  // The green band carries selected source/state and the page title/date or UTC.
  const char* source=s.timing_source==DisplayState::Rc9?"RC9":s.timing_source==DisplayState::Lora?"LORA":
                     s.timing_source==DisplayState::Ble?"BLE":s.timing_source==DisplayState::Pts?"PTS":s.timing_source==DisplayState::Gps?"GPS":"--";
@@ -830,7 +836,7 @@ void page_gps(const DisplayState& s){
 void page_precision(const DisplayState& s){
  if(s.timing_source==DisplayState::Rc9){text(2,17,"RC9 FROM LORA");text(2,30,"UTC LIVE",2);text(2,48,"PRECISION UNKNOWN");text(2,57,"DIRECT CLIENT");return;}
  const bool lora=s.precision_lora;
- char n[28];text(2,17,lora?"LINK RMS":"SYNC RMS");text(86,17,lora?"50ns":s.precision_fine?"12.5ns":"50ns");
+ char n[28];text(2,17,lora?"LINK RMS":"SYNC RMS");text(86,17,lora?"FIT":s.precision_fine?"12.5ns":"50ns");
  if(s.precision_live&&s.rms_ns!=UINT32_MAX){
   const auto divisor=s.rms_ns>=1000000?1000000:s.rms_ns>=10000?1000:1;
   std::snprintf(n,sizeof n,"%lu %s",(unsigned long)(s.rms_ns/divisor),divisor==1?"ns":divisor==1000?"us":"ms");
@@ -841,28 +847,33 @@ void page_precision(const DisplayState& s){
   if(s.lora_time_valid)std::snprintf(n,sizeof n,"LORA FIT N%u",unsigned(s.lora_link_samples));
   else std::snprintf(n,sizeof n,"LORA NO LIVE FIT");
   text(2,45,n);
-  text(2,55,"RX ONLY");text(92,55,s.precision_fine?"80MHz":"20MHz");return;
+  text(2,55,"UTC UNQUALIFIED");return;
  }
  std::snprintf(n,sizeof n,"LOCK %02llu:%02u:%02u",(unsigned long long)(s.r2_lock_seconds/3600),unsigned(s.r2_lock_seconds/60%60),unsigned(s.r2_lock_seconds%60));text(2,45,n);
  if(s.precision_live)std::snprintf(n,sizeof n,"TRIM %+ldPPB",(long)s.precision_rate_ppb);else std::snprintf(n,sizeof n,"TRIM --PPB");text(2,55,n);
  text(92,55,s.precision_fine?"80MHz":"20MHz");
 }
 void page_w12_lora(const DisplayState& s){
- char n[28];const char* mode=s.lora_mode==1?"KEEP ON":s.lora_mode==2?"KEEP OFF":"AUTO";
- std::snprintf(n,sizeof n,"RX %s",mode);text(2,17,n);
- text(2,27,s.lora_fault?"FAULT":s.lora_active?"ON":"OFF",2);
- if(!s.lora_configured)text(44,31,"NO TX ID");
- else if(s.lora_time_valid)text(44,31,"UTC LIVE");
- else if(s.lora_transition_ms&&s.lora_mode==0&&!s.lora_fault){std::snprintf(n,sizeof n,"%lus",(unsigned long)((s.lora_transition_ms+999)/1000));text(72,31,n);}
- else if(!s.lora_fault)text(44,31,s.lora_active?"WAIT SYNC":"STANDBY");
- if(s.lora_time_valid&&s.lora_link_rms_ns!=UINT32_MAX){
-  const auto divisor=s.lora_link_rms_ns>=1000000?1000000:s.lora_link_rms_ns>=1000?1000:1;
-  std::snprintf(n,sizeof n,"RMS %lu%s N %u",(unsigned long)(s.lora_link_rms_ns/divisor),divisor==1?"ns":divisor==1000?"us":"ms",unsigned(s.lora_link_samples));
- }else if(s.lora_time_valid)std::snprintf(n,sizeof n,"TRAIN N%u RX %lu",unsigned(s.lora_link_samples),(unsigned long)s.lora_accepted);
- else std::snprintf(n,sizeof n,"RMS WAIT RX");
+ char n[28];const bool live=s.lora_ui_phase==w12::LoRaUiPhase::Live;
+ if(s.lora_ui_phase==w12::LoRaUiPhase::Training)
+  std::snprintf(n,sizeof n,"TRAIN %03lu/180s N%u",(unsigned long)(s.lora_fit_span_ms/1000),unsigned(s.lora_link_samples));
+ else std::snprintf(n,sizeof n,"%s",w12::lora_ui_label(s.lora_ui_phase));
+ text(2,17,n);
+ char clock[12]="--:--:--";
+ if(live){time_t t=s.lora_utc_us/1000000;struct tm tm{};gmtime_r(&t,&tm);std::snprintf(clock,sizeof clock,"%02d:%02d:%02d",tm.tm_hour,tm.tm_min,tm.tm_sec);}
+ text(2,27,clock,2);
+ if(live&&s.lora_link_rms_ns!=UINT32_MAX){
+  const auto d=s.lora_link_rms_ns>=1000000?1000000:s.lora_link_rms_ns>=1000?1000:1;
+  std::snprintf(n,sizeof n,"FIT %lu%s N%u",(unsigned long)(s.lora_link_rms_ns/d),d==1?"ns":d==1000?"us":"ms",unsigned(s.lora_link_samples));
+ }else std::snprintf(n,sizeof n,"RF %lu%s CRC %lu%s",(unsigned long)std::min(s.lora_rx_done,uint32_t(99999)),s.lora_rx_done>99999?"+":"",(unsigned long)std::min(s.lora_crc,uint32_t(99999)),s.lora_crc>99999?"+":"");
  text(2,45,n);
- if(s.rc9_clients&&s.lora_client_hold_ms){std::snprintf(n,sizeof n,"RC9 %u HOLD %lus",unsigned(s.rc9_clients),(unsigned long)((s.lora_client_hold_ms+999)/1000));text(2,55,n);}
- else text(2,55,s.rc9_serving?"RC9 AVAILABLE":"HOLD: RX MODE");
+ if(s.lora_ui_phase==w12::LoRaUiPhase::WaitMeta)text(2,55,"META EVERY 300s");
+ else if(live||s.lora_ui_phase==w12::LoRaUiPhase::Training||s.lora_ui_phase==w12::LoRaUiPhase::FitWait){
+  if(s.lora_pair_age_ms==UINT32_MAX)text(2,55,"PAIR AGE --");
+  else{std::snprintf(n,sizeof n,"PAIR %lus UTC UNQUAL",(unsigned long)(s.lora_pair_age_ms/1000));text(2,55,n);}
+ }else if(s.lora_ui_phase==w12::LoRaUiPhase::WaitPair){
+  std::snprintf(n,sizeof n,"META AGE %lus",(unsigned long)(s.lora_meta_age_ms/1000));text(2,55,n);
+ }else text(2,55,s.lora_ui_phase==w12::LoRaUiPhase::Blocked||s.lora_ui_phase==w12::LoRaUiPhase::Fault?"WAIT FOR RECOVERY":"HOLD TO CHANGE RX");
 }
 #endif
 void display_show(const DisplayState& s){

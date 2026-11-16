@@ -17,6 +17,7 @@ current T096 sources plus separately acquired Zephyr/Nordic/TinyCrypt dependenci
 | Other third-party material and separately acquired dependencies | Their existing license and attribution |
 | Included original evidence records and derived CSV datasets | [CC BY 4.0](evidence/LICENSE.md) |
 | Original regional TZ mappings, public ID assignments, generated runtime data and coverage records | [CC BY 4.0, with public-domain IANA/Natural Earth source terms](tools/time_zones/README.md#terms-and-provenance) |
+| T-Watch selected solar/tide data and encoding | [NOAA/USNO public-domain facts; original selection/encoding CC BY 4.0](firmware/twatch/data/README.md#terms-and-sources) |
 | Future third-party or differently licensed datasets | Explicit terms recorded with the import |
 
 The manuscript and figure license is Creative Commons Attribution 4.0
@@ -55,7 +56,8 @@ The W12 and SS3 HMAC copies retain Intel's complete BSD-3-Clause notice and
 modification note. Do not strip these notices when redistributing source.
 
 See the [T096](firmware/t096/NOTICE.md), [W12](firmware/w12/NOTICE.md),
-[SS3](firmware/ss3/NOTICE.md), [N30](firmware/n30/NOTICE.md) and [macOS](clients/macos/NOTICE.md) notices for
+[SS3](firmware/ss3/NOTICE.md), [N30](firmware/n30/NOTICE.md),
+[T-Watch Ultra](firmware/twatch/NOTICE.md) and [macOS](clients/macos/NOTICE.md) notices for
 scope and dependency attribution. Zephyr, ESP-IDF and their components are
 acquired separately; their license obligations also apply to a future linked
 firmware distribution. Chrony is a separately built GPL-2.0 dependency, not MIT
@@ -63,3 +65,12 @@ code; its source archive and binaries are not tracked here. A future binary
 release needs its own complete dependency notices and corresponding-source
 review. This source repository does not grant rights to Apple's SDK/frameworks
 or to third-party works cited by the papers.
+
+The selected T-Watch BHI260AP driver and sensor RAM firmware retain Bosch
+Sensortec’s BSD-3-Clause license in [vendor/bhi260/LICENSE](firmware/twatch/vendor/bhi260/LICENSE).
+The provenance manifest records the upstream revision and individual file hashes.
+
+The selected SunCalc astronomy port in `firmware/twatch/vendor/suncalc/` retains
+BSD-2-Clause terms and attribution to Vladimir Agafonkin; see its LICENSE and
+provenance.json. Original selected astronomy validation data follows the watch
+calendar dataset terms (CC BY 4.0); upstream source retains its separate license.

@@ -7,6 +7,8 @@
 #include "app.h"
 #include "time_service.h"
 #include "ui.h"
+/* Formatting fixture: input servicing is outside this test boundary. */
+void r2_ui_input_tick(uint64_t now_ms){(void)now_ms;}
 #include "../src/bounded_json.c"
 void r2_time_precision_snapshot(struct r2_pps_precision_view *out)
 {*out=(struct r2_pps_precision_view){.epoch=UINT64_MAX,.age_us=INT64_MAX,.samples=UINT32_MAX,.drift_ppb=INT32_MIN,.trim_ppb=INT32_MAX,.fit_rms_ns=UINT32_MAX,.prediction_rms_ns=UINT32_MAX};}
@@ -30,7 +32,7 @@ int r2_board_poweroff(void){return -EAGAIN;}
 int r2_ui_close_result(void){return 0;}
 int r2_ui_page(unsigned p){return 0;}
 void r2_ui_publish(const struct r2_ui_model *m){}
-void r2_ui_snapshot(struct r2_ui_status *s){memset(s,0xff,sizeof(*s));s->menu.open=s->button_down=s->drawn_menu=true;s->profile_target_rc=s->screensaver=s->drawn_screensaver=true;s->shadow.active=s->shadow.valid=s->shadow.approximate=true;s->drawn_time=s->drawn_coarse=s->ready=s->stopped=s->analog=s->temperature_valid=s->drawn_scope=s->drawn_ble=s->drawn_pps=s->drawn_map=true;}
+void r2_ui_snapshot(struct r2_ui_status *s){memset(s,0xff,sizeof(*s));s->menu.lora=s->menu.open=s->button_down=s->drawn_menu=true;s->profile_target_rc=s->screensaver=s->drawn_screensaver=true;s->shadow.active=s->shadow.valid=s->shadow.approximate=true;s->drawn_time=s->drawn_coarse=s->ready=s->stopped=s->analog=s->temperature_valid=s->drawn_scope=s->drawn_ble=s->drawn_pps=s->drawn_map=true;}
 #ifdef R2_NATIVE_BLE
 static bool gm_diagnostic_reply;
 #include "ble_service.h"

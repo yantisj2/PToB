@@ -196,6 +196,14 @@ void poll(){
   }
   anchor=next;anchor_us=now;barrier();armed=handle!=UINT16_MAX||acquiring;
 }
+#ifdef PTOB_TWATCH
+void watch_reset_controller_mapping(){
+  // The recreated controller has a new BLE clock domain. The independent
+  // GPT counter and learned oscillator remain continuous outside this adapter.
+  anchor={};anchor_us=0;audit_us=0;clock_mapping.reset();
+  refinement_ready=false;refinement_ticks=0;last_reference={};
+}
+#endif
 bool start(){
   if(xPortGetCoreID()!=0||esp_clk_cpu_freq()!=240000000)return false;
   if(installed)return !fault;
@@ -207,6 +215,9 @@ bool start(){
      r_plf_funcs_p[0xbc/4]!=reinterpret_cast<void*>(r_emi_get_mem_addr_by_offset)){fault=1;return false;}
   if(!cpu_lock&&esp_pm_lock_create(ESP_PM_CPU_FREQ_MAX,0,"r2_rx",&cpu_lock)!=ESP_OK){fault=2;return false;}
   if(esp_pm_lock_acquire(cpu_lock)!=ESP_OK){fault=2;return false;}
+#ifdef PTOB_TWATCH
+  watch_reset_controller_mapping();
+#endif
   r_ip_funcs_p[RxSlot]=reinterpret_cast<void*>(w12_periodic_rx_hook);
   r_ip_funcs_p[AuxSlot]=reinterpret_cast<void*>(w12_periodic_aux_hook);
   r_ip_funcs_p[FreeSlot]=reinterpret_cast<void*>(w12_periodic_free_hook);

@@ -1,0 +1,114 @@
+{
+  "source": "US Naval Observatory Astronomical Applications API",
+  "terms": "US government factual ephemeris data; original selection Jonathan Yantis CC-BY-4.0",
+  "rows": [
+    {
+      "date": "2026-03-20",
+      "url": "https://aa.usno.navy.mil/api/rstt/oneday?date=2026-03-20&coords=30.35,-86.23&tz=-6",
+      "utc_offset_hours": -6,
+      "events": [
+        {
+          "phen": "Begin Civil Twilight",
+          "time": "05:25"
+        },
+        {
+          "phen": "Rise",
+          "time": "05:49"
+        },
+        {
+          "phen": "Upper Transit",
+          "time": "11:52"
+        },
+        {
+          "phen": "Set",
+          "time": "17:56"
+        },
+        {
+          "phen": "End Civil Twilight",
+          "time": "18:20"
+        }
+      ]
+    },
+    {
+      "date": "2026-06-21",
+      "url": "https://aa.usno.navy.mil/api/rstt/oneday?date=2026-06-21&coords=30.35,-86.23&tz=-6",
+      "utc_offset_hours": -6,
+      "events": [
+        {
+          "phen": "Begin Civil Twilight",
+          "time": "04:16"
+        },
+        {
+          "phen": "Rise",
+          "time": "04:44"
+        },
+        {
+          "phen": "Upper Transit",
+          "time": "11:47"
+        },
+        {
+          "phen": "Set",
+          "time": "18:50"
+        },
+        {
+          "phen": "End Civil Twilight",
+          "time": "19:18"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-15",
+      "url": "https://aa.usno.navy.mil/api/rstt/oneday?date=2026-11-15&coords=30.35,-86.23&tz=-6",
+      "utc_offset_hours": -6,
+      "events": [
+        {
+          "phen": "Begin Civil Twilight",
+          "time": "05:45"
+        },
+        {
+          "phen": "Rise",
+          "time": "06:11"
+        },
+        {
+          "phen": "Upper Transit",
+          "time": "11:30"
+        },
+        {
+          "phen": "Set",
+          "time": "16:48"
+        },
+        {
+          "phen": "End Civil Twilight",
+          "time": "17:14"
+        }
+      ]
+    },
+    {
+      "date": "2026-12-21",
+      "url": "https://aa.usno.navy.mil/api/rstt/oneday?date=2026-12-21&coords=30.35,-86.23&tz=-6",
+      "utc_offset_hours": -6,
+      "events": [
+        {
+          "phen": "Begin Civil Twilight",
+          "time": "06:11"
+        },
+        {
+          "phen": "Rise",
+          "time": "06:37"
+        },
+        {
+          "phen": "Upper Transit",
+          "time": "11:43"
+        },
+        {
+          "phen": "Set",
+          "time": "16:49"
+        },
+        {
+          "phen": "End Civil Twilight",
+          "time": "17:15"
+        }
+      ]
+    }
+  ]
+}

@@ -25,9 +25,12 @@ static enum r2_lora_source_gate source_gate;
 void r2_lora_source_status(enum r2_lora_source_gate gate){source_gate=gate;}
 static bool lora_hold_available;
 static unsigned lora_hold_queries;
-bool r2_lora_source_hold(const struct rc8_scope *scope,struct r2_capture at){
+static struct rc8_export lora_hold_limit;
+bool r2_lora_source_hold(const struct rc8_scope *scope,struct r2_capture at,const struct rc8_export *candidate){
+ assert(candidate&&!candidate->valid&&!candidate->authenticated);
  assert(scope->kind==RC8_SELECTED_BLE&&at.kind==R2_CAPTURE_NOW);++lora_hold_queries;
- return lora_hold_available;
+ return lora_hold_available&&candidate->until_tick>=lora_hold_limit.until_tick&&
+  candidate->expires_ns>=lora_hold_limit.expires_ns;
 }
 static bool ble_needed;static unsigned ble_observations;static struct lp_ble_return observed_ble;
 bool r2_lora_ble_needed(void){return ble_needed;}

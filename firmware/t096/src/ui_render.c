@@ -4,6 +4,9 @@
 /* SPDX-License-Identifier: Apache-2.0
  * Original pre-Zephyr watch/RF drawing, with an R2-only state adapter. */
 #include "ui.h"
+#ifdef R2_USB_SOURCE_STREAM
+#include "usb_health.h"
+#endif
 #ifdef R2_TZ_AUTO
 #include "time_zone_config.h"
 #endif
@@ -121,36 +124,45 @@ uint8_t r2_ui_menu_enabled(const struct r2_ui_model *m){
  if(m->profile_supported)mask|=1u<<R2_MENU_MODE;
  if(m->ble_rx_supported)mask|=1u<<R2_MENU_BLE;
 #ifdef R2_LORA
- if(!m->lora.transmitter||!m->profile_rc)mask|=1u<<R2_MENU_LORA;
+ mask|=1u<<R2_MENU_LORA;
 #endif
  return mask;
 }
 static bool menu_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_status *s,uint64_t now){
  char text[24];
- R2_UI_BOOL_CALL(watch_panel(fb,1,13));R2_UI_BOOL_CALL(label(fb,28,4,"MENU",1,C_WHITE));
+ R2_UI_BOOL_CALL(watch_panel(fb,1,13));R2_UI_BOOL_CALL(label(fb,28,4,s->menu.lora?"LoRa":"MENU",1,C_WHITE));
  R2_UI_BOOL_CALL(snprintf(text,sizeof text,"%.5s %s",m->unit,m->profile_rc?"RC":"GM"));R2_UI_BOOL_CALL(row_label5(fb,20,text,C_DIM));
  R2_UI_BOOL_CALL(snprintf(text,sizeof text,"%us",s->menu.seconds));R2_UI_BOOL_CALL(label(fb,63,20,text,1,C_DIM));
  R2_UI_BOOL_CALL(fill(fb,5,30,70,1,C_BEZEL));R2_UI_BOOL_CALL(fill(fb,5,30,14*s->menu.seconds,1,C_CYAN));
  unsigned row=0;uint8_t enabled=r2_ui_menu_enabled(m);
+ if(s->menu.lora)enabled=(1u<<R2_MENU_MODE)|(1u<<R2_MENU_EXIT)|(!m->profile_rc?(1u<<R2_MENU_POWER):0);
  for(unsigned i=0;i<R2_MENU_ITEMS;i++){
+  if(s->menu.lora&&i!=R2_MENU_MODE&&i!=R2_MENU_POWER&&i!=R2_MENU_EXIT)continue;
   if((i==R2_MENU_MODE&&!m->profile_supported)||(i==R2_MENU_BLE&&!m->ble_rx_supported))continue;
 #ifndef R2_LORA
   if(i==R2_MENU_LORA)continue;
 #endif
   const char *name="EXIT";
+#ifdef R2_LORA
+  if(s->menu.lora){
+   if(i==R2_MENU_MODE)name=!m->lora.transmitter&&m->lora.requested?"RX OFF":"RX ON";
+   else if(i==R2_MENU_POWER)name=m->profile_rc?"TX --":m->lora.transmitter&&m->lora.requested?"TX OFF":"TX ON";
+   else name="BACK";
+  }else
+#endif
   switch(i){
    case R2_MENU_MODE:name=m->profile_rc?"GM MODE":"RC MODE";break;
    case R2_MENU_POWER:name="POWER OFF";break;
    case R2_MENU_BLE:name=m->ble_rx_requested?"BLE RX OFF":"BLE RX ON";break;
 #ifdef R2_LORA
    case R2_MENU_LORA:
-    R2_UI_BOOL_CALL(snprintf(text,sizeof text,"LoRa %s %s",m->lora.transmitter?"TX":"RX",!(enabled&(1u<<i))?"--":m->lora.requested?"OFF":"ON"));name=text;break;
+    name="LoRa >";break;
 #endif
   }
   int y=35+(int)row++*17;uint16_t ink=enabled&(1u<<i)?C_WHITE:C_DIM;
-  if(i==s->menu.item){uint16_t selected=i==R2_MENU_POWER?C_AMBER:C_CYAN;R2_UI_BOOL_CALL(round_panel(fb,3,y,74,16,selected,selected));ink=C_BG;}
+  if(i==s->menu.item&&(enabled&(1u<<i))){uint16_t selected=i==R2_MENU_POWER&&!s->menu.lora?C_AMBER:C_CYAN;R2_UI_BOOL_CALL(round_panel(fb,3,y,74,16,selected,selected));ink=C_BG;}
   R2_UI_BOOL_CALL(row_label7(fb,y+4,name,ink));
-  if(i==s->menu.item&&s->menu.hold_percent){R2_UI_BOOL_CALL(fill(fb,7,y+13,66,1,C_BEZEL));R2_UI_BOOL_CALL(fill(fb,7,y+13,66*s->menu.hold_percent/100,1,C_BG));}
+  if(i==s->menu.item&&(enabled&(1u<<i))&&s->menu.hold_percent){R2_UI_BOOL_CALL(fill(fb,7,y+13,66,1,C_BEZEL));R2_UI_BOOL_CALL(fill(fb,7,y+13,66*s->menu.hold_percent/100,1,C_BG));}
  }
  const char *result=NULL;uint16_t color=C_GREEN;
  if(m->profile_switching){result="SWITCHING";color=C_AMBER;}
@@ -163,7 +175,7 @@ static bool menu_render(uint8_t *fb,const struct r2_ui_model *m,const struct r2_
 #endif
  }
 #ifdef R2_LORA
- else if(m->lora.transmitter&&m->profile_rc){result="GM ONLY";color=C_AMBER;}
+ else if(s->menu.lora&&m->profile_rc){result="GM ONLY";color=C_AMBER;}
  else if(s->menu.item==R2_MENU_LORA){
   if(m->lora.fault){result="RADIO FAULT";color=C_AMBER;}
   else if(m->lora.requested&&!m->lora.active){result=m->lora.transmitter?"TX WAIT":"RX INHIBITED";color=C_AMBER;}
@@ -890,6 +902,44 @@ static bool __attribute__((noinline)) render_snapshot(ui_snapshot_t *s,
  return true;
 }
 
+#ifdef R2_LORA
+static bool lora_tx_page(uint8_t *fb,const struct r2_lora_view *v,bool fresh,bool locked){
+ char text[24];const char *value;
+   bool current=fresh;
+   bool source_ready=current&&v->time_valid;
+   const char *state=!current?"STATUS STALE":v->fault||v->tx_wait_reason==R2_LORA_TX_FAULT?"RADIO FAULT":
+    !v->requested?"DISABLED":v->tx_wait_reason==R2_LORA_TX_PROFILE?"GM ONLY":
+    v->tx_wait_reason==R2_LORA_TX_BLOCKED?"TX BLOCKED":!source_ready?"WAIT SOURCE":
+    v->tx_restart_ms?"RESTART WAIT":v->tx_wait_reason==R2_LORA_TX_CAP?"AIRTIME LIMIT":
+    !v->active?"STARTING":locked?"TRAIN ACTIVE":"WAIT PAIR";
+   R2_UI_BOOL_CALL(row_label4(fb,44,state,current&&(v->fault||v->tx_wait_reason==R2_LORA_TX_FAULT)?C_RED:
+    current&&v->requested&&source_ready&&!v->tx_restart_ms&&!v->tx_wait_reason&&locked?C_GREEN:C_AMBER));
+   const char *source=v->kind==RC8_SELECTED_BLE?"BLE":v->kind==RC8_OWN_GM?"GM":"NONE";
+   R2_UI_BOOL_CALL(snprintf(text,sizeof text,"SOURCE %s",current?source:"--"));
+   R2_UI_BOOL_CALL(row_label4(fb,60,text,source_ready?C_CYAN:C_DIM));
+   value=text;
+   if(current&&v->tx_stats_valid)R2_UI_BOOL_CALL(snprintf(text,sizeof text,"PAIRS %u%s",v->tx_pairs>99999?99999:v->tx_pairs,v->tx_pairs>99999?"+":""));
+   else value="PAIRS --";
+   R2_UI_BOOL_CALL(row_label4(fb,78,value,C_WHITE));
+   uint32_t age=v->age_ms; /* Worker-advanced age at this guarded UI sample. */
+   value=text;
+   if(!current||v->age_ms==UINT32_MAX)value=current?"NO PAIR YET":"LAST --";
+   else if(age>=10000000)value="LAST >9999s";
+   else R2_UI_BOOL_CALL(snprintf(text,sizeof text,"LAST %u.%us",(unsigned)(age/1000),(unsigned)(age%1000/100)));
+   R2_UI_BOOL_CALL(row_label4(fb,90,value,C_DIM));
+   value=text;
+   if(current&&v->tx_restart_ms)R2_UI_BOOL_CALL(snprintf(text,sizeof text,"RETRY %us",(v->tx_restart_ms+999)/1000));
+   else value="NO ACK MODE";
+   R2_UI_BOOL_CALL(row_label4(fb,108,value,current&&v->tx_restart_ms?C_AMBER:C_DIM));
+   value=text;
+   if(current&&v->tx_stats_valid)R2_UI_BOOL_CALL(snprintf(text,sizeof text,"AIR/1H %u.%us",v->tx_airtime_ms/1000,v->tx_airtime_ms%1000/100));
+   else value="AIR/1H --";
+   R2_UI_BOOL_CALL(row_label4(fb,122,value,C_DIM));
+   R2_UI_BOOL_CALL(row_label4(fb,136,"UTC UNQUAL",C_DIM));
+   R2_UI_BOOL_CALL(row_label4(fb,150,"HOLD: MENU",C_AMBER));return true;
+}
+#endif
+
 static bool render_full(uint8_t *fb,const struct r2_ui_model *m,const struct r2_ui_status *status,uint64_t now)
 {
  ui_snapshot_t s;unsigned facts=0;const char *clock_zone=NULL;
@@ -966,7 +1016,8 @@ static bool render_full(uint8_t *fb,const struct r2_ui_model *m,const struct r2_
 #endif
   R2_UI_BOOL_CALL(snprintf(text,sizeof text,"%s %s",v->transmitter?"TX":"RX",v->requested?"ON":"OFF"));
   R2_UI_BOOL_CALL(label(fb,5,22,text,2,v->requested?C_CYAN:C_DIM));
-  const char *state=v->fault?"RADIO FAULT":!v->requested?"DISABLED":!v->active?"INHIBITED":v->transmitter?(s.lora_locked?"TRAIN ACTIVE":v->time_valid?"WAIT TRAIN":"WAIT SOURCE"):v->metadata_cached&&v->observer_available?(v->rx_age_ms>=35000?"HOLD / EST":!v->context_known?"META STALE":!v->quality_known?"ACQ / EST":"MATCHED TIME"):v->coord_follow?"COORD FOLLOW":v->state==RC8_AVAILABLE?"MATCHED TIME":v->state==RC8_EXPIRED?(v->display_acquiring?"UTC ESTIMATE":v->display_held?"DISPLAY HOLD":"HOLD EXPIRED"):"WAIT PACKETS";
+  if(v->transmitter)return lora_tx_page(fb,v,fresh,s.lora_locked);
+  const char *state=v->fault?"RADIO FAULT":!v->requested?"DISABLED":!v->active?"INHIBITED":v->metadata_cached&&v->observer_available?(v->rx_age_ms>=35000?"HOLD / EST":!v->context_known?"META STALE":!v->quality_known?"ACQ / EST":"MATCHED TIME"):v->coord_follow?"COORD FOLLOW":v->state==RC8_AVAILABLE?"MATCHED TIME":v->state==RC8_EXPIRED?(v->display_acquiring?"UTC ESTIMATE":v->display_held?"DISPLAY HOLD":"HOLD EXPIRED"):"WAIT PACKETS";
   R2_UI_BOOL_CALL(row_label4(fb,44,state,C_WHITE));
   int64_t observed_utc=0;bool observer_clock=lora_observer_current(m,now)&&lora_at(m,now,v->display_until_us,&observed_utc);
   if(observer_clock||(v->requested&&v->active&&v->utc_us&&v->until_us>now*1000)){
@@ -975,10 +1026,7 @@ static bool render_full(uint8_t *fb,const struct r2_ui_model *m,const struct r2_
   }else R2_UI_BOOL_CALL(snprintf(text,sizeof text,"--:--:--"));
   R2_UI_BOOL_CALL(row_label4(fb,58,text,C_WHITE));
   const char *source=v->kind==RC8_SELECTED_BLE?"BLE":v->kind==RC8_OWN_GM?"GM":"NONE";
-  if(v->transmitter){
-   R2_UI_BOOL_CALL(snprintf(text,sizeof text,"%s SOURCE",source));R2_UI_BOOL_CALL(row_label4(fb,74,text,C_CYAN));
-   R2_UI_BOOL_CALL(row_label4(fb,86,v->state==RC8_AVAILABLE?"TIME VALID":"TIME INVALID",v->state==RC8_AVAILABLE?C_GREEN:C_AMBER));
-  }else{
+  {
    bool measured=lora_rms_current(m,now);
    uint32_t metric=lora_metric_ns(v);
    if(measured){
@@ -996,7 +1044,7 @@ static bool render_full(uint8_t *fb,const struct r2_ui_model *m,const struct r2_
   if(v->parent_quality)R2_UI_BOOL_CALL(snprintf(text,sizeof text,"%s C%uA%u",source,v->parent_class,v->parent_accuracy));
   else R2_UI_BOOL_CALL(snprintf(text,sizeof text,"%s META %s",source,v->context_known?"OK":v->metadata_cached?"OLD":"?"));
   R2_UI_BOOL_CALL(row_label4(fb,112,text,C_WHITE));
-  if(!v->transmitter){
+  {
 #if defined(R2_LORA_PASSIVE_FAST)||defined(R2_LORA_PASSIVE_SLOW)
    R2_UI_BOOL_CALL(row_label4(fb,124,"PASSIVE RX",C_DIM));
    R2_UI_BOOL_CALL(row_label4(fb,136,"UTC UNQUAL",C_DIM));
@@ -1013,7 +1061,7 @@ static bool render_full(uint8_t *fb,const struct r2_ui_model *m,const struct r2_
    else R2_UI_BOOL_CALL(snprintf(text,sizeof text,"RTT --"));
    R2_UI_BOOL_CALL(row_label4(fb,136,text,color));
 #endif
-  }else R2_UI_BOOL_CALL(row_label4(fb,136,v->choice==RC8_SELECT_BLE?"BLE SELECTED":v->choice==RC8_SELECT_LOCAL_GM?"GM SELECTED":"NO CLOCK",C_DIM));
+  }
   R2_UI_BOOL_CALL(row_label4(fb,150,"HOLD: MENU",C_AMBER));return true;
  }
 #endif
@@ -1182,6 +1230,18 @@ static bool render_full(uint8_t *fb,const struct r2_ui_model *m,const struct r2_
   R2_UI_BOOL_CALL(row_label3(fb,149,"UTC ACC --",C_DIM));return true;
  }
  R2_UI_BOOL_CALL(watch_panel(fb,1,13));R2_UI_BOOL_CALL(row_label7(fb,4,"SYSTEM",C_WHITE));
+#ifdef R2_USB_SOURCE_STREAM
+ char text[16];
+ /* Physical button access remains available when every USB endpoint fails.
+  * No observer work on the ordinary TX/dial pages or in an ISR. */
+ uint32_t usb[8];r2_usb_debug_snapshot(usb);
+ R2_UI_OPTIONAL_CALL(r2_ui_uptime_text(text,now));R2_UI_BOOL_CALL(row_label5(fb,21,text,C_WHITE));
+ R2_UI_BOOL_CALL(row_label5(fb,35,r2_ui_reset_text(m->reset_kind),C_DIM));
+ for(unsigned i=0;i<8;i++){
+  R2_UI_BOOL_CALL(snprintf(text,sizeof text,"%c%08X","FPGNCIHV"[i],(unsigned)usb[i]));
+  R2_UI_BOOL_CALL(row_label5(fb,50+12*i,text,C_WHITE));
+ }
+#else
  char text[16];R2_UI_BOOL_CALL(row_label5(fb,23,"UPTIME",C_DIM));
  R2_UI_OPTIONAL_CALL(r2_ui_uptime_text(text,now));R2_UI_BOOL_CALL(row_label5(fb,35,text,C_WHITE));
  R2_UI_BOOL_CALL(row_label5(fb,51,"LAST RESET",C_DIM));
@@ -1191,6 +1251,7 @@ static bool render_full(uint8_t *fb,const struct r2_ui_model *m,const struct r2_
  R2_UI_BOOL_CALL(snprintf(text,sizeof(text),"AUTH %u",m->authenticated));R2_UI_BOOL_CALL(row_label5(fb,106,text,C_WHITE));
  R2_UI_BOOL_CALL(snprintf(text,sizeof(text),"DROP %u",m->queue_drops));R2_UI_BOOL_CALL(row_label5(fb,118,text,C_WHITE));
  R2_UI_BOOL_CALL(row_label5(fb,134,m->ble_active?"BLE RUNNING":"BLE STOPPED",C_CYAN));
+#endif
  R2_UI_BOOL_CALL(row_label5(fb,149,"HOLD: MENU",C_DIM));
 
  return true;

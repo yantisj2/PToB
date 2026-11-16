@@ -47,7 +47,7 @@ int main(void){
  }
  assert(v.prediction_n==13&&v.frozen60_n==12&&v.prediction_rms_ns<200&&v.frozen60_rms_ns<200);
  // Same-context fresh META is control refresh, not a reset or new physical pair.
- const uint32_t accepted=v.accepted,n=v.prediction_n;meta.serial=3;meta.cursor=38;meta.utc_ns=utc(now);encode(meta);
+ const uint32_t accepted=v.accepted,n=v.prediction_n;meta.serial=3;meta.cursor=40;meta.utc_ns=utc(now);encode(meta);
  assert(!n30_rc8_receive(wire,112,now*16,7,now,now,gen));n30_rc8_clock(now*16,7,now);n30_rc8_snapshot(&v,now);assert(v.model_valid&&v.accepted==accepted&&v.prediction_n==n);
  // Original physical120s cutoff cannot be renewed by snapshots or META.
  now=2000000+UINT64_C(30000000)*19+LP_HOLD_US;n30_rc8_clock(now*16,7,now);n30_rc8_snapshot(&v,now);assert(!v.utc_us&&!v.model_valid&&!v.until_us);

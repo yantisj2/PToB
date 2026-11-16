@@ -34,18 +34,20 @@ for row in text.splitlines():
 # These two callback pointers are bound once by the real serialized GM owner.
 for caller,callee in [('clock_now','hf_read'),('gm7_owner_reservation_cancel','reservation_fence')]:
  for x in by_name.get(caller,[]):calls[x].update(by_name.get(callee,[]))
-# Linked snprintf installs the concrete leaf callback, not an arbitrary user
+# Linked string formatters install the concrete leaf callback, not an arbitrary user
 # FILE. Verify its Thumb pointer literal before resolving this indirect edge.
 format_target=by_name.get('__file_str_put',[])
 format_evidence={}
 if format_target:
- assert len(format_target)==1 and len(by_name.get('snprintf',[]))==1
- body='\n'.join(bodies[by_name['snprintf'][0]])
- assert re.search(r'\.word\s+0x0*'+format(format_target[0]|1,'x')+r'\b',body)
+ assert len(format_target)==1 and len(by_name.get('__l_vfprintf',[]))==1
  format_callers=[names[x] for x,edges in calls.items() if by_name['__l_vfprintf'][0] in edges]
- assert set(format_callers)=={'snprintf'},format_callers
+ assert format_callers and set(format_callers)<={'snprintf','vsnprintf'},format_callers
+ for caller in format_callers:
+  assert len(by_name[caller])==1
+  body='\n'.join(bodies[by_name[caller][0]])
+  assert re.search(r'\.word\s+0x0*'+format(format_target[0]|1,'x')+r'\b',body),caller
  for x in by_name['__l_vfprintf']:calls[x].update(format_target)
- format_evidence={'caller':'snprintf','format':'__l_vfprintf','callback':'__file_str_put','callback_address':hex(format_target[0]),'binding':'linked Thumb literal in snprintf FILE initializer; leaf disassembly included in frame audit'}
+ format_evidence={'callers':sorted(format_callers),'format':'__l_vfprintf','callback':'__file_str_put','callback_address':hex(format_target[0]),'binding':'verified linked Thumb literal in each string formatter FILE initializer; leaf disassembly included in frame audit'}
 unknown=set();cycles=set();assembly={};dynamic_stack=[]
 def size(address):
  name=names.get(address,hex(address));canonical=re.sub(r'\.(isra|constprop)\.\d+',r'.\1',name)
@@ -82,7 +84,7 @@ def longest(address,seen=(),normal=False):
   if option[0]>best[0]:best=option
  return best
 roots={}
-for root in ['cycle','main','prepare_radio','auxiliary_isr','finish_isr','gm7_ticker_job','owner','precision_owner','supervisor_owner','gatt_dispatch','tx_processor','work_queue_main','recv_thread','prio_recv_thread','rx_work_handler','prepare_lll','r2_gm7_precision_anchor','hci_driver_send','gm7_owner_reservation_cancel','gm7_owner_reservation_failed','gm7_owner_withdraw','disarm']:
+for root in ['cycle','main','prepare_radio','auxiliary_isr','finish_isr','gm7_ticker_job','owner','precision_owner','supervisor_owner','gatt_dispatch','tx_processor','work_queue_main','recv_thread','prio_recv_thread','rx_work_handler','prepare_lll','r2_gm7_precision_anchor','hci_driver_send','gm7_owner_reservation_cancel','gm7_owner_reservation_failed','gm7_owner_withdraw','disarm','usbd_work_handler','usb_handle_control_transfer','vendor_handler','timing_request','r2_usb_health_snapshot','r2_usb_dma_health','r2_usb_debug_snapshot','watchdog_owner','watchdog_step','worker','r2_fault_boot','r2_fault_append']:
  n,path=max((longest(address)for address in by_name.get(root,[])),default=(0,[]))
  roots[root]={'known_direct_chain_bytes':n,'chain':path}
 # Source-constrained normal main excludes only the explicitly false FIELD path.
@@ -93,6 +95,8 @@ roots['main_normal_context']={'known_direct_chain_bytes':n,'chain':path}
 wrappers={'workqueue_local_frame':frames.get('work_queue_main',0),'thread_entry_local_frame':frames.get('z_thread_entry',0)}
 config=(target/'zephyr/.config').read_text();wanted=['MAIN_STACK_SIZE','ISR_STACK_SIZE','SYSTEM_WORKQUEUE_STACK_SIZE','HEAP_MEM_POOL_SIZE','BT_MAX_CONN','BT_EXT_ADV_MAX_ADV_SET','BT_PER_ADV_SYNC_MAX','BT_CTLR_RX_BUFFERS','BT_BUF_ACL_TX_COUNT','BT_BUF_EVT_RX_COUNT','BT_BUF_CMD_TX_COUNT']
 settings={k:int(re.search(r'^CONFIG_'+k+r'=(\d+)$',config,re.M)[1]) for k in wanted}
+usb_stack=re.search(r'^CONFIG_USB_NRFX_WORK_QUEUE_STACK_SIZE=(\d+)$',config,re.M)
+if usb_stack:settings['USB_NRFX_WORK_QUEUE_STACK_SIZE']=int(usb_stack[1])
 new=[*app.glob('src/gm7*.c'),*app.glob('protocol/gm7*.c')]
 alloc=[str(f.relative_to(app)) for f in new if re.search(r'\b(?:malloc|calloc|realloc|k_malloc|k_calloc)\s*\(',f.read_text())]
 result={'class':'OFFLINE_STATIC_EVIDENCE_ONLY','elf_sha256':hashlib.sha256(elf.read_bytes()).hexdigest(),'config_sha256':hashlib.sha256(config.encode()).hexdigest(),'roots':roots,'config':settings,'new_dynamic_allocations':alloc,'unknown_frame_functions':sorted(unknown),'call_cycles':sorted(cycles),'indirect_sites':indirect,'wrapper_frames':wrappers,'format_callback':format_evidence,'bounded_cancellation_component':sorted(bounded_cancel),'assembly_static_allocation_sum':assembly,'assembly_dynamic_stack':sorted(set(dynamic_stack)),'frames':frames,'frame_files':frame_files,'limits':'Compiler .su/direct-call graph with separate addresses for duplicate static names. Missing .su falls back to an auditable sum of static push/sub-SP instructions; this is not a CFG/loop proof. Unresolved indirect callbacks, tail/recursive cycles, exception/nesting and wrapper execution context need manual review. main_normal_context excludes only explicit shadow_poll(false) FIELD path. Linker and arithmetic remaining stack space are unaccounted headroom, never runtime high-water or measured reserve.'}

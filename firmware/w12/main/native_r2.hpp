@@ -149,6 +149,15 @@ inline PpsComparison r2_shadow_pps(const R2Status& mesh,uint64_t edge20,uint64_t
 bool r2_init(uint64_t boot,const uint8_t factory[6]);
 bool r2_host_init();
 bool r2_host_sync();
+#ifdef PTOB_TWATCH
+bool r2_watch_host_suspend(); // Host-tail proof; no owner or authority survives.
+void r2_watch_host_fenced(); // Commit host retirement after the admission gate closes.
+int r2_watch_host_sync_error(uint8_t* site);
+bool r2_watch_capture_retired();
+bool r2_watch_unstarted_quiet();
+bool r2_watch_host_rearm(); // Only after transport's full physical-OFF proof.
+void r2_watch_host_resume(bool requested); // Main/worker mailbox; no SDK call.
+#endif
 void r2_host_poll();
 #if V12_R2_CONFIG == 13
 void r2_host_cleanup();
@@ -163,6 +172,36 @@ bool r2_client_start(uint64_t id);
 // Select only while actual all-owner OFF gates admit a new client generation.
 // An active service must finish its original drain before changing profile.
 bool r2_client_start_profile(uint64_t id,uint8_t listening_percent);
+#ifdef PTOB_TWATCH
+// Queue watch-local recovery; the host owner verifies the original completed
+// drain before clearing an operating fault and admitting a fresh generation.
+// Failed cleanup/deadlines remain terminal. No controller/device reset occurs.
+struct WatchRadioRecoveryStatus {
+  uint64_t stop_requested_us=0,stop_deadline_us=0,completed_us=0;
+  uint64_t unretired_at_us=0;uint32_t unretired_callback_epoch=0;
+  uint16_t unretired_handle=UINT16_MAX;bool unretired_periodic=false;
+  uint32_t attempts=0,recovered=0,refused=0;uint8_t reason=0;bool pending=false;
+};
+enum WatchRadioFaultReason:uint8_t {
+  WatchFaultNone=0,WatchFaultApi=1,WatchFaultPeriodicEpoch=2,
+  WatchFaultPeriodicContext=3,WatchFaultCaptureAdopt=4,WatchFaultUnknown=5
+};
+// First observed cause of this episode. API history remains separate. This
+// fixed capsule is copied only; callbacks never format, allocate or use flash.
+struct WatchRadioFaultStatus {
+  uint64_t at_us=0,parent=0,requested_parent=0;
+  uint32_t episode=0,capture_epoch=0,callback_epoch=0;int32_t rc=0;
+  uint16_t handle=UINT16_MAX,interval=0;
+  uint8_t reason=WatchFaultNone,api=0,site=0,expected_sid=0,observed_sid=0;
+  bool relay=false,address_match=false;
+};
+bool r2_watch_radio_recover();
+// Explicit UI ON intent after a faulted OFF; it neither clears the fault nor
+// starts RF. The watch timer must still request the guarded worker recovery.
+bool r2_watch_radio_enable();
+WatchRadioRecoveryStatus r2_watch_radio_recovery_status();
+WatchRadioFaultStatus r2_watch_radio_fault_status();
+#endif
 // Clears diagnostic pins and requests automatic upstream selection. The old
 // clock/path is fenced and all owners drain within the original2s deadline
 // before the worker applies the mode. No controller calls occur in this API.

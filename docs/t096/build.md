@@ -215,8 +215,8 @@ python3 firmware/t096/tools/lora_fixed500_tests.py \
 
 Select `--lora-passive-slow` plus one exact `--lora-transmitter-factory` for the
 [current passive wire3 design](lora-protocol.md). Use the same designated binding
-on all devices. It identifies privately verified hardware, never selects a
-runtime mesh. Do not pass a nonzero `--lora-backup-transmitter-factory`: the RAM
+on all devices. It identifies the privately verified default transmitter, never selects a
+runtime mesh or automatically enables another emitter. Do not pass a nonzero `--lora-backup-transmitter-factory`: the RAM
 cohort rejects automatic backup TX. Local authenticated discovery and current
 source admission remain required. DC/PC reject passive variants.
 
@@ -224,8 +224,16 @@ The slow image requests LoRa ON at boot. Listeners receive in GM and RC profiles
 GM participation does not suppress passive RX. The designated device transmits
 only in GM profile with an eligible source: qualified own-GNSS time or fresh
 authenticated locked BLE time from another GM. It need not be the serving GM.
-Entering GM restores its TX request; manual OFF lasts until the next RC→GM
-transition or reboot. Other devices cannot become LoRa emitters by changing mode.
+Build with `--lora-boot-rx` to make even the designated transmitter boot in RX.
+This keeps the configured transmitter identity and manual TX capability; reboot
+returns that image to RX. The override applies only to ordinary passive slow
+GM/RC builds.
+The LoRa submenu can explicitly switch a GM from RX to TX; changing GM/RC
+profile alone does not promote an RX-default radio. The radio closes before a
+role change, with airtime debt, cooldowns and replay floors retained. Reboot
+restores the image’s TX/RX default, including the explicit RX override. Updated ordinary slow receivers
+accept authenticated field emitters with four non-evicting per-emitter replay
+slots per boot. Older pinned receivers need a compatible update.
 
 Slow uses30s precision,120s discovery, unchanged300s META, a4s bootstrap guard
 and108s/h (3%) per-boot engineering accounting. Schedule3 requires matched
@@ -254,7 +262,8 @@ enabled hardware. The analog TX mast is orange while enabled and waiting;
 blue requires current source permission and a recent completed timing pair.
 It also requires matching context, current send permission and reserved or
 available pair budget. The source gate is named in notes and compact diagnostics.
-`lora 00/01` or the menu changes the configured role's volatile request. An ON
+`lora 00/01` changes the current role's volatile request. The LoRa submenu
+selects RX or GM-only TX and toggles that role's request. An ON
 request proves neither RF activity nor valid time. A 2 s hold opens the menu;
 taps move and another hold selects. [Button controls](../../firmware/t096/README.md#button-controls).
 
@@ -366,6 +375,31 @@ For the GM7 source snapshot ordering and original freshness gates alone:
 ```sh
 artifacts/deps/venv/bin/python firmware/t096/tools/gm7_source_order_tests.py --deps artifacts/deps --out artifacts/source-order-01
 ```
+
+For LoRa diagnostic framing across RX/TX switches and USB suspend handling:
+
+```sh
+python3 firmware/t096/tools/lora_diagnostics_tests.py --deps artifacts/deps --out artifacts/lora-diagnostics-01
+python3 firmware/t096/tools/lora_console_note_tests.py --deps artifacts/deps --out artifacts/lora-console-note-01
+python3 firmware/t096/tools/usb_debug_tests.py --deps artifacts/deps --out artifacts/usb-debug-01
+python3 firmware/t096/tools/usb_suspend_tests.py --deps artifacts/deps --out artifacts/usb-suspend-01
+python3 firmware/t096/tools/usb_health_tests.py --deps artifacts/deps --out artifacts/usb-health-01
+python3 firmware/t096/tools/usb_common_boundary_tests.py --deps artifacts/deps --out artifacts/usb-common-boundary-01
+python3 firmware/t096/tools/usb_lifecycle_boundary_tests.py --deps artifacts/deps --out artifacts/usb-lifecycle-boundary-01
+```
+
+The USB suspend runner checks the pinned driver lifecycle against a synthetic
+silicon model, including a disabled-workaround negative control. It does not
+reproduce or establish the cause of a physical USB outage.
+The health runner also checks awake-bus frame freezes independently of queued
+work, suspend/unplug exclusions, counter wrap and resumed low-power mismatch.
+A silent suspended PHY without observable host activity remains indistinguishable
+from legitimate idle suspend; these checks do not establish recovery from it.
+The console-note runner tests both radio roles against a closed cached DTR,
+reopening, queue refusal and a close race. Removing the reader guard is its
+negative control. This checks optional diagnostic work, not USB outage causality.
+The debug runner tests both UI workers' actual System-page saver predicates,
+read-only register sampling and complete hexadecimal glyph rendering.
 
 Tests exercise production C bodies with explicit fake hardware boundaries.
 Native inspection separately checks linked resources, stack budgets, generated

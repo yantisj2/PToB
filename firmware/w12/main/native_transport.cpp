@@ -15,6 +15,10 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include <cstring>
+#ifdef PTOB_TWATCH
+#include "esp_bt.h"
+#include "freertos/task.h"
+#endif
 #ifdef PTOB_W12_STATIC_NIMBLE_HOST
 #include "w12_host_task.hpp"
 #include "esp_heap_caps.h"
@@ -38,6 +42,30 @@ Mode command_mode=Mode::Full;
 ble_npl_event command_event;ble_npl_callout poll_callout;
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
 ble_npl_event g1_cleanup_event;
+#endif
+#ifdef PTOB_TWATCH
+watch::BlePower watch_power;
+TaskHandle_t watch_power_task=nullptr,watch_host_task=nullptr;
+ble_npl_event watch_power_event;
+bool watch_event_gate=false,watch_npl_live=false,watch_host_exited=false,watch_hs_synced=false;
+bool watch_host_start_allowed=false;
+bool watch_port_initialized=false,watch_port_init_attempted=false,watch_events_initialized=false;
+bool watch_host_run_entered=false,watch_sync_callback_seen=false;
+bool watch_off_owners_retired=false;
+uint8_t watch_sdk_operation=0; //0none,1init,2stop,3deinit; one owning worker only.
+bool watch_power_creating=false;uint64_t watch_power_retry_us=0;
+uint32_t watch_posters=0,watch_clock_readers=0,watch_admitters=0,watch_host_epoch=0;
+void watch_power_notify(){portENTER_CRITICAL(&mux);if(watch_power_task)xTaskNotifyGive(watch_power_task);portEXIT_CRITICAL(&mux);}
+void watch_host_release(bool run){portENTER_CRITICAL(&mux);watch_host_start_allowed=run;if(watch_host_task)xTaskNotifyGive(watch_host_task);portEXIT_CRITICAL(&mux);}
+bool watch_dispatch(){portENTER_CRITICAL(&mux);const bool ok=watch_event_gate;portEXIT_CRITICAL(&mux);return ok;}
+bool watch_post(ble_npl_event* event){
+ portENTER_CRITICAL(&mux);const bool live=watch_npl_live&&watch_event_gate;
+ if(live)++watch_posters;
+ portEXIT_CRITICAL(&mux);
+ if(!live)return false;
+ ble_npl_eventq_put(nimble_port_get_dflt_eventq(),event);
+ portENTER_CRITICAL(&mux);--watch_posters;portEXIT_CRITICAL(&mux);return true;
+}
 #endif
 uint64_t micros(){const int64_t t=esp_timer_get_time();return t>0?uint64_t(t):0;}
 void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
@@ -64,7 +92,11 @@ struct HostWork {
   ~HostWork(){portENTER_CRITICAL(&mux);--host_depth;portEXIT_CRITICAL(&mux);publish();}
 };
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
-void g1_cleanup(ble_npl_event*){HostWork work;r2_host_cleanup();}
+void g1_cleanup(ble_npl_event*){
+#ifdef PTOB_TWATCH
+ if(!watch_dispatch())return;
+#endif
+ HostWork work;r2_host_cleanup();}
 #endif
 void enqueue(Report& row){portENTER_CRITICAL(&mux);queue.push(row);portEXIT_CRITICAL(&mux);}
 int gap(ble_gap_event* event,void*);
@@ -86,9 +118,16 @@ void stop_radio(uint64_t now){
   client.drained(micros());
 }
 void poll(ble_npl_event*){
+#ifdef PTOB_TWATCH
+  if(!watch_dispatch())return;
+#endif
   HostWork work;
   const uint64_t now=micros();
-  if(ready){direct_host_poll();diagnostic_tx_poll();
+  bool service_ready=ready;
+#ifdef PTOB_TWATCH
+  portENTER_CRITICAL(&mux);service_ready|=watch_power.cleanup_active&&watch_sync_callback_seen&&!watch_sdk_operation;portEXIT_CRITICAL(&mux);
+#endif
+  if(service_ready){direct_host_poll();diagnostic_tx_poll();
 #ifdef V12_R2_ENABLED
     r2_host_poll();
 #endif
@@ -104,13 +143,24 @@ void poll(ble_npl_event*){
     scan_cancel_sent=cancel_sent=terminate_sent=false;
     ble_gap_ext_disc_params params{};params.passive=1;params.itvl=32;params.window=32;
     const uint64_t t=micros();
-    const int rc=ble_gap_ext_disc(BLE_OWN_ADDR_PUBLIC,0,0,0,0,0,&params,nullptr,gap,nullptr);api_time(t);
+    const int rc=ble_gap_ext_disc(BLE_OWN_ADDR_PUBLIC,0,0,0,0,0,&params,nullptr,gap,
+#ifdef PTOB_TWATCH
+      reinterpret_cast<void*>(uintptr_t(watch_host_epoch))
+#else
+      nullptr
+#endif
+      );api_time(t);
     if(rc==0){client.scan=true;if(lease_end&&micros()>=lease_end){client.requested=false;stop_radio(micros());}}
     else{inc(api_errors);client.fail();}
   }
   publish();fault_watchdog_host_progress();ble_npl_callout_reset(&poll_callout,ble_npl_time_ms_to_ticks32(1));
 }
-int gap(ble_gap_event* event,void*){
+int gap(ble_gap_event* event,void* arg){
+#ifdef PTOB_TWATCH
+  if(!watch_dispatch()||uintptr_t(arg)!=watch_host_epoch){inc(late);return 0;}
+#else
+  (void)arg;
+#endif
   HostWork work;
   const uint64_t now=micros();
   if(lease_end&&now>=lease_end){client.requested=false;stop_radio(now);}
@@ -131,7 +181,13 @@ int gap(ble_gap_event* event,void*){
        d.periodic_adv_itvl==25&&((d.length_data==GrantBytes&&d.data[0]==GrantBytes-1&&d.data[1]==0xff)||
        t096_initial_discovery(d.data,d.length_data,d.sid))){
       ble_gap_periodic_sync_params params{};params.skip=0;params.sync_timeout=500;
-      const uint64_t t=micros();const int rc=ble_gap_periodic_adv_sync_create(&d.addr,d.sid,&params,gap,nullptr);api_time(t);
+      const uint64_t t=micros();const int rc=ble_gap_periodic_adv_sync_create(&d.addr,d.sid,&params,gap,
+#ifdef PTOB_TWATCH
+        reinterpret_cast<void*>(uintptr_t(watch_host_epoch))
+#else
+        nullptr
+#endif
+        );api_time(t);
       if(rc==0){client.pending=true;cancel_sent=false;sync_peer=d.addr;sync_sid=d.sid;}else{inc(api_errors);client.fail();}
     }
   }else if(event->type==BLE_GAP_EVENT_PERIODIC_SYNC){
@@ -167,6 +223,9 @@ int gap(ble_gap_event* event,void*){
   publish();return 0;
 }
 void reset(int reason){ready=false;
+#ifdef PTOB_TWATCH
+  watch_hs_synced=false;
+#endif
   // A shared-host reset belongs to admitted owners. An unused legacy RX
   // path remains OFF; the R2 owner retains its own original failure record.
   if(lease.generation||client.requested||client.scan||client.pending||client.synced)client.fail();
@@ -180,23 +239,62 @@ void reset(int reason){ready=false;
 #endif
   publish();}
 void sync(){
+#ifdef PTOB_TWATCH
+  if(!watch_dispatch())return;
+  portENTER_CRITICAL(&mux);watch_sync_callback_seen=true;portEXIT_CRITICAL(&mux);
+#endif
+#ifdef PTOB_TWATCH
+  int sync_rc=ble_hs_util_ensure_addr(0);uint8_t sync_site=sync_rc?1:0;ready=!sync_rc;
+#else
   ready=ble_hs_util_ensure_addr(0)==0;
+#endif
 #ifdef V12_R2_ENABLED
   ready=ready&&r2_host_sync();
+#ifdef PTOB_TWATCH
+  if(!ready&&!sync_rc)sync_rc=r2_watch_host_sync_error(&sync_site);
+#endif
 #endif
   if(!ready)client.fail();
+#ifdef PTOB_TWATCH
+  portENTER_CRITICAL(&mux);
+  watch_hs_synced=ready;
+  watch_power.sync_error=sync_rc;watch_power.sync_site=sync_site;
+  if(ready)watch_power.synced(micros());else watch_power.fail(sync_rc?sync_rc:-5,micros());
+  portEXIT_CRITICAL(&mux);
+  watch_power_notify();
+#endif
   publish();
 }
-void host(void*){nimble_port_run();
-#ifdef PTOB_W12_STATIC_NIMBLE_HOST
+void host(void* arg){
+#ifdef PTOB_TWATCH
+  // Reserve the full host stack before SDK heap fragmentation, but never
+  // touch its event queue until the creator publishes successful setup.
+  ulTaskNotifyTake(pdTRUE,portMAX_DELAY);
+  portENTER_CRITICAL(&mux);const bool run=watch_host_start_allowed&&watch_npl_live&&uintptr_t(arg)==watch_host_epoch;portEXIT_CRITICAL(&mux);
+  if(run){portENTER_CRITICAL(&mux);watch_host_run_entered=true;portEXIT_CRITICAL(&mux);
+    ble_npl_callout_reset(&poll_callout,ble_npl_time_ms_to_ticks32(1));nimble_port_run();}
+#else
+  (void)arg;nimble_port_run();
+#endif
+#ifdef PTOB_TWATCH
+  portENTER_CRITICAL(&mux);watch_host_task=nullptr;watch_host_exited=true;watch_power.host_running=false;portEXIT_CRITICAL(&mux);
+  watch_power_notify();
+  vTaskDelete(nullptr);
+#elif defined(PTOB_W12_STATIC_NIMBLE_HOST)
   host_task.exited();
 #else
   nimble_port_freertos_deinit();
 #endif
 }
 void command(ble_npl_event*){
+#ifdef PTOB_TWATCH
+  if(!watch_dispatch())return;
+#endif
   HostWork work;bool stop;Mode mode;uint32_t generation;uint64_t deadline;bool timely=false;
   portENTER_CRITICAL(&mux);stop=command_stop;mode=command_mode;generation=stop_generation;deadline=lease.deadline_us;
+#ifdef PTOB_TWATCH
+  if(!watch_power.requested)stop=true;
+#endif
   if(!stop)timely=lease.start(micros());
   command_pending=false;portEXIT_CRITICAL(&mux);
   if(stop){client.requested=false;lease_end=0;stop_radio(micros());
@@ -206,8 +304,15 @@ void command(ble_npl_event*){
   }else{client.fail();portENTER_CRITICAL(&mux);lease.pending=false;lease.busy=false;lease.completed_us=micros();portEXIT_CRITICAL(&mux);}
   publish();
 }
+#ifdef PTOB_TWATCH
+#include "../../twatch/main/ble_power_transport.inc"
+#endif
 }
 bool transport_init(){
+#ifdef PTOB_TWATCH
+  watch_power.stage=watch::BlePower::Init;watch_power.started_us=micros();watch_power.deadline_us=micros()+watch::BlePower::StartUs;
+  return watch_power_service();
+#else
   if(nimble_port_init()!=ESP_OK)return false;
 #ifdef V12_R2_ENABLED
   if(!r2_host_init())return false;
@@ -232,6 +337,7 @@ bool transport_init(){
 #else
   nimble_port_freertos_init(host);return true;
 #endif
+#endif
 }
 bool transport_request(Mode mode,uint32_t duration_ms,uint64_t request_id){
   if(mode==Mode::GM||mode==Mode::Relay||duration_ms<1000||duration_ms>10000)return false;
@@ -239,21 +345,45 @@ bool transport_request(Mode mode,uint32_t duration_ms,uint64_t request_id){
   if(tx.periodic||tx.discovery||tx.requested||tx.fault||tx.lease.pending||tx.owner_busy||!tx.off_acknowledged||
      (link.stage!=DirectStage::Off&&mode!=Mode::Full))return false;
   portENTER_CRITICAL(&mux);
-  const bool admitted=!command_pending&&snapshot.off_acknowledged&&snapshot.host_ready&&snapshot.client.state==Lifecycle::Off&&lease.admit(micros(),duration_ms,request_id);
+  const bool admitted=
+#ifdef PTOB_TWATCH
+    watch_power.stage==watch::BlePower::Active&&watch_power.requested&&watch_event_gate&&
+#endif
+    !command_pending&&snapshot.off_acknowledged&&snapshot.host_ready&&snapshot.client.state==Lifecycle::Off&&lease.admit(micros(),duration_ms,request_id);
   if(admitted){command_pending=true;command_stop=false;command_mode=mode;snapshot.command_pending=true;snapshot.off_acknowledged=false;snapshot.lease=lease;}
   portEXIT_CRITICAL(&mux);
-  if(admitted)ble_npl_eventq_put(nimble_port_get_dflt_eventq(),&command_event);
+  if(admitted){
+#ifdef PTOB_TWATCH
+    (void)watch_post(&command_event);
+#else
+    ble_npl_eventq_put(nimble_port_get_dflt_eventq(),&command_event);
+#endif
+  }
   return admitted;
 }
 void transport_stop(){
-  portENTER_CRITICAL(&mux);command_pending=true;command_stop=true;
+  portENTER_CRITICAL(&mux);
+#ifdef PTOB_TWATCH
+  if(!watch_npl_live||!watch_event_gate){portEXIT_CRITICAL(&mux);return;}
+#endif
+  command_pending=true;command_stop=true;
   lease.stop_request();stop_generation=lease.stop_generation;stop_exhausted=lease.exhausted;
   snapshot.lease=lease;
   snapshot.command_pending=true;snapshot.off_acknowledged=false;portEXIT_CRITICAL(&mux);
+#ifdef PTOB_TWATCH
+  (void)watch_post(&command_event);
+#else
   ble_npl_eventq_put(nimble_port_get_dflt_eventq(),&command_event);
+#endif
 }
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
-void transport_g1_cleanup_schedule(){ble_npl_eventq_put(nimble_port_get_dflt_eventq(),&g1_cleanup_event);}
+void transport_g1_cleanup_schedule(){
+#ifdef PTOB_TWATCH
+ (void)watch_post(&g1_cleanup_event);
+#else
+ ble_npl_eventq_put(nimble_port_get_dflt_eventq(),&g1_cleanup_event);
+#endif
+}
 #endif
 bool transport_pop(Report& row){portENTER_CRITICAL(&mux);const bool have=queue.pop(row);portEXIT_CRITICAL(&mux);return have;}
 #ifdef V12_R2_ENABLED
@@ -263,7 +393,56 @@ void transport_observe_lease(uint64_t now){
   portENTER_CRITICAL(&mux);const bool stop=lease.observe(now);
   if(stop){command_pending=command_stop=true;stop_generation=lease.stop_generation;snapshot.command_pending=true;snapshot.off_acknowledged=false;}
   snapshot.lease=lease;portEXIT_CRITICAL(&mux);
-  if(stop)ble_npl_eventq_put(nimble_port_get_dflt_eventq(),&command_event);
+  if(stop){
+#ifdef PTOB_TWATCH
+    (void)watch_post(&command_event);
+#else
+    ble_npl_eventq_put(nimble_port_get_dflt_eventq(),&command_event);
+#endif
+  }
 }
 TransportStatus transport_status(){transport_observe_lease(micros());portENTER_CRITICAL(&mux);const auto s=snapshot;portEXIT_CRITICAL(&mux);return s;}
+#ifdef PTOB_TWATCH
+bool transport_watch_ble_request(bool on,uint64_t now){
+ portENTER_CRITICAL(&mux);const bool ok=watch_power.request(on,now);portEXIT_CRITICAL(&mux);
+ if(!ok)return false;
+ r2_watch_host_resume(on);
+ if(!on){r2_stop();transport_watch_ble_stop_aux();}
+ (void)watch_power_service();
+ return true;
+}
+void transport_watch_ble_poll(){(void)watch_power_service();}
+bool transport_watch_ble_off_proven(){
+ portENTER_CRITICAL(&mux);const bool proven=watch_power.off_ack()&&watch_retired_resources_locked();portEXIT_CRITICAL(&mux);
+ return proven&&r2_watch_capture_retired();
+}
+bool transport_watch_ble_recover(){
+ if(!transport_watch_ble_off_proven())return false;
+ portENTER_CRITICAL(&mux);const bool ok=watch_power.recover(micros());portEXIT_CRITICAL(&mux);
+ if(ok){r2_watch_host_resume(true);(void)watch_power_service();}return ok;
+}
+watch::BlePower transport_watch_ble_status(){
+ portENTER_CRITICAL(&mux);watch_power.observe(micros());auto s=watch_power;portEXIT_CRITICAL(&mux);
+ portENTER_CRITICAL(&mux);s.sdk_operation=watch_sdk_operation;
+ s.resource_mask=uint16_t(watch_port_initialized)|(uint16_t(watch_events_initialized)<<1)|(uint16_t(watch_host_run_entered)<<2)|
+   (uint16_t(watch_sdk_operation!=0)<<3)|(uint16_t(watch_port_init_attempted&&!watch_port_initialized)<<4)|
+   (uint16_t(watch_off_owners_retired)<<5)|(uint16_t(watch_npl_live)<<6);
+ const bool retired=watch_retired_resources_locked();portEXIT_CRITICAL(&mux);
+ s.controller=uint8_t(esp_bt_controller_get_status());s.off_proven=s.off_ack()&&retired&&r2_watch_capture_retired();return s;
+}
+bool transport_watch_ble_clock_allowed(){portENTER_CRITICAL(&mux);const bool ok=watch_event_gate&&ready;portEXIT_CRITICAL(&mux);return ok;}
+bool transport_watch_ble_clock_begin(){portENTER_CRITICAL(&mux);const bool ok=watch_event_gate&&ready&&watch_clock_readers!=UINT32_MAX;if(ok)++watch_clock_readers;portEXIT_CRITICAL(&mux);return ok;}
+void transport_watch_ble_clock_end(){portENTER_CRITICAL(&mux);if(watch_clock_readers)--watch_clock_readers;portEXIT_CRITICAL(&mux);}
+bool transport_watch_ble_admit_allowed(bool host_sync){portENTER_CRITICAL(&mux);const bool ok=watch_event_gate&&watch_power.requested&&(watch_power.stage==watch::BlePower::Active||(host_sync&&watch_power.stage==watch::BlePower::Sync));portEXIT_CRITICAL(&mux);return ok;}
+bool transport_watch_ble_admit_begin(bool host_sync){portENTER_CRITICAL(&mux);const bool ok=watch_event_gate&&watch_power.requested&&watch_admitters!=UINT32_MAX&&(watch_power.stage==watch::BlePower::Active||(host_sync&&watch_power.stage==watch::BlePower::Sync));if(ok)++watch_admitters;portEXIT_CRITICAL(&mux);return ok;}
+void transport_watch_ble_admit_end(){portENTER_CRITICAL(&mux);if(watch_admitters)--watch_admitters;portEXIT_CRITICAL(&mux);}
+void transport_watch_ble_stop_aux(){
+ portENTER_CRITICAL(&mux);const bool live=watch_npl_live&&watch_event_gate;
+ if(live)++watch_posters;
+ portEXIT_CRITICAL(&mux);
+ if(!live)return; // Host-tail proof already retired every auxiliary owner.
+ transport_stop();direct_stop();diagnostic_tx_stop();
+ portENTER_CRITICAL(&mux);--watch_posters;portEXIT_CRITICAL(&mux);
+}
+#endif
 }

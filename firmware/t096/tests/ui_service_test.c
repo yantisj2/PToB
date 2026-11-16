@@ -21,17 +21,17 @@ int main(int argc,char **argv){
     .clock={.pps_present=true,.fix_active=true},.precision={.authorized=true,.map_valid=true}};
    r2_ui_publish(&m);status.ready=true;assert(!r2_ui_page(page));status.drawn_page=0;
    bool wanted=page==6||profile;
-   assert(r2_ui_shadow_requested()==wanted);shadow_tick(&model,&status,fake_now,true);assert(!shadow_session.entered);
-   status.drawn_page=page;shadow_tick(&model,&status,fake_now,true);assert(shadow_session.entered==wanted);
-   fake_now=2000;shadow_tick(&model,&status,fake_now,true);assert(witness_enabled==wanted);
+   assert(r2_ui_shadow_requested()==wanted);shadow_tick(&model,&status,fake_now,true,(uint32_t)atomic_get(&context_flags),(uint32_t)atomic_get(&source_hint),control_serial);assert(!shadow_session.entered);
+   status.drawn_page=page;shadow_tick(&model,&status,fake_now,true,(uint32_t)atomic_get(&context_flags),(uint32_t)atomic_get(&source_hint),control_serial);assert(shadow_session.entered==wanted);
+   fake_now=2000;shadow_tick(&model,&status,fake_now,true,(uint32_t)atomic_get(&context_flags),(uint32_t)atomic_get(&source_hint),control_serial);assert(witness_enabled==wanted);
    if(wanted){assert(r2_shadow_session_begin(&shadow_session,fake_now,32000000,1,2));assert(shadow_session.active);}
-   assert(!r2_ui_page(0));assert(!r2_ui_shadow_requested());shadow_tick(&model,&status,fake_now,true);
+   assert(!r2_ui_page(0));assert(!r2_ui_shadow_requested());shadow_tick(&model,&status,fake_now,true,(uint32_t)atomic_get(&context_flags),(uint32_t)atomic_get(&source_hint),control_serial);
    assert(!shadow_session.entered&&!shadow_session.active&&!witness_enabled);
   }
   /* Existing serving-GM guard is preserved: no independent upstream map. */
   struct r2_ui_model m={.sampled_ms=2000,.scope_active=true,.profile_supported=true,.role=R2_UI_GM};
   r2_ui_publish(&m);assert(!r2_ui_page(6));status.drawn_page=6;assert(!r2_ui_shadow_requested());
-  shadow_tick(&model,&status,fake_now,true);assert(!witness_enabled&&shadow_session.state==R2_SHADOW_GM);
+  shadow_tick(&model,&status,fake_now,true,(uint32_t)atomic_get(&context_flags),(uint32_t)atomic_get(&source_hint),control_serial);assert(!witness_enabled&&shadow_session.state==R2_SHADOW_GM);
  }
  else if(mode==0){r2_ui_stop();r2_ui_start();assert(!entry&&!init_calls&&!r2_ui_close_result());}
  else{
@@ -66,8 +66,8 @@ int main(int argc,char **argv){
   if(mode==36)assert(status.holds.active_since&&fake_now/1000-status.holds.active_since>=300&&first_saver);
   if(mode==7)assert(frame_calls>=3&&!buffer_changed&&status.frames>=2&&!r2_ui_close_result());
   if(mode==4||mode==5)assert(status.menu.open&&!status.help&&!status.poweroff&&status.buttons==1);
-  if(mode==3)assert(frame_calls==1&&off_calls==1&&r2_ui_close_result()==-ETIMEDOUT&&status.buttons==2&&!buffer_changed);
-  if(mode==6)assert(frame_calls==1&&status.menu.open&&!status.help&&!status.poweroff&&!buffer_changed&&r2_ui_close_result()==-ETIMEDOUT);
+  if(mode==3)assert(frame_calls==1&&off_calls==1&&r2_ui_close_result()==-EAGAIN&&status.error==-ETIMEDOUT&&status.buttons==2&&!buffer_changed);
+  if(mode==6)assert(frame_calls==1&&status.menu.open&&!status.help&&!status.poweroff&&!buffer_changed&&r2_ui_close_result()==-EAGAIN&&status.error==-ETIMEDOUT);
   if(mode>=8&&mode<14){assert(!status.shadow.active&&!r2_ui_close_result());
    if(mode==8)assert(status.shadow.session==1&&status.shadow.samples>=3&&status.shadow.mean_tenth_ns==-370&&status.shadow.max_ns==37);
    if(mode==9||mode==10||mode==12)assert(!status.shadow.session&&!status.shadow.samples);

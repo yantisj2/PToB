@@ -59,5 +59,22 @@ int main(void){
  }
  r2_servo_map_t equal={.delivery=16000000,.anchor=2000000000,.valid=true};struct rc8_export map;
  assert(r2_lora_source_follower(&map,&equal,scope(false),(struct r2_capture){16000000,9,R2_CAPTURE_NOW},17000000,2000000000,4000000000,0,1));
+ for(unsigned utc_expiry=0;utc_expiry<2;utc_expiry++){
+  struct r2_capture at={utc_expiry?48000000:17000000,9,R2_CAPTURE_NOW};
+  assert(!r2_lora_source_follower(&map,&equal,scope(false),at,utc_expiry?50000000:17000000,2000000000,4000000000,0,1));
+  assert(!map.valid&&!map.authenticated&&map.until_tick==(utc_expiry?50000000u:17000000u)&&map.expires_ns==4000000000);
+  struct rc8_correction denied;
+  assert(!rc8_export_event(&denied,&map,1,(struct rc8_event){.tick=at.tick,.capture_epoch=at.epoch,.kind=RC8_EVENT_TX_START}));
+ }
+ for(unsigned bad=0;bad<5;bad++){
+  r2_servo_map_t invalid=equal;struct r2_capture at={17000000,9,R2_CAPTURE_NOW};uint64_t created=2000000000;
+  if(bad==0)invalid.valid=false;
+  if(bad==1)at.epoch=0;
+  if(bad==2)at.kind=R2_CAPTURE_RADIO;
+  if(bad==3)created=3000000000;
+  if(bad==4)created=4000000000;
+  assert(!r2_lora_source_follower(&map,&invalid,scope(false),at,18000000,created,4000000000,0,1));
+  struct rc8_export zero={0};assert(!memcmp(&map,&zero,sizeof zero));
+ }
  puts("PASS exact source/follower frozen-map parity and permission boundaries");
 }

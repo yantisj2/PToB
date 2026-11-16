@@ -31,7 +31,7 @@ fixture = (app/'tests/watchdog_test.c').read_text().replace('int main(int argc,c
 assert fixture.endswith('}\n')
 fixture = fixture[:-2]+' return 0;\n}\n'
 (out/'gm7_watchdog_fixture.inc').write_text(fixture)
-for name in ['zephyr/kernel.h', 'zephyr/device.h', 'zephyr/drivers/watchdog.h', 'zephyr/drivers/hwinfo.h', 'zephyr/sys/reboot.h', 'zephyr/sys/atomic.h', 'cmsis_core.h', 'build_identity.h']:
+for name in ['zephyr/kernel.h','zephyr/irq.h', 'zephyr/device.h', 'zephyr/drivers/watchdog.h', 'zephyr/drivers/hwinfo.h', 'zephyr/sys/reboot.h', 'zephyr/sys/atomic.h', 'cmsis_core.h', 'build_identity.h']:
     f = out/name
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text('/* Fake public platform boundary. */\n')

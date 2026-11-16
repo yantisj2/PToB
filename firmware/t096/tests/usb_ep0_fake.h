@@ -94,7 +94,8 @@ static bool nrf_usbd_common_is_enabled(void){return usb_enabled;}
 static void nrf_usbd_common_enable(void){usb_enabled=true;}
 static void nrf_usbd_common_disable(void){assert(usb_enabled);usb_enabled=false;}
 static void nrf_usbd_common_start(bool sof){(void)sof;assert(usb_enabled);++usb_starts;}
-static void nrf_usbd_common_suspend(void){}
+static bool nrf_usbd_common_suspend(void){return true;}
+static bool r2_usb_common_failed(void){return false;}
 static unsigned nrfx_power_usbstatus_get(void){return usb_power_state;}
 static void usbd_enable_endpoints(struct nrf_usbd_ctx *ctx){(void)ctx;}
 static int hfxo_start(struct nrf_usbd_ctx *ctx){(void)ctx;return 0;}

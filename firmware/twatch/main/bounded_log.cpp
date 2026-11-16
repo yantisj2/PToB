@@ -1,3 +1,4 @@
+#include "console_shape.hpp"
 // Selected N30 adapter; provenance in imports.json.
 #include "bounded_log.hpp"
 #include "bootrom.hpp"
@@ -147,7 +148,7 @@ bool frame_submit(const ConsoleFrame& f){
   // Keep W12's shared constants/ABI unchanged.
   static_assert(ConsoleResponseRows==9&&ConsoleFrameBytes==8704);
   portENTER_CRITICAL(&log_mux);
-  const bool accepted=!f.failed&&f.rows==ConsoleResponseRows+1&&now_us()<f.deadline_us&&frames.push(f);
+  const bool accepted=!f.failed&&watch::console_shape(f.rows,f.bytes)&&now_us()<f.deadline_us&&frames.push(f);
   if(!accepted)frame_drop();
   portEXIT_CRITICAL(&log_mux);return accepted;
 }

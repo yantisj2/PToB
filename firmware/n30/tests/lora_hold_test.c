@@ -30,7 +30,7 @@ int main(void){
  const struct n30_lora_view t0=snapshot();assert(t0.hold_active&&t0.hold_state==1&&t0.hold_id==1&&t0.hold_runs==1&&t0.hold_until_us-t0.hold_start_us==60000000);
  pair(8,242000000);struct n30_lora_view v=snapshot();assert(v.hold_active&&v.model_tick16==t0.model_tick16&&v.model_ns==t0.model_ns&&v.model_rate_milli_ppb==t0.model_rate_milli_ppb&&v.model_accel_micro_ppb_s==t0.model_accel_micro_ppb_s);
  assert(v.reference_age_ms==32500&&v.age_ms==2500&&v.until_us==t0.until_us&&v.hold_grant_until_us==t0.hold_grant_until_us);
- meta(2,16,1,true);n30_rc8_clock(now*16,7,now);v=snapshot();assert(v.hold_active&&v.until_us==t0.until_us&&v.hold_grant_until_us==t0.hold_grant_until_us);
+ meta(2,18,1,true);n30_rc8_clock(now*16,7,now);v=snapshot();assert(v.hold_active&&v.until_us==t0.until_us&&v.hold_grant_until_us==t0.hold_grant_until_us);
  // The physical60s event precedes hold expiry; FOLLOW finishes exactly at the
  // finite deadline. Its immutable held model must still be scored afterward.
  pair(9,272000000);v=snapshot();assert(!v.hold_active&&v.hold_state==2&&v.hold_abort==0&&v.hold60_n==1&&v.hold60_rms_ns<200&&v.hold60_over1us==0&&v.model_valid);
@@ -40,8 +40,8 @@ int main(void){
  // META grant cannot arm/extend the experiment.
  now+=8000000;n30_rc8_clock(now*16,7,now);assert(!n30_rc8_hold60(2,now));
  setup(200000000);assert(!n30_rc8_hold60(2,now));
- setup(2000000);assert(n30_rc8_hold60(3,now));now+=1000;meta(2,14,2,true);v=snapshot();assert(!v.utc_us&&v.hold_state==3&&v.hold_abort==2&&v.hold_id==3);
- setup(2000000);assert(n30_rc8_hold60(4,now));now+=1000;meta(2,14,1,false);v=snapshot();assert(!v.utc_us&&v.hold_state==3&&v.hold_abort==3);
+ setup(2000000);assert(n30_rc8_hold60(3,now));now+=1000;meta(2,16,2,true);v=snapshot();assert(!v.utc_us&&v.hold_state==3&&v.hold_abort==2&&v.hold_id==3);
+ setup(2000000);assert(n30_rc8_hold60(4,now));now+=1000;meta(2,16,1,false);v=snapshot();assert(!v.utc_us&&v.hold_state==3&&v.hold_abort==3);
  setup(2000000);assert(n30_rc8_hold60(5,now));n30_rc8_clock(now*16,8,now);v=snapshot();assert(!v.utc_us&&v.hold_state==3&&v.hold_abort==4);
  setup(2000000);assert(n30_rc8_hold60(6,now));n30_rc8_switch(false);v=snapshot();assert(!v.utc_us&&v.hold_state==3&&v.hold_abort==5&&v.hold_id==6);
  setup(2000000);assert(n30_rc8_hold60(8,now));n30_rc8_radio_fault();v=snapshot();assert(!v.utc_us&&v.hold_state==3&&v.hold_abort==7&&v.hold_id==8);

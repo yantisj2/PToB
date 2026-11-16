@@ -1,0 +1,110 @@
+{
+  "license": "USNO facts public domain; original selected validation dataset Copyright (c) 2026 Jonathan Yantis CC BY 4.0. Upstream SunCalc algorithms retain BSD-2-Clause.",
+  "scope": "Upstream port parity plus selected independent USNO primary lunar phases; not calibrated observation",
+  "usno_url": "https://aa.usno.navy.mil/api/moon/phases/date?date=2026-11-01&nump=8",
+  "suncalc_source": "https://raw.githubusercontent.com/mourner/suncalc/v1.9.0/suncalc.js",
+  "latitude": 30.35,
+  "longitude": -86.23,
+  "rows": [
+    {
+      "utc": 1793564880,
+      "phase_name": "Last Quarter",
+      "usno_phase": 0.75,
+      "sun_altitude": 27.809847089678257,
+      "sun_azimuth": 230.46080852576972,
+      "moon_phase": 0.7467048974129695,
+      "moon_illumination": 0.5103511305501119
+    },
+    {
+      "utc": 1794207720,
+      "phase_name": "New Moon",
+      "usno_phase": 0,
+      "sun_altitude": -64.80877855119142,
+      "sun_azimuth": 62.602805102570414,
+      "moon_phase": 0.9854868297447659,
+      "moon_illumination": 0.0020774154606815753
+    },
+    {
+      "utc": 1794916080,
+      "phase_name": "First Quarter",
+      "usno_phase": 0.25,
+      "sun_altitude": -5.763270515533715,
+      "sun_azimuth": 108.59765251736724,
+      "moon_phase": 0.2535496572808754,
+      "moon_illumination": 0.5111506527365431
+    },
+    {
+      "utc": 1795531980,
+      "phase_name": "Full Moon",
+      "usno_phase": 0.5,
+      "sun_altitude": 26.383891066685937,
+      "sun_azimuth": 138.09473889282538,
+      "moon_phase": 0.4859417331221875,
+      "moon_illumination": 0.9980506899625105
+    },
+    {
+      "utc": 1796105280,
+      "phase_name": "Last Quarter",
+      "usno_phase": 0.75,
+      "sun_altitude": -78.50290615807373,
+      "sun_azimuth": 43.4824853207715,
+      "moon_phase": 0.7460516413115879,
+      "moon_illumination": 0.5124028623338281
+    },
+    {
+      "utc": 1796777520,
+      "phase_name": "New Moon",
+      "usno_phase": 0,
+      "sun_altitude": -26.78078439235405,
+      "sun_azimuth": 258.08138146843714,
+      "moon_phase": 0.013591743525705358,
+      "moon_illumination": 0.001822158394993889
+    },
+    {
+      "utc": 1797486120,
+      "phase_name": "First Quarter",
+      "usno_phase": 0.25,
+      "sun_altitude": -82.9851439726494,
+      "sun_azimuth": 1.8284851267692943,
+      "moon_phase": 0.25531513558260427,
+      "moon_illumination": 0.516694887217392
+    },
+    {
+      "utc": 1798075680,
+      "phase_name": "Full Moon",
+      "usno_phase": 0.5,
+      "sun_altitude": -33.1447015392702,
+      "sun_azimuth": 260.33321952267704,
+      "moon_phase": 0.5109688037301652,
+      "moon_illumination": 0.9988130118932866
+    },
+    {
+      "utc": 1774029600,
+      "sun_altitude": 59.48004337698054,
+      "sun_azimuth": 183.55055679520456,
+      "moon_phase": 0.060752697295626545,
+      "moon_illumination": 0.035987445249682615
+    },
+    {
+      "utc": 1782064800,
+      "sun_altitude": 82.50489243834879,
+      "sun_azimuth": 203.56205939110225,
+      "moon_phase": 0.2430868351608062,
+      "moon_illumination": 0.4782884809868253
+    },
+    {
+      "utc": 1794765600,
+      "sun_altitude": 40.60923663443963,
+      "sun_azimuth": 189.4412688051758,
+      "moon_phase": 0.19976215378944984,
+      "moon_illumination": 0.3447810310528243
+    },
+    {
+      "utc": 1797876000,
+      "sun_altitude": 36.06166754205902,
+      "sun_azimuth": 184.7532486367653,
+      "moon_phase": 0.4129299010463976,
+      "moon_illumination": 0.927024199021954
+    }
+  ]
+}

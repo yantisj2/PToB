@@ -4,6 +4,42 @@
   "author": "Jonathan Yantis",
   "selected_adapters": [
     {
+      "source": "firmware/n30/main/ble_acquisition_recovery.hpp",
+      "sha256": "bee1bee4a341191bf24c9c3b828e0e2176ade108e16fef67e6366eb9f767ca35",
+      "destination": "main/ble_acquisition_recovery.hpp",
+      "adaptation": "Watch-only recovery continues after previously corrected progress even without fresh discovery; one-minute repeated silent retry bound; shared bounded drain, OFF/fault guards and fresh authentication unchanged"
+    },
+    {
+      "source": "firmware/n30/main/fine_capture.hpp",
+      "sha256": "22c0daeb6595d26fa3cc5789a9e9c522ce94e60a6111e8f6a4a910c3f6e34d03",
+      "destination": "main/fine_capture.hpp",
+      "adaptation": "Watch RX17 API includes the watch-only RX prehistory window"
+    },
+    {
+      "source": "firmware/n30/main/fine_window.hpp",
+      "sha256": "410a948153a7ffc249d537d8effea19014dc7b331d2d4c8829371a7aa30e7e38",
+      "destination": "main/fine_window.hpp",
+      "adaptation": "Require RX prehistory and reject TX for the RX-only owner; preserve sequence, physical bounds, pending and late-event fences"
+    },
+    {
+      "source": "firmware/n30/main/fine_capture.cpp",
+      "sha256": "314c587ae6c867a094a37692a99427a11aadd2eb4b8e4313c2fb9d118228b626",
+      "destination": "main/fine_capture.cpp",
+      "adaptation": "Watch RX17-only finite shadow or explicitly reviewed relative G1 owner; TX constant zero, foreign pin refusal, watch-profile phase and endpoint guard, no N30 phase import"
+    },
+    {
+      "source": "firmware/n30/main/window_diagnostics.cpp",
+      "sha256": "8afd9d38e9a47ff5ad5f71c708b00568189323d7798f00ac77856daab2e5d2d8",
+      "destination": "main/window_diagnostics.cpp",
+      "adaptation": "Watch RX17-only marker contract; original packet, bridge, late-event and unknown-bound records preserved"
+    },
+    {
+      "source": "firmware/w12/main/w12_holdover_horizon.hpp",
+      "sha256": "cd3e7593149d1b40e70cc183d62cc2a9c8bee921e4cab7f85f606698e3a282a6",
+      "destination": "main/empirical_holdover.hpp",
+      "adaptation": "Watch-only sampled frozen-clock observer; baseline counter, no thermal or production actuator changes"
+    },
+    {
       "source": "firmware/n30/main/native_main.cpp",
       "sha256": "38b7cd65bfafab5e63b37e955b86905ad33d416aad14c0945e1b9f0488fccfd3",
       "destination": "main/native_main.cpp"
@@ -17,6 +53,16 @@
       "source": "firmware/n30/main/bounded_log.cpp",
       "sha256": "6d3dc5b467a88eb31825ebed18549b61a6647a31a2a74c4603fdd55463f8c7f7",
       "destination": "main/bounded_log.cpp"
+    },
+    {
+      "source": "firmware/n30/main/lora_core.c",
+      "sha256": "023a6d20e6f81a2c0d2ab219d6e475ca104bbd548a0d80eb12767b50b1a27c0d",
+      "destination": "main/lora_core.c"
+    },
+    {
+      "source": "firmware/n30/main/lora_watch.inc",
+      "sha256": "e1a05b66028f3d73bdf24d9675bf5b501e5f79c18f122aaee7e972d69de2cf89",
+      "destination": "main/lora_watch.inc"
     }
   ],
   "console_source": "firmware/corese/main/corese_console.hpp",

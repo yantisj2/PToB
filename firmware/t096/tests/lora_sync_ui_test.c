@@ -38,12 +38,40 @@ int main(int argc,char **argv){assert(argc==2);
  m.lora.display_acquiring=false;m.lora.state=RC8_AVAILABLE;m.lora.choice=RC8_SELECT_NONE;m.lora.time_valid=m.lora.quality_known=true;m.lora.utc_us=UINT64_C(43207000000);m.lora.until_us=2000000;m.lora.fit_age_ms=0;
  r2_ui_render(fb,&m,&s,1000);text_at(16,85,"12:00:00",C_WHITE);text_at(16,110,"12:00:07",C_WHITE);save(argv[1],"independent-rf");
  m.lora.choice=RC8_SELECT_LORA;r2_ui_render(fb,&m,&s,1000);text_at(16,85,"12:00:00",C_WHITE);text_at(16,110,"12:00:07",C_WHITE);
- m.lora.transmitter=true;m.lora.state=RC8_AVAILABLE;m.lora.age_ms=1000;r2_ui_render(fb,&m,&s,1000);text_at(11,110,"TX NO CLOCK",C_DIM);save(argv[1],"transmitter-rf");m.lora.transmitter=false;
+ m.lora.transmitter=true;m.lora.state=RC8_AVAILABLE;m.lora.age_ms=1000;r2_ui_render(fb,&m,&s,1000);text_at(13,110,"TIMING TX",C_DIM);save(argv[1],"transmitter-rf");m.lora.transmitter=false;
  /* Only decoded timing and unknown packets pulse; zero-init/noise stays off. */
  m.lora.activity_age_ms=0;m.lora.activity_kind=0;r2_ui_render(fb,&m,&s,1000);uint8_t dark[R2_UI_FRAME_BYTES];memcpy(dark,fb,sizeof dark);
  m.lora.activity_kind=1;r2_ui_render(fb,&m,&s,1000);assert(memcmp(dark,fb,sizeof dark));save(argv[1],"timing-rx");
  m.lora.activity_kind=3;r2_ui_render(fb,&m,&s,1000);assert(memcmp(dark,fb,sizeof dark));save(argv[1],"unknown-rx");
  m.lora.activity_kind=2;r2_ui_render(fb,&m,&s,1000);assert(!memcmp(dark,fb,sizeof dark));
  s.help=true;r2_ui_render(fb,&m,&s,1000);save(argv[1],"rf-help");
+ /* TX page uses owner counters and explicit waits, never RX clock/META. */
+ s=(struct r2_ui_status){.page=R2_UI_LORA_PAGE};
+ m=(struct r2_ui_model){.sampled_ms=1000,.platform_ready=true,.unit="TC-01",
+  .lora={.transmitter=true,.requested=true,.active=true,.time_valid=true,.state=RC8_AVAILABLE,
+   .kind=RC8_SELECTED_BLE,.sampled_us=1000000,.until_us=2000000,.age_ms=1200,
+   .tx_stats_valid=true,.tx_pairs=12,.tx_airtime_ms=7310}};
+ r2_ui_render(fb,&m,&s,1000);text_at(4,44,"TRAIN ACTIVE",C_GREEN);text_at(4,60,"SOURCE BLE",C_CYAN);
+ text_at(4,78,"PAIRS 12",C_WHITE);text_at(4,90,"LAST 1.2s",C_DIM);text_at(4,122,"AIR/1H 7.3s",C_DIM);save(argv[1],"tx-page-active");
+ uint8_t tx_before[R2_UI_FRAME_BYTES];memcpy(tx_before,fb,sizeof fb);
+ /* Poison only RX fields: no receiver clock/fit/metadata may leak into TX. */
+ m.lora.utc_us=123456789;m.lora.parent_tag=0x1234;m.lora.root_tag=0xabcd;
+ m.lora.context_known=true;m.lora.parent_quality=true;m.lora.parent_class=7;m.lora.parent_accuracy=9;
+ m.lora.link_samples=15;m.lora.link_rms_ns=678;m.lora.choice=RC8_SELECT_LORA;
+ r2_ui_render(fb,&m,&s,1000);assert(!memcmp(tx_before,fb,sizeof fb));
+ m.lora.state=RC8_ACQUIRING;m.lora.age_ms=UINT32_MAX;m.lora.tx_pairs=0;
+ r2_ui_render(fb,&m,&s,1000);text_at(4,44,"WAIT PAIR",C_AMBER);text_at(4,90,"NO PAIR YET",C_DIM);save(argv[1],"tx-page-first-pair");
+ m.lora.active=false;m.lora.tx_restart_ms=29220;
+ r2_ui_render(fb,&m,&s,1000);text_at(4,44,"RESTART WAIT",C_AMBER);text_at(4,108,"RETRY 30s",C_AMBER);save(argv[1],"tx-page-restart");
+ m.lora.time_valid=false;r2_ui_render(fb,&m,&s,1000);text_at(4,44,"WAIT SOURCE",C_AMBER);save(argv[1],"tx-page-source-wait");
+ m.lora.time_valid=true;m.lora.tx_restart_ms=0;m.lora.tx_wait_reason=R2_LORA_TX_CAP;
+ r2_ui_render(fb,&m,&s,1000);text_at(4,44,"AIRTIME LIMIT",C_AMBER);save(argv[1],"tx-page-airtime");
+ m.lora.fault=true;r2_ui_render(fb,&m,&s,1000);text_at(4,44,"RADIO FAULT",C_RED);save(argv[1],"tx-page-fault");
+ m.lora.fault=false;m.lora.requested=false;r2_ui_render(fb,&m,&s,1000);text_at(4,44,"DISABLED",C_AMBER);save(argv[1],"tx-page-off");
+ m.lora.requested=true;r2_ui_render(fb,&m,&s,4000);text_at(4,44,"STATUS STALE",C_AMBER);text_at(4,78,"PAIRS --",C_WHITE);save(argv[1],"tx-page-stale");
+ m.lora.active=true;m.lora.state=RC8_AVAILABLE;m.lora.tx_wait_reason=R2_LORA_TX_READY;m.lora.age_ms=9999999;m.lora.tx_pairs=UINT32_MAX;m.lora.tx_airtime_ms=90000;
+ r2_ui_render(fb,&m,&s,1000);text_at(4,78,"PAIRS 99999+",C_WHITE);save(argv[1],"tx-page-limits");
+ s.page=R2_UI_LORA_PAGE;m.lora.transmitter=false;m.lora.metadata_cached=false;m.lora.requested=true;m.lora.age_ms=1200;m.lora.rx_age_ms=1200;
+ r2_ui_render(fb,&m,&s,1000);save(argv[1],"rx-page-retained");
  puts("PASS actual pixels: current-context sync phases/span, independent BLE/LoRa times, TX state and decoded-only RX lamps");
 }

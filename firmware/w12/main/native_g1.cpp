@@ -294,6 +294,11 @@ G1ResetRecovery recovery;
 bool corrected_phase_aligned=false;
 R2Mode mode=R2Mode::Off,requested_mode=R2Mode::Off;
 bool initialized=false,host_ready=false,command_pending=false,stop_pending=false,closing=false,fault=false;
+#ifdef PTOB_TWATCH
+WatchRadioRecoveryStatus watch_radio_recovery;
+WatchRadioFaultStatus watch_radio_fault;bool watch_fault_current=false;
+uint32_t watch_recovery_generation=0,watch_recovery_errors=0;
+#endif
 bool boot_client_attempted=false,boot_client_cancelled=false,active_used=false;
 bool scan=false,connecting_cancelled=false,sync_pending=false,synced=false,sync_selected=false,sync_cancelled=false,sync_terminating=false;
 bool sync_cleanup_queued=false,sync_cleanup_requested=false,window_faulted=false;
@@ -323,7 +328,28 @@ bool parent_scope(){return rc_bound()?sync_identity==joined_peer&&joined_peer==r
 uint64_t micros(){const int64_t n=esp_timer_get_time();return n>0?uint64_t(n):0;}
 void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
 void note(int rc,R2Api site){last_api=site;last_api_rc=rc;last_api_at=micros();}
-void error(int rc,R2Api site,uint8_t detail=0){if(!rc)return;note(rc,site);if(!first_error_at){first_error_api=site;first_error_rc=rc;first_error_at=micros();first_fault_site=detail;}inc(api_errors);fault=true;
+#ifdef PTOB_TWATCH
+void watch_fault_capture(uint8_t reason,int rc=0,R2Api api=R2Api::None,uint8_t site=0,
+    uint32_t callback_epoch=0,uint16_t handle=None,uint8_t sid=0,uint16_t interval=0,bool address_match=false){
+  portENTER_CRITICAL(&mux);
+  if(!watch_fault_current){
+    auto& f=watch_radio_fault;const auto episode=f.episode;
+    f={};f.episode=episode==UINT32_MAX?UINT32_MAX:episode+1;
+    f.at_us=micros();f.reason=reason;f.rc=rc;f.api=uint8_t(api);f.site=site;
+    f.parent=sync_identity?sync_identity:(peer.identity?peer.identity:joined_peer);
+    f.requested_parent=parent_diagnostic.target;f.relay=rc_bound()||peer.relay;
+    f.capture_epoch=sync_capture_epoch;f.callback_epoch=callback_epoch;f.handle=handle;
+    f.expected_sid=sync_selected_sid;f.observed_sid=sid;f.interval=interval;f.address_match=address_match;
+    watch_fault_current=true;
+  }
+  portEXIT_CRITICAL(&mux);
+}
+#endif
+void error(int rc,R2Api site,uint8_t detail=0){if(!rc)return;note(rc,site);if(!first_error_at){first_error_api=site;first_error_rc=rc;first_error_at=micros();first_fault_site=detail;}inc(api_errors);
+#ifdef PTOB_TWATCH
+  if(!fault)watch_fault_capture(WatchFaultApi,rc,site,detail);
+#endif
+  fault=true;
   if(rc==BLE_HS_ETIMEOUT_HCI&&site==R2Api::SyncCancel){portENTER_CRITICAL(&mux);recovery.timeout(client.generation,mode==R2Mode::Client&&!boot_client_cancelled);portEXIT_CRITICAL(&mux);}
 }
 bool transient(int rc,R2Api site){if(rc==BLE_HS_EBUSY||rc==BLE_HS_ENOMEM||rc==BLE_HS_EPREEMPTED){note(rc,site);inc(setup_retries);return true;}return false;}
@@ -442,7 +468,23 @@ void begin_close(uint64_t now){if(closing)return;closing=true;
 #ifdef PTOB_RC9
  rc9_client.fence();
 #endif
-corrected_was_live=false;retained_estimate.clear();relay_fence();member=false;anchor={};direct_session.clear();rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){client.stop(now);close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);parent_record(G1ParentReason::Stop,now);}
+corrected_was_live=false;
+#ifndef PTOB_TWATCH
+retained_estimate.clear();
+#endif
+relay_fence();member=false;anchor={};direct_session.clear();rc_client.fence();coarse_hold.clear();corrected_clock.clear();corrected_phase_aligned=false;close_until=now+2000000;portENTER_CRITICAL(&mux);if(mode==R2Mode::Client){
+#ifdef PTOB_TWATCH
+  // A failed rebind already owns an original drain. Converting it to client
+  // OFF must retain that earlier deadline, including after it has expired.
+  const auto earlier=parent_diagnostic.deadline_us>=2000000?parent_diagnostic.deadline_us-2000000:now;
+  const auto stop_at=parent_diagnostic.deadline_us&&parent_diagnostic.state!=3&&
+    parent_diagnostic.deadline_us>=2000000?
+    (now<earlier?now:earlier):now;
+  client.stop(stop_at);
+#else
+  client.stop(now);
+#endif
+  close_until=client.stop_deadline_us;}else if(lease.deadline_us&&lease.deadline_us<close_until)close_until=lease.deadline_us;portEXIT_CRITICAL(&mux);parent_record(G1ParentReason::Stop,now);}
 void stop_scan(){if(!scan)return;const int rc=ble_gap_disc_cancel();if(!rc||rc==BLE_HS_EALREADY)scan=false;else error(rc,R2Api::ScanStop);}
 int gap(ble_gap_event*,void*);
 struct LinkContext {uint32_t generation=0;
@@ -730,7 +772,26 @@ int gap(ble_gap_event* e,void* arg){
     Discovery row{};row.rssi=d.rssi;row.tx_power=d.tx_power;row.at=now;row.address=d.addr;row.interval=d.periodic_adv_itvl;row.sid=d.sid;row.props=d.props;row.legacy_event_type=d.legacy_event_type;row.primary_phy=d.prim_phy;row.secondary_phy=d.sec_phy;row.length=uint8_t(d.length_data);if(row.length)std::memcpy(row.bytes,d.data,row.length);discoveries.push(row);
   }else if(e->type==BLE_GAP_EVENT_DISC_COMPLETE)scan=false;
   else if(e->type==BLE_GAP_EVENT_PERIODIC_SYNC){
-    if(reinterpret_cast<uintptr_t>(arg)!=sync_capture_epoch){error(BLE_HS_EBUSY,R2Api::SyncCreate);return 0;}
+    if(reinterpret_cast<uintptr_t>(arg)!=sync_capture_epoch){
+#ifdef PTOB_TWATCH
+      if(!e->periodic_sync.status){
+        // A successful callback proves a controller PA owner exists, even
+        // when its stale epoch cannot belong to our current owner ledger.
+        // No public all-PA query proves it absent. Keep a terminal guard;
+        // draining the known handle must never certify this orphan closed.
+        portENTER_CRITICAL(&mux);
+        if(!watch_radio_recovery.unretired_periodic){
+          watch_radio_recovery.unretired_periodic=true;
+          watch_radio_recovery.unretired_at_us=now;
+          watch_radio_recovery.unretired_handle=e->periodic_sync.sync_handle;
+          watch_radio_recovery.unretired_callback_epoch=uint32_t(reinterpret_cast<uintptr_t>(arg));
+        }
+        portEXIT_CRITICAL(&mux);
+      }
+      if(!fault)watch_fault_capture(WatchFaultPeriodicEpoch,BLE_HS_EBUSY,R2Api::SyncCreate,0,
+        uint32_t(reinterpret_cast<uintptr_t>(arg)),e->periodic_sync.sync_handle,e->periodic_sync.sid,e->periodic_sync.per_adv_ival);
+#endif
+      error(BLE_HS_EBUSY,R2Api::SyncCreate);return 0;}
     bool source_owner=anchor_valid(now)&&parent_scope();
 #ifdef PTOB_RC9
     const auto admitted_rc9=rc9_client.view(now);
@@ -744,9 +805,24 @@ int gap(ble_gap_event* e,void* arg){
     sync_phy=e->periodic_sync.adv_phy;sync_clock_accuracy=e->periodic_sync.adv_clk_accuracy;
     sync_trace(17,e->periodic_sync.sync_handle,e->periodic_sync.status);
     sync_pending=sync_selected=false;sync_cancelled=false;
-    if(!e->periodic_sync.status){sync_handle=e->periodic_sync.sync_handle;synced=true;sync_terminating=false;if(e->periodic_sync.sid!=sync_selected_sid||e->periodic_sync.per_adv_ival!=50||!same_address(e->periodic_sync.adv_addr,sync_owner_address))fault=true;if(capture_owner&&!fault){
+    if(!e->periodic_sync.status){sync_handle=e->periodic_sync.sync_handle;synced=true;sync_terminating=false;
+      const bool address_matches=same_address(e->periodic_sync.adv_addr,sync_owner_address);
+      if(e->periodic_sync.sid!=sync_selected_sid||e->periodic_sync.per_adv_ival!=50||!address_matches){
+#ifdef PTOB_TWATCH
+        if(!fault)watch_fault_capture(WatchFaultPeriodicContext,0,R2Api::None,0,
+          uint32_t(reinterpret_cast<uintptr_t>(arg)),e->periodic_sync.sync_handle,e->periodic_sync.sid,e->periodic_sync.per_adv_ival,address_matches);
+#endif
+        fault=true;
+      }
+      if(capture_owner&&!fault){
 #ifdef V12_R2_RX_SHADOW
-      if(!periodic_rx::adopt(sync_handle,sync_capture_epoch))fault=true;
+      if(!periodic_rx::adopt(sync_handle,sync_capture_epoch)){
+#ifdef PTOB_TWATCH
+        watch_fault_capture(WatchFaultCaptureAdopt,0,R2Api::None,0,
+          uint32_t(reinterpret_cast<uintptr_t>(arg)),sync_handle,e->periodic_sync.sid,e->periodic_sync.per_adv_ival,address_matches);
+#endif
+        fault=true;
+      }
 #endif
     }else periodic_rx::scope(None);}
     else {periodic_rx::scope(None);sync_identity=0;retry_at=now+200000;}
@@ -1292,7 +1368,11 @@ unsigned periodic_poll(uint64_t now,unsigned budget=8){Periodic row{};unsigned p
     const auto discontinuities=corrected_clock.discontinuities();
     const auto* original=rc_client.receive(p,row.capture,available);
     G1CorrectedClock::Rc7Update update{};
-    if(original)update=corrected_clock.receive_admitted_rc7(rc_client,available,now,anchor,provision.group);
+    if(original)update=corrected_clock.receive_admitted_rc7(rc_client,available,now,anchor,provision.group
+#ifdef PTOB_TWATCH
+      ,&retained_estimate
+#endif
+      );
     if(update.kind==G1CorrectedClock::Rc7Kind::PermissionOnly){
       // Fresh matched source entitlement only; retain the delivered model,
       // numeric-window evidence and relay original/age/snapshots.
@@ -1801,6 +1881,10 @@ void ble_acquisition_poll(uint64_t now){
 }
 #endif
 void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
+#ifdef PTOB_TWATCH
+  if(fault)watch_fault_capture(WatchFaultUnknown);
+  else watch_fault_current=false;
+#endif
 #ifdef PTOB_RC9
   rc9_publish_status(now);
 #endif
@@ -1837,6 +1921,11 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
   }
 #endif
   if(corrected_clock.accepted()!=retained_accepted&&corrected_valid&&corrected_clock.original20()
+#ifdef PTOB_TWATCH
+      // Repeated short acquisitions must not replace a trained oscillator
+      // with the successor's still-untrained starting model.
+      &&(!retained_estimate.trained||corrected_clock.frequency_trained(tick))
+#endif
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
       &&!holdover_test_active(tick)&&(!retained_estimate.trained||corrected_clock.frequency_trained(tick))
 #endif
@@ -1919,7 +2008,11 @@ void publish(uint64_t begin){const auto now=micros();uint64_t tick=0;
 #ifdef PTOB_N30
   // A new coarse JOIN is acquisition context. Keep the trained local clock
   // in explicit HOLD until the successor provides its first physical pair.
-  if(retained_valid&&!corrected_valid&&retained_estimate.handoff_ready(tick)){
+  if(retained_valid&&!corrected_valid
+#ifndef PTOB_TWATCH
+      &&retained_estimate.handoff_ready(tick)
+#endif
+      ){
     retained_selected=true;following_now=false;
   }
 #endif
@@ -2076,16 +2169,93 @@ void r2_shadow_temperature(uint64_t tick20,int32_t milli_celsius){
   portEXIT_CRITICAL(&mux);
 }
 #endif
+#ifdef PTOB_TWATCH
+bool watch_host_resume_pending=false;
+int watch_host_sync_rc=0;uint8_t watch_host_sync_site=0;
+int r2_watch_host_sync_error(uint8_t* site){portENTER_CRITICAL(&mux);const auto rc=watch_host_sync_rc;if(site)*site=watch_host_sync_site;portEXIT_CRITICAL(&mux);return rc;}
+bool watch_client_start_sync(uint64_t id);
+struct WatchAdmission {
+ bool admitted;
+ explicit WatchAdmission(bool host_sync=false):admitted(transport_watch_ble_admit_begin(host_sync)){}
+ ~WatchAdmission(){if(admitted)transport_watch_ble_admit_end();}
+};
+void r2_watch_host_resume(bool requested){
+ portENTER_CRITICAL(&mux);watch_host_resume_pending=requested;
+ if(!requested)boot_client_cancelled=true;
+ portEXIT_CRITICAL(&mux);
+}
+bool r2_watch_capture_retired(){const auto c=periodic_rx::status();return !c.installed&&!c.armed;}
+bool r2_watch_unstarted_quiet(){
+ const auto c=periodic_rx::status();portENTER_CRITICAL(&mux);
+ const bool quiet=initialized&&mode==R2Mode::Off&&!closing&&!owners_active()&&!sdk_connect_pending&&
+  !sync_pending&&!synced&&sync_handle==None&&!c.installed&&!c.armed;
+ portEXIT_CRITICAL(&mux);return quiet;
+}
+bool r2_watch_host_rearm(){
+ if(!r2_watch_unstarted_quiet())return false;
+ portENTER_CRITICAL(&mux);const bool ok=client.off()&&!command_pending&&!stop_pending;
+ if(ok){fault=false;watch_fault_current=false;host_ready=false;
+  watch_radio_recovery.unretired_periodic=false; // Controller-off proof retires the old controller owner; capsule remains.
+  sync_cleanup_queued=sync_cleanup_requested=false;sync_cancelled=sync_terminating=false;sync_drain_until=0;
+ }
+ portEXIT_CRITICAL(&mux);return ok;
+}
+bool r2_watch_host_suspend(){
+ const auto capture=periodic_rx::status();const auto rx=transport_status();
+ const auto tx=diagnostic_tx_status();const auto d=direct_status();
+ const bool original=!client.generation||(client.off()&&client.stop_requested_us&&
+  client.completed_us>=client.stop_requested_us&&client.completed_us<client.stop_deadline_us&&!client.deadline_exceeded);
+ const bool quiet=initialized&&original&&mode==R2Mode::Off&&!closing&&!command_pending&&!stop_pending&&
+  !parent_diagnostic.pending()&&parent_diagnostic.state!=4&&!owners_active()&&!sdk_connect_pending&&
+  !sync_cleanup_queued&&!sync_cleanup_requested&&sync_handle==None&&!watch_radio_recovery.unretired_periodic&&
+  !ble_gap_disc_active()&&!ble_gap_conn_active()&&!capture.installed&&!capture.armed&&!capture.fault&&
+  !rx.radio_requested&&!rx.command_pending&&!rx.client.scan&&!rx.client.pending&&!rx.client.synced&&
+  !tx.requested&&!tx.periodic&&!tx.discovery&&!tx.owner_busy&&tx.off_acknowledged&&
+  (d.stage==DirectStage::Off||(d.stage==DirectStage::Fault&&!d.incarnation))&&d.handle==None;
+ return quiet;
+}
+void r2_watch_host_fenced(){portENTER_CRITICAL(&mux);host_ready=false;portEXIT_CRITICAL(&mux);}
+#endif
 bool r2_host_init(){return initialized&&!ble_gatts_count_cfg(services)&&!ble_gatts_add_svcs(services);}
-bool r2_host_sync(){const bool ready=initialized&&!ble_hs_id_set_rnd(own_address.val);const bool reset_sync=ready&&recovery.stage==G1ResetRecovery::AwaitSync;portENTER_CRITICAL(&mux);host_ready=ready;
+bool r2_host_sync(){
+#ifdef PTOB_TWATCH
+  const bool watch_can_admit=transport_watch_ble_admit_allowed(true);
+#endif
+  const int address_rc=initialized?ble_hs_id_set_rnd(own_address.val):BLE_HS_EINVAL;
+  const bool ready=initialized&&!address_rc;const bool reset_sync=ready&&recovery.stage==G1ResetRecovery::AwaitSync;portENTER_CRITICAL(&mux);host_ready=ready;
+#ifdef PTOB_TWATCH
+  watch_host_sync_rc=address_rc;watch_host_sync_site=address_rc?2:0;
+#endif
   if(ready)recovery.synced(micros());
 #ifdef V12_R2_FIELD_CLIENT
-  const bool admit=ready&&!boot_client_attempted&&!boot_client_cancelled;if(admit)boot_client_attempted=true;
+  const bool admit=ready&&
+#ifdef PTOB_TWATCH
+    watch_can_admit&&(watch_host_resume_pending||(!boot_client_attempted&&!boot_client_cancelled));
+  if(admit){watch_host_resume_pending=false;boot_client_cancelled=false;boot_client_attempted=true;}
+#else
+    !boot_client_attempted&&!boot_client_cancelled;if(admit)boot_client_attempted=true;
+#endif
 #endif
   portEXIT_CRITICAL(&mux);
   if(reset_sync)admission_trace(27,None,0);
 #ifdef V12_R2_FIELD_CLIENT
-  if(admit&&!r2_client_start(boot_id)){fault=true;return false;}
+  if(admit&&!
+#ifdef PTOB_TWATCH
+    watch_client_start_sync(boot_id)
+#else
+    r2_client_start(boot_id)
+#endif
+    ){
+#ifdef PTOB_TWATCH
+      // An OFF request can win after the Sync snapshot. It owns the bounded
+      // drain; a later ON is retained for the recreated host's fresh Sync.
+      if(!transport_watch_ble_admit_allowed(true))return ready;
+#endif
+      fault=true;
+#ifdef PTOB_TWATCH
+      portENTER_CRITICAL(&mux);watch_host_sync_rc=-16;watch_host_sync_site=3;portEXIT_CRITICAL(&mux);
+#endif
+      return false;}
 #endif
   return ready;
 }
@@ -2117,6 +2287,9 @@ bool reset_aux_quiet(){
 }
 void recovery_poll(uint64_t now){
   if(recovery.stage!=G1ResetRecovery::AwaitDrain&&recovery.stage!=G1ResetRecovery::Quiet)return;
+#ifdef PTOB_TWATCH
+  if(watch_radio_recovery.unretired_periodic){recovery.refuse();return;}
+#endif
   if(boot_client_cancelled){recovery.refuse();admission_trace(29,None,1);return;}
   const auto capture=periodic_rx::status();
   const bool closed=host_ready&&mode==R2Mode::Off&&!closing&&!command_pending&&!stop_pending&&client.off()&&
@@ -2140,11 +2313,58 @@ void recovery_poll(uint64_t now){
   portENTER_CRITICAL(&mux);
   const bool admitted=!boot_client_cancelled&&!stop_pending&&!command_pending&&host_ready&&
     recovery.due(now)&&recovery.old_generation==client.generation&&client.admit(now,id,true);
-  if(admitted){fault=false;requested_mode=R2Mode::Client;command_pending=true;snap.off_ack=false;snap.client=client;recovery.rearmed();}
+  if(admitted){fault=false;
+#ifdef PTOB_TWATCH
+    watch_fault_current=false;
+#endif
+    requested_mode=R2Mode::Client;command_pending=true;snap.off_ack=false;snap.client=client;recovery.rearmed();}
   portEXIT_CRITICAL(&mux);
   if(!admitted){recovery.refuse();admission_trace(29,None,2);return;}
   admission_trace(28,None,int(client.generation));
 }
+#ifdef PTOB_TWATCH
+void watch_radio_recovery_poll(uint64_t now){
+  portENTER_CRITICAL(&mux);const bool pending=watch_radio_recovery.pending;
+  portEXIT_CRITICAL(&mux);if(!pending)return;
+  const auto capture=periodic_rx::status();
+  uint8_t refusal=0;
+  if(boot_client_cancelled||!host_ready)refusal=8;
+  else if(watch_radio_recovery.unretired_periodic)refusal=9;
+  else if(client.generation!=watch_recovery_generation||api_errors!=watch_recovery_errors)refusal=6;
+  else if(!fault||!client.generation||!client.off()||!client.stop_requested_us||
+    client.stop_deadline_us-client.stop_requested_us!=2000000||
+    client.completed_us<client.stop_requested_us||client.completed_us>=client.stop_deadline_us||
+    now<client.completed_us||
+    (parent_diagnostic.deadline_us&&parent_diagnostic.state!=3&&client.completed_us>=parent_diagnostic.deadline_us))refusal=3;
+  else if(mode!=R2Mode::Off||closing||command_pending||stop_pending||owners_active()||
+    sdk_connect_pending||ble_gap_disc_active()||ble_gap_conn_active()||
+    sync_cleanup_queued||sync_cleanup_requested||sync_handle!=None||
+    capture.installed||capture.armed||capture.fault)refusal=4;
+  else if(!reset_aux_quiet())refusal=5;
+  portENTER_CRITICAL(&mux);
+  // Operator OFF wins even if it arrives while the worker samples SDK state.
+  if(boot_client_cancelled||stop_pending)refusal=8;
+  if(!refusal){
+    const auto completed=client.completed_us;
+    watch_radio_recovery.stop_requested_us=client.stop_requested_us;
+    watch_radio_recovery.stop_deadline_us=client.stop_deadline_us;
+    watch_radio_recovery.completed_us=completed;
+    uint64_t id=boot_id^(uint64_t(client.generation+1)<<32);if(!id)id=1;
+    if(id==client.request_id){id^=1;if(!id)id=2;}
+    if(client.generation==UINT32_MAX||!client.admit(now,id,true))refusal=7;
+    else{
+      // Keep the diagnostic pin/profile; retire all prior time authority.
+      // first_error_* and fault-site history remain available to the journal.
+      fault=false;watch_fault_current=false;sync_cancelled=sync_terminating=false;sync_drain_until=0;
+      if(parent_diagnostic.state!=3){parent_diagnostic.state=3;parent_diagnostic.completed_us=completed;}
+      requested_mode=R2Mode::Client;command_pending=true;snap.off_ack=false;snap.client=client;
+      inc(watch_radio_recovery.recovered);watch_radio_recovery.reason=2;
+    }
+  }
+  if(refusal){inc(watch_radio_recovery.refused);watch_radio_recovery.reason=refusal;}
+  watch_radio_recovery.pending=false;portEXIT_CRITICAL(&mux);
+}
+#endif
 void r2_host_poll(){if(!initialized)return;const auto begin=micros();bool start=false,stop=false;R2Mode selected=R2Mode::Off;portENTER_CRITICAL(&mux);snap.owner_busy=true;stop=stop_pending;stop_pending=false;if(command_pending){selected=requested_mode;start=!stop&&(selected==R2Mode::Client?client.start(begin):lease.start(begin));command_pending=false;}portEXIT_CRITICAL(&mux);
   if(start){mode=selected;active_used|=mode==R2Mode::Client;
     if(mode==R2Mode::Client){
@@ -2181,16 +2401,68 @@ void r2_host_poll(){if(!initialized)return;const auto begin=micros();bool start=
   ble_acquisition_poll(micros());
 #endif
   recovery_poll(micros());
+#ifdef PTOB_TWATCH
+  watch_radio_recovery_poll(micros());
+#endif
   periodic_rx::poll();discipline_scope(micros());if(periodic_rx::status().fault&&!closing){fault=true;begin_close(micros());}
 #ifdef V12_R2_RX_SHADOW
   if(begin>=host_stack_read_us){host_stack_read_us=begin+1000000;const auto available=uint32_t(uxTaskGetStackHighWaterMark(nullptr)*sizeof(StackType_t));if(available<host_stack_min)host_stack_min=available;}
 #endif
   publish(begin);portENTER_CRITICAL(&mux);snap.owner_busy=false;portEXIT_CRITICAL(&mux);
 }
-bool r2_request(R2Mode next,uint32_t ms,uint64_t id){if(!initialized||next!=R2Mode::Passive||ms<4000||ms>10000)return false;const auto rx_s=transport_status();const auto tx_s=diagnostic_tx_status();const auto direct_s=direct_status();if(!rx_s.off_acknowledged||rx_s.radio_requested||tx_s.requested||!tx_s.off_acknowledged||direct_s.stage!=DirectStage::Off)return false;portENTER_CRITICAL(&mux);const bool ok=host_ready&&client.off()&&snap.off_ack&&!snap.owner_busy&&!fault&&!command_pending&&!stop_pending&&lease.admit(micros(),ms,id);if(ok){requested_mode=next;command_pending=true;snap.off_ack=false;snap.lease=lease;}portEXIT_CRITICAL(&mux);return ok;}
-bool r2_client_start_profile(uint64_t id,uint8_t percent){if(!initialized||(percent!=50&&percent!=100))return false;const auto rx_s=transport_status();const auto tx_s=diagnostic_tx_status();const auto direct_s=direct_status();if(!rx_s.off_acknowledged||rx_s.radio_requested||tx_s.requested||!tx_s.off_acknowledged||direct_s.stage!=DirectStage::Off)return false;portENTER_CRITICAL(&mux);const bool ok=host_ready&&snap.off_ack&&!snap.owner_busy&&!fault&&!command_pending&&!stop_pending&&client.admit(micros(),id,true);if(ok){clear_parent_history=listening_percent!=percent;listening_percent=percent;snap.g1_listening_percent=percent;requested_mode=R2Mode::Client;command_pending=true;snap.off_ack=false;snap.client=client;}portEXIT_CRITICAL(&mux);return ok;}
+bool r2_request(R2Mode next,uint32_t ms,uint64_t id){
+#ifdef PTOB_TWATCH
+ WatchAdmission admission;if(!admission.admitted)return false;
+#endif
+ if(!initialized||next!=R2Mode::Passive||ms<4000||ms>10000)return false;
+ const auto rx_s=transport_status();const auto tx_s=diagnostic_tx_status();const auto direct_s=direct_status();if(!rx_s.off_acknowledged||rx_s.radio_requested||tx_s.requested||!tx_s.off_acknowledged||direct_s.stage!=DirectStage::Off)return false;portENTER_CRITICAL(&mux);const bool ok=host_ready&&client.off()&&snap.off_ack&&!snap.owner_busy&&!fault&&!command_pending&&!stop_pending&&lease.admit(micros(),ms,id);if(ok){requested_mode=next;command_pending=true;snap.off_ack=false;snap.lease=lease;}portEXIT_CRITICAL(&mux);return ok;}
+bool client_start_profile_owned(uint64_t id,uint8_t percent,bool host_sync){
+#ifdef PTOB_TWATCH
+ WatchAdmission admission(host_sync);if(!admission.admitted)return false;
+#else
+ (void)host_sync;
+#endif
+ if(!initialized||(percent!=50&&percent!=100))return false;
+ const auto rx_s=transport_status();const auto tx_s=diagnostic_tx_status();const auto direct_s=direct_status();if(!rx_s.off_acknowledged||rx_s.radio_requested||tx_s.requested||!tx_s.off_acknowledged||direct_s.stage!=DirectStage::Off)return false;portENTER_CRITICAL(&mux);const bool ok=host_ready&&snap.off_ack&&!snap.owner_busy&&!fault&&!command_pending&&!stop_pending&&client.admit(micros(),id,true);if(ok){clear_parent_history=listening_percent!=percent;listening_percent=percent;snap.g1_listening_percent=percent;requested_mode=R2Mode::Client;command_pending=true;snap.off_ack=false;snap.client=client;}portEXIT_CRITICAL(&mux);return ok;}
+bool r2_client_start_profile(uint64_t id,uint8_t percent){return client_start_profile_owned(id,percent,false);}
+#ifdef PTOB_TWATCH
+bool watch_client_start_sync(uint64_t id){
+ if(client.generation){if(client.generation==UINT32_MAX)return false;
+  id^=uint64_t(client.generation+1)<<32;if(!id)id=1;
+  if(id==client.request_id){id^=1;if(!id)id=2;}
+ }
+ return client_start_profile_owned(id,V12_R2_G1_LISTENING_PERCENT,true);
+}
+#endif
 bool r2_client_start(uint64_t id){return r2_client_start_profile(id,V12_R2_G1_LISTENING_PERCENT);}
+#ifdef PTOB_TWATCH
+bool r2_watch_radio_recover(){
+  WatchAdmission admission;if(!admission.admitted)return false;
+  portENTER_CRITICAL(&mux);
+  const bool ok=initialized&&host_ready&&fault&&!boot_client_cancelled&&client.generation&&
+    !watch_radio_recovery.pending&&watch_radio_recovery.attempts!=UINT32_MAX;
+  if(ok){inc(watch_radio_recovery.attempts);watch_radio_recovery.pending=true;watch_radio_recovery.reason=1;
+    watch_recovery_generation=client.generation;watch_recovery_errors=api_errors;}
+  portEXIT_CRITICAL(&mux);return ok;
+}
+bool r2_watch_radio_enable(){
+  WatchAdmission admission;if(!admission.admitted)return false;
+  portENTER_CRITICAL(&mux);
+  const bool ok=initialized&&fault&&boot_client_cancelled&&client.generation;
+  if(ok)boot_client_cancelled=false;
+  portEXIT_CRITICAL(&mux);return ok;
+}
+WatchRadioRecoveryStatus r2_watch_radio_recovery_status(){
+  portENTER_CRITICAL(&mux);const auto result=watch_radio_recovery;portEXIT_CRITICAL(&mux);return result;
+}
+WatchRadioFaultStatus r2_watch_radio_fault_status(){
+  portENTER_CRITICAL(&mux);const auto result=watch_radio_fault;portEXIT_CRITICAL(&mux);return result;
+}
+#endif
 bool r2_parent_select(uint64_t id,bool relay){
+#ifdef PTOB_TWATCH
+  WatchAdmission admission;if(!admission.admitted)return false;
+#endif
   if(!initialized||id==provision.identity)return false;
   portENTER_CRITICAL(&mux);
   const bool ok=host_ready&&mode==R2Mode::Client&&client.running&&!client.stopping&&
@@ -2205,6 +2477,9 @@ bool r2_parent_select(uint64_t id,bool relay){
 bool r2_rc_parent(uint64_t id){return r2_parent_select(id,true);}
 bool r2_gm_parent(uint64_t id){return r2_parent_select(id,false);}
 bool r2_rc9_parent(uint64_t id){
+#ifdef PTOB_TWATCH
+  WatchAdmission admission;if(!admission.admitted)return false;
+#endif
 #ifdef PTOB_RC9
  if(!initialized||id==provision.identity)return false;
  portENTER_CRITICAL(&mux);
@@ -2238,6 +2513,9 @@ Rc9Status r2_rc9_status(){
  return result;
 }
 bool r2_set_relay_only(bool enabled){
+#ifdef PTOB_TWATCH
+  WatchAdmission admission;if(!admission.admitted)return false;
+#endif
   if(!initialized)return false;
   portENTER_CRITICAL(&mux);
   bool ok=host_ready&&mode==R2Mode::Client&&client.running&&!client.stopping&&
@@ -2352,6 +2630,11 @@ R2Activity r2_activity(){
   return result;
 }
 void r2_host_reset(int reason){
+#ifdef PTOB_TWATCH
+  // This callback publishes snap.fault immediately, before the host can poll
+  // again. Retire any prior episode's capsule at that same fault boundary.
+  if(!fault)watch_fault_capture(WatchFaultUnknown);
+#endif
   portENTER_CRITICAL(&mux);recovery.reset(reason,client.generation,micros(),!boot_client_cancelled);host_ready=false;fault=snap.fault=true;
   // Reset is a fault closure, not an operator OFF/update intent.
   if(client.pending||client.running||client.stopping){client.stop(micros());stop_pending=true;snap.off_ack=false;}

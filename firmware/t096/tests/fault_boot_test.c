@@ -96,6 +96,20 @@ int main(int argc,char **argv)
  r2_fault_boot(&id,package);assert(acked_wd==1&&!wd_pending&&r2_fault_wd_valid((const uint32_t *)nv,false));
  assert(((const uint32_t *)nv)[26]==R2_FAULT_CONTEXT_HARDWARE_RESET&&((const uint32_t *)nv)[27]==16);
  if(argc>=3){FILE *f=fopen(argv[2],"wb");assert(f&&fwrite(nv,1,512,f)==512&&!fclose(f));}
+ /* A read-only USB transition is a third distinct NONFAULT context. The
+  * integration runner supplies bytes from the actual observation producer. */
+ reset(true);pending_wd(0);
+ if(argc>=5){FILE *f=fopen(argv[4],"rb");assert(f&&fread(wd_record,1,sizeof wd_record,f)==sizeof wd_record&&!fclose(f));}
+ else {wd_record[0]=R2_USB_OBSERVATION_MAGIC;wd_record[4]=0xfc1f;wd_record[32]=300;wd_record[33]=wd_crc(wd_record);}
+ r2_fault_boot(&id,package);assert(acked_wd==1&&!wd_pending&&r2_fault_wd_valid((const uint32_t *)nv,false));
+ assert(((const uint32_t *)nv)[24]==0&&((const uint32_t *)nv)[25]==0&&((const uint32_t *)nv)[26]==R2_FAULT_CONTEXT_USB_OBSERVATION);
+ if(argc>=4){FILE *f=fopen(argv[3],"wb");assert(f&&fwrite(nv,1,512,f)==512&&!fclose(f));}
+ reset(false);pending_wd(0);
+ if(argc>=5){FILE *f=fopen(argv[4],"rb");assert(f&&fread(wd_record,1,sizeof wd_record,f)==sizeof wd_record&&!fclose(f));}
+ else {wd_record[0]=R2_USB_OBSERVATION_MAGIC;wd_record[4]=0xfc1f;wd_record[32]=300;wd_record[33]=wd_crc(wd_record);}
+ r2_fault_boot(&id,package);assert(acked_wd==1&&!writes); /* exact full-byte dedup */
+ reset(true);memset(nv,0xa5,sizeof nv);pending_wd(0);wd_record[0]=R2_USB_OBSERVATION_MAGIC;wd_record[33]=wd_crc(wd_record);
+ r2_fault_boot(&id,package);assert(wd_pending&&!acked_wd&&!writes&&r2_fault_watchdog_result()==-ENOSPC);
  reset(true);ready=false;pending_cpu();r2_fault_boot(&id,package);assert(cpu_pending&&!acked_cpu&&!writes&&r2_fault_cpu_result()==-ENODEV);
  reset(true);id.result=-EIO;pending_cpu();r2_fault_boot(&id,package);assert(cpu_pending&&!writes&&!fault_boot_state.write_open&&r2_fault_cpu_result()==-EACCES);
  puts("PASS actual sealed boot owner: CPU+WD verified ACK/dedup, fault-free zero journal IO, no runtime writes/retry, exact128 read chunks, full/torn failure retention and shared500ms");

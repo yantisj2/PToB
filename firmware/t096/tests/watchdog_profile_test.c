@@ -58,6 +58,7 @@ void r2_dynamic_service_acquisition_snapshot(uint32_t out[20]){memset(out,0,80);
 void r2_shadow_normal_withdraw(void){}
 void r2_dynamic_service_gm_admission_snapshot(uint32_t out[7]){memset(out,0,7*sizeof *out);}
 void r2_dynamic_service_connection_snapshot(uint32_t out[20]){memset(out,0,20*sizeof *out);}
+#include "profile_observer_fixture.inc"
 #include "../src/rc_profile_service.c"
 static void gm_closed(void){gm.closed=true;gm.active=false;}
 static void gm_ack(void){gm.profile_pending=false;gm.closed=gm.closing=false;gm.active=true;}

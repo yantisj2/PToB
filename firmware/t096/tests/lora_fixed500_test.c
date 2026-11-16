@@ -22,6 +22,91 @@ int main(int argc,char **argv){
  assert(LP_SCHEDULE==8&&LP_CAP_US==90000000&&LP_DISC_BEATS==0);
  assert(LP_SYNC_OFFSET_US+LP_LAUNCH_PAD_US+lp_duration(LP_SYNC)+
         LP_FOLLOW_LATEST_US+lp_duration(LP_FOLLOW)<LP_FRAME_END_US);
+ if(mode==50){
+  init(true);struct rc8_export m=source();m.scope.kind=RC8_SELECTED_BLE;
+  m.scope.root=m.scope.parent=2;m.scope.root_boot=m.scope.parent_boot=44;
+  m.until_tick=(now_us+1000000)*16;m.expires_ns=m.anchor_ns+(now_us+1000000)*1000;
+  r2_lora_source_publish(&m);struct rc8_export admitted=role.tx.maps[0];
+  m.valid=m.authenticated=false; /* Bound-only candidate, never a new export. */
+  for(unsigned later=0;later<2;later++){
+   now_us=m.until_tick/16+later*4000;struct r2_capture at={now_us*16,7,R2_CAPTURE_NOW};
+   assert(r2_lora_source_hold(&m.scope,at,&m));
+   struct rc8_export tighter=m;--tighter.until_tick;
+   assert(!r2_lora_source_hold(&m.scope,at,&tighter));
+   tighter=m;--tighter.expires_ns;assert(!r2_lora_source_hold(&m.scope,at,&tighter));
+   tighter=m;tighter.until_tick=UINT64_MAX;assert(!r2_lora_source_hold(&m.scope,at,&tighter));
+   tighter=m;tighter.expires_ns=UINT64_MAX;assert(!r2_lora_source_hold(&m.scope,at,&tighter));
+   tighter=m;++tighter.capture_epoch;assert(!r2_lora_source_hold(&m.scope,at,&tighter));
+   assert(!memcmp(&admitted,&role.tx.maps[0],sizeof admitted));
+  }
+  puts("PASS actual owner compares raw capture/UTC candidate bounds once, refuses tighter/overflow/counter inputs and never renews admitted copy");return 0;
+ }
+ if(mode>=42&&mode<=49){
+  init(true);struct rc8_export m=source();
+  m.scope.kind=RC8_SELECTED_BLE;m.scope.root=m.scope.parent=2;m.scope.root_boot=m.scope.parent_boot=44;
+  m.until_tick=(now_us+1000000)*16;m.expires_ns=m.anchor_ns+(now_us+1000000)*1000;
+  r2_lora_source_publish(&m);assert(atomic_get(&flags)&SOURCE_PRESENT);
+  struct rc8_export before=role.tx.maps[0];
+  now_us=m.until_tick/16+1; /* Candidate expires between producer and owner admission. */
+  if(mode==43)++m.scope.parent_boot;
+  if(mode==44)now_us=before.until_tick/16;
+  if(mode==45)++fake_capture_epoch;
+  if(mode==46)m.authenticated=false;
+  if(mode==47)m.from_tick=now_us*16+1;
+  if(mode==48)m.until_tick-=16000; /* Authenticated tighter capture bound. */
+  if(mode==49)m.expires_ns-=1000000; /* Authenticated tighter UTC bound. */
+  r2_lora_source_publish(&m);
+  if(mode==42){
+   assert((atomic_get(&flags)&SOURCE_PRESENT)&&!source_events[0]);
+   assert(!memcmp(&before,&role.tx.maps[0],sizeof before));
+   assert(!stop_deadline&&!(atomic_get(&flags)&RESTART_PENDING));
+  }else assert(!(atomic_get(&flags)&SOURCE_PRESENT)&&source_events[0]==1);
+  printf("PASS expired candidate race mode%u: immutable admitted copy or hard fence\n",mode);return 0;
+ }
+ if(mode==41){
+  init(true);struct rc8_export m=source();r2_lora_source_publish(&m);drive_to(25000000);
+  struct r2_lora_view v;r2_lora_view(&v);
+  assert(v.transmitter&&v.tx_stats_valid&&v.tx_pairs==owner.sent[LP_FOLLOW-1]&&v.tx_pairs==1);
+  assert(v.tx_airtime_ms==lp_charged(&role.tx.core.durable,now_us)/1000&&v.tx_wait_reason==R2_LORA_TX_READY);
+  uint32_t count=v.tx_pairs;r2_lora_source_withdraw();step();r2_lora_view(&v);
+  assert(v.tx_restart_ms>29000&&v.tx_restart_ms<=30000&&v.tx_pairs==count&&!v.time_valid);
+  uint32_t hold=v.tx_restart_ms;now_us+=1000000;r2_lora_view(&v);assert(v.tx_restart_ms<=hold-1000);
+  assert(v.tx_pairs==count&&sizeof v<=104);
+  puts("PASS TX view actual FOLLOW/count/charge, source restart countdown, no extra snapshot RAM");return 0;
+ }
+ if(mode==40){
+  init(false);step();
+  struct lp_packet m={.kind=LP_META,.schedule=LP_SCHEDULE,.serial=1,.time_valid=true,.has_pair=true,.delay_10ms=600,.utc_ns=UINT64_C(1000000000000),.tz={0,INT16_MIN},
+   .scope={.emitter=3,.boot=2,.root=3,.root_boot=2,.epoch=1,.stream=1,.seed=17,.kind=1}};
+  rx(&m,10000000,10700000);assert(role.rx.cached&&role.rx.scope.emitter==3);
+  struct lp_replay saved=replay[0];
+  rx(&m,11000000,11700000);assert(!memcmp(&saved,&replay[0],sizeof saved));
+  m.scope.emitter=4;m.scope.boot=3;m.scope.root=4;m.scope.root_boot=3;m.utc_ns+=1000000000;
+  rx(&m,12000000,12700000);assert(role.rx.scope.emitter==4&&!role.rx.have_pair);
+  saved=replay[0];
+  m.scope.emitter=3;m.scope.boot=2;m.scope.root=3;m.scope.root_boot=2;m.utc_ns-=1000000000;
+  rx(&m,13000000,13700000);assert(role.rx.scope.emitter==4&&!memcmp(&saved,&replay[0],sizeof saved));
+  m.utc_ns+=UINT64_C(2000000000);m.serial=2;
+  rx(&m,14000000,14700000);assert(role.rx.scope.emitter==3&&replay[0].serial==2&&replay[1].boot==3);
+  puts("PASS authenticated field emitters admitted with original replay and context fences");return 0;
+ }
+ if(mode==39){
+  init(false);step();assert(owner.active&&owner.listening&&!transmitter);
+  assert(!r2_lora_mode_request(true));assert(!transmitter); /* Physical close first. */
+  for(unsigned n=0;n<100&&!transmitter;n++)step();
+  assert(transmitter&&!role.tx.maps[0].valid);
+  struct rc8_export m=source();m.scope.emitter=m.scope.root=factory;r2_lora_source_publish(&m);drive_to(now_us+65000000);
+  assert(owner.sent[3]>0);uint64_t charged=lp_charged(&role.tx.core.durable,now_us);
+  assert(charged>0);uint32_t serial=role.tx.core.durable.serial;
+  assert(!r2_lora_mode_request(false));
+  for(unsigned n=0;n<100&&transmitter;n++)step();
+  assert(!transmitter&&!role.rx.have_pair&&role.tx.core.durable.serial==serial);
+  assert(lp_charged(&role.tx.core.durable,now_us)==charged);
+  assert(!r2_lora_mode_request(true));for(unsigned n=0;n<100&&!transmitter;n++)step();
+  assert(transmitter&&!role.tx.maps[0].valid&&lp_charged(&role.tx.core.durable,now_us)==charged);
+  r2_lora_control(true,true,RC8_SELECT_NONE);assert(r2_lora_mode_request(true)==-EACCES);
+  puts("PASS manual RX/TX closes physical owner, fences maps, preserves TX debt and rejects RC TX");return 0;
+ }
  if(mode==38){
   init(true);begin_stop(-ESTALE);
   assert(owner.error==-ESTALE&&r2_diag_scratch.lora.terminal);
@@ -63,14 +148,14 @@ int main(int argc,char **argv){
   assert(role.tx.maps[0].valid&&role.tx.maps[0].until_tick==m.until_tick+LAB_SOURCE_HOLD_US*16);
   struct rc8_export before;memcpy(&before,&role.tx.maps[0],sizeof before);
   struct r2_capture at={m.until_tick,7,R2_CAPTURE_NOW};now_us=at.tick/16;
-  assert(r2_lora_source_hold(&m.scope,at));
-  struct rc8_scope other=m.scope;++other.root_boot;assert(!r2_lora_source_hold(&other,at));
-  other=m.scope;++other.parent_boot;assert(!r2_lora_source_hold(&other,at));
-  other=m.scope;++other.source_epoch;assert(!r2_lora_source_hold(&other,at));
-  assert(!r2_lora_source_hold(&m.scope,(struct r2_capture){at.tick,8,R2_CAPTURE_NOW}));
-  assert(!r2_lora_source_hold(&m.scope,(struct r2_capture){before.until_tick,7,R2_CAPTURE_NOW}));
+  assert(r2_lora_source_hold(&m.scope,at,NULL));
+  struct rc8_scope other=m.scope;++other.root_boot;assert(!r2_lora_source_hold(&other,at,NULL));
+  other=m.scope;++other.parent_boot;assert(!r2_lora_source_hold(&other,at,NULL));
+  other=m.scope;++other.source_epoch;assert(!r2_lora_source_hold(&other,at,NULL));
+  assert(!r2_lora_source_hold(&m.scope,(struct r2_capture){at.tick,8,R2_CAPTURE_NOW},NULL));
+  assert(!r2_lora_source_hold(&m.scope,(struct r2_capture){before.until_tick,7,R2_CAPTURE_NOW},NULL));
   assert(!memcmp(&before,&role.tx.maps[0],sizeof before));
-  r2_lora_source_withdraw();assert(!r2_lora_source_hold(&m.scope,at));
+  r2_lora_source_withdraw();assert(!r2_lora_source_hold(&m.scope,at,NULL));
   puts("PASS fixed500 holds immutable BLE map only within its admitted expiry and scope");return 0;
  }
  if(mode==33||mode==34){

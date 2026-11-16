@@ -291,6 +291,10 @@ void direct_host_reset(){
   Job j;j.kind=JobKind::Reset;j.incarnation=host.incarnation;queue_job(j);
   host.stage=DirectStage::Fault;host.encrypted=host.confirmed=false;host.handle=NoHandle;publish();}
 bool direct_request(LinkRole role,uint8_t address_type,const uint8_t addr[6],uint64_t root_permit,uint32_t duration_ms){
+#ifdef PTOB_TWATCH
+  struct Admission {bool ok=transport_watch_ble_admit_begin();~Admission(){if(ok)transport_watch_ble_admit_end();}} admission;
+  if(!admission.ok)return false;
+#endif
   if(!addr||(role!=LinkRole::GM&&role!=LinkRole::TimeRelay)||address_type>1||duration_ms<1000||duration_ms>10000||
      (role==LinkRole::GM?root_permit!=0:root_permit==0)){count(&DirectStatus::refusals);return false;}
   portENTER_CRITICAL(&direct_mux);
@@ -300,5 +304,13 @@ bool direct_request(LinkRole role,uint8_t address_type,const uint8_t addr[6],uin
   portEXIT_CRITICAL(&direct_mux);if(!ok)count(&DirectStatus::refusals);return ok;
 }
 void direct_stop(){portENTER_CRITICAL(&direct_mux);stop_pending=true;request_pending=false;portEXIT_CRITICAL(&direct_mux);}
+#ifdef PTOB_TWATCH
+bool direct_watch_retire_unused(){
+  portENTER_CRITICAL(&direct_mux);const bool ok=!host.incarnation&&!request_pending&&!host.encrypted&&!host.confirmed&&host.handle==NoHandle&&
+    (host.stage==DirectStage::Off||host.stage==DirectStage::Fault)&&!jobs.count&&!transmit.count;
+  if(ok){stop_pending=abort_pending=false;host.stage=DirectStage::Off;}
+  portEXIT_CRITICAL(&direct_mux);if(ok)publish();return ok;
+}
+#endif
 DirectStatus direct_status(){portENTER_CRITICAL(&direct_mux);const auto s=snapshot;portEXIT_CRITICAL(&direct_mux);return s;}
 }

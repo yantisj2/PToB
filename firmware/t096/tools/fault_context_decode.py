@@ -21,24 +21,25 @@ def decode(raw):
     assert p[0]==0x57444631 and p[1]==1 and p[2]<16 and p[3]==512
     assert p[127]==0x434f4d31 and zlib.crc32(raw[:504])==p[126]
     assert p[4]or p[5];assert p[6]or p[7];assert p[56]or p[57]
-    assert not any(p[8:16]) and p[26]in(1,2)
+    assert not any(p[8:16]) and p[26]in(1,2,3)
     observed=p[26]==2
-    assert w[0]==(0x52325253 if observed else 0x52325744) and w[1]==(2 if observed else 1)
+    usb=p[26]==3
+    assert w[0]==(0x554f4231 if usb else 0x52325253 if observed else 0x52325744) and w[1]==(2 if observed else 1)
     assert zlib.crc32(raw[260:388])==w[33]
-    assert p[4:6]==w[2:4] and p[24]==w[4]
+    assert p[4:6]==w[2:4] and p[24]==(0 if usb else w[4])
     binding=raw[304:368].decode('ascii')
     factory=raw[368:384].decode('ascii')
     assert len(binding)==64 and all(c in '0123456789abcdef'for c in binding)
     assert len(factory)==16 and all(c in '0123456789abcdef'for c in factory)
     assert raw[64:96].hex()==binding and factory==f'{p[7]:08x}{p[6]:08x}'
-    reason=p[24];terminal=not observed and(2<=reason<=7 or 16<=reason<256)
+    reason=p[24];terminal=not observed and not usb and(2<=reason<=7 or 16<=reason<256)
     assert(not reason and p[27]==w[5]and p[27])if observed else not p[27]
     assert p[25]==int(terminal)
     assert not any(p[i]for i in range(28,64)if i not in(56,57,58))
     assert not any(p[98:126])
     names={2:'RETRIES_EXHAUSTED',3:'CORE_STALL',4:'RECOVERY_FAILED',5:'CONTROL_STALL',6:'LORA_FAULT',7:'USB_FAULT'}
-    cause=names.get(reason,'FATAL_HOOK'if 16<=reason<256 else'UNKNOWN')if terminal else'UNKNOWN'
-    return dict(kind='BARE_HARDWARE_RESET'if observed else'WATCHDOG_CONTEXT',schema=1,cpu_exception_frame=False,
+    cause='USB_OBSERVATION'if usb else names.get(reason,'FATAL_HOOK'if 16<=reason<256 else'UNKNOWN')if terminal else'UNKNOWN'
+    result=dict(kind='USB_OBSERVATION'if usb else'BARE_HARDWARE_RESET'if observed else'WATCHDOG_CONTEXT',schema=1,cpu_exception_frame=False,
         originating_source='UNKNOWN',exact_build_binding=binding,silicon=factory,
         origin_boot='UNKNOWN'if observed else f'{p[5]:08x}{p[4]:08x}',
         observed_reset_boot=f'{p[5]:08x}{p[4]:08x}'if observed else'UNKNOWN',
@@ -49,6 +50,17 @@ def decode(raw):
         rc_check=rc_check_detail(reason,w[32])if terminal else None,
         generation=p[56]|p[57]<<32,retained_id=f'{p[58]:08x}',
         limits='Original source absent in136B capsule; match original build receipt by binding. Stored context is not current-reset attribution and contains no CPU exception frame.')
+    if usb:
+        flags=w[4]
+        result['usb_observation']=dict(flags=flags,progress=w[5],ep0_generation=w[6],frame=w[7],
+            eventcause=w[8],inten=w[9],hfclkstat=w[10],usbregstatus=w[11],observed_uptime_ms=w[32],
+            attached=bool(flags&1),ready=bool(flags&2),vbus=bool(flags&4),
+            irq_enabled=bool(flags&(1<<13)),hardware_lowpower=bool(flags&(1<<14)),
+            software_bus_suspend=bool(flags&(1<<15)),irq_pending=bool(flags&(1<<22)),
+            frame_interpretation='UNAVAILABLE_IN_LOW_POWER'if flags&(1<<14)else'RAW_REGISTER_ONLY',
+            classification='OBSERVATION_ONLY_LEGITIMATE_SUSPEND_POSSIBLE',
+            limitations='Last sampled lifecycle transition; no host-attempt, stall, root-cause or reset-cause inference. SRAM loss before next-boot commit may lose it.')
+    return result
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('input',type=Path);p.add_argument('--first-chunk',type=lambda s:int(s,0),default=512)

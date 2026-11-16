@@ -31,7 +31,7 @@ def main():
     assert '.rc_check_generation=(uint16_t)((uint32_t)atomic_get(&first_check_site)>>16)' in status_init
     assert 'k_mutex_lock(&state_lock,K_FOREVER);' in config[config.index(clear):config.index(status_init)]
     (o/'configure.inc').write_text(prefix+identity+clear+chr(10)+' k_mutex_lock(&state_lock,K_FOREVER);'+chr(10)+status_init+chr(10)+' k_mutex_unlock(&state_lock);'+chr(10)+' return 0;'+chr(10)+'}'+chr(10))
-    for name in ['zephyr/kernel.h','zephyr/sys/atomic.h','zephyr/sys/reboot.h','zephyr/device.h','zephyr/drivers/watchdog.h','zephyr/drivers/hwinfo.h','cmsis_core.h','build_identity.h']:
+    for name in ['zephyr/kernel.h','zephyr/irq.h','zephyr/sys/atomic.h','zephyr/sys/reboot.h','zephyr/device.h','zephyr/drivers/watchdog.h','zephyr/drivers/hwinfo.h','cmsis_core.h','build_identity.h']:
         f=o/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('/* synthetic public platform boundary */\n')
     cc=os.environ.get('CC','/opt/homebrew/opt/llvm/bin/clang')
     flags=[cc,'-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-parameter','-Wno-unused-variable','-Wno-default-const-init-var-unsafe','-pthread','-fsanitize=address,undefined','-fno-sanitize-recover=all',*['-I'+str(q)for q in [o,A/'include',A/'protocol',A/'tests']]]

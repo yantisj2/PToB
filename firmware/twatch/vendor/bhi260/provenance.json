@@ -1,0 +1,50 @@
+{
+  "repository": "https://github.com/boschsensortec/BHI2xy_SensorAPI",
+  "revision": "177681d120ac42760c9f19505697ccd5c7103e87",
+  "license": "BSD-3-Clause",
+  "files": {
+    "bhy2.c": {
+      "source": "bhy2.c",
+      "sha256": "f88d37ccb8a625c949bc429ecf507da8a6d0be964f81b6c95824a882394d2613"
+    },
+    "bhy2.h": {
+      "source": "bhy2.h",
+      "sha256": "19abba48fcaf50ddf4427c2875687b8e308f6265c80d53cf1516e9c7ee1ff598"
+    },
+    "bhy2_defs.h": {
+      "source": "bhy2_defs.h",
+      "sha256": "129e8326cfc8409646bd86a6f2ee03bd0966198b4b47862d985ad4313b10cc83"
+    },
+    "bhy2_hif.c": {
+      "source": "bhy2_hif.c",
+      "sha256": "e95fce15b24da31198fd24fc894cfa66511ca390c733df597d2200020744009b"
+    },
+    "bhy2_hif.h": {
+      "source": "bhy2_hif.h",
+      "sha256": "0b51addee4840d65ba6c9b974470ddbb0fa45e4c0999c3b3f316a0ec265ab28e"
+    },
+    "LICENSE": {
+      "source": "LICENSE",
+      "sha256": "2a54d2ef6beedf4da1cb20887b476bf5964e44cc47f20345635a18ff98b33d56"
+    },
+    "BHI260AP.fw.h": {
+      "source": "firmware/bhi260ap/BHI260AP.fw.h",
+      "sha256": "d72c44cef2fade4050a5b12a8649f6e38ab9008253ed5ad90f25066b099cee29"
+    }
+  },
+  "local_patches": [
+    {
+      "file": "bhy2.c",
+      "upstream_sha256": "f88d37ccb8a625c949bc429ecf507da8a6d0be964f81b6c95824a882394d2613",
+      "local_sha256": "3ad7b25c5a1c846513aa7fd3dd5ea2db569d077cc21ebab62dce363ca8548c30",
+      "author": "Jonathan Yantis",
+      "license": "BSD-3-Clause",
+      "changes": [
+        "Reject zero-sized FIFO events after fixed system-event lazy initialization with BHY2_E_INVALID_PARAM instead of looping without progress.",
+        "Propagate wake-FIFO parse errors to the adapter instead of returning an unrelated success value.",
+        "Use a 32-bit compaction index for the 32-bit remaining byte count."
+      ],
+      "scope": "Watch-selected Bosch driver only; no sensor firmware changes."
+    }
+  ]
+}

@@ -24,6 +24,9 @@ void fault_watchdog_main_progress(uint32_t mask,uint8_t api,int32_t rc,
 void fault_watchdog_sync_progress(bool expected,uint64_t valid_until_us);
 #endif
 void fault_watchdog_host_expected();
+#ifdef PTOB_TWATCH
+void fault_watchdog_host_expected(bool expected);
+#endif
 #ifdef ESP_PLATFORM
 void fault_watchdog_host_progress();
 #else

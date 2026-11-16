@@ -50,7 +50,10 @@ static unsigned lora_checks;
 void r2_lora_coordination(struct r2_gm_coordination *out){*out=lora_coordination;}
 void r2_lora_watchdog_check(void){lora_checks++;}
 #endif
-#include "../src/watchdog.c"
+#ifndef R2_WATCHDOG_BODY
+#define R2_WATCHDOG_BODY "../src/watchdog.c"
+#endif
+#include R2_WATCHDOG_BODY
 #undef k_sleep
 /* The RAM-only diagnostic no longer restores a previous-boot capsule. Check
  * the current emitted record here, without reinstating production retention. */
