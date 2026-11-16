@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.44'
+VERSION='0.2.45'
 def check_receiver_state_gate(path):
  # Loading the gate must not put N30 tools ahead of this builder's modules:
  # the later inspect_build import belongs to W12 and has a different API.
@@ -176,8 +176,8 @@ def validate_dual_compilation(r,compiled):
   if flag not in tokens:raise ValueError('Missing compiled runtime feature: '+flag)
  if r.get('rc9'):
   if '-DPTOB_RC9=1' not in tokens or not r['lora_rx'] or not r['estimated_relay']:raise ValueError('RC9 compile/profile mismatch')
- if r.get('no_time_sync_watchdog_us')!=(720000000 if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44') else 300000000):raise ValueError('Watchdog metadata differs')
- if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44') and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
+ if r.get('no_time_sync_watchdog_us')!=(720000000 if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45') else 300000000):raise ValueError('Watchdog metadata differs')
+ if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45') and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
  if r['lora_rx'] and not r['fine_clock']:raise ValueError('LoRa requires fine counter')
 
 def main():
@@ -228,6 +228,7 @@ def main():
  r['lora_owner_contract']='PERSISTENT_MODE_COOKIE_REVOKE_FENCE_DRAIN200MS_V2'
  r['lora_reset_readback']='INPUT_OUTPUT_PAD_LEVEL_OFF_PROOF_V1'
  r['cap_activity_guard']='SDK_ACTIVE_STOP_BEFORE_DATA_REMOVE_V1'
+ r['acl_scheduling_guard']='W12_SCAN_OFF_ALL_ACL_POST_YIELD_RECHECK_ORIGINAL_BUDGET_V1'
  r['relay_cap_retry']='PAUSED_CAP_DATA207_RECREATE_ONCE_ORIGINAL500MS_FRESH_OWNER_V3'
  r['main_inlining']='GNSS_MAIN_SHARED_CALLEES_V1' if 'gnss_profile' in d else 'DEFAULT'
  r['lora_selection_policy']='AUTH_META_FIELD_EMITTER_FOUR_NON_EVICTING_REPLAY_FLOORS_V1'

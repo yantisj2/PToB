@@ -507,7 +507,15 @@ LinkContext sync_context(){
 void sync_trace(uint8_t event,uint16_t handle,int result,const LinkContext* saved=nullptr){
   const auto context=saved?*saved:sync_context();admission_trace(event,handle,result,&context);
 }
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+// Real ACL ownership includes delayed completion and the original drain.
+// Discovery can resume only after the matching closure callback retires it.
+bool control_acl_owned(){return peer.connecting||peer.handle!=None||!relay_acl_available();}
+#endif
 void start_scan(bool gm_observation=false){
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  if(control_acl_owned())return;
+#endif
 #ifdef PTOB_GM_SUCCESSOR
   gm_observation=gm_observation||gm_control_scan.allows(micros());
 #endif
@@ -895,6 +903,13 @@ bool connect_parameter_refusal(int rc,const ble_gap_conn_params& p){
 void connect(const Discovery& d,uint64_t id,uint64_t now,bool relay=false,bool is_rc9=false){
   if((!is_rc9&&!parent_selection.retry_allowed(id,relay,now))||!admission_policy.allowed(now,full_listening()&&!relay))return;
   relay_poll(now,true,true);if(!relay_acl_available())return;stop_scan();if(scan||!timely())return;
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  // Scan cancellation yields: a delayed incoming CONNECT can acquire the
+  // slot before we install an outgoing incarnation. Keep its original drain.
+  const auto checked=micros();
+  if(closing||control_acl_owned()||(!is_rc9&&!parent_selection.retry_allowed(id,relay,checked))||
+     !admission_policy.allowed(checked,full_listening()&&!relay))return;
+#endif
   if(nonce==UINT64_MAX){fault=true;return;}++nonce;
   if(incarnation==UINT32_MAX){fault=true;return;}
   const bool rescan=false; // Poor delivery never establishes slot contention.
@@ -1606,6 +1621,11 @@ W12_STACK_FRAME void active_poll(uint64_t now){
   if(admission_root&&now>=admission_until)admission_root=admission_until=0;
   if(peer.connecting&&now>=peer.attempt_until){failed_admission(now);cancel_connect(now);}
   if((peer.connecting&&connecting_cancelled&&now>=peer.drain_until)||(peer.terminating&&now>=peer.drain_until))error(BLE_HS_ETIMEOUT,R2Api::Disconnect);
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  // Host worker only: never issue yielding radio calls from GAP callbacks.
+  if(control_acl_owned())stop_scan();
+  if(fault)return;
+#endif
   probe_pending_link(now);
   // Enforce this window before any public GATT operation can yield or send.
   if(mode==R2Mode::Client&&!window_poll(now)){periodic_poll(micros());return;}

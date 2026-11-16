@@ -386,6 +386,9 @@ bool relay_cap_configure(){
 #endif
   return relay_api(ble_gap_ext_adv_configure(1,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure);
 }
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+bool relay_cap_blocked(){return fault||closing||relay_stopping||control_acl_owned();}
+#endif
 [[gnu::noinline]] bool relay_cap_update(uint64_t now){
 #ifdef PTOB_N30
   static n30::AdvDataRetry capacity_retry;
@@ -395,16 +398,20 @@ bool relay_cap_configure(){
 #if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
   if(!capacity_retry.ready(now))return false;
 #endif
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  if(relay_cap_blocked())return false;
+#else
   if(relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
+#endif
   relay_pause_cap();
 #if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
   // A stop can yield to GAP callbacks. Recheck owners before another HCI call.
-  if(fault||closing||relay_stopping||relay_advertising||relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
+  if(relay_cap_blocked()||relay_advertising)return false;
   if(capacity_retry.expired(micros())){error(0x207,R2Api::AdvData,61);return false;}
   if(capacity_retry.needs_configure()){
     if(!relay_cap_configure())return false;
     capacity_retry.configured();
-    if(closing||relay_stopping||relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
+    if(relay_cap_blocked())return false;
     if(capacity_retry.expired(micros())){error(0x207,R2Api::AdvData,61);return false;}
   }
 #endif
@@ -425,7 +432,11 @@ bool relay_cap_configure(){
 #if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
   if(capacity_retry.defer(cap_result,micros())){note(cap_result,R2Api::AdvData);inc(setup_retries);return false;}
 #if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
-  if(cap_result==0x207&&!fault&&!relay_advertising&&relay_session.handle==None&&!peer.connecting&&peer.handle==None&&capacity_retry.recreate(micros())){
+  // set_data/configure may yield to a quarantined CONNECT. Defer known
+  // capacity recovery without restarting its original500ms budget; retain
+  // other SDK errors even when an owner arrived during the call.
+  if((!cap_result||cap_result==0x207)&&relay_cap_blocked())return false;
+  if(cap_result==0x207&&!relay_advertising&&capacity_retry.recreate(micros())){
     // No CAP/ACL owner is active here. Recreate handle1 only; never stop or
     // reconfigure the upstream PA receiver or downstream periodic handle0.
     note(cap_result,R2Api::AdvData);inc(setup_retries);
@@ -605,6 +616,9 @@ void relay_poll(uint64_t now,bool upstream_due,bool admitting){
     if(relay_cap_dirty&&!relay_cap_update(now))return;
     if(!clock_reference_read(&now20)){fault=true;return;}
     if(!relay_check_lock())return;
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+    if(relay_cap_blocked())return;
+#endif
     if(!upstream_due&&!relay_advertising&&relay_api(ble_gap_ext_adv_start(1,0,0),R2Api::AdvStart))relay_advertising=true;
   }
   periodic_tx::EstimateRecord capture{};

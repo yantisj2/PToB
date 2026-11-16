@@ -76,6 +76,8 @@ def main():
     production=out/'C3-production-holdover'
     run([CXX,'-std=c++20',*flags,'-Wno-missing-field-initializers','-DPTOB_W12_BLE_RECOVERY=1','-DPTOB_W12_SHADOW_HOLDOVER=1','-DPTOB_W12_HOLDOVER_PRODUCTION=1','-DPTOB_W12_HOLDOVER_HORIZON=1','-DPTOB_W12_HOLDOVER_RATE=1','-DPTOB_W12_THERMAL_SHADOW_ONLY=1','-DPTOB_W12_FINE_CLOCK=1','-DV12_R2_RX_SHADOW=1','-DV12_R2_ENABLED=1','-DV12_R2_FIELD_CLIENT=1','-DV12_R2_CONFIG=13','-DV12_UNIT="C3"','-I'+str(APP/'tests/r2_fakes'),'-I'+str(APP/'tests/console_fakes'),'-I'+str(APP/'main'),'-I'+str(APP/'legacy/reference'),APP/'tests/native_g1_test.cpp',*objects,'-o',production],'production-holdover-build')
     run([production,'holdover-production'],'production-holdover-selection-sensor-scope-and-handoff')
+    for case in ('initiating','mtu','service','drain','existing','stop-error'):
+        run([production,'scan-owner-'+case],'W12-no-scan-during-ACL-'+case)
     if a.selection=='holdover':
         (out/'receipt.json').write_text(json.dumps({'status':'PASSED','scope':'ACTUAL_NATIVE_HOLD_ENTRY_SELECTION_AND_HANDOFF','tests':records,'hardware_access':False},indent=2)+'\n')
         print('PASS actual native production HOLD entry, selection and continuity')

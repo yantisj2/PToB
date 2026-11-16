@@ -1,5 +1,19 @@
 # W12 changelog
 
+## 0.2.45 — Discovery and ACL ownership
+
+Keep W12 discovery scanning stopped throughout outgoing, incoming and quarantined
+ACL ownership, including the original drain. Recheck incoming ownership after
+yielding scan cancellation before installing an outgoing incarnation. CAP data
+recovery rechecks every yielding boundary and defers while quarantine owns an
+ACL; retain its original 500 ms budget, one recreation and all other SDK errors.
+Upstream periodic reception, source expiry and admission deadlines are unchanged.
+
+Native callback tests cover held MTU/service, existing scans, scan-stop errors,
+inline incoming CONNECT/disconnect/OFF, and quarantine during CAP stop, configure
+and data submission. These are offline owner checks; warm renewal and physical
+receive progress still require device observation.
+
 ## 0.2.44 — CAP activity reconciliation and readable RESET
 
 Reconcile paused CAP advertising with NimBLE's public activity state before

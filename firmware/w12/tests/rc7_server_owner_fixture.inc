@@ -1,3 +1,12 @@
+// Synthetic callback schedules exercise native owners, not RF delivery.
+unsigned owner_inject_at=0,scan_stop_action=0;
+void server_late_connect();void server_disconnect();
+void owner_inject(unsigned at){if(owner_inject_at==at){owner_inject_at=0;server_late_connect();}}
+void server_scan_stop(){
+ const auto action=scan_stop_action;scan_stop_action=0;
+ if(action==4){v12::r2_stop();return;}
+ if(action){if(action==2)v12::relay_admission_locked=false;server_late_connect();if(action==3)server_disconnect();}
+}
 bool tx_observation_fixture=false;
 bool server_connected=false,server_slow=false,pa_active=false,ext_active[2]{};ble_addr_t child_address{0,{1,2,3,4,5,6}};
 int server_find_rc=0,server_terminate_rc=0;uint8_t server_role=BLE_GAP_ROLE_SLAVE;
@@ -23,14 +32,14 @@ bool pop_estimated(EstimateRecord& r){if(!estimate_queued)return false;estimate_
  std::memcpy(r.observed.selected.data,pa_wire.data(),190);return true;}
 }
 int ble_gap_ext_adv_active(unsigned i){return ext_active[i];}
-int ble_gap_ext_adv_stop(unsigned i){ext_active[i]=false;return 0;}
+int ble_gap_ext_adv_stop(unsigned i){ext_active[i]=false;if(i==1)owner_inject(1);return 0;}
 int cap_remove_result=0;unsigned cap_removed=0;int ble_gap_ext_adv_remove(unsigned i){assert(!ext_active[i]);if(i==1){++cap_removed;return cap_remove_result;}return 0;}
 unsigned discovery_configured=0,cap_sets=0;int cap_set_result=0;
 int ble_gap_ext_adv_configure(unsigned i,const ble_gap_ext_adv_params* p,int8_t*,int(*)(ble_gap_event*,void*),void*){
  assert(i<2&&p->sid==12+i&&p->connectable==i);
  assert(p->itvl_min==160&&p->itvl_max==160); //100ms discovery,625us units
- discovery_configured|=1u<<i;return 0;}
-int ble_gap_ext_adv_set_data(unsigned i,os_mbuf* b){os_mbuf_free_chain(b);if(i==1){++cap_sets;return cap_set_result;}return 0;}
+ discovery_configured|=1u<<i;if(i==1)owner_inject(2);return 0;}
+int ble_gap_ext_adv_set_data(unsigned i,os_mbuf* b){os_mbuf_free_chain(b);if(i==1){++cap_sets;owner_inject(3);return cap_set_result;}return 0;}
 int ble_gap_ext_adv_start(unsigned i,int,unsigned){ext_active[i]=true;return 0;}
 int ble_gap_periodic_adv_configure(unsigned i,const ble_gap_periodic_adv_params* p){assert(i==0&&p->itvl_min==50&&p->itvl_max==50);return 0;}
 int ble_gap_periodic_adv_set_data(unsigned i,os_mbuf* b){assert(i==0&&b->bytes.size()==190);
@@ -72,6 +81,55 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac));assert(v12::r2_host_init());assert(v12::r2_host_sync());
  v12::mode=v12::R2Mode::Client;v12::relay_poll(fake_now,false);assert(discovery_configured==3&&!ext_active[1]&&!ext_active[0]&&!pa_active);
 #ifdef PTOB_W12_BLE_RECOVERY
+ if(which.rfind("connect-owner-",0)==0){
+   assert(v12::client.start(fake_now));fake_now=1000010;
+   rc7_path root{};root.source_epoch=9;root.node[0]={11,22,1,1,0,0};
+   rc5_origin origin={11,22,9,1000000000,2650000000,1700000000000000000,1000000000,0,0};
+   v12::G1ClockPrediction map{fake_now*20,1000010000,0,0,origin.utc_offset};
+   assert(v12::relay_map.input(root,origin,nullptr,map,20000000,1,fake_now*20,0,v12::provision.identity,44,v12::provision.group,{},true));
+   v12::relay_poll(fake_now,false);assert(v12::relay_admission_locked&&ext_active[1]);
+   v12::scan=scan_active=true;
+   scan_stop_action=which=="connect-owner-quarantine"?2:which=="connect-owner-closed"?3:which=="connect-owner-off"?4:1;
+   if(which=="connect-owner-stop-error"){scan_cancel_error=BLE_HS_EINVAL;scan_stop_action=0;}
+   v12::Discovery d{};d.address=v12::canonical(333);d.sid=12;d.props=1;d.at=fake_now;
+   const auto nonce=v12::nonce;const auto incarnation=v12::incarnation;
+   v12::connect(d,333,fake_now);
+   if(which=="connect-owner-closed"){assert(connected==1&&v12::peer.connecting&&!v12::fault);return 0;}
+   assert(!connected&&!v12::peer.connecting&&v12::nonce==nonce&&v12::incarnation==incarnation);
+   if(scan_cancel_error){assert(v12::fault&&scan_active);return 0;}
+   assert(!v12::fault);
+   if(which=="connect-owner-off"){assert(v12::stop_pending||v12::closing||v12::client.stopping);return 0;}
+   assert(!v12::relay_acl_available());v12::start_scan();assert(!scan_active);
+   v12::scan=scan_active=true;server_slow=true;v12::active_poll(fake_now);assert(!scan_active&&!v12::fault);
+   server_disconnect();assert(v12::relay_acl_available());
+   fake_now+=200000;v12::connect(d,333,fake_now);assert(connected==1&&v12::peer.connecting&&!v12::fault);return 0;
+ }
+ if(which.rfind("cap-owner-",0)==0){
+   assert(v12::client.start(fake_now));v12::relay_admission_locked=false;server_slow=true;
+   v12::synced=true;v12::sync_handle=17;v12::sync_identity=123;
+   v12::periodic_rx::installed=v12::periodic_rx::armed=true;v12::periodic_rx::capture_epoch=9;
+   ext_active[0]=pa_active=true;cap_set_result=0x207;const auto start=fake_now;
+   if(which=="cap-owner-configure"){
+     assert(v12::relay_cap_retry.defer(0x207,start));v12::relay_cap_retry.removed();fake_now+=100000;owner_inject_at=2;
+   }else if(which=="cap-owner-data"||which=="cap-owner-deadline"||which=="cap-owner-error"){
+     for(unsigned n=0;n<2;++n){assert(!v12::relay_cap_update(fake_now));fake_now+=100000;}
+     owner_inject_at=3;if(which=="cap-owner-error")cap_set_result=BLE_HS_EINVAL;
+   }else if(which=="cap-owner-preexisting")server_late_connect();
+   else{ext_active[1]=true;v12::relay_advertising=true;owner_inject_at=1;}
+   const auto before=cap_sets;assert(!v12::relay_cap_update(fake_now));
+   assert(v12::relay_quarantine_owned()&&!cap_removed);
+   const auto drain=v12::relay_quarantine_until[0];assert(drain==fake_now+2000000);
+   if(which=="cap-owner-error"){assert(v12::fault);return 0;}
+   assert(!v12::fault&&cap_sets==before+(which=="cap-owner-data"||which=="cap-owner-deadline"));
+   fake_now+=100000;assert(!v12::relay_cap_update(fake_now)&&v12::relay_quarantine_until[0]==drain&&!cap_removed);
+   assert(v12::synced&&v12::sync_handle==17&&v12::periodic_rx::capture_epoch==9&&v12::periodic_rx::armed&&pa_active&&ext_active[0]);
+   server_disconnect();assert(v12::relay_acl_available());
+   if(which=="cap-owner-deadline"){
+     fake_now=start+500000;const auto sets=cap_sets;
+     assert(!v12::relay_cap_update(fake_now)&&v12::fault&&cap_sets==sets&&!cap_removed);
+   }else{cap_set_result=0;assert(v12::relay_cap_update(fake_now)&&!v12::fault);}
+   return 0;
+ }
  if(which=="cap-data-restart"){
    cap_set_result=0x207;assert(!v12::relay_cap_update(fake_now)&&!v12::fault);
    v12::relay_close(fake_now);assert(!v12::relay_configured&&!v12::fault);

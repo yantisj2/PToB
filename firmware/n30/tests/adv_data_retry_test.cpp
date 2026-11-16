@@ -16,6 +16,7 @@ uint64_t now=1000000,relay_cap_at=0,relay_challenge=7,boot_id=3;
 unsigned calls=0,pauses=0,notes=0,details=0;uint32_t setup_retries=0;
 bool pause_owner_race=false,data_owner_race=false,remove_owner_race=false,closing=false,relay_stopping=false;int result=0;bool fault=false,relay_cap_dirty=true,relay_pa=false,relay_advertising=false;
 struct Peer {unsigned handle=None;bool connecting=false;}peer,relay_session;
+bool control_acl_owned(){return peer.connecting||peer.handle!=None||relay_session.handle!=None;}
 struct Path{};struct Cap {Path path;r2_tz tz{};uint64_t next_challenge=0;};
 Path relay_cap_path;
 struct Map {Cap capability(uint64_t,uint64_t,uint64_t,bool){return {};}}relay_map;
@@ -45,7 +46,7 @@ int main(int argc,char** argv){
  if(!std::strcmp(argv[1],"remove-owner-race")){result=0x207;assert(!relay_cap_update(now));now+=100000;assert(!relay_cap_update(now));now+=100000;remove_owner_race=true;assert(!relay_cap_update(now)&&!fault&&!configures&&removes==1);now+=100000;assert(!relay_cap_update(now)&&!configures&&!fault);relay_session.handle=None;result=0;assert(relay_cap_update(now)&&configures==1&&!fault);return 0;}
  if(!std::strcmp(argv[1],"deadline-success")){result=0x207;assert(!relay_cap_update(now));now+=500000;result=0;assert(!relay_cap_update(now)&&fault&&calls==1&&!removes&&!configures);return 0;}
  if(!std::strcmp(argv[1],"deadline")){result=0x207;assert(!relay_cap_update(now));now+=500000;assert(!relay_cap_update(now)&&fault&&!removes&&!configures);return 0;}
- if(!std::strcmp(argv[1],"data-owner-race")){result=0x207;assert(!relay_cap_update(now));now+=100000;assert(!relay_cap_update(now));now+=100000;data_owner_race=true;assert(!relay_cap_update(now)&&fault&&!removes&&!configures&&relay_session.handle==7);return 0;}
+ if(!std::strcmp(argv[1],"data-owner-race")){result=0x207;assert(!relay_cap_update(now));now+=100000;assert(!relay_cap_update(now));now+=100000;data_owner_race=true;assert(!relay_cap_update(now)&&!fault&&!removes&&!configures&&relay_session.handle==7);now+=300000;relay_session.handle=None;data_owner_race=false;result=0;assert(!relay_cap_update(now)&&fault&&calls==3&&!removes);return 0;}
 #endif
  result=0x207;assert(!relay_cap_update(now));assert(calls==1&&!relay_cap_at&&relay_cap_dirty);
 #if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)

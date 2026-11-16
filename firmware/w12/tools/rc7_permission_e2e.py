@@ -149,6 +149,8 @@ int ble_gap_terminate(uint16_t h,int){if(h==33){++server_terminate_calls;
  if(server_terminate_rc){if(server_terminate_rc==BLE_HS_ENOTCONN)server_connected=false;return server_terminate_rc;}
  if(!server_slow){ble_gap_event e{};e.type=BLE_GAP_EVENT_DISCONNECT;e.disconnect.conn.conn_handle=33;
  e.disconnect.conn.role=server_role;e.disconnect.conn.peer_id_addr=child_address;server_connected=false;v12::relay_gap(&e,nullptr);}return 0;}++terminated;''')
+    s = replace_once(s, 'int ble_gap_disc_cancel(){if(scan_cancel_error)return scan_cancel_error;scan_active=false;return 0;}',
+                     'void server_scan_stop();int ble_gap_disc_cancel(){if(scan_cancel_error)return scan_cancel_error;scan_active=false;server_scan_stop();return 0;}')
     s += (APP / 'tests/rc7_server_owner_fixture.inc').read_text()
     (out / 'server.cpp').write_text(s)
 
@@ -230,7 +232,7 @@ def main():
                  '-DV12_R2_G1_LISTENING_PERCENT=100', '-DV12_R2_TX_SHADOW=1',
                  '-DV12_R2_RC7_TX_ESTIMATE_LAB=1','-DPTOB_W12_BLE_RECOVERY=1', out / 'server.cpp', *objects, '-o', server], 'server-build')
             receipt['server_cases'] = []
-            for case in ['cap-data-recreate','cap-stale-advertising','cap-data-restart','cap-removed-close',*SERVER_CASES,*(['tz-publisher'] if args.tz else [])]:
+            for case in ['connect-owner-incoming','connect-owner-quarantine','connect-owner-closed','connect-owner-off','connect-owner-stop-error','cap-owner-preexisting','cap-owner-stop','cap-owner-configure','cap-owner-data','cap-owner-deadline','cap-owner-error','cap-data-recreate','cap-stale-advertising','cap-data-restart','cap-removed-close',*SERVER_CASES,*(['tz-publisher'] if args.tz else [])]:
                 run([server, case], 'server-' + case)
                 receipt['server_cases'].append(case)
         changed = [str(p) for p in inputs if sha(p) != before[str(p)]]

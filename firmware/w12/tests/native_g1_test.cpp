@@ -26,7 +26,7 @@ int w12_fine_receive(v12::periodic_rx::Stamp& stamp){stamp={};return 0;}
 extern "C" bool clock_reference_read(uint64_t* count){if(!count)return false;*count=fake_now*20;return true;}
 #endif
 namespace {
-bool scan_active=false,small_mtu=false,rx_blocked=false,late_disconnect=false,marker_bad=false;int scan_error=0,connect_error=0;
+bool scan_active=false,small_mtu=false,rx_blocked=false,late_disconnect=false,marker_bad=false;int scan_error=0,connect_error=0,scan_cancel_error=0;
 bool cleanup_scheduled=false,sync_cancel_timeout=false;unsigned sync_cancel_calls=0;int sync_terminate_error=0;uint64_t sync_terminate_delay=0;bool sync_pool_held=false;
 bool connect_during_terminate=false,terminate_wrong_handle=false,terminate_stale=false;
 bool residual_sync_cache=false,stop_in_cache_check=false,arm_late_stop=false,stop_at_admit=false,aux_active=false;
@@ -52,7 +52,7 @@ void transport_record(const Report& r){if(r.kind==5)discovery_report=r;if(r.kind
 int ble_hs_id_set_rnd(const uint8_t*){return 0;}
 int ble_gatts_count_cfg(const ble_gatt_svc_def*){return 0;}int ble_gatts_add_svcs(const ble_gatt_svc_def*){return 0;}
 int ble_gap_ext_disc(unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,const ble_gap_ext_disc_params* p,void*,int(*)(ble_gap_event*,void*),void*){assert(p->passive==1&&p->window==32&&p->itvl==32);if(scan_error)return scan_error;scan_active=true;return 0;}
-int ble_gap_disc_active(){return scan_active;}int ble_gap_disc_cancel(){scan_active=false;return 0;}
+int ble_gap_disc_active(){return scan_active;}int ble_gap_disc_cancel(){if(scan_cancel_error)return scan_cancel_error;scan_active=false;return 0;}
 int ble_gap_connect(unsigned,const ble_addr_t*,unsigned t,const ble_gap_conn_params* params,int(*cb)(ble_gap_event*,void*),void* arg){assert(t==BLE_HS_FOREVER);assert(params->scan_itvl==32&&(params->scan_window==32||params->scan_window==8)&&params->itvl_min==6&&params->itvl_max==6&&(params->supervision_timeout==10||params->supervision_timeout==50));last_init_interval=params->scan_itvl;last_init_window=params->scan_window;last_supervision=params->supervision_timeout;++connected;conn_arg=arg;if(inline_failure||inline_success){ble_gap_event e;e.type=BLE_GAP_EVENT_CONNECT;e.connect.status=inline_failure?1:0;cb(&e,arg);}return connect_error;}
 int ble_gap_conn_find(uint16_t,ble_gap_conn_desc* d){d->peer_id_addr=v12::peer.address;return 0;}
 int ble_gap_conn_active(){return !hidden_link&&v12::peer.connecting;}
@@ -112,6 +112,29 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
   step();assert(!v12::r2_status().serving&&!v12::r2_status().source);assert(!v12::r2_request(v12::R2Mode::Active,10000,44));
   if(which=="cancel"){assert(v12::r2_status().off_ack);return 0;}if(which=="blocked"||which=="late"){assert(v12::r2_status().fault);return 0;}
   assert(v12::r2_status().client.running);
+#if defined(PTOB_W12_BLE_RECOVERY) && !defined(PTOB_N30)
+  if(which.rfind("scan-owner-",0)==0){
+    v12::stop_scan();v12::peer={};v12::peer.identity=333;v12::peer.incarnation=++v12::incarnation;
+    v12::peer.address=v12::canonical(333);v12::peer.handle=22;
+    v12::peer.stage=which=="scan-owner-service"?2:1;v12::peer.pending=true;v12::peer.request_at=fake_now;
+    const auto until=fake_now+5000000;v12::peer.exchange.until=v12::peer.gatt_until=until;
+    v12::peer.attempt_until=fake_now+4000000;
+    if(which=="scan-owner-existing"||which=="scan-owner-stop-error")v12::scan=scan_active=true;
+    if(which=="scan-owner-initiating"){v12::peer.handle=v12::None;v12::peer.connecting=true;}
+    if(which=="scan-owner-drain"){v12::peer.terminating=true;v12::peer.drain_until=fake_now+2000000;}
+    if(which=="scan-owner-stop-error")scan_cancel_error=BLE_HS_EINVAL;
+    v12::active_poll(fake_now);
+    if(scan_cancel_error){assert(v12::fault&&scan_active&&v12::scan);return 0;}
+    assert(!scan_active&&!v12::scan&&!v12::fault&&v12::peer.exchange.until==until);
+    v12::start_scan();assert(!scan_active); // All callers share the owner gate.
+    if(which!="scan-owner-initiating"){
+      ble_gap_event e{};e.type=BLE_GAP_EVENT_DISCONNECT;e.disconnect.conn.conn_handle=22;
+      e.disconnect.conn.peer_id_addr=v12::peer.address;v12::gap(&e,v12::callback_arg());
+      v12::active_poll(fake_now);assert(scan_active&&v12::peer.handle==v12::None&&!v12::fault);
+    }
+    return 0;
+  }
+#endif
 #ifdef PTOB_W12_SHADOW_HOLDOVER
 #ifdef PTOB_W12_HOLDOVER_PRODUCTION
   if(which=="holdover-production"){
