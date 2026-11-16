@@ -97,7 +97,8 @@ BLE has separate **15 s** no-progress recovery, using the original **2 s** owner
 drain and fresh admission. Learned boot information or healthy LoRa reception
 suppresses absence restarts while actual fault supervision continues.
 `lora diag` exposes BLE refusal/dwell, parent history and watchdog evidence.
-See the [recovery guide](../../docs/n30/dual-timing-state-machines.md) for details.
+See the [recovery guide](../../docs/n30/dual-timing-state-machines.md) and
+[radio ownership](../../docs/w12/ownership.md) for details.
 
 Local HOLD preserves a BLE-trained estimate while ordinary source permission
 expires independently. Temperature experiments never steer production HOLD.

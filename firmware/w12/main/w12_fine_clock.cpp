@@ -29,7 +29,7 @@ w12::fine::Counter lora_counter;
 w12::fine::Receiver receiver;
 bool timer_enabled=false,timer_started=false,enabled[3]{},active=false,pad_owned=false;
 int error=0;
-bool lora_active=false,lora_borrowed=false;W12LoRaCapture callback=nullptr;
+bool lora_active=false,lora_borrowed=false;W12LoRaCapture callback=nullptr;uint64_t lora_cookie=0;
 uint32_t sequence=0,burst=0;
 uint64_t burst_at=0;
 W12FineStatus stats{};
@@ -133,7 +133,7 @@ bool on_edge(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,
   portEXIT_CRITICAL_ISR(&mux);return false;
 }
 bool on_lora(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,void*){
-  uint64_t tick=0;W12LoRaCapture deliver=nullptr;
+  uint64_t tick=0,cookie=0;W12LoRaCapture deliver=nullptr;
   portENTER_CRITICAL_ISR(&mux);
   w12::fine::Time anchor{},edge{};
   // CH1 shares the physical timer with BLE, but never its association history,
@@ -142,8 +142,8 @@ bool on_lora(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* value,
   if(active&&lora_active&&value&&latch(raw)&&lora_counter.current(1,raw,coarse(),anchor)&&
      lora_counter.event(1,value->cap_value,edge)){tick=edge.tick20;deliver=callback;}
   else if(active&&lora_active)deliver=callback; // Invalid edge is refused by RX.
-  portEXIT_CRITICAL_ISR(&mux);
-  return deliver?deliver(tick):false;
+  cookie=lora_cookie;portEXIT_CRITICAL_ISR(&mux);
+  return deliver?deliver(tick,cookie):false;
 }
 W12_STACK_FRAME bool route(){
   // Claim before the first mutating call so every partial failure retires it.
@@ -326,13 +326,13 @@ W12FineStatus w12_fine_status(){
   portEXIT_CRITICAL(&mux);return result;
 }
 
-bool w12_fine_lora_start(W12LoRaCapture cb){
- if(!cb)return false;
+bool w12_fine_lora_start(W12LoRaCapture cb,uint64_t cookie){
+ if(!cb||!cookie)return false;
  portENTER_CRITICAL(&mux);
  if(!active||error||lora_borrowed||enabled[1]){portEXIT_CRITICAL(&mux);return false;}
  uint32_t raw=0;
  if(!latch(raw)||!lora_counter.begin(1,raw,coarse(),80000000)){portEXIT_CRITICAL(&mux);return false;}
- callback=cb;lora_active=lora_borrowed=true;
+ callback=cb;lora_cookie=cookie;lora_active=lora_borrowed=true;
  esp_rom_gpio_connect_in_signal(w12::lora_board::IrqGpio,mcpwm_periph_signals.groups[1].captures[1].cap_sig,false);
  timer->group->hal.dev->int_clr.val=UINT32_C(1)<<28;
  mcpwm_ll_intr_enable(timer->group->hal.dev,UINT32_C(1)<<28,true);

@@ -6,7 +6,8 @@ Native builds [clean compiler output and retain the latest two image bundles](..
 per device/profile, with installed/recovery pins preserved.
 
 Read [the target README](../../firmware/n30/README.md) for capabilities, board
-profiles and limits. These commands build or inspect files; they do
+profiles and limits. Release history is in the [changelog](../../firmware/n30/CHANGELOG.md); this guide
+describes current setup, controls and diagnostic contracts. These commands build or inspect files; they do
 not connect, flash, start a serial reader or operate a device.
 
 Main-cadence source selection and retained CRC state/parent diagnostics are
@@ -107,13 +108,13 @@ python3 firmware/n30/tools/power_tests.py --out artifacts/n30-power-tests
 Host checks and renderer previews do not measure battery lifetime, off-state
 current, physical button feel, wake or independently measured timing accuracy.
 
-Version 0.2.28 consumes the shared [AUTO RC9 recovery fix](../w12/rc9.md#auto-client-return-to-normal-ble). Normal BLE recovery no longer waits for a six-minute fallback lease.
+Normal BLE recovery uses the shared [AUTO RC9 recovery policy](../w12/rc9.md#auto-client-return-to-normal-ble) without waiting for a six-minute fallback lease.
 
-Version 0.2.33 shares [GM successor recovery](../w12/build.md#gm-successor-recovery)
+N30 shares [GM successor recovery](../w12/build.md#gm-successor-recovery)
 with W12. Its build receipt identifies the revision-3 control consumer and
 three-second advisory recovery preference; enrollment and calibration are unchanged.
 
-Version 0.2.34 adds `N30_TRAINED_ACTUATOR_30S_FRESH_PAIR_V1`. After direct GM
+`N30_TRAINED_ACTUATOR_30S_FRESH_PAIR_V1` preserves the trained actuator during a bounded handoff. After direct GM
 loss, the display keeps the last trained clock in HOLD through a new coarse
 JOIN. Only a new authenticated, physically matched correction seeds its running
 actuator, preserving UTC continuity and the learned rate across GM counter
@@ -199,16 +200,16 @@ edit. The registry grants no membership, timing authority or installation consen
 
 ## RC9 direct clients
 
-Version0.2.25 enables the independent RC9 client in both N30 builds. Read the
+The independent RC9 client is available in N30 builds. Read the
 [RC9 guide](rc9.md) for source priority, original expiry and UNKNOWN bounds.
 The normal BLE/fine capture calibration is unchanged; RC9 does not train it.
 
-Version0.2.26 keeps current coarse and corrected permissions mandatory for
+Current coarse and corrected permissions are mandatory for
 AUTO's BLE-lock input, but projects one-second quality against the original
 replay anchor. The `ble_locked` LoRa diagnostic is the worker's actual input.
 This changes radio policy only; UTC expiry and the180s dwell remain original.
 
-## Version 0.2.27 startup
+## Startup and acquisition
 
 The BLE host starts before OLED reset and I2C initialization. Only the display
 worker holds the PToB splash, for1500000µs from the first successful transfer.
@@ -299,44 +300,26 @@ validates the additional `N30_UI` row as part of the original nonce/CRC/boot/
 source/build/deadline frame. Bound `ui page 0` / `ui page 1` / `ui page 2` / `ui page 3` commands affect
 presentation only and do not change the radio or clock authority.
 
-Version0.1.2 keeps the shared8704-byte whole-frame and1.5s response limits,
+The console uses the shared8704-byte whole-frame and1.5s response limits,
 admits exactly ten N30 rows, and uses a compact GPS-absent row to fund the
 display status. Tests exercise the actual firmware submission/output worker and
 render both receiver/experimental-relay formats at maximum numeric widths.
-The initial0.1.1 installation booted and received the mesh, but rejected its
-ten-row status at the historical nine-row submission guard. Keep that failed
-console observation distinct from the corrected-image checks.
 
-Version0.1.3 routes the ticket-bound display-only page commands before the BLE
+Ticket-bound display-only page commands are routed before the BLE
 ownership fence, after identity and maintenance checks. The physical buttons
 remain on their existing display-worker path. A compiled test of the actual
 dispatcher verifies page control with the receiver active, unchanged radio
 state, and rejection of wrong identity/boot, replayed or expired tickets and
 commands during maintenance. This changes no W12 timing or radio source.
 
-Version0.1.4 adds actual BLE/RC1/RC2 source labels to the T096-style moving
-screensaver. A main-page1.5s press posts one expiring action to the main owner,
-which calls W12's unchanged upstream automatic/relay-only API and source/drain
-fences. This selects reception policy; estimated relay transmission remains OFF
-in the receiver images. RF help/blank and consumed wake behavior remain available.
-Offline tests cover debounce/threshold/release/extended holds, no repeated or
-stale queued toggles, maintenance refusal, truthful source expiry and all saver
-positions. Physical gesture, mode transition and sustained reception outcomes
-must be recorded separately on the arriving hardware.
+The moving saver uses actual BLE/RC1/RC2 source labels. Its wake click consumes
+the complete gesture. The watch menu uses the same2.0s hold as every other page;
+upstream AUTO/RELAY selection changes reception policy, independently of optional
+estimated relay transmission. Offline tests cover gesture thresholds, stale
+queued actions, maintenance refusal, source expiry and saver positions.
 
-Version0.1.5 adds a nonblocking500ms display-only grace on the first clock page
-(internal page0). Only a successfully transferred live dial can seed the cache.
-On reception/quality loss its hands freeze; at500ms the current syncing/error
-panel replaces it. The10ms display worker observes loss/expiry independently
-of the4Hz frame schedule and requests a frame at grace transitions. Actual
-transfer/worker latency remains separate from the500ms software deadline.
-No timing model, live source/lock status, radio or W12/T096 code is retained or
-modified by this presentation cache. Host tests compare the frozen dial pixels
-and cover499999/500000us boundaries, recovery, repeated loss, stale input,
-monotonic reversal, hidden surfaces and transfer failure. Physical field
-behavior remains a separate observation.
-
-Version0.1.6 extends that same500ms grace to the complete clock presentation.
+The complete clock presentation allows a nonblocking500ms grace for a brief
+quality dip. This caches display pixels only and never renews time permission.
 Main-page UTC digits and analog hands retain the same last successfully
 transferred frame; only RMS digits and the lock remain live. A brief quality dip
 retains the full screensaver frame at its actual moving position, preventing
@@ -346,7 +329,7 @@ All six underlying-page/position combinations, exact deadline, movement-boundary
 recovery, stale input, transfer resets and pixel retention are tested offline.
 Console/live timing validity and W12/T096 code are unaffected by the pixel cache.
 
-Version0.1.7 keeps4Hz clock/saver and8Hz RF rates while anchoring their wakes to
+Clock/saver and RF pages run at4Hz and8Hz respectively, with wakes anchored to
 the current modeled UTC phase. Host tests cover exact second/pulse boundaries,
 arbitrary boot phase, model corrections, missed slots and changed-span ordering
 in both rotations. The main dashboard and saver share one BLE-derived PPS gate;
@@ -454,7 +437,7 @@ worker stalls and strict diagnostic framing. Native builds and both portrait
 previews remain software preparation; physical reception/coexistence, RF endpoint
 delay, independent UTC/output accuracy and availability require separate tests.
 
-## Version 0.2.6 field parent recovery
+## Parent acquisition and recovery
 
 N30 enables a60s failed-parent admission retry gap in the shared W12 owner.
 After60s without two continuously observed seconds of raw relative lock and the
@@ -552,7 +535,7 @@ regressions. Physical twelve-minute no-time boundary timing, GNSS loss/return in
 and independently measured timing accuracy remain separate hardware observations.
 
 
-## Version 0.2.8 intermittent GM recovery and acquisition
+## Intermittent GM recovery and acquisition
 
 The old one-minute trial could be renewed by two seconds of raw lock, and any
 brief displayed lock restarted LoRa's three-minute acquisition timer. Repeating
@@ -618,7 +601,7 @@ These are deterministic software regressions, not field RF evidence or an
 independently measured UTC/PPS/output guarantee. Physical acquisition speed,
 intermittent-GM roaming and twelve-minute no-time boundary behavior still needs hardware testing.
 
-## Version 0.2.9 reusable timing diagnostics
+## Timing diagnostics
 
 Timing diagnostics are a volatile runtime observer, OFF at boot. The existing
 factory/boot/ticket/nonce and update-maintenance checks apply to these actions:
@@ -718,7 +701,7 @@ receive/model/estimated-TX behavior, T096 receive/model behavior and its local
 GNSS/PPS reference. It cannot uniquely calibrate N30 RX, TX or absolute UTC.
 
 
-## Version 0.2.10 downstream composite offset
+## Downstream composite offset
 
 The optional `provisional_path` object in the ignored N30 device input uses the
 [existing W12 schema1 profile](../w12/build.md#provisional-aggregate-path-offset).
@@ -770,7 +753,7 @@ restrictions, generated capability flags and provenance changes. These software
 checks establish arithmetic and scope, not RF accuracy.
 
 
-## Version 0.2.11 raw native marker observer
+## Raw native marker observer
 
 The finite raw observer defaults OFF and allocates no peripheral or pin before
 an exact factory/boot/ticket-bound `fine start <milliseconds> <every>` command.
@@ -835,7 +818,7 @@ scoped exact-device experiment; keep its finite observations and unqualified
 claims distinct from software test results.
 
 
-### Version 0.2.12 native activity trial guards
+### Native activity trial guards
 
 The optional reviewed GPIO4/5 profile now arms ISR containment before enabling
 native capture inputs. A callback budget or expired lease immediately masks only
@@ -866,7 +849,7 @@ regressions exercise expiry containment, cleanup, restart and a new callback,
 plus stale pending bits and refused clear/mask restoration.
 
 
-### Version 0.2.13 synthetic capture-chain isolation
+### Synthetic capture-chain isolation
 
 A reviewed native GPIO4/5 build also accepts `fine probe <spacing_ms> <edges>`.
 Spacing is 50–1000 ms and total edges is 4–24 in multiples of four. This finite
@@ -900,7 +883,7 @@ independent. This mode requires the same exact factory and physical pin review
 as native capture and defaults OFF.
 
 
-### Version 0.2.14 fixed RW marker observation
+### Fixed RW marker observation
 
 The optional `NATIVE_RW_GPIO4_5_SHADOW` profile selects the pinned SDK's
 RW_RX_ON238 and RW_TX_ON237 outputs on the same reviewed GPIO4/5 pair. It
@@ -918,14 +901,14 @@ contract. All modes default OFF, preserve the production GPTimer clock and
 legacy correction scope, and share the existing IRQ/expiry/cleanup guards.
 
 
-From version0.2.14, the runtime build ID also binds the generated fine-capture
+The runtime build ID binds the generated fine-capture
 configuration header. Builds of the same source and device with different
 fixed marker profiles therefore retain distinct runtime identities. The
 inspector preserves the original identity formula when reading older builds;
 no historical source or receipt is rewritten.
 
 
-### Version 0.2.15 targeted TX diagnostic capture
+### Targeted TX diagnostic capture
 
 The finite N30-only `capture tx <ms>` command accepts1000–10000ms through the
 normal fresh ticket/nonce, exact factory and boot guards. It filters the complete
@@ -1035,7 +1018,7 @@ trend admission, both counter labels, long root names and both mounted
 framebuffer rotations.
 Illustrative previews contain synthetic values and are not hardware acceptance.
 
-### Version 0.2.22 fine slew and surface-transition observation
+### Fine slew and surface-transition observation
 
 N30 selects the existing 1 ppm fine phase slew when the absolute phase backlog
 is below 2000 ns; at 2000 ns and above it retains bounded acquisition steering.
@@ -1063,7 +1046,7 @@ change presentation or timing and emits no records with ordinary capture OFF;
 TX-only capture filters these records. Partial/expired UART lines remain
 unusable. This is software intent/driver evidence, not a camera or panel readback.
 
-### Version 0.2.23 BLE signal bars
+### BLE signal bars
 
 Clock-page bars now use the active parent's authenticated periodic-report RSSI
 for direct GM, RC1 and RC2 paths. Previously they showed relay delivery
@@ -1089,7 +1072,7 @@ only into N30; shared W12/SS3 firmware behavior is preserved.
 
 ### Empirical fine-receiver candidate
 
-Version0.2.19 accepts the explicit ignored fixed-pin profile mode
+The builder accepts the explicit ignored fixed-pin profile mode
 `NATIVE_RW_GPIO4_5_FINE_CANDIDATE` through `--fine-shadow-profile`. It requires
 the same factory, board-family and physical/schematic provenance as the raw RW
 observer, plus these fields:
@@ -1133,16 +1116,14 @@ appear only in the FINE CRC frame.
 Ordinary status-frame capacity and the production estimator remain unchanged.
 
 
-## Version 0.2.24 independent LoRa capture reference
+## Independent LoRa capture reference
 
-LoRa's group0 DIO1 capture map again reads the original20MHz XTAL GPTimer.
-Selecting the BLE fine backend previously also redirected those reads through
-MCPWM1 receiver/fence work under a cross-core lock. A LoRa mapping bracket may
-then exceed the unchanged20us acceptance limit, withdrawing its anchors and
-refusing subsequent RX timestamps despite successful radio packets. A dedicated
-LoRa counter reader removes that dependency; BLE continues on its selected
-fine counter with the same calibration, phase slew and capture guards. Neither
-clock falls back into the other's coordinate domain.
+LoRa's group0 DIO1 capture map uses the20MHz XTAL GPTimer through a dedicated
+reader. BLE uses its selected fine counter with its own calibration, phase slew
+and capture guards. Mapping brackets retain their20us acceptance limit, and
+each reader keeps its original anchors and expiry rules. Neither clock may
+substitute the other's coordinate domain. A successful packet receive is not
+proof that its timing capture or map was admitted.
 
 The owner regression supplies a deliberately slow fine reader and exercises
 actual authenticated original/follow-up reception through counter wraps. The

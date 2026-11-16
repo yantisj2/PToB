@@ -1,5 +1,19 @@
 # N30 changelog
 
+## 0.2.66 — LoRa owner and publication fences
+
+Retain accepted mode intent across worker delays. Make OFF idempotent during its
+original 200 ms drain, withdraw snapshot time immediately, and retire the old
+capture/model before a rapid OFF/ON restart. Tag physical and mapping callbacks
+with their original core incarnation so a delayed callback cannot acquire a new
+session's identity. Preserve failed/late drains and outstanding DMA as faults.
+Use 64-bit worker health time across the diagnostic millisecond counter's wrap.
+
+Apply the same tested ownership rules as W12 without changing the SX1262 route,
+BLE capture domain, receive PHY, source leases or replay-floor retention. Clean
+current setup guidance and retain release narratives here and in Git. Offline
+checks remain separate from exact-device installation and hardware acceptance.
+
 ## 0.2.65 — 2026-11-16
 
 Discover passive LoRa transmitters from authenticated wire3/schedule8 META,

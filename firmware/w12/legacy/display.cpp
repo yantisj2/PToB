@@ -187,6 +187,10 @@ int64_t shown_clock(const DisplayState& s){
 #endif
  return "UTC";
 }
+[[gnu::noinline]] void format_clock(char* out,size_t capacity,time_t utc){
+ struct tm tm{};gmtime_r(&utc,&tm);
+ std::snprintf(out,capacity,"%02d:%02d:%02d",tm.tm_hour,tm.tm_min,tm.tm_sec);
+}
 void header(const DisplayState& s){
 #ifdef PTOB_W12_DUAL_UI
  if(s.page%display_pages::Count==display_pages::LoraRx){
@@ -258,11 +262,10 @@ void header(const DisplayState& s){
  }else text(1,8,titles[page]);
  char clock[12];
  std::snprintf(clock,sizeof(clock),"%s",page?"--:--:--":"--/--/--");
- if(s.valid){time_t t=page?s.utc:shown_clock(s);struct tm tm{};gmtime_r(&t,&tm);
-  if(page)std::snprintf(clock,sizeof(clock),"%02d:%02d:%02d",
-                         tm.tm_hour,tm.tm_min,tm.tm_sec);
+ if(s.valid){time_t t=page?s.utc:shown_clock(s);
+  if(page)format_clock(clock,sizeof clock,t);
   else if(s.copy_profile && s.copy_local)std::snprintf(clock,sizeof(clock),"ELAPSED");
-  else std::strftime(clock,sizeof(clock),"%m/%d/%y",&tm);}
+  else{struct tm tm{};gmtime_r(&t,&tm);std::strftime(clock,sizeof(clock),"%m/%d/%y",&tm);}}
 #ifdef R2_TZ_WIRE
  if(s.r2_dashboard&&!page&&s.timing_source!=DisplayState::Lora&&s.timing_source!=DisplayState::Rc9)text(104,8,shown_zone(s));
  else
@@ -284,9 +287,7 @@ void analog(uint32_t utc){
  circle(cx,cy,1);
 }
 void page_dashboard(const DisplayState& s){
- if(s.valid){time_t t=shown_clock(s);struct tm tm{};gmtime_r(&t,&tm);
-  char hhmmss[12];std::snprintf(hhmmss,sizeof(hhmmss),"%02d:%02d:%02d",
-                                tm.tm_hour,tm.tm_min,tm.tm_sec);
+ if(s.valid){char hhmmss[12];format_clock(hhmmss,sizeof hhmmss,shown_clock(s));
   text(2,21,hhmmss,2);
   if(!s.r2_dashboard||s.fit)analog(uint32_t((shown_clock(s)%86400+86400)%86400));
  }else{text(2,21,"--:--:--",2);circle(112,37,12);text(100,34,"WAIT");}
@@ -855,12 +856,13 @@ void page_precision(const DisplayState& s){
 }
 void page_w12_lora(const DisplayState& s){
  char n[28];const bool live=s.lora_ui_phase==w12::LoRaUiPhase::Live;
- if(s.lora_ui_phase==w12::LoRaUiPhase::Training)
-  std::snprintf(n,sizeof n,"TRAIN %03lu/180s N%u",(unsigned long)(s.lora_fit_span_ms/1000),unsigned(s.lora_link_samples));
- else std::snprintf(n,sizeof n,"%s",w12::lora_ui_label(s.lora_ui_phase));
- text(2,17,n);
+ const char* status=w12::lora_ui_label(s.lora_ui_phase);
+ if(s.lora_ui_phase==w12::LoRaUiPhase::Training){
+  std::snprintf(n,sizeof n,"TRAIN %03lu/180s N%u",(unsigned long)(s.lora_fit_span_ms/1000),unsigned(s.lora_link_samples));status=n;
+ }
+ text(2,17,status);
  char clock[12]="--:--:--";
- if(live){time_t t=s.lora_utc_us/1000000;struct tm tm{};gmtime_r(&t,&tm);std::snprintf(clock,sizeof clock,"%02d:%02d:%02d",tm.tm_hour,tm.tm_min,tm.tm_sec);}
+ if(live)format_clock(clock,sizeof clock,s.lora_utc_us/1000000);
  text(2,27,clock,2);
  if(live&&s.lora_link_rms_ns!=UINT32_MAX){
   const auto d=s.lora_link_rms_ns>=1000000?1000000:s.lora_link_rms_ns>=1000?1000:1;

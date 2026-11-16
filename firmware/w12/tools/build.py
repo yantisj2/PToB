@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.42'
+VERSION='0.2.43'
 def check_receiver_state_gate(path):
  # Loading the gate must not put N30 tools ahead of this builder's modules:
  # the later inspect_build import belongs to W12 and has a different API.
@@ -176,8 +176,8 @@ def validate_dual_compilation(r,compiled):
   if flag not in tokens:raise ValueError('Missing compiled runtime feature: '+flag)
  if r.get('rc9'):
   if '-DPTOB_RC9=1' not in tokens or not r['lora_rx'] or not r['estimated_relay']:raise ValueError('RC9 compile/profile mismatch')
- if r.get('no_time_sync_watchdog_us')!=(720000000 if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42') else 300000000):raise ValueError('Watchdog metadata differs')
- if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42') and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
+ if r.get('no_time_sync_watchdog_us')!=(720000000 if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43') else 300000000):raise ValueError('Watchdog metadata differs')
+ if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43') and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
  if r['lora_rx'] and not r['fine_clock']:raise ValueError('LoRa requires fine counter')
 
 def main():
@@ -225,7 +225,8 @@ def main():
  r={'schema':1,'stack_evidence_contract':'W12_PROFILE_STACK_V1','ble_acquisition_recovery':'W12_NEARBY_NO_CORRECTED_PROGRESS15S_BOUNDED_REBIND_V1','ble_startup_policy':'W12_USABLE_GM_TRIAL_SHARED_COOLDOWN_V1','ble_bootstrap_policy':'W12_COARSE_JOIN200MS_FULL_RTT_GUARD_V1','ble_bootstrap_uncertainty_limit_us':200000,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'runtime_sources':runtime,'runtime_source_sha256':runtime_hash,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','button_power_contract':'OFF_MAIN_HOLD4_DRAIN2_RELEASE40_GPIO0_WAKE_V1','shadow_holdover_contract':'BLE_THERMAL_SHADOW_120S_RATE_ANCHOR_V3','holdover_servo_contract':'BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3','holdover_rate_contract':'CAUSAL_CHANNEL16_32_MEDIAN_DELTA5_V1','holdover_horizon_contract':'SAMPLED_PREFIX_Q99_1US_WITNESS_V2','holdover_temperature_policy':'SHADOW_ONLY','holdover_test_contract':'FINITE_LOCAL_OUTPUT_120S_BLE_WITNESS_V1','host_task_allocation_policy':'GNSS_STATIC_CHECKED_CONFIGURED_STACK_V1' if 'gnss_profile' in d else 'SDK_DYNAMIC_V1','application_optimization':'W12_MAIN_OS_SDK_DEBUG_V1','build_generator':a.generator,'compiler_cache':'LOCAL_512M' if a.compiler_cache else 'DISABLED','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':720000000,'no_time_retention_policy':'HEALTHY_RX_OR_LEARNED_BOOT_CACHE_NO_ABSENCE_RESET_V2','watchdog_diagnostics':'INPUTS_TIMERS_RTC_BLE_REBINDS_CRC_V1','watchdog_policy':'ALL_MIN5S_STALL5S_FAULT120S_NOTIME720S_RETAIN_V3','watchdog_minimum_us':5000000,'watchdog_worker_stall_us':5000000,'clock_selection_policy':'MAIN_QUALIFIED30S_PAUSE_PERMISSION1500MS_LORA_RETURN_V4' if a.radiolib else None,'lora_snapshot_policy':'PRIOR_CLOCK_OBSERVATION_LABEL_FRESH250MS_ORIGINAL_LEASE_V1' if a.radiolib else None,'lora_contract':'PASSIVE_WIRE3_SCHEDULE8_LR2021_HEADER_VALID_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1' if a.radiolib else None,'lora_event_delay_ns':99328000 if a.radiolib else None,'lora_calibration':'ENGINEERING_SYMBOL_MODEL_UNCALIBRATED_LR2021_ENDPOINT_UNKNOWN' if a.radiolib else None,'rc9_passive_bridge':'GATED_MISSING_ORIGINAL_SIGNED_ENVELOPE_KEEP_WIRE1_12S_V1' if a.rc9 else None,'lora_rx':bool(a.radiolib),'rc9':a.rc9,'pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','rc9_server_recovery_policy':'QUALIFIED_BLE_DISPLAY_DRAIN_ORIGINAL_CHILD_LEASE_V1' if a.rc9 else None,'fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if a.rc9 else None,'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d),'phase_offsets':phase_offsets(),'bluetooth_clock_map':'FINE_RAW_CURRENT_BRACKET' if a.fine_clock else 'GPTIMER_DRIVER_BRACKET','programmed_clock_projection':'MEAN4_VALIDATED_NO_TRIMMING' if a.estimated_relay else None}
  r['receiver_state_gate']={'receipt':str(a.state_machine_receipt.resolve()),'sha256':sha(a.state_machine_receipt),'status':'PASS_SOURCE_BOUND_OFFLINE'} if a.state_machine_receipt else None
  r['direct_parent_gap_policy']='SAME_DIRECT_PHYSICAL_TRAIN_STALL15S_NO_TIME_V2'
- r['relay_cap_retry']='PAUSED_CAP_DATA207_RECREATE_ONCE_ORIGINAL500MS_V2'
+ r['lora_owner_contract']='PERSISTENT_MODE_COOKIE_REVOKE_FENCE_DRAIN200MS_V2'
+ r['relay_cap_retry']='PAUSED_CAP_DATA207_RECREATE_ONCE_ORIGINAL500MS_FRESH_OWNER_V3'
  r['main_inlining']='GNSS_MAIN_SHARED_CALLEES_V1' if 'gnss_profile' in d else 'DEFAULT'
  r['lora_selection_policy']='AUTH_META_FIELD_EMITTER_FOUR_NON_EVICTING_REPLAY_FLOORS_V1'
  r['source_renewal_policy']='AUTH_GR3_MATCHED_ORIGINAL_MIN_BOTH_GRANTS_V1'

@@ -37,6 +37,7 @@ static w12::DisplaySecondDeadline ui_deadline;
 static uint32_t ui_lora_utc=UINT32_MAX;static unsigned ui_lora_phase=11;
 static struct {uint64_t nonce=0xabc,admitted_us=1000;bool accepted=true;const char* action="LORA_DIAG";const char* reason="READ_ONLY_CRC_SNAPSHOT";} last_command;
 #include "../main/lora_diagnostics.cpp"
+#include "actual_ui_clock.inc"
 #include "actual_lora_frame.inc"
 int main(int argc,char** argv){
  shared_writer_checks(1,argv);reset();ui_deadline.painted(ui_sampled_us,true,ui_utc_us);

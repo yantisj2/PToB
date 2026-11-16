@@ -3,6 +3,7 @@
 #include "adv_data_retry.hpp"
 #ifdef PTOB_W12_BLE_RECOVERY
 #include "w12_adv_data_retry.hpp"
+w12::AdvDataRetry relay_cap_retry;
 #endif
 #include "g1_time_zone.hpp"
 #include <cassert>
@@ -13,7 +14,7 @@ using v12::G1TimeZoneOrder;
 constexpr unsigned None=65535,RC_DYNAMIC_CAPABILITY_BYTES=148;
 uint64_t now=1000000,relay_cap_at=0,relay_challenge=7,boot_id=3;
 unsigned calls=0,pauses=0,notes=0,details=0;uint32_t setup_retries=0;
-bool pause_owner_race=false,data_owner_race=false;int result=0;bool fault=false,relay_cap_dirty=true,relay_pa=false,relay_advertising=false;
+bool pause_owner_race=false,data_owner_race=false,remove_owner_race=false,closing=false,relay_stopping=false;int result=0;bool fault=false,relay_cap_dirty=true,relay_pa=false,relay_advertising=false;
 struct Peer {unsigned handle=None;bool connecting=false;}peer,relay_session;
 struct Path{};struct Cap {Path path;r2_tz tz{};uint64_t next_challenge=0;};
 Path relay_cap_path;
@@ -23,7 +24,7 @@ struct Service {uint8_t value[16]{};}rc_service;
 r2_tz_lease coarse_tz{};uint8_t relay_cap[216]{};
 enum class R2Api {AdvData,AdvRemove};
 unsigned removes=0,configures=0;int remove_result=0,configure_result=0;
-int ble_gap_ext_adv_remove(unsigned instance){assert(instance==1);++removes;return remove_result;}
+int ble_gap_ext_adv_remove(unsigned instance){assert(instance==1);++removes;if(remove_owner_race)relay_session.handle=7;return remove_result;}
 bool relay_cap_configure(){++configures;if(configure_result)fault=true;return !configure_result;}
 uint64_t micros(){return now;}
 void inc(uint32_t& n){++n;}
@@ -41,6 +42,8 @@ int main(int argc,char** argv){
  assert(argc==2);coarse_tz.value={2,-360};coarse_tz.until_us=now+2000000;
 #ifdef PTOB_W12_BLE_RECOVERY
  if(!std::strcmp(argv[1],"pause-owner-race")){pause_owner_race=true;assert(!relay_cap_update(now)&&!calls&&!fault&&relay_session.handle==7);return 0;}
+ if(!std::strcmp(argv[1],"remove-owner-race")){result=0x207;assert(!relay_cap_update(now));now+=100000;assert(!relay_cap_update(now));now+=100000;remove_owner_race=true;assert(!relay_cap_update(now)&&!fault&&!configures&&removes==1);now+=100000;assert(!relay_cap_update(now)&&!configures&&!fault);relay_session.handle=None;result=0;assert(relay_cap_update(now)&&configures==1&&!fault);return 0;}
+ if(!std::strcmp(argv[1],"deadline-success")){result=0x207;assert(!relay_cap_update(now));now+=500000;result=0;assert(!relay_cap_update(now)&&fault&&calls==1&&!removes&&!configures);return 0;}
  if(!std::strcmp(argv[1],"deadline")){result=0x207;assert(!relay_cap_update(now));now+=500000;assert(!relay_cap_update(now)&&fault&&!removes&&!configures);return 0;}
  if(!std::strcmp(argv[1],"data-owner-race")){result=0x207;assert(!relay_cap_update(now));now+=100000;assert(!relay_cap_update(now));now+=100000;data_owner_race=true;assert(!relay_cap_update(now)&&fault&&!removes&&!configures&&relay_session.handle==7);return 0;}
 #endif
@@ -62,10 +65,10 @@ int main(int argc,char** argv){
   if(!std::strcmp(argv[1],"remove-fail"))remove_result=12;
   if(!std::strcmp(argv[1],"configure-fail"))configure_result=12;
   assert(!relay_cap_update(now)&&calls==3&&!relay_cap_at&&relay_cap_dirty&&removes==1);
-  if(remove_result||configure_result){assert(fault);return 0;}
-  assert(!fault&&configures==1);now+=99999;assert(!relay_cap_update(now)&&calls==3);
+  if(remove_result){assert(fault);return 0;}
+  assert(!fault&&configures==0);now+=99999;assert(!relay_cap_update(now)&&calls==3);
   ++now;if(!std::strcmp(argv[1],"recreate"))result=0;
-  const bool recovered=relay_cap_update(now);assert(calls==4&&removes==1&&configures==1);
+  const bool recovered=relay_cap_update(now);if(configure_result){assert(!recovered&&fault&&calls==3&&configures==1);return 0;}assert(calls==4&&removes==1&&configures==1);
   if(!std::strcmp(argv[1],"recreate")){assert(recovered&&!fault&&relay_cap_at==now&&!relay_cap_dirty);}
   else{assert(!recovered&&fault&&details==61&&!relay_cap_at&&relay_cap_dirty);}
 #else

@@ -200,6 +200,18 @@ void pps(const gnss_pps::Observation& edge){
     " mapped=%u physical_bias=UNKNOWN independent_output=UNAVAILABLE BLE_training=NONE\n",
     edge.number,edge.capture,edge.raw_extended,edge.tick,edge.anchor_available,edge.map_bracket_ns,unsigned(edge.mapped));
 }
+#if defined(PTOB_RC9) || defined(PTOB_W12_LORA_RX)
+[[gnu::noinline]] void ui_clock_frame(const v12::R2Status& mesh){
+#ifndef R2_TZ_WIRE
+ (void)mesh;
+#endif
+#ifdef R2_TZ_WIRE
+ response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u tz_id=%u tz_offset=%d tz_until=%" PRIu64 " tz_rx=%u tz_conflicts=%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc),unsigned(mesh.tz.id),int(mesh.tz.offset_min),mesh.tz_until_us,unsigned(mesh.tz_received),unsigned(mesh.tz_conflicts));
+#else
+ response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc));
+#endif
+}
+#endif
 #ifdef PTOB_RC9
 [[gnu::noinline]] void rc9_status_frame(uint64_t nonce,uint64_t begin){
  const auto next=ticket.issue(begin);v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);
@@ -212,11 +224,7 @@ void pps(const gnss_pps::Observation& edge){
  response.format("W12_RC9_COUNTERS sequence=%" PRIu32 " accepted=%" PRIu32 " rejected=%" PRIu32 "\n",r.sequence,r.accepted,r.rejected);
  response.format("W12_RC9_LEASE until_us=%" PRIu64 " clients=%u serving=%u service_flags=%u radio_hold_ms=%" PRIu32 "\n",r.client_until_us,unsigned(r.clients),unsigned(r.serving),unsigned(r.service_flags),l.rc9_hold_remaining_ms);
  response.format("W12_RC9_CONTRACT wire=1 source=RC8 hops=1 precision=UNKNOWN BLE_training=NONE GM=NONE LoRa_TX=OFF lora_active=%u lora_accepted=%" PRIu32 " lora_rms_ns=%" PRIu32 "\n",unsigned(l.active),l.accepted,l.link_rms_ns);
-#ifdef R2_TZ_WIRE
- response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u tz_id=%u tz_offset=%d tz_until=%" PRIu64 " tz_rx=%u tz_conflicts=%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc),unsigned(mesh.tz.id),int(mesh.tz.offset_min),mesh.tz_until_us,unsigned(mesh.tz_received),unsigned(mesh.tz_conflicts));
-#else
- response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc));
-#endif
+ ui_clock_frame(mesh);
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  v12::frame_submit_rc9(response);
 }
@@ -244,11 +252,7 @@ void pps(const gnss_pps::Observation& edge){
  response.format(" parent_returned=%" PRIu32 " parent_overwritten=%" PRIu32 " parent_read_lost=%" PRIu32 " parent_encoding=SEQ_AT_REASON_FROM6_TO6_V1\n",count,parent.sequence>8?parent.sequence-8:0,read_lost);
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready));
  w12_lora_diagnostics(response);
-#ifdef R2_TZ_WIRE
- response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u tz_id=%u tz_offset=%d tz_until=%" PRIu64 " tz_rx=%u tz_conflicts=%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc),unsigned(mesh.tz.id),int(mesh.tz.offset_min),mesh.tz_until_us,unsigned(mesh.tz_received),unsigned(mesh.tz_conflicts));
-#else
- response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc));
-#endif
+ ui_clock_frame(mesh);
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  v12::frame_submit_rc9(response);
 }
@@ -562,20 +566,19 @@ void pps(const gnss_pps::Observation& edge){
    false;
 #endif
   state.precision_live=w12::synchronized_until(mesh,micros())!=0;
-  if(state.precision_live){state.precision_rate_ppb=int32_t(std::llround(mesh.g1_clock_model.rate));state.precision_phase_ns=mesh.g1_clock_model.phase;}
+  if(state.precision_live){state.precision_rate_ppb=int32_t(std::llround(mesh.g1_clock_model.rate));}
 #ifdef PTOB_W12_LORA_RX
   w12_lora_view lv;w12_lora_snapshot(lv);uint64_t lora_utc=0;
-  state.lora_mode=lv.mode;state.lora_state=lv.state;state.lora_active=lv.active;state.lora_fault=lv.fault;
-  state.lora_configured=PTOB_W12_LORA_ENABLED!=0;state.lora_transition_ms=lv.transition_remaining_ms;
+  state.lora_mode=lv.mode;
   const auto lora_now=micros();
   state.lora_time_valid=w12::lora_time(lv,lora_now,lora_utc);
-  state.lora_ui_phase=w12::lora_ui_phase(lv,state.lora_configured,lora_now,state.lora_time_valid,mesh.fault);
+  state.lora_ui_phase=w12::lora_ui_phase(lv,PTOB_W12_LORA_ENABLED!=0,lora_now,state.lora_time_valid,mesh.fault);
+  state.lora_time_valid=state.lora_ui_phase==w12::LoRaUiPhase::Live;
   state.lora_sampled_us=lora_now;state.lora_utc_us=state.lora_ui_phase==w12::LoRaUiPhase::Live?lora_utc:0;state.lora_emitter=lv.metadata_known?v12::R2Dashboard::name(lv.emitter):"NONE";
-  state.lora_pair_age_ms=lv.age_ms;state.lora_meta_age_ms=lv.snapshot_age_ms;state.lora_fit_span_ms=lv.fit_span_ms;state.lora_rx_done=lv.rx_done;state.lora_link_rms_ns=lv.link_rms_ns;state.lora_link_samples=lv.link_samples;state.lora_accepted=lv.accepted;state.lora_crc=lv.crc_bad;
+  state.lora_pair_age_ms=lv.age_ms;state.lora_meta_age_ms=lv.snapshot_age_ms;state.lora_fit_span_ms=lv.fit_span_ms;state.lora_rx_done=lv.rx_done;state.lora_link_rms_ns=lv.link_rms_ns;state.lora_link_samples=lv.link_samples;state.lora_crc=lv.crc_bad;
   const bool ble_precision=w12::ble_locked(mesh,micros());
 #ifdef PTOB_RC9
   const auto rc9=v12::r2_rc9_status();
-  state.lora_client_hold_ms=lv.rc9_hold_remaining_ms;
   const auto source=w12::rc9_source(ble_precision,state.lora_time_valid,lv.active&&lv.requested,rc9.client_until_us,micros(),mesh.requested&&!mesh.fault&&!update_gate.latched()&&lv.mode!=2&&!lv.fault);
   state.rc9_serving=source.serve_rc9&&w12::rc9_original_envelope(lv);state.rc9_clients=rc9.clients;
 #else

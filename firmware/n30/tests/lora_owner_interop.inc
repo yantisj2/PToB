@@ -8,8 +8,8 @@ namespace {
 void run_for(uint64_t us){while(us){const auto delta=std::min<uint64_t>(us,2000);step(false,delta);us-=delta;}}
 uint64_t packet_edge(unsigned size,bool bad=false){
  fake::packet_size=size;fake::irq=0x10;fake::gpio[14]=1;
- const auto at=fake::us;mcpwm_capture_event_data_t e{fake::capture()};on_edge(edge_channel,&e,nullptr);step(false);
- run_for(100000);fake::irq=bad?0x42:2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(false);return at;
+ const auto at=fake::us;mcpwm_capture_event_data_t e{fake::capture()};on_edge(edge_channel,&e,fake::physical_cookie);step(false);
+ run_for(100000);fake::irq=bad?0x42:2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,fake::physical_cookie);step(false);return at;
 }
 }
 int main(){

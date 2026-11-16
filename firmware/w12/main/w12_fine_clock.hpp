@@ -27,8 +27,8 @@ struct mcpwm_cap_channel_t;
 // Caller holds its GNSS queue critical section until the bracket is complete.
 bool w12_fine_gnss_map_bracket(mcpwm_cap_channel_t*,uint64_t* before20,uint64_t* after20);
 
-using W12LoRaCapture=bool(*)(uint64_t tick20);
-bool w12_fine_lora_start(W12LoRaCapture);
+using W12LoRaCapture=bool(*)(uint64_t tick20,uint64_t cookie);
+bool w12_fine_lora_start(W12LoRaCapture,uint64_t cookie);
 // Independent LoRa epoch/extension; no BLE Receiver history/fence processing.
 // Same physical MCPWM1 timer as CH1. Never returns BLE or GPTimer coordinates.
 bool w12_fine_lora_current(uint64_t* tick20);

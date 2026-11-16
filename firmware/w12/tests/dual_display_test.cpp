@@ -49,17 +49,19 @@ int main(){
  const auto valid=radio;
  radio.link_samples=2;radio.link_rms_ns=UINT32_MAX;s={};apply(s,mesh);
  assert(s.precision_lora&&s.precision_live&&s.rms_ns==UINT32_MAX&&s.lora_link_samples==2);
- for(unsigned failure=0;failure<5;++failure){
-  radio=valid;
+ for(unsigned failure=0;failure<7;++failure){
+  radio=valid;mesh.fault=false;
   if(failure==0)radio.sampled_us=now-w12::SyncSnapshotMaxUs;
   if(failure==1)radio.until_us=now;
   if(failure==2)radio.active=false;
   if(failure==3)radio.fault=true;
   if(failure==4)radio.state=1;
+  if(failure==5)mesh.fault=true;
+  if(failure==6)radio.mode=2;
   s={};apply(s,mesh);assert(!s.valid&&!s.precision_live&&s.rms_ns==UINT32_MAX);
   assert(!std::strchr(s.role,' '));assert(!s.lora_utc_us&&s.lora_ui_phase!=w12::LoRaUiPhase::Live);
  }
- radio=valid;radio.root_boot=0;radio.time_valid=radio.metadata_known=false;
+ mesh.fault=false;radio=valid;radio.root_boot=0;radio.time_valid=radio.metadata_known=false;
  s={};apply(s,mesh);assert(s.precision_lora&&s.precision_live&&s.rms_ns==123&&s.valid);
  radio=valid;mesh.requested=mesh.following=mesh.clock_valid=true;mesh.root_identity=1;mesh.root_boot=2;mesh.source_epoch=3;mesh.publication=4;
  mesh.follower_snapshot_us=now;mesh.service_until_us=mesh.g1_anchor_deadline_us=mesh.g1_corrected_until_us=now+5000000;

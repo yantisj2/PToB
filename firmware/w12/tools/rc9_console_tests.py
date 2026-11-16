@@ -9,6 +9,7 @@ from framed_console import require_coverage
 APP=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);p.add_argument('--tz',action='store_true');a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 s=(APP/'main/native_main.cpp').read_text();start=s.index('[[gnu::noinline]] void rc9_status_frame');end=s.index('\n}\n#endif',start)+2;(out/'actual_rc9_frame.inc').write_text(s[start:end])
+start=s.index('[[gnu::noinline]] void ui_clock_frame');end=s.index('\n}\n#endif',start)+2;(out/'actual_ui_clock.inc').write_text(s[start:end])
 flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-sign-compare','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DV12_R2_ENABLED=1','-DPTOB_RC9=1']
 if a.tz:flags+=['-DR2_TZ_WIRE=1']
 for q in (out,APP/'tests/console_fakes',APP/'main',APP/'main/r2/r2-g1',APP/'main/r2/rc7/include'):flags+=['-I'+str(q)]

@@ -14,6 +14,9 @@ struct RelayWrite {uint64_t at=0;uint32_t generation=0;uint16_t handle=None;uint
 RelayChild relay_children[8]{};RelaySession relay_session;
 Ring<RelayWrite,4> relay_writes;
 uint64_t relay_challenge=0,relay_cap_at=0,relay_start20=0;
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+static w12::AdvDataRetry relay_cap_retry;
+#endif
 uint64_t relay_trace_at=0;uint8_t relay_trace_remaining=60,relay_last_channel=255;
 uint32_t relay_generation=0,relay_admissions=0,relay_refused=0,relay_selected=0,relay_estimate_refused=0;
 uint8_t relay_selection_reason=0;
@@ -236,7 +239,7 @@ void relay_close(uint64_t now,bool preserve_demand){
   if(relay_session.handle!=None&&now>=relay_session.drain&&relay_session.terminating)fault=true;
   if(!relay_pa&&!relay_discovery&&!relay_advertising&&relay_session.handle==None&&relay_configured){
     const int a=ble_gap_ext_adv_remove(0),b=ble_gap_ext_adv_remove(1);
-    if((!a||a==BLE_HS_ENOENT)&&(!b||b==BLE_HS_ENOENT))relay_configured=false;else fault=true;
+    if((!a||a==BLE_HS_ENOENT||a==BLE_HS_EALREADY)&&(!b||b==BLE_HS_ENOENT||b==BLE_HS_EALREADY))relay_configured=false;else fault=true;
   }
   if(relay_owned()&&now>=relay_stop_deadline)fault=true;
 }
@@ -374,11 +377,11 @@ bool relay_cap_configure(){
 #endif
   return relay_api(ble_gap_ext_adv_configure(1,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure);
 }
-bool relay_cap_update(uint64_t now){
+[[gnu::noinline]] bool relay_cap_update(uint64_t now){
 #ifdef PTOB_N30
   static n30::AdvDataRetry capacity_retry;
 #elif defined(PTOB_W12_BLE_RECOVERY)
-  static w12::AdvDataRetry capacity_retry;
+  auto& capacity_retry=relay_cap_retry;
 #endif
 #if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
   if(!capacity_retry.ready(now))return false;
@@ -387,7 +390,14 @@ bool relay_cap_update(uint64_t now){
   relay_pause_cap();
 #if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
   // A stop can yield to GAP callbacks. Recheck owners before another HCI call.
-  if(fault||relay_advertising||relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
+  if(fault||closing||relay_stopping||relay_advertising||relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
+  if(capacity_retry.expired(micros())){error(0x207,R2Api::AdvData,61);return false;}
+  if(capacity_retry.needs_configure()){
+    if(!relay_cap_configure())return false;
+    capacity_retry.configured();
+    if(closing||relay_stopping||relay_session.handle!=None||peer.connecting||peer.handle!=None)return false;
+    if(capacity_retry.expired(micros())){error(0x207,R2Api::AdvData,61);return false;}
+  }
 #endif
   auto c=relay_map.capability(provision.identity,boot_id,relay_challenge,relay_pa);
 #ifdef R2_TZ_WIRE
@@ -410,7 +420,7 @@ bool relay_cap_update(uint64_t now){
     // No CAP/ACL owner is active here. Recreate handle1 only; never stop or
     // reconfigure the upstream PA receiver or downstream periodic handle0.
     note(cap_result,R2Api::AdvData);inc(setup_retries);
-    if(relay_api(ble_gap_ext_adv_remove(1),R2Api::AdvRemove))relay_cap_configure();
+    if(relay_api(ble_gap_ext_adv_remove(1),R2Api::AdvRemove))capacity_retry.removed();
     return false;
   }
 #endif
@@ -433,7 +443,11 @@ bool relay_configure(){
   int8_t power=127;if(!relay_api(ble_gap_ext_adv_configure(0,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure))return false;
   relay_configured=true;
   if(!relay_api(ble_gap_periodic_adv_configure(0,&p),R2Api::AdvConfigure))return false;
-  return relay_cap_configure();
+  const bool cap=relay_cap_configure();
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  if(cap)relay_cap_retry.reset(); // A fresh controller owner gets a fresh budget.
+#endif
+  return cap;
 }
 void relay_requests(uint64_t now,uint64_t now20){
   RelayWrite row{};for(unsigned n=0;n<2&&relay_writes.pop(row);n++){

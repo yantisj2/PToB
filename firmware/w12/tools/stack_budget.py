@@ -42,7 +42,8 @@ def measure(config,usage,gnss_usage=None,fast_map_usage=None):
  lines=[line.split('\t') for line in usage.splitlines() if line.strip()]
  optional={'rc9_diagnostics':'void {anonymous}::rc9_status_frame(uint64_t, uint64_t)'} if '::rc9_status_frame(' in usage else {}
  optional.update({'lora_diagnostics':'void {anonymous}::lora_status_frame(uint64_t, uint64_t)'} if '::lora_status_frame(' in usage else {})
- declarations={**DECLARATIONS,**optional,**(PPS_DECLARATIONS if gnss_usage is not None else {}),**(FAST_MAP_DECLARATIONS if fast_map_usage is not None else {})}
+ helper={'ui_clock':'void {anonymous}::ui_clock_frame(const v12::R2Status&)'} if '::ui_clock_frame(' in usage else {}
+ declarations={**helper,**DECLARATIONS,**optional,**(PPS_DECLARATIONS if gnss_usage is not None else {}),**(FAST_MAP_DECLARATIONS if fast_map_usage is not None else {})}
  if gnss_usage is not None:lines.extend(line.split('\t') for line in gnss_usage.splitlines() if line.strip())
  if fast_map_usage is not None:lines.extend(line.split('\t') for line in fast_map_usage.splitlines() if line.strip())
  for name,declaration in declarations.items():
@@ -52,6 +53,9 @@ def measure(config,usage,gnss_usage=None,fast_map_usage=None):
   if kind!='static' or not re.fullmatch(r'[1-9]\d*',size):raise ValueError('Unbounded main-task frame: '+name)
   frames[name]=int(size)
  paths={name:{'frames':list(keys),'static_bytes':sum(frames[key] for key in keys)} for name,keys in {**PATHS,**{name:('main','input','command',name) for name in optional}}.items()}
+ if helper:
+  for name in optional:
+   paths[name]['frames'].append('ui_clock');paths[name]['static_bytes']+=frames['ui_clock']
  if gnss_usage is not None:
   for name,keys in {'production_pps_snapshot':('main','production_pps_observe'),
                     'production_pps_callback':('main','gnss_poll','pps_callback','production_pps_score')}.items():

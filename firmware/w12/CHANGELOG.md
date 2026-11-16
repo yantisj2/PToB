@@ -1,5 +1,25 @@
 # W12 changelog
 
+## 0.2.43 — Worker incarnation and recovery fences
+
+Retain accepted LoRa mode intent until the sole worker consumes it. OFF revokes
+its published clock immediately, preserves the original 200 ms drain and is
+idempotent while draining. A rapid OFF/ON must retire captures and clock history
+before restarting. Carry the capture incarnation through the deferred ISR
+callback so an old edge cannot acquire a new session's identity. Serialize RESET
+assertion with cancellation; refuse a late drain acknowledgement. Worker health
+uses 64-bit monotonic time across the diagnostic millisecond counter's wrap.
+
+Reset CAP retry state only after a new controller owner is configured; reject
+expired attempts before another HCI command. Recreate a removed CAP only after
+rechecking ownership on the next worker turn. Accept the pinned SDK's explicit
+already-removed acknowledgement during teardown. Keep upstream BLE capture,
+periodic train, source deadlines and the original retry budget unchanged.
+
+Host regressions inject cancellation at each normal worker lock handoff, delayed
+commands, stale ISR delivery, old trained-model revocation, persistent controller
+errors, lifecycle restart and millisecond wrap. These are offline checks; native build and hardware acceptance are separate.
+
 ## 0.2.42 — Bounded paused relay capability recovery
 
 After three controller capacity refusals, recreate the stopped W12 relay

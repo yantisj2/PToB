@@ -7,8 +7,9 @@
 #include <array>
 #include <cassert>
 #include <cstring>
+#include <cstdlib>
 extern uint32_t test_irq;
-namespace fake {uint64_t us=1000000;std::array<int,50> gpio{};unsigned starts=0,ends=0,inputs=0,fine_reads=0,lora_reads=0;bool dma_fail=false,capture=false,cancel=false,capture_fail=false,clock_ok=true;spi_transaction_t* pending=nullptr;uint32_t gen=0;}
+namespace fake {uint64_t us=1000000;std::array<int,50> gpio{};unsigned starts=0,ends=0,inputs=0,fine_reads=0,lora_reads=0;bool handoff=false,dma_fail=false,capture=false,cancel=false,capture_fail=false,clock_ok=true;spi_transaction_t* pending=nullptr;uint32_t gen=0;}
 int64_t esp_timer_get_time(){return int64_t(fake::us);}
 void vTaskDelay(TickType_t t){fake::us+=uint64_t(t)*1000;}
 uint32_t ulTaskNotifyTake(BaseType_t,TickType_t){return 0;}
@@ -25,7 +26,7 @@ esp_err_t spi_device_queue_trans(spi_device_handle_t,spi_transaction_t* t,TickTy
 esp_err_t spi_device_get_trans_result(spi_device_handle_t,spi_transaction_t** o,TickType_t wait){assert(wait==5&&fake::pending);if(fake::dma_fail)return -1;*o=fake::pending;std::memset((*o)->rx_buffer,0,(*o)->length/8);fake::pending=nullptr;++fake::ends;if(fake::cancel){fake::cancel=false;assert(v12::lora_request(false,0));}return 0;}
 extern "C" bool clock_reference_read(uint64_t* t){++fake::fine_reads;fake::us+=50;*t=9000000+fake::us*20;return true;}
 bool w12_fine_lora_current(uint64_t* t){++fake::lora_reads;*t=fake::us*20;return fake::clock_ok;}
-bool w12_fine_lora_start(bool(*)(uint64_t)){fake::capture=true;return !fake::capture_fail;}
+bool w12_fine_lora_start(bool(*)(uint64_t,uint64_t),uint64_t){fake::capture=true;return !fake::capture_fail;}
 bool w12_fine_fault(){return false;}
 bool w12_fine_lora_stop(){fake::capture=false;return true;}
 #ifndef PTOB_W12_TEST_REAL_PASSIVE
@@ -39,18 +40,19 @@ extern "C" void w12_test_packet(uint8_t*,unsigned,uint32_t,uint64_t);
 #endif
 #include "../main/w12_lora_radio.cpp"
 unsigned wired_edges=0;
-void irq(uint32_t flags){const bool high=gpio_get_level(14);test_irq|=flags;if(!high&&gpio_get_level(14)){++wired_edges;on_edge(fake::us*20);}}
+void irq(uint32_t flags){const bool high=gpio_get_level(14);test_irq|=flags;if(!high&&gpio_get_level(14)){++wired_edges;on_edge(fake::us*20,capture_epoch);}}
 void step(bool locked,uint64_t advance=2000){fake::us+=advance;w12_lora_control(locked,fake::us,true);worker_step(true);}
 int main(int argc,char** argv){
  assert(argc==2&&configured_receiver());const auto mode=argv[1];
  if(!std::strcmp(mode,"capture"))fake::capture_fail=true;
+ if(!std::strcmp(mode,"heartbeat-wrap"))fake::us=(UINT64_C(1)<<32)*1000-200000;
  step(false,0);
  if(!std::strcmp(mode,"capture")){worker_step(true);assert(failed&&!owned.enabled&&!fake::capture&&owner.drained()&&!fake::gpio[12]&&!fake::gpio[4]);return 0;}
  assert(test_freq==922.4f&&test_bw==500.0f&&test_sf==11&&test_cr==8&&test_preamble==12&&test_sync==0x12&&test_irq_mask==RADIOLIB_IRQ_RX_DEFAULT_FLAGS);
  assert(test_irq_dio==8&&test_irq_gpio==14&&test_dio_modes[11]==2&&test_dio_modes[9]==0&&test_dio_modes[10]==0&&test_dio_modes[5]==0&&test_dio_modes[6]==0);
  assert(owned.enabled&&fake::capture&&fake::gpio[4]&&!fake::gpio[3]);
 #ifdef PTOB_W12_TEST_REAL_PASSIVE
- if(!std::strcmp(mode,"wire8")){
+ if(!std::strcmp(mode,"wire8")||!std::strcmp(mode,"wire8-revoke")){
   constexpr uint64_t base=1700000000000000000;
   auto packet=[&](unsigned kind,uint32_t cursor,uint64_t ns){
    w12_test_packet(test_packet,kind,cursor,ns);test_size=kind==2?112:kind==3?24:32;
@@ -66,10 +68,53 @@ int main(int argc,char** argv){
   assert(view.state==2&&view.trained&&view.model_valid&&view.accepted==9&&view.link_samples==9&&view.link_rms_ns<=1);
   assert(view.root==1&&view.emitter==1&&view.root_boot==22&&view.capture_epoch==1&&view.utc_us>0);
   assert(view.authority==0&&view.assurance==0&&view.created_ns==0&&view.expires_ns==0);
-  assert(wired_edges==19&&!hardware.invalid_capture&&!hardware.crc_bad&&!hardware.spi_error&&!capture_drops);return 0;
+  assert(wired_edges==19&&!hardware.invalid_capture&&!hardware.crc_bad&&!hardware.spi_error&&!capture_drops);
+  if(!std::strcmp(mode,"wire8-revoke")){
+   const auto old_epoch=capture_epoch;assert(v12::lora_request(false,0));w12_lora_control(false,fake::us,true);worker_step(true);w12_lora_snapshot(view);
+   assert(capture_epoch>old_epoch&&view.active&&view.requested&&!view.utc_us&&!view.trained&&!view.accepted);
+  }return 0;
  }
 #endif
- if(!std::strcmp(mode,"clock")){
+ if(!std::strcmp(mode,"off-before-start-commit")){
+  assert(w12_lora_mode(w12::LoRaMode::KeepOff));worker_step(true);assert(owner.drained());
+  assert(w12_lora_mode(w12::LoRaMode::KeepOn));test_critical::after_exit=+[]{assert(w12_lora_mode(w12::LoRaMode::KeepOff));};
+  worker_step(true);assert(!owned.enabled&&!fake::gpio[4]);worker_step(true);assert(owner.drained()&&!failed);return 0;
+ }else if(!std::strncmp(mode,"handoff-",8)){
+  const auto old_epoch=capture_epoch;test_critical::after_n=unsigned(std::strtoul(mode+8,nullptr,10));
+  test_critical::after_exit=+[]{fake::handoff=true;assert(v12::lora_request(false,0));w12_lora_control(false,fake::us,true);};
+  worker_step(true);assert(fake::handoff);test_critical::after_exit=nullptr;
+  w12_lora_view revoked;w12_lora_snapshot(revoked);if(capture_epoch==old_epoch)assert(!revoked.requested&&!revoked.utc_us);
+  worker_step(true);worker_step(true);assert(!failed&&owned.enabled&&capture_epoch>old_epoch&&fake::starts==fake::ends&&!inflight);
+  on_edge(fake::us*20,old_epoch);assert(!latched);return 0;
+ }else if(!std::strcmp(mode,"heartbeat-wrap")){
+  for(unsigned i=0;i<10;++i)step(false,100000);assert(!emergency&&!failed&&owned.enabled);return 0;
+ }else if(!std::strcmp(mode,"old-isr-cookie")){
+  const auto old_cookie=capture_epoch;assert(w12_lora_mode(w12::LoRaMode::KeepOff));worker_step(true);
+  assert(w12_lora_mode(w12::LoRaMode::Auto));worker_step(true);assert(capture_epoch!=old_cookie);
+  on_edge(fake::us*20,old_cookie);assert(!latched&&capture_invalid==1);
+  on_edge(fake::us*20,capture_epoch);assert(latched);return 0;
+ }else if(!std::strcmp(mode,"repeat-off")){
+  assert(v12::lora_request(false,0));const auto deadline=stop_at;const auto generation=owner.generation,serial=cancel_serial;
+  fake::us+=100000;assert(v12::lora_request(false,0));assert(stop_at==deadline&&owner.generation==generation&&cancel_serial==serial);
+  worker_step(true);assert(owner.drained()&&!failed);return 0;
+ }else if(!std::strcmp(mode,"late-off")){
+  assert(v12::lora_request(false,0));fake::us+=200000;worker_step(true);assert(failed&&!owner.drained()&&hardware.error==-ETIMEDOUT);return 0;
+ }else if(!std::strcmp(mode,"persistent-mode")){
+  assert(w12_lora_mode(w12::LoRaMode::KeepOff));worker_step(true);assert(owner.drained());
+  assert(w12_lora_mode(w12::LoRaMode::KeepOn));fake::us+=300000;worker_step(true);
+  assert(owned.enabled&&policy.mode()==w12::LoRaMode::KeepOn&&!failed);return 0;
+ }else if(!std::strcmp(mode,"reset-write-race")){
+  test_critical::after_exit=+[]{assert(v12::lora_request(false,0));};hal.digitalWrite(Reset,1);
+  assert(!fake::gpio[12]&&!fake::gpio[4]);return 0;
+ }else if(!std::strcmp(mode,"fast-revoke-return")){
+  const auto epoch=capture_epoch;const auto generation=core_generation;
+  assert(v12::lora_request(false,0));w12_lora_control(false,fake::us,true);worker_step(true);
+  assert(owned.enabled&&capture_epoch>epoch&&core_generation>generation&&!failed);return 0;
+ }else if(!std::strcmp(mode,"snapshot-revoke")){
+  w12_lora_view before;w12_lora_snapshot(before);assert(before.requested&&before.active);
+  assert(v12::lora_request(false,0));w12_lora_view after;w12_lora_snapshot(after);
+  assert(!after.requested&&!after.utc_us&&!after.until_us&&!after.off_acknowledged&&after.request_generation==owner.generation);return 0;
+ }else if(!std::strcmp(mode,"clock")){
   fake::clock_ok=false;step(false);step(false);assert(failed&&!owned.enabled&&owner.drained()&&!fake::capture&&!fake::fine_reads);
  }else if(!std::strcmp(mode,"normal")){
   const auto before_reads=fake::lora_reads;
@@ -79,7 +124,7 @@ int main(int argc,char** argv){
   irq(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID);step(false);assert(fake::inputs==0&&header_pending&&gpio_get_level(14)==1);
   const auto frozen=header_capture;fake::us+=200000;const auto edges=wired_edges;irq(RADIOLIB_LR2021_IRQ_RX_DONE);assert(wired_edges==edges);step(false);assert(fake::inputs==1&&header_capture==frozen&&!header_pending&&fake::lora_reads>0&&!fake::fine_reads);
   irq(RADIOLIB_LR2021_IRQ_RX_DONE);step(false);assert(fake::inputs==1&&hardware.invalid_capture==1);
-  irq(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID);step(false);on_edge(fake::us*20+1);step(false);assert(hardware.invalid_capture==2&&!header_pending&&fake::inputs==1);
+  irq(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID);step(false);on_edge(fake::us*20+1,capture_epoch);step(false);assert(hardware.invalid_capture==2&&!header_pending&&fake::inputs==1);
   irq(RADIOLIB_LR2021_IRQ_LORA_HEADER_VALID);step(false);step(false,1000001);assert(hardware.invalid_capture==3&&!header_pending&&fake::inputs==1);
   irq(RADIOLIB_LR2021_IRQ_CRC_ERROR);step(false);assert(hardware.crc_bad==1&&fake::inputs==1);
   irq(RADIOLIB_LR2021_IRQ_LORA_HDR_CRC_ERROR);step(false);assert(hardware.crc_bad==2&&fake::inputs==1);

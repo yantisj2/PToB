@@ -25,6 +25,7 @@ static uint64_t ui_sampled_us=1000,ui_utc_us=1700000000000000,ui_drawn_us=3000;
 static w12::DisplaySecondDeadline ui_deadline;
 static uint32_t ui_lora_utc=UINT32_MAX;static unsigned ui_lora_phase=11;
 static struct {uint64_t nonce=0xabc,admitted_us=1000;bool accepted=true;const char* action="RC9_DIAG";const char* reason="READ_ONLY_CRC_SNAPSHOT";} last_command;
+#include "actual_ui_clock.inc"
 #include "actual_rc9_frame.inc"
 int main(int argc,char** argv){
  shared_writer_checks(1,argv);reset();ui_deadline.painted(ui_sampled_us,true,ui_utc_us);

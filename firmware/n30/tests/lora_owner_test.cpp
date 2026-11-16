@@ -16,7 +16,7 @@ unsigned writes=0,bus=0,starts=0,ends=0,core_inputs=0,high_after_cancel=0;
 unsigned lora_reference_reads=0,fine_reference_reads=0;
 uint32_t epoch=0,core_gen=0,raw_offset=0xfedc0000;
 std::vector<uint8_t> ops;spi_transaction_t* pending=nullptr;
-CaptureCallback physical=nullptr,software=nullptr;
+CaptureCallback physical=nullptr,software=nullptr;void* physical_cookie=nullptr;void* software_cookie=nullptr;
 bool capture_timer=false,timer_running=false,physical_enabled=false,software_enabled=false;
 bool current_enabled=false,current_fail=false;unsigned allocated_channels=0;
 bool dma_fail=false,cancel=false,cancelled=false,wide_map_once=false;int fail_enable=0,fail_disable=0;
@@ -61,14 +61,14 @@ esp_err_t spi_device_get_trans_result(spi_device_handle_t,spi_transaction_t** co
 esp_err_t mcpwm_new_capture_timer(const mcpwm_capture_timer_config_t* c,mcpwm_cap_timer_handle_t* out){assert(c->group_id==0);*out=reinterpret_cast<void*>(1);return 0;}
 esp_err_t mcpwm_capture_timer_get_resolution(mcpwm_cap_timer_handle_t,uint32_t* out){*out=80000000;return 0;}
 esp_err_t mcpwm_new_capture_channel(mcpwm_cap_timer_handle_t,const mcpwm_capture_channel_config_t* c,mcpwm_cap_channel_handle_t* out){assert(c->gpio_num==14||c->gpio_num==-1);*out=reinterpret_cast<void*>(uintptr_t(++fake::allocated_channels));return 0;}
-esp_err_t mcpwm_capture_channel_register_event_callbacks(mcpwm_cap_channel_handle_t c,const mcpwm_capture_event_callbacks_t* cb,void*){(c==reinterpret_cast<void*>(1)?fake::physical:fake::software)=cb->on_cap;return 0;}
+esp_err_t mcpwm_capture_channel_register_event_callbacks(mcpwm_cap_channel_handle_t c,const mcpwm_capture_event_callbacks_t* cb,void* cookie){(c==reinterpret_cast<void*>(1)?fake::physical:fake::software)=cb->on_cap;(c==reinterpret_cast<void*>(1)?fake::physical_cookie:fake::software_cookie)=cookie;return 0;}
 esp_err_t mcpwm_capture_timer_enable(mcpwm_cap_timer_handle_t){fake::capture_timer=true;return 0;}
 esp_err_t mcpwm_capture_timer_start(mcpwm_cap_timer_handle_t){fake::timer_running=true;return 0;}
 esp_err_t mcpwm_capture_channel_enable(mcpwm_cap_channel_handle_t c){const auto i=int(reinterpret_cast<uintptr_t>(c));if(fake::fail_enable==i)return -1;(i==1?fake::physical_enabled:i==2?fake::software_enabled:fake::current_enabled)=true;return 0;}
 esp_err_t mcpwm_capture_channel_disable(mcpwm_cap_channel_handle_t c){if(fake::fail_disable==int(reinterpret_cast<uintptr_t>(c)))return -1;(c==reinterpret_cast<void*>(1)?fake::physical_enabled:c==reinterpret_cast<void*>(2)?fake::software_enabled:fake::current_enabled)=false;return 0;}
 esp_err_t mcpwm_capture_timer_stop(mcpwm_cap_timer_handle_t){if(fake::fail_disable==4)return -1;fake::timer_running=false;return 0;}
 esp_err_t mcpwm_capture_timer_disable(mcpwm_cap_timer_handle_t){if(fake::fail_disable==5)return -1;fake::capture_timer=false;return 0;}
-esp_err_t mcpwm_capture_channel_trigger_soft_catch(mcpwm_cap_channel_handle_t c){mcpwm_capture_event_data_t e{fake::capture()};fake::software(c,&e,nullptr);if(fake::wide_map_once){fake::us+=21;fake::wide_map_once=false;}return 0;}
+esp_err_t mcpwm_capture_channel_trigger_soft_catch(mcpwm_cap_channel_handle_t c){mcpwm_capture_event_data_t e{fake::capture()};fake::software(c,&e,fake::software_cookie);if(fake::wide_map_once){fake::us+=21;fake::wide_map_once=false;}return 0;}
 extern "C" bool n30_lora_reference_bracket(mcpwm_cap_channel_handle_t c,uint64_t* before,uint64_t* after){*before=fake::us*20;const auto rc=mcpwm_capture_channel_trigger_soft_catch(c);*after=fake::us*20;return rc==ESP_OK;}
 extern "C" bool n30_lora_reference_read(uint64_t* out){++fake::lora_reference_reads;*out=fake::us*20;return true;}
 extern "C" int n30_lora_reference_current(mcpwm_cap_channel_handle_t c,uint32_t* out,uint64_t* sampled){assert(c==reinterpret_cast<void*>(3));if(!fake::current_enabled||!fake::timer_running||fake::current_fail)return 0x107;*out=fake::capture();*sampled=fake::us;return 0;}
@@ -94,8 +94,8 @@ extern "C" void n30_rc8_snapshot_sample(n30_lora_view* out,uint64_t sampled,uint
 #include N30_LORA_OWNER_SOURCE
 namespace {
 void cold(){
- fake::us=1000000;fake::gpio={};fake::regs={};fake::writes=fake::bus=fake::starts=fake::ends=fake::core_inputs=fake::high_after_cancel=0;fake::ops.clear();fake::pending=nullptr;fake::physical=fake::software=nullptr;fake::capture_timer=fake::timer_running=fake::physical_enabled=fake::software_enabled=false;fake::dma_fail=fake::cancel=fake::cancelled=fake::wide_map_once=false;fake::fail_enable=fake::fail_disable=0;fake::irq=0;fake::core_gen=0;fake::packet_size=112;
- owner={};basic={};owned={};published={};hardware={};policy={};mapping={};qualified_map={};spi=cap_timer=edge_channel=map_channel=nullptr;task=nullptr;ble_at=request_at=last_map=map_pending=map_before=map_after=stop_at=0;cancel_serial=active_serial=core_generation=map_serial=map_expected=map_capture=raw_capture=raw_generation=raw_serial=0;capture_epoch=0;header_capture=header_generation=header_serial=0;header_until=0;header_pending=false;requested_mode=0;mode_pending=cycle_pending=ble_locked=ble_lock_observed=allowed=ble_parked=false;resources=capture_active=inflight=latched=failed=timer_enabled=timer_started=map_enabled=edge_enabled=emergency=false;capture_drops=capture_invalid=0;
+ fake::us=1000000;fake::gpio={};fake::regs={};fake::writes=fake::bus=fake::starts=fake::ends=fake::core_inputs=fake::high_after_cancel=0;fake::ops.clear();fake::pending=nullptr;fake::physical=fake::software=nullptr;fake::physical_cookie=fake::software_cookie=nullptr;fake::capture_timer=fake::timer_running=fake::physical_enabled=fake::software_enabled=false;fake::dma_fail=fake::cancel=fake::cancelled=fake::wide_map_once=false;fake::fail_enable=fake::fail_disable=0;fake::irq=0;fake::core_gen=0;fake::packet_size=112;
+ owner={};basic={};owned={};published={};hardware={};policy={};mapping={};qualified_map={};spi=cap_timer=edge_channel=map_channel=nullptr;task=nullptr;ble_at=worker_published_us=last_map=map_pending=map_before=map_after=stop_at=0;request_serial=published_serial=0;off_intent=false;cancel_serial=active_serial=core_generation=map_serial=map_expected=map_capture=raw_capture=raw_generation=raw_serial=0;capture_epoch=0;header_capture=header_generation=header_serial=0;header_until=0;header_pending=false;requested_mode=0;mode_pending=cycle_pending=ble_locked=ble_lock_observed=allowed=ble_parked=false;resources=capture_active=inflight=latched=failed=timer_enabled=timer_started=map_enabled=edge_enabled=emergency=false;capture_drops=capture_invalid=0;
  fake::gain_bad_readback=false;
  hold_pending_id=hold_pending_us=hold_last_id=0;hold_result=0;
  cleanup_failed=published_cleanup_fault=false;current_failure={};previous_current_raw=0;previous_current_us=0;native_error=0;current_channel=nullptr;current_enabled=false;native_clock.reset();fake::current_enabled=fake::current_fail=false;fake::allocated_channels=0;
@@ -108,6 +108,12 @@ void step(bool locked,uint64_t advance=2000){fake::us+=advance;n30_lora_control(
 #include "lora_owner_interop.inc"
 #else
 int main(){
+ cold();force_on();assert(v12::lora_request(false,0));const auto stopped=stop_at;const auto cancel=cancel_serial,ogen=owner.generation;fake::us+=100000;assert(v12::lora_request(false,0));assert(stop_at==stopped&&cancel_serial==cancel&&owner.generation==ogen);worker_step(true);assert(owner.drained()&&!failed);
+ cold();force_on();assert(v12::lora_request(false,0));fake::us+=200000;worker_step(true);assert(failed&&!owner.drained());
+ cold();force_on();assert(n30_lora_mode(n30::LoRaMode::KeepOff));worker_step(true);assert(n30_lora_mode(n30::LoRaMode::KeepOn));fake::us+=300000;worker_step(true);assert(owned.enabled&&policy.mode()==n30::LoRaMode::KeepOn&&!failed);
+ cold();force_on();const auto old_cookie=fake::physical_cookie;const auto old_epoch=capture_epoch;assert(v12::lora_request(false,0));n30_lora_control(false,fake::us,true);n30_lora_view revoked;n30_lora_snapshot(revoked);assert(!revoked.requested&&!revoked.utc_us);worker_step(true);assert(capture_epoch>old_epoch&&owned.enabled);mcpwm_capture_event_data_t old_edge{fake::capture()};on_edge(edge_channel,&old_edge,old_cookie);assert(!latched&&capture_invalid==1);
+ cold();fake::us=(UINT64_C(1)<<32)*1000-200000;force_on();for(unsigned i=0;i<10;++i)step(false,100000);assert(!failed&&!emergency&&owned.enabled);
+ cold();force_on();assert(n30_lora_mode(n30::LoRaMode::KeepOff));worker_step(true);assert(n30_lora_mode(n30::LoRaMode::KeepOn));test_critical::after_exit=+[]{assert(n30_lora_mode(n30::LoRaMode::KeepOff));};worker_step(true);assert(!owned.enabled);worker_step(true);assert(owner.drained()&&!failed);
  cold();fake::gain_bad_readback=true;force_on();worker_step(true);
  assert(failed&&hardware.error==-EIO&&!owned.enabled&&fake::gpio[12]==0&&owner.drained());
  for(auto op:fake::ops)assert(op!=0x82);
@@ -119,18 +125,18 @@ int main(){
  assert(n30_lora_mode(n30::LoRaMode::KeepOn));worker_step(true);assert(owner.requested&&owned.enabled&&fake::regs[0x08ac]==0x96);
  n30_lora_control(false,fake::us,false,true);worker_step(true);assert(!owner.requested&&!owned.enabled&&owner.drained());
  cold();step(true,0);assert(owner.requested&&owned.enabled&&fake::bus==1);for(unsigned i=0;i<1800;i++)step(true,100000);assert(owner.requested&&owned.enabled&&!hardware.rx_done&&!fake::core_inputs);
- cold();force_on();assert(owned.enabled);step(true);step(true);fake::irq=0x10;fake::gpio[14]=1;mcpwm_capture_event_data_t header{fake::capture()};on_edge(edge_channel,&header,nullptr);step(true);assert(header_pending&&fake::core_inputs==0);fake::us+=300000;fake::irq=2;fake::gpio[14]=1;mcpwm_capture_event_data_t e{fake::capture()};on_edge(edge_channel,&e,nullptr);step(true);assert(fake::core_inputs==1&&hardware.rx_done==1&&hardware.rssi_dbm==-70&&!header_pending);
+ cold();force_on();assert(owned.enabled);step(true);step(true);fake::irq=0x10;fake::gpio[14]=1;mcpwm_capture_event_data_t header{fake::capture()};on_edge(edge_channel,&header,fake::physical_cookie);step(true);assert(header_pending&&fake::core_inputs==0);fake::us+=300000;fake::irq=2;fake::gpio[14]=1;mcpwm_capture_event_data_t e{fake::capture()};on_edge(edge_channel,&e,fake::physical_cookie);step(true);assert(fake::core_inputs==1&&hardware.rx_done==1&&hardware.rssi_dbm==-70&&!header_pending);
  assert(fake::lora_reference_reads>0&&fake::fine_reference_reads==0);
- fake::irq=0x42;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);assert(fake::core_inputs==1&&hardware.crc_bad==1&&!failed);
- fake::packet_size=17;fake::irq=2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);assert(hardware.malformed==1&&fake::core_inputs==1);
+ fake::irq=0x42;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,fake::physical_cookie);step(true);assert(fake::core_inputs==1&&hardware.crc_bad==1&&!failed);
+ fake::packet_size=17;fake::irq=2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,fake::physical_cookie);step(true);assert(hardware.malformed==1&&fake::core_inputs==1);
  assert(v12::lora_request(false,0));worker_step(true);worker_step(true);assert(owner.drained()&&!owned.enabled&&fake::gpio[12]==0);
  // A single >20us software bracket cannot discard the old physical map.
  cold();force_on();for(unsigned i=0;i<10;i++){step(true,250000);step(true,2000);}
  const auto accepted_map=hardware.map_accepted;assert(accepted_map>=8);
  fake::wide_map_once=true;step(true,250000);step(true,2000);
  assert(hardware.map_soft_refused==1&&hardware.map_hard_reset==0&&hardware.map_rejected==1&&hardware.map_accepted==accepted_map);
- fake::irq=0x10;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);
- fake::us+=100000;fake::irq=2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,nullptr);step(true);
+ fake::irq=0x10;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,fake::physical_cookie);step(true);
+ fake::us+=100000;fake::irq=2;fake::gpio[14]=1;e.cap_value=fake::capture();on_edge(edge_channel,&e,fake::physical_cookie);step(true);
  assert(fake::core_inputs==1&&hardware.invalid_capture==0&&!failed);
  cold();fake::cancel=true;force_on();worker_step(true);assert(!failed&&owner.drained()&&!owned.enabled&&fake::high_after_cancel==0);
  for(int channel=1;channel<=3;channel++){

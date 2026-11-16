@@ -9,7 +9,7 @@ void save(const DisplayState& s,const std::string& dir,const char* name){display
 int main(int argc,char** argv){
  if(argc!=2)return 2;std::string d=argv[1];DisplayState s;s.unit_label="C-4";s.r2_dashboard=true;s.followed_clock="TC-04";
  s.valid=true;s.utc=1794844421;s.role="LOCK_EST";s.pps_blink=s.d1_rx=s.d2_rx=true;
- s.page=display_pages::LoraRx;s.lora_configured=s.lora_active=true;s.lora_emitter="TC-01";s.lora_rx_done=27;
+ s.page=display_pages::LoraRx;s.lora_emitter="TC-01";s.lora_rx_done=27;
  for(unsigned p=0;p<=unsigned(w12::LoRaUiPhase::Live);++p){s.lora_ui_phase=w12::LoRaUiPhase(p);
   s.lora_utc_us=1794844421000000;s.lora_fit_span_ms=89999;s.lora_link_samples=4;s.lora_pair_age_ms=2500;s.lora_meta_age_ms=34000;
   s.lora_link_rms_ns=715;if(s.lora_ui_phase==w12::LoRaUiPhase::Live)s.lora_link_samples=8;
