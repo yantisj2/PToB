@@ -78,6 +78,9 @@ def main():
     run([production,'holdover-production'],'production-holdover-selection-sensor-scope-and-handoff')
     for case in ('initiating','mtu','service','drain','existing','stop-error'):
         run([production,'scan-owner-'+case],'W12-no-scan-during-ACL-'+case)
+    for case in ('read','write','handle','length','closing','dead','terminating','mode'):
+        run([production,'att-access-'+case],'W12-ATT-pre-gate-'+case)
+    run([production,'att-submit'],'W12-GATT-inline-callback-submission-context')
     if a.selection=='holdover':
         (out/'receipt.json').write_text(json.dumps({'status':'PASSED','scope':'ACTUAL_NATIVE_HOLD_ENTRY_SELECTION_AND_HANDOFF','tests':records,'hardware_access':False},indent=2)+'\n')
         print('PASS actual native production HOLD entry, selection and continuity')

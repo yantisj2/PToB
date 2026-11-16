@@ -979,10 +979,7 @@ extern "C" void app_main(){
   const auto device=v12::native_device_binding();
   identity=device&&!std::memcmp(factory,device->factory,6);esp_fill_random(&session,sizeof(session));
   std::printf("W12_V12_BOOT unit=%s factory=%s identity=%u session=%016" PRIx64
-    " source=%s build=%s profile=V12_NATIVE_CONSOLE_R3 controller=PINNED_5_5_5"
-    " RF=OFF legacy_PA_us=31250 root_bytes=158 relay_bytes=182 discovery_grant_bytes=190"
-    " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
-    " precision=UNAVAILABLE GM=INCOMPLETE LoRa=OFF WiFi=OFF PTS=OFF\n",
+    " source=%s build=%s RF=OFF precision=UNAVAILABLE\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}

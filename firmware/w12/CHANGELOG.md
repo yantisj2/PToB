@@ -1,5 +1,18 @@
 # W12 changelog
 
+## 0.2.46 — ATT access and GATT submission diagnostics
+
+Record bounded ATT access observations before the existing receive gate, including
+refused writes. The packed result retains length, operation, client mode, matching
+handle, closing, dead and terminating state. Record GATT submission results with
+the exact pre-call owner/stage, even when a callback completes during submission.
+These observations grant no readiness or timing authority and preserve the existing
+receive checks, wire format, MTU and deadlines. They support investigation of a
+warm-renewal failure that remains after discovery/ACL serialization; an initial
+JOIN or successful write submission is not renewal acceptance. Remove stale,
+redundant specification text from the boot banner to retain the fixed image slot;
+identity and mandatory CRC diagnostics remain available.
+
 ## 0.2.45 — Discovery and ACL ownership
 
 Keep W12 discovery scanning stopped throughout outgoing, incoming and quarantined

@@ -92,10 +92,10 @@ inline int g1_render_link(char* out,unsigned capacity,const Report& r){
     "CONNECT_REQUEST","CONNECT_ACK","ACL_DESCRIPTOR","CANCEL_ACK","SYNC_REQUEST","SYNC_CREATE_ACK",
     "SYNC_ESTABLISHED","SYNC_CANCEL_ACK","SYNC_TERMINATE_ACK","SYNC_LOST","PERMISSION_PHASE",
     "SYNC_CLEANUP_QUEUED","SYNC_CANCEL_BEGIN","SYNC_TERMINATE_BEGIN","CORRECTED_PHASE",
-    "HOST_RESET","HOST_RESYNC","CLIENT_REARM","REARM_REFUSED","SYNC_CACHE_CHECK","SYNC_DRAIN_EXPIRED","ACQUISITION_REBIND"};
+    "HOST_RESET","HOST_RESYNC","CLIENT_REARM","REARM_REFUSED","SYNC_CACHE_CHECK","SYNC_DRAIN_EXPIRED","ACQUISITION_REBIND","RESERVED33","ATT_ACCESS","GATT_SUBMIT"};
   const unsigned event=r.bytes[0];const char* name=event<sizeof(events)/sizeof(events[0])?events[event]:"INVALID";
   if(event==1&&!g1_diag_le(r.bytes+1,4)&&(r.bytes[7]&32))name="CONNECT_DRAIN_ACK";
-  const char* result=(event==6||event==8)?"window_detail_us":event==9?"mtu_status_packed":(event==10||event==21||event==25)?"phase_us":"rc";
+  const char* result=(event==6||event==8)?"window_detail_us":event==9?"mtu_status_packed":event==34?"access_packed":(event==10||event==21||event==25)?"phase_us":"rc";
   return std::snprintf(out,capacity,"W12_G1_LINK at_us=%" PRIu64 " gen=%" PRIu32 " peer=%016" PRIx64
     " event=%s %s=%" PRId32 " handle=%u stage=%u owners=0x%02x window_us=%" PRIu64 " attempt_us=%" PRIu64
     " interval_1250us=%" PRIu64 " latency=%" PRIu64 " supervision_10ms=%" PRIu64 " PA_phy=%u PA_clock_accuracy=%u reference=API_ONLY\n",

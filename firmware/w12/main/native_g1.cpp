@@ -712,6 +712,12 @@ int char_done(uint16_t h,const ble_gatt_error* e,const ble_gatt_chr* c,void* arg
   if(e->status){peer.pending=false;peer.dead=true;}return 0;
 }
 int access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void*){
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  // Observe even refused writes. No admission, allocation or radio call here.
+  admission_trace(34,h,int((OS_MBUF_PKTLEN(ctx->om)&65535u)|(uint32_t(ctx->op&15)<<16)|
+    (uint32_t(mode==R2Mode::Client)<<20)|(uint32_t(h==peer.handle)<<21)|
+    (uint32_t(closing)<<22)|(uint32_t(peer.dead)<<23)|(uint32_t(peer.terminating)<<24)));
+#endif
   // The serving T096 uses this public locator before replying to JOIN. It is
   // only endpoint discovery: no source, membership or key is exposed/granted.
   if(ctx->op==BLE_GATT_ACCESS_OP_READ_CHR){
@@ -959,6 +965,9 @@ void gatt_poll(uint64_t now){
   if(peer.handle==None)return;
   if(peer.dead||peer.terminating||now>=peer.exchange.until||(!peer.ready&&now>=peer.gatt_until)||(peer.close_at&&now>=peer.close_at)){if(!peer.terminating)failed_admission(now);terminate_peer(now);return;}
   if(!peer.ready&&!peer.pending){int rc=0;const auto h=peer.handle;const auto generation=peer.incarnation;void* arg=callback_arg();R2Api site=R2Api::None;peer.pending=true;
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+    const auto submission=link_context(now);
+#endif
     // ATT performs ordinary LL fragmentation. This transient admission needs
     // its negotiated ATT MTU, not an extra LL data-length procedure. The latter
     // raced a vanished ACL in retained boot f4c9319f7acf3cd7 (HCI 0x0c followed
@@ -978,6 +987,9 @@ void gatt_poll(uint64_t now){
     else if(peer.stage==3){site=R2Api::Service;rc=ble_gattc_disc_svc_by_uuid(h,&service.u,service_done,arg);}
     else if(peer.stage==4){site=R2Api::Characteristics;rc=ble_gattc_disc_all_chrs(h,peer.start,peer.end,char_done,arg);}
     else rc=BLE_HS_EINVAL;
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+    admission_trace(35,h,rc,&submission);
+#endif
     if(rc){note(rc,site);if(peer.handle==h&&peer.incarnation==generation){peer.pending=false;if(rc==BLE_HS_ENOTCONN){inc(peer_losses);peer.dead=true;}else if(!transient(rc,site)){peer.dead=true;error(rc,site);}}}
   }
 }

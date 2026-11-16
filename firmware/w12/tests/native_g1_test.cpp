@@ -113,6 +113,38 @@ int main(int argc,char** argv){assert(argc==2);std::string which=argv[1];
   if(which=="cancel"){assert(v12::r2_status().off_ack);return 0;}if(which=="blocked"||which=="late"){assert(v12::r2_status().fault);return 0;}
   assert(v12::r2_status().client.running);
 #if defined(PTOB_W12_BLE_RECOVERY) && !defined(PTOB_N30)
+  if(which.rfind("att-access-",0)==0){
+    v12::peer.handle=22;v12::peer.identity=333;v12::peer.incarnation=++v12::incarnation;
+    const auto op=which=="att-access-read"?BLE_GATT_ACCESS_OP_READ_CHR:BLE_GATT_ACCESS_OP_WRITE_CHR;
+    os_mbuf mb;if(op==BLE_GATT_ACCESS_OP_WRITE_CHR)mb.bytes.resize(R2_GROUP_JOIN_BYTES);
+    ble_gatt_access_ctxt ctx{};ctx.op=op;ctx.om=&mb;
+    const uint16_t handle=which=="att-access-handle"?23:22;
+    if(which=="att-access-length")mb.bytes.pop_back();
+    if(which=="att-access-closing")v12::closing=true;
+    if(which=="att-access-dead")v12::peer.dead=true;
+    if(which=="att-access-terminating")v12::peer.terminating=true;
+    if(which=="att-access-mode")v12::mode=v12::R2Mode::Off;
+    const auto before=v12::rx;const auto length=mb.bytes.size();
+    const int rc=v12::access(handle,0,&ctx,nullptr);
+    const bool accepted=which=="att-access-write"||which=="att-access-read";
+    assert((rc==0)==accepted);assert(v12::rx==before+(which=="att-access-write"));
+    const v12::Report* observed=nullptr;for(const auto& r:v12::diagnostic_records)if(r.kind==8&&r.bytes[0]==34)observed=&r;
+    assert(observed&&observed->handle==handle);const auto& row=*observed;
+    const uint32_t packed=uint32_t(row.bytes[1])|uint32_t(row.bytes[2])<<8|uint32_t(row.bytes[3])<<16|uint32_t(row.bytes[4])<<24;
+    assert((packed&65535)==length&&((packed>>16)&15)==unsigned(op));
+    assert(bool(packed&(1u<<21))==(handle==22));assert(bool(packed&(1u<<20))==(v12::mode==v12::R2Mode::Client));
+    assert(bool(packed&(1u<<22))==v12::closing&&bool(packed&(1u<<23))==v12::peer.dead&&bool(packed&(1u<<24))==v12::peer.terminating);
+    return 0;
+  }
+  if(which=="att-submit"){
+    v12::peer.handle=22;v12::peer.identity=333;v12::peer.incarnation=++v12::incarnation;v12::peer.stage=1;
+    v12::peer.exchange.until=v12::peer.gatt_until=fake_now+5000000;
+    v12::gatt_poll(fake_now);assert(v12::peer.stage==2);
+    const auto& mtu=v12::diagnostic_records.back();assert(mtu.bytes[0]==35&&mtu.bytes[6]==1&&mtu.handle==22);
+    v12::gatt_poll(fake_now);assert(v12::peer.ready&&v12::peer.stage==5);
+    const auto& locator=v12::diagnostic_records.back();assert(locator.bytes[0]==35&&locator.bytes[6]==2&&locator.handle==22);
+    assert(!v12::fault);return 0;
+  }
   if(which.rfind("scan-owner-",0)==0){
     v12::stop_scan();v12::peer={};v12::peer.identity=333;v12::peer.incarnation=++v12::incarnation;
     v12::peer.address=v12::canonical(333);v12::peer.handle=22;
