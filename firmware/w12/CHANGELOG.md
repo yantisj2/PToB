@@ -8,6 +8,8 @@ yielding scan cancellation before installing an outgoing incarnation. CAP data
 recovery rechecks every yielding boundary and defers while quarantine owns an
 ACL; retain its original 500 ms budget, one recreation and all other SDK errors.
 Upstream periodic reception, source expiry and admission deadlines are unchanged.
+Shorten redundant boot prose to retain the fixed application slot; mandatory
+CRC diagnostics retain the detailed operating policy.
 
 Native callback tests cover held MTU/service, existing scans, scan-stop errors,
 inline incoming CONNECT/disconnect/OFF, and quarantine during CAP stop, configure
