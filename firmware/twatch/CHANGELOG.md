@@ -37,6 +37,17 @@
   fresh metadata/pairs after emitter changes. Physical reception on the updated
   image remains a separate check.
 
+## 0.1.5 — development, 2026-11-16
+
+- Apply the N30 LoRa owner safeguards to the watch: repeated OFF requests retain
+  the original 200 ms drain, mode intent survives worker delay, and a quick
+  OFF/ON retires the previous capture/model before starting a fresh generation.
+  Reject old callback cookies and immediately fence revoked timing snapshots.
+  Use full-width worker timestamps across the diagnostic heartbeat wrap.
+- Keep watch operating-fault recovery separate from sticky cleanup failures.
+  Run the shared owner race cases and watch recovery cases under ASan/UBSan;
+  native builds remain offline preparation, with hardware validation pending.
+
 ## 0.1.4 — development, 2026-11-15
 
 - Add Solar as the third persistent watch face, with a fixed Central 24-hour

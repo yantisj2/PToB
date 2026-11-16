@@ -43,15 +43,15 @@ spi_device_handle_t spi=nullptr;spi_transaction_t transaction{};
 DMA_ATTR uint8_t tx[132]{},rx[132]{};
 mcpwm_cap_timer_handle_t cap_timer=nullptr;mcpwm_cap_channel_handle_t edge_channel=nullptr,map_channel=nullptr,current_channel=nullptr;
 TaskHandle_t task=nullptr;
-uint64_t ble_at=0,request_at=0,last_map=0,map_pending=0,map_before=0,map_after=0,stop_at=0;
+uint64_t ble_at=0,worker_published_us=0,last_map=0,map_pending=0,map_before=0,map_after=0,stop_at=0;
 uint64_t hold_pending_id=0,hold_pending_us=0,hold_last_id=0;uint8_t hold_result=0;
-uint32_t cancel_serial=0,active_serial=0,core_generation=0,map_serial=0,map_expected=0,map_capture=0;
+uint32_t cancel_serial=0,active_serial=0,core_generation=0,map_serial=0,map_expected=0,map_capture=0,request_serial=0,published_serial=0;
 uint32_t raw_capture=0,raw_generation=0,raw_serial=0;
 uint32_t header_capture=0,header_generation=0,header_serial=0;uint64_t header_until=0;bool header_pending=false;
 uint64_t capture_epoch=0;
 uint8_t requested_mode=0;bool mode_pending=false,cycle_pending=false,ble_locked=false,allowed=false,ble_parked=false;
 bool ble_lock_observed=false; // Worker-owned actual fresh policy input.
-bool resources=false,capture_active=false,capture_ready=false,inflight=false,latched=false,failed=false;
+bool resources=false,capture_active=false,capture_ready=false,inflight=false,latched=false,failed=false,off_intent=false;
 bool cleanup_failed=false,published_cleanup_fault=false;
 bool recover_pending=false;uint64_t recover_requested_at=0;
 uint32_t recover_owner_generation=0,recover_cancel_serial=0;
@@ -79,6 +79,19 @@ bool local(uint64_t& tick){return n30_lora_reference_read(&tick)&&tick;}
 }
 bool cancelled(){portENTER_CRITICAL(&mux);const bool result=cancel_serial!=active_serial||!allowed;portEXIT_CRITICAL(&mux);return result;}
 void reset_radio(){if(resources)gpio_set_level(Reset,0);}
+// Called with mux held. Repeated OFF observations never renew its generation
+// or original200ms drain; a new ON still requires worker retirement of this serial.
+bool revoke_locked(uint64_t at,bool permission=true,bool barrier=false){
+ const bool fence=barrier||owner.requested||(permission&&allowed);
+ if(permission){allowed=false;off_intent=false;}
+ mode_pending=cycle_pending=false;hold_pending_id=0;recover_pending=false;
+ if(fence){
+  if(cancel_serial==UINT32_MAX||!owner.request(false))emergency=true;
+  else ++cancel_serial;
+ }
+ if(!stop_at&&!owner.drained())stop_at=at;
+ reset_radio();return !emergency;
+}
 void fault(int error){n30_rc8_radio_fault();reset_radio();if(!failed)hardware.error=error;failed=true;hardware.fault=true;}
 void cleanup_fault(int error){cleanup_failed=true;fault(error);}
 bool status_ok(uint8_t value){const auto s=(value>>1)&7;return value&&value!=255&&s!=3&&s!=4&&s!=5;}
@@ -111,15 +124,15 @@ int command(uint8_t op,const uint8_t* args,size_t size){
 }
 int reg_write(uint16_t address,uint8_t value){const uint8_t args[]={uint8_t(address>>8),uint8_t(address),value};return command(0x0d,args,sizeof args);}
 int reg_read(uint16_t address,uint8_t& value){const uint8_t args[]={uint8_t(address>>8),uint8_t(address),0,0};const int rc=command(0x1d,args,sizeof args);if(rc)return rc;if(!status_ok(rx[3]))return -EIO;value=rx[4];return 0;}
-bool on_edge(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* e,void*){
+bool on_edge(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* e,void* cookie){
  BaseType_t wake=pdFALSE;portENTER_CRITICAL_ISR(&mux);
- if(!capture_active){inc(capture_invalid);}
+ if(!capture_active||!e||uint32_t(reinterpret_cast<uintptr_t>(cookie))!=core_generation){inc(capture_invalid);}
  else if(latched){inc(capture_drops);}
  else{raw_capture=e->cap_value;raw_generation=core_generation;raw_serial=active_serial;latched=true;}
  portEXIT_CRITICAL_ISR(&mux);if(task)vTaskNotifyGiveFromISR(task,&wake);return wake==pdTRUE;
 }
-bool on_map(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* e,void*){
- portENTER_CRITICAL_ISR(&mux);map_capture=e->cap_value;map_serial++;portEXIT_CRITICAL_ISR(&mux);return false;
+bool on_map(mcpwm_cap_channel_handle_t,const mcpwm_capture_event_data_t* e,void* cookie){
+ portENTER_CRITICAL_ISR(&mux);if(capture_active&&e&&uint32_t(reinterpret_cast<uintptr_t>(cookie))==core_generation){map_capture=e->cap_value;map_serial++;}portEXIT_CRITICAL_ISR(&mux);return false;
 }
 void map_clear(){mapping.reset();qualified_map={};}
 int capture_start(){
@@ -128,16 +141,18 @@ int capture_start(){
   uint32_t hz=0;
   if(mcpwm_new_capture_timer(&cfg,&cap_timer)!=ESP_OK||mcpwm_capture_timer_get_resolution(cap_timer,&hz)!=ESP_OK||hz!=80000000)return -EIO;
   mcpwm_capture_channel_config_t ch{};ch.gpio_num=Irq;ch.prescale=1;ch.flags.pos_edge=1;
-  const mcpwm_capture_event_callbacks_t cb={.on_cap=on_edge};
-  if(mcpwm_new_capture_channel(cap_timer,&ch,&edge_channel)!=ESP_OK||mcpwm_capture_channel_register_event_callbacks(edge_channel,&cb,nullptr)!=ESP_OK)return -EIO;
-  ch={};ch.gpio_num=-1;ch.prescale=1;const mcpwm_capture_event_callbacks_t mb={.on_cap=on_map};
-  if(mcpwm_new_capture_channel(cap_timer,&ch,&map_channel)!=ESP_OK||mcpwm_capture_channel_register_event_callbacks(map_channel,&mb,nullptr)!=ESP_OK)return -EIO;
+  if(mcpwm_new_capture_channel(cap_timer,&ch,&edge_channel)!=ESP_OK)return -EIO;
+  ch={};ch.gpio_num=-1;ch.prescale=1;
+  if(mcpwm_new_capture_channel(cap_timer,&ch,&map_channel)!=ESP_OK)return -EIO;
   // CH2 is CURRENT-only, polled under the pinned driver lock. No callback,
   // IRQ, GPIO route or BLE/group1 owner is attached to this channel.
   if(mcpwm_new_capture_channel(cap_timer,&ch,&current_channel)!=ESP_OK)return -EIO;
   capture_ready=true;
  }
- if(capture_epoch==UINT64_MAX)return -EOVERFLOW;
+ if(capture_epoch==UINT64_MAX||!core_generation)return -EOVERFLOW;
+ const auto cookie=reinterpret_cast<void*>(uintptr_t(core_generation));
+ const mcpwm_capture_event_callbacks_t cb={.on_cap=on_edge},mb={.on_cap=on_map};
+ if(mcpwm_capture_channel_register_event_callbacks(edge_channel,&cb,cookie)!=ESP_OK||mcpwm_capture_channel_register_event_callbacks(map_channel,&mb,cookie)!=ESP_OK)return -EIO;
  map_clear();native_clock.reset();last_map=map_pending=0;++capture_epoch;
  if(mcpwm_capture_timer_enable(cap_timer)!=ESP_OK)return -EIO;
  timer_enabled=true;
@@ -296,12 +311,27 @@ void publish(){
  view.hold_requested_id=hold_last_id;view.hold_result=hold_result;
  view.spi_retired=!inflight;view.capture_released=!capture_active&&!edge_enabled&&!map_enabled&&!current_enabled&&!timer_enabled&&!timer_started;view.reset_asserted=resources&&gpio_get_level(Reset)==0;
  shadow.tick(available,owned.enabled&&!failed);
- portENTER_CRITICAL(&mux);shadow_published=shadow.v;view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;published_cleanup_fault=cleanup_failed||owner.stuck;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
+ portENTER_CRITICAL(&mux);shadow_published=shadow.v;view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;published_serial=active_serial;worker_published_us=available;published_cleanup_fault=cleanup_failed||owner.stuck;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
+}
+void retire_capture(){
+ reset_radio();owned.enabled=false;
+ if(capture_active||edge_enabled||map_enabled||current_enabled||timer_enabled||timer_started)capture_stop();
+ if(core_generation){(void)n30_rc8_switch(false);portENTER_CRITICAL(&mux);core_generation=0;portEXIT_CRITICAL(&mux);}
+}
+void finish_worker(uint32_t generation,uint64_t begin){
+ portENTER_CRITICAL(&mux);
+ if(!owner.requested&&!stop_at&&!owner.drained())stop_at=begin;
+ const auto at=now();const bool timely=!stop_at||(at>=stop_at&&at-stop_at<200000);
+ if(!timely&&!failed){cleanup_failed=true;failed=true;hardware.error=-ETIMEDOUT;}
+ owner.finish(generation,timely&&!owned.enabled&&!capture_active&&!edge_enabled&&!map_enabled&&!current_enabled&&!timer_started&&!timer_enabled&&(!resources||gpio_get_level(Reset)==0),!inflight);
+ if(owner.drained())stop_at=0;
+ portEXIT_CRITICAL(&mux);
 }
 bool configured_receiver(){const bool ok=PTOB_TWATCH_LORA_DYNAMIC_RX&&n30_rc8_init(PTOB_N30_FACTORY_ID,0,PTOB_N30_GROUP_ID,PTOB_N30_KEY_EPOCH,PTOB_N30_GROUP_KEY);if(ok)watch_lora_shadow_set_observer(watch_lora_shadow_event);return ok;}
 void worker_step(bool configured){
   const auto begin=now();bool permit,locked,cycle,change,parked;uint8_t mode;uint32_t generation,serial;bool tripped;uint64_t hold_id,hold_at;
-  portENTER_CRITICAL(&mux);permit=allowed;parked=ble_parked;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&begin>=request_at&&begin-request_at<250000;change=mode_pending&&begin>=request_at&&begin-request_at<250000;mode=requested_mode;cycle_pending=mode_pending=false;hold_id=hold_pending_id;hold_at=hold_pending_us;hold_pending_id=0;portEXIT_CRITICAL(&mux);
+  portENTER_CRITICAL(&mux);permit=allowed;parked=ble_parked;serial=cancel_serial;tripped=emergency;locked=ble_locked&&begin>=ble_at&&begin-ble_at<250000;cycle=cycle_pending&&permit&&request_serial==serial;change=mode_pending&&permit&&request_serial==serial;mode=requested_mode;cycle_pending=mode_pending=false;hold_id=hold_pending_id;hold_at=hold_pending_us;hold_pending_id=0;portEXIT_CRITICAL(&mux);
+  if(active_serial!=serial){portENTER_CRITICAL(&mux);generation=owner.generation;portEXIT_CRITICAL(&mux);retire_capture();finish_worker(generation,begin);}
   if(tripped)fault(-ETIMEDOUT);
   ble_lock_observed=locked;policy.update(locked,begin,parked);if(cycle)policy.toggle();if(change)policy.set(n30::LoRaMode(mode));
   portENTER_CRITICAL(&mux);
@@ -321,26 +351,18 @@ void worker_step(bool configured){
   }
   portEXIT_CRITICAL(&mux);
   bool want=configured&&permit&&!failed&&policy.requested();
-  portENTER_CRITICAL(&mux);want=want&&allowed&&serial==cancel_serial;
+  portENTER_CRITICAL(&mux);want=want&&allowed&&serial==cancel_serial&&!owner.stuck&&!inflight;
   if(want!=owner.requested&&!owner.request(want)){failed=true;hardware.error=-EOVERFLOW;want=false;}
   generation=(want||owned.enabled||capture_active||inflight)?owner.begin():owner.generation;active_serial=serial;portEXIT_CRITICAL(&mux);
   if(want&&!owned.enabled){
-   const auto next=n30_rc8_switch(true);portENTER_CRITICAL(&mux);core_generation=next;portEXIT_CRITICAL(&mux);const int rc=start();
+   const auto next=n30_rc8_switch(true);portENTER_CRITICAL(&mux);core_generation=next;portEXIT_CRITICAL(&mux);const int rc=next?start():-EOVERFLOW;
    if(rc&&rc!=-ECANCELED)fault(rc);
    owned.enabled=rc==0;
   }
   if(owned.enabled&&!want){reset_radio();owned.enabled=false;}
   if(owned.enabled){map_step();const int rc=receive();if(rc){if(rc!=-ECANCELED)fault(rc);reset_radio();owned.enabled=false;}}
-  if(!owned.enabled){
-   if(capture_active||edge_enabled||map_enabled||current_enabled||timer_enabled||timer_started)capture_stop();
-   if(core_generation){(void)n30_rc8_switch(false);portENTER_CRITICAL(&mux);core_generation=0;portEXIT_CRITICAL(&mux);}
-   reset_radio();
-  }
-  portENTER_CRITICAL(&mux);if(!owner.requested&&!stop_at)stop_at=begin;
-  owner.finish(generation,!owned.enabled&&!capture_active&&!edge_enabled&&!map_enabled&&!current_enabled&&!timer_started&&!timer_enabled&&(!resources||gpio_get_level(Reset)==0),!inflight);
-  if(owner.drained())stop_at=0;
-  if(stop_at&&now()>=stop_at&&now()-stop_at>=200000){cleanup_failed=true;failed=true;hardware.error=-ETIMEDOUT;}
-  portEXIT_CRITICAL(&mux);
+  if(!owned.enabled)retire_capture();
+  finish_worker(generation,begin);
   if(hold_id){const uint64_t at=now();hold_last_id=hold_id;hold_result=at>=hold_at&&at-hold_at<250000&&owned.enabled&&!failed&&!cancelled()&&n30_rc8_hold60(hold_id,at)?1:2;}
   hardware.work_max_us=std::max(hardware.work_max_us,uint32_t(now()-begin));publish();
  }
@@ -350,31 +372,32 @@ namespace v12 {
 bool lora_start_worker(){return xTaskCreatePinnedToCore(worker,"n30_lora",8192,nullptr,1,&task,1)==pdPASS;}
 bool lora_request(bool enable,uint32_t){
  if(enable)return false; // Receiver control uses explicit AUTO/ON/OFF only.
- portENTER_CRITICAL(&mux);allowed=false;if(cancel_serial!=UINT32_MAX)cancel_serial++;else emergency=true;const bool ok=owner.request(false);stop_at=now();reset_radio();portEXIT_CRITICAL(&mux);if(task)xTaskNotifyGive(task);return ok;
+ portENTER_CRITICAL(&mux);const bool ok=revoke_locked(now());portEXIT_CRITICAL(&mux);if(task)xTaskNotifyGive(task);return ok;
 }
 LoRaStatus lora_status(){portENTER_CRITICAL(&mux);auto result=basic;result.failed|=emergency;result.requested=owner.requested;result.worker_busy=owner.busy;result.request_generation=owner.generation;result.off_ack_generation=owner.off_ack;result.off_acknowledged=owner.drained();portEXIT_CRITICAL(&mux);return result;}
 }
 void n30_lora_control(bool locked,uint64_t sampled,bool permit,bool parked){
  portENTER_CRITICAL(&mux);ble_locked=locked;ble_at=sampled;ble_parked=parked&&permit;
- if(allowed&&!permit){if(cancel_serial!=UINT32_MAX)cancel_serial++;else emergency=true;(void)owner.request(false);stop_at=sampled;reset_radio();}
- allowed=permit;
- if(published.active&&sampled/1000>=published.heartbeat_ms&&sampled/1000-published.heartbeat_ms>=30000){reset_radio();emergency=true;allowed=false;if(cancel_serial!=UINT32_MAX)cancel_serial++;(void)owner.request(false);stop_at=sampled;}
+ if(allowed&&!permit)(void)revoke_locked(sampled);
+ // Operating faults still accept explicit mode intent and guarded recovery.
+ allowed=permit&&!emergency;
+ if(!emergency&&published.active&&sampled>=worker_published_us&&sampled-worker_published_us>=30000000){emergency=true;(void)revoke_locked(sampled);}
  portEXIT_CRITICAL(&mux);
 }
 bool n30_lora_mode(n30::LoRaMode mode){
  if(!PTOB_TWATCH_LORA_DYNAMIC_RX||uint8_t(mode)>2)return false;
  // Mode changes express operator intent. A fault remains latched even on ON;
  // only a later guarded recovery may admit new receiver/capture generations.
- portENTER_CRITICAL(&mux);const bool ok=allowed;if(ok){requested_mode=uint8_t(mode);mode_pending=true;cycle_pending=false;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
+ portENTER_CRITICAL(&mux);bool ok=allowed&&!emergency;if(ok&&mode==n30::LoRaMode::KeepOff)ok=revoke_locked(now(),false,!off_intent);if(ok){off_intent=mode==n30::LoRaMode::KeepOff;requested_mode=uint8_t(mode);mode_pending=true;cycle_pending=false;request_serial=cancel_serial;}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
 bool n30_lora_cycle(){
  if(!PTOB_TWATCH_LORA_DYNAMIC_RX)return false;
- portENTER_CRITICAL(&mux);const bool ok=allowed&&!basic.failed&&!cycle_pending&&!mode_pending;if(ok){cycle_pending=true;request_at=now();}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
+ portENTER_CRITICAL(&mux);const bool ok=allowed&&!basic.failed&&!emergency&&!cycle_pending&&!mode_pending;if(ok){off_intent=false;cycle_pending=true;request_serial=cancel_serial;}portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
 bool n30_lora_configured(){return PTOB_TWATCH_LORA_DYNAMIC_RX!=0;}
 bool n30_lora_fault_recover(){
  const auto sampled=now();portENTER_CRITICAL(&mux);
- const bool fresh=sampled/1000>=published.heartbeat_ms&&sampled/1000-published.heartbeat_ms<250;
+ const bool fresh=sampled>=worker_published_us&&sampled-worker_published_us<250000;
  const bool ok=PTOB_TWATCH_LORA_DYNAMIC_RX&&allowed&&!emergency&&basic.failed&&!recover_pending&&
   !published_cleanup_fault&&!owner.stuck&&owner.generation!=UINT32_MAX&&cancel_serial!=UINT32_MAX&&
   !cycle_pending&&!mode_pending&&published.mode!=uint8_t(n30::LoRaMode::KeepOff)&&fresh&&
@@ -403,7 +426,7 @@ bool n30_lora_hold60(uint64_t id){
  if(ok){hold_pending_id=id;hold_pending_us=at;}
  portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
-void n30_lora_snapshot(n30_lora_view& out){portENTER_CRITICAL(&mux);out=published;if(emergency){out.fault=true;out.active=false;out.until_us=0;out.error=-ETIMEDOUT;out.spi_retired=out.capture_released=out.off_acknowledged=false;}portEXIT_CRITICAL(&mux);}
+void n30_lora_snapshot(n30_lora_view& out){portENTER_CRITICAL(&mux);out=published;out.requested=owner.requested&&allowed;out.request_generation=owner.generation;out.off_ack_generation=owner.off_ack;out.off_acknowledged=owner.drained();if(!out.requested||published_serial!=cancel_serial){out.utc_us=out.until_us=out.watch_utc_us=0;out.watch_valid=false;out.state=0;}if(emergency){out.fault=true;out.active=false;out.until_us=0;out.error=-ETIMEDOUT;out.spi_retired=out.capture_released=out.off_acknowledged=false;}portEXIT_CRITICAL(&mux);}
 
 extern "C" void watch_lora_shadow_event(uint8_t kind,const uint8_t context[16],uint64_t epoch,uint32_t cursor,uint64_t at,uint64_t pair_at,bool valid){
  shadow.observe(kind,context,epoch,cursor,at,pair_at,valid);

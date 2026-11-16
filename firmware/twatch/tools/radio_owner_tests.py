@@ -15,7 +15,10 @@ def main():
  fake=fake.replace('return f==2&&t==1;', 'return f==2&&t==0;') # Dynamic RX has no TX pin.
  fake=fake.replace('pin==12','pin==47').replace('gpio[12]','gpio[47]')
  fake=fake.replace('c->mosi_io_num==10&&c->miso_io_num==11&&c->sclk_io_num==9','c->mosi_io_num==34&&c->miso_io_num==33&&c->sclk_io_num==35')
- fake=fake.replace('assert(configured_receiver());','capture_ready=recover_pending=false;recover_requested_at=0;recover_owner_generation=recover_cancel_serial=0;assert(configured_receiver());')
+ # Keep N30's complete race/boundary assertions and reset the watch-only
+ # recovery and shadow state between cases as well as the shared owner state.
+ assert fake.count('assert(configured_receiver());')==1
+ fake=fake.replace('assert(configured_receiver());','capture_ready=recover_pending=false;recover_requested_at=0;recover_owner_generation=recover_cancel_serial=0;shadow={};shadow_published={};assert(configured_receiver());')
  (out/'driver').mkdir();gpio=N30/'tests/lora_fakes/driver/gpio.h'
  (out/'driver/gpio.h').write_text('#pragma once\n#include "'+str(gpio)+'"\nconstexpr int GPIO_NUM_36=36,GPIO_NUM_47=47,GPIO_NUM_48=48;\n')
  (out/'baseline.cpp').write_text(fake)
