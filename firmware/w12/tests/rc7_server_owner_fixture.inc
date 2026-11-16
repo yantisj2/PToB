@@ -81,10 +81,13 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
  if(which=="cap-removed-close"){
    cap_remove_result=BLE_HS_EALREADY;v12::relay_close(fake_now);assert(!v12::relay_configured&&!v12::fault&&!v12::relay_owned());return 0;
  }
- if(which=="cap-data-recreate"){
+ if(which=="cap-data-recreate"||which=="cap-stale-advertising"){
    const auto start=fake_now;v12::synced=true;v12::sync_handle=17;v12::sync_identity=123;
    v12::periodic_rx::installed=v12::periodic_rx::armed=true;v12::periodic_rx::capture_epoch=9;
    ext_active[0]=pa_active=true;cap_set_result=0x207;
+   // A delayed CAP completion may clear our flag after a later start.
+   // The pinned SDK still rejects remove while its instance is active.
+   if(which=="cap-stale-advertising"){ext_active[1]=true;v12::relay_advertising=false;}
    for(unsigned n=0;n<3;++n){assert(!v12::relay_cap_update(fake_now));assert(!v12::fault);fake_now+=100000;}
    assert(cap_removed==1&&cap_sets==3&&v12::relay_cap_dirty&&!v12::relay_cap_at);
    assert(v12::synced&&v12::sync_handle==17&&v12::sync_identity==123&&v12::periodic_rx::capture_epoch==9&&v12::periodic_rx::armed&&pa_active&&ext_active[0]);

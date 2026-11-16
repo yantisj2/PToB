@@ -1,5 +1,22 @@
 # W12 changelog
 
+## 0.2.44 — CAP activity reconciliation and readable RESET
+
+Reconcile paused CAP advertising with NimBLE's public activity state before
+data replacement or removal. A delayed completion can clear the local flag
+while the SDK still owns an active instance; removing it returns EBUSY and
+previously entered the fatal path. Stop that exact CAP under its original
+budget. Preserve the upstream receiver and periodic relay train; do not treat
+EBUSY as successful removal. Native owner tests reproduce the stale local flag.
+
+Keep the input path enabled on radio outputs during initial configuration and
+RadioLib direction changes. ESP-IDF otherwise reads zero from an output-only
+pad, incorrectly reporting RESET asserted while receiving and allowing that
+zero to satisfy the OFF check. The owner now reads the pad; a stuck-high RESET
+cannot acknowledge OFF and retains the original 200 ms drain fault. Host tests
+model the SDK's input-disabled behavior and a stuck-high pad. BLE capture,
+radio levels, protocol, source expiry and controller retry budgets are unchanged.
+
 ## 0.2.43 — Worker incarnation and recovery fences
 
 Retain accepted LoRa mode intent until the sole worker consumes it. OFF revokes

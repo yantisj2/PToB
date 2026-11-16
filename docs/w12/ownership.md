@@ -28,6 +28,11 @@ retains the original cookie; the LoRa owner rejects delivery from an earlier
 capture even if a later capture is already active. LoRa start/stop leaves BLE's
 capture channel and association history intact.
 
+The radio output pads retain their input path, including after RadioLib changes
+direction. ESP-IDF returns zero for an output-only pad, so that value cannot
+prove RESET is asserted. OFF acknowledgement requires the readable RESET pad
+to be low; a high pad retains the original drain timeout and cannot acknowledge.
+
 ## Relay capability recovery
 
 The paused connectable capability advertisement uses handle 1. The periodic
@@ -37,6 +42,9 @@ ownership. Removal and later reconfiguration are separate host turns. A complete
 new controller owner resets retry history; a reconfiguration within the same
 attempt does not reset its deadline. Failed commands never count as publication.
 Other errors and exhausted recovery keep the existing fatal path and evidence.
+The pause checks both the local flag and NimBLE's public active-instance state.
+A delayed completion cannot make a later SDK-owned CAP safe to remove merely
+by clearing the local flag. Busy removal is never an OFF acknowledgement.
 
 ## Verification limits
 

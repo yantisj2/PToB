@@ -230,7 +230,7 @@ def main():
                  '-DV12_R2_G1_LISTENING_PERCENT=100', '-DV12_R2_TX_SHADOW=1',
                  '-DV12_R2_RC7_TX_ESTIMATE_LAB=1','-DPTOB_W12_BLE_RECOVERY=1', out / 'server.cpp', *objects, '-o', server], 'server-build')
             receipt['server_cases'] = []
-            for case in ['cap-data-recreate','cap-data-restart','cap-removed-close',*SERVER_CASES,*(['tz-publisher'] if args.tz else [])]:
+            for case in ['cap-data-recreate','cap-stale-advertising','cap-data-restart','cap-removed-close',*SERVER_CASES,*(['tz-publisher'] if args.tz else [])]:
                 run([server, case], 'server-' + case)
                 receipt['server_cases'].append(case)
         changed = [str(p) for p in inputs if sha(p) != before[str(p)]]

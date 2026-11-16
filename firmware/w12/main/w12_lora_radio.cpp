@@ -64,11 +64,13 @@ void fault(int error){reset_radio();if(!failed)hardware.error=error;failed=true;
 // Dedicated DMA buffers outlive every queued transaction, including timeout.
 class Hal final:public RadioLibHal {
  public:
- Hal():RadioLibHal(GPIO_MODE_INPUT,GPIO_MODE_OUTPUT,0,1,GPIO_INTR_POSEDGE,GPIO_INTR_NEGEDGE){}
+ // ESP-IDF reads zero from an output-only pad. Keep input readback enabled
+ // through both initial GPIO setup and RadioLib's later direction changes.
+ Hal():RadioLibHal(GPIO_MODE_INPUT,GPIO_MODE_INPUT_OUTPUT,0,1,GPIO_INTR_POSEDGE,GPIO_INTR_NEGEDGE){}
  bool ready=true;
  void init()override{
   if(resources)return;
-  gpio_config_t outputs{};outputs.pin_bit_mask=(1ULL<<Nss)|(1ULL<<Reset)|(1ULL<<3)|(1ULL<<4);outputs.mode=GPIO_MODE_OUTPUT;
+  gpio_config_t outputs{};outputs.pin_bit_mask=(1ULL<<Nss)|(1ULL<<Reset)|(1ULL<<3)|(1ULL<<4);outputs.mode=GPIO_MODE_INPUT_OUTPUT;
   if(gpio_set_level(Nss,1)!=ESP_OK||gpio_set_level(Reset,0)!=ESP_OK||gpio_config(&outputs)!=ESP_OK){ready=false;return;}
   gpio_config_t inputs{};inputs.pin_bit_mask=(1ULL<<Busy)|(1ULL<<Irq);inputs.mode=GPIO_MODE_INPUT;
   if(gpio_config(&inputs)!=ESP_OK){ready=false;return;}

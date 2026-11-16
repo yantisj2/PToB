@@ -190,7 +190,16 @@ void relay_fence(){
  if(relay_profile==9&&!closing&&!fault&&!relay_stopping)return;
 #endif
 relay_hold.clear();relay_admission_locked=false;relay_slots.scanning=false;relay_rescan_pending=false;relay_map.fence();relay_cap_dirty=true;relay_data_dirty=false;relay_start20=0;relay_queue_diagnostic.busy_since=0;}
-void relay_pause_cap(){if(!relay_advertising)return;const int rc=ble_gap_ext_adv_stop(1);
+void relay_pause_cap(){
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  // A delayed ADV_COMPLETE can clear our earlier-start flag while NimBLE
+  // still owns a later active CAP. Its public state must also be stopped
+  // before set_data/remove; EBUSY is not proof of removal or radio OFF.
+  if(!relay_advertising&&!ble_gap_ext_adv_active(1))return;
+#else
+  if(!relay_advertising)return;
+#endif
+  const int rc=ble_gap_ext_adv_stop(1);
   if(!rc||rc==BLE_HS_EALREADY)relay_advertising=false;else relay_api(rc,R2Api::AdvStop);}
 void relay_stop_pa(){
   if(relay_pa){const int rc=ble_gap_periodic_adv_stop(0);if(!rc||rc==BLE_HS_EALREADY)relay_pa=false;else relay_api(rc,R2Api::AdvStop);}

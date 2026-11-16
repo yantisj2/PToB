@@ -9,17 +9,18 @@
 #include <cstring>
 #include <cstdlib>
 extern uint32_t test_irq;
-namespace fake {uint64_t us=1000000;std::array<int,50> gpio{};unsigned starts=0,ends=0,inputs=0,fine_reads=0,lora_reads=0;bool handoff=false,dma_fail=false,capture=false,cancel=false,capture_fail=false,clock_ok=true;spi_transaction_t* pending=nullptr;uint32_t gen=0;}
+namespace fake {uint64_t us=1000000;std::array<int,50> gpio{},modes{};unsigned starts=0,ends=0,inputs=0,fine_reads=0,lora_reads=0;bool handoff=false,dma_fail=false,capture=false,cancel=false,capture_fail=false,clock_ok=true,reset_stuck_high=false;spi_transaction_t* pending=nullptr;uint32_t gen=0;}
 int64_t esp_timer_get_time(){return int64_t(fake::us);}
 void vTaskDelay(TickType_t t){fake::us+=uint64_t(t)*1000;}
 uint32_t ulTaskNotifyTake(BaseType_t,TickType_t){return 0;}
 void xTaskNotifyGive(TaskHandle_t){}void vTaskNotifyGiveFromISR(TaskHandle_t,BaseType_t*){}
 unsigned uxTaskGetStackHighWaterMark(TaskHandle_t){return 6144;}
 BaseType_t xTaskCreatePinnedToCore(void(*)(void*),const char*,uint32_t s,void*,unsigned p,TaskHandle_t* o,int c){assert(s==8192&&p==1&&c==1);*o=(void*)1;return pdPASS;}
-esp_err_t gpio_config(const gpio_config_t* c){assert(!(c->pin_bit_mask&((1ULL<<39)|(1ULL<<41)|(1ULL<<48)|(1ULL<<16))));return 0;}
+esp_err_t gpio_config(const gpio_config_t* c){assert(!(c->pin_bit_mask&((1ULL<<39)|(1ULL<<41)|(1ULL<<48)|(1ULL<<16))));for(unsigned p=0;p<fake::modes.size();p++)if(c->pin_bit_mask&(1ULL<<p))fake::modes[p]=c->mode;return 0;}
 esp_err_t gpio_set_level(gpio_num_t p,int v){assert(p==3||p==4||p==8||p==12);fake::gpio[p]=v;return 0;}
-int gpio_get_level(gpio_num_t p){assert(p==14||p==13||p==12||p==8);return p==14?test_irq!=0:fake::gpio[p];}
-int gpio_set_direction(gpio_num_t p,int){assert(p==14||p==13||p==12||p==8);return 0;}
+// The pinned SDK returns zero when the pad's input path is disabled.
+int gpio_get_level(gpio_num_t p){assert(p==14||p==13||p==12||p==8);if(!(fake::modes[p]&GPIO_MODE_INPUT))return 0;return p==14?test_irq!=0:p==12&&fake::reset_stuck_high?1:fake::gpio[p];}
+int gpio_set_direction(gpio_num_t p,int mode){assert(p==14||p==13||p==12||p==8);fake::modes[p]=mode;return 0;}
 esp_err_t spi_bus_initialize(int h,const spi_bus_config_t* c,int){assert(h==2&&c->sclk_io_num==9&&c->mosi_io_num==10&&c->miso_io_num==11);return 0;}
 esp_err_t spi_bus_add_device(int,const spi_device_interface_config_t*,spi_device_handle_t* o){*o=(void*)1;return 0;}
 esp_err_t spi_device_queue_trans(spi_device_handle_t,spi_transaction_t* t,TickType_t wait){assert(wait==5&&!fake::pending);fake::pending=t;++fake::starts;return 0;}
@@ -51,6 +52,12 @@ int main(int argc,char** argv){
  assert(test_freq==922.4f&&test_bw==500.0f&&test_sf==11&&test_cr==8&&test_preamble==12&&test_sync==0x12&&test_irq_mask==RADIOLIB_IRQ_RX_DEFAULT_FLAGS);
  assert(test_irq_dio==8&&test_irq_gpio==14&&test_dio_modes[11]==2&&test_dio_modes[9]==0&&test_dio_modes[10]==0&&test_dio_modes[5]==0&&test_dio_modes[6]==0);
  assert(owned.enabled&&fake::capture&&fake::gpio[4]&&!fake::gpio[3]);
+ w12_lora_view live;w12_lora_snapshot(live);assert(!live.reset_asserted);
+ if(!std::strcmp(mode,"reset-pad-stuck-high")){
+  fake::reset_stuck_high=true;assert(v12::lora_request(false,0));worker_step(true);
+  assert(!owned.enabled&&!owner.drained());fake::us+=200001;worker_step(true);
+  assert(failed&&!owner.drained()&&hardware.error==-ETIMEDOUT);return 0;
+ }
 #ifdef PTOB_W12_TEST_REAL_PASSIVE
  if(!std::strcmp(mode,"wire8")||!std::strcmp(mode,"wire8-revoke")){
   constexpr uint64_t base=1700000000000000000;

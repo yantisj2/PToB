@@ -16,7 +16,7 @@ subprocess.run([cc,'-std=c11',*flags,APP/'tests/lora_dynamic_test.c',APP/'main/l
 subprocess.run([cxx,'-std=c++20',*flags,APP/'tests/lora_policy_test.cpp','-o',out/'policy'],check=True);subprocess.run([out/'policy'],check=True)
 subprocess.run([cxx,'-std=c++20',*flags,APP/'tests/lora_clock_selection_test.cpp','-o',out/'clock-selection'],check=True);subprocess.run([out/'clock-selection'],check=True)
 subprocess.run([cxx,'-std=c++20',*flags,'-Wno-misleading-indentation','-I'+str(APP/'tests/lora_fakes'),APP/'tests/lora_owner_test.cpp','-o',out/'owner'],check=True)
-for case in ['normal','dma','cancel','tx','capture','clock','repeat-off','late-off','persistent-mode','reset-write-race','fast-revoke-return','snapshot-revoke','old-isr-cookie','heartbeat-wrap','off-before-start-commit',*['handoff-'+str(n) for n in range(6)]]:subprocess.run([out/'owner',case],check=True)
+for case in ['normal','dma','cancel','tx','capture','clock','repeat-off','late-off','persistent-mode','reset-write-race','reset-pad-stuck-high','fast-revoke-return','snapshot-revoke','old-isr-cookie','heartbeat-wrap','off-before-start-commit',*['handoff-'+str(n) for n in range(6)]]:subprocess.run([out/'owner',case],check=True)
 subprocess.run([cc,'-std=c11',*flags,'-c',APP/'main/lora_core.c','-o',out/'core-wrapper.o'],check=True)
 subprocess.run([cxx,'-std=c++20',*flags,'-DPTOB_W12_TEST_REAL_PASSIVE=1','-Wno-misleading-indentation','-I'+str(APP/'tests/lora_fakes'),APP/'tests/lora_owner_test.cpp',*objects,out/'core-wrapper.o','-o',out/'owner-real'],check=True)
 for case in ('wire8','wire8-revoke'):subprocess.run([out/'owner-real',case],check=True)
