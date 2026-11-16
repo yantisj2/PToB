@@ -1,5 +1,17 @@
 # W12 changelog
 
+## 0.2.47 — ATT controller-boundary observations
+
+Extend the existing read-only HCI trace with bounded ATT header observations at
+host/controller submission and receipt, plus completed-packet credits. Retain
+only connection, opcode, lengths and relevant attribute handles. No payload,
+credential, packet injection, HCI owner, queue or timeout change. The original
+SDK function runs exactly once with identical arguments, and no mbuf is read
+after ownership transfers. This distinguishes accepted GATT work from actual
+controller-boundary submission while investigating unresolved W12 renewal.
+Compact redundant boot-only model text to retain the fixed application slot;
+mandatory CRC identity, policy and counter fields remain intact.
+
 ## 0.2.46 — ATT access and GATT submission diagnostics
 
 Record bounded ATT access observations before the existing receive gate, including

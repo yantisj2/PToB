@@ -117,6 +117,7 @@ endif()
 
 if(V12_R2_PROFILE STREQUAL "r2-g1")
   target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=ble_hs_hci_cmd_tx" "-Wl,--wrap=ble_hs_hci_rx_evt")
+  target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=ble_transport_to_ll_acl_impl" "-Wl,--wrap=ble_transport_to_hs_acl_impl")
 endif()
 
 # C3 G1 window image is a physical GPS witness, never a GPS disciplined source.

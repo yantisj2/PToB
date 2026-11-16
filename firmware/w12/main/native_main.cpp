@@ -993,7 +993,7 @@ extern "C" void app_main(){
   uint64_t fine_factory=0;for(const auto b:factory)fine_factory=(fine_factory<<8)|b;
   if(!w12_fine_start(session,fine_factory,micros())){
     v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=FINE_COUNTER_DOMAIN\n");return;}
-  std::printf("W12_FINE_CLOCK counter=MCPWM1 hz=80000000 grid_ns=50 RX_GPIO=16 RX=RW_RX_ON_238 TX=NONE relay_phase_ns=1568000 direct=DESCRIPTOR_ONLY fine_slew_lt_ns=2000 RF=UNKNOWN UTC=UNKNOWN\n");
+  std::printf("W12_FINE_CLOCK MCPWM1/80MHz GPIO16 RF=UNKNOWN UTC=UNKNOWN\n");
 #endif
   usb_serial_jtag_driver_config_t console{};console.rx_buffer_size=512;console.tx_buffer_size=4096;
   if(usb_serial_jtag_driver_install(&console)!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_DRIVER\n");return;}
@@ -1008,7 +1008,7 @@ extern "C" void app_main(){
   gnss_pps::set_nmea_consumer([](const uint8_t* bytes,unsigned n){v12::r2_nmea(bytes,n,micros());});
 #ifdef V12_R2_FIELD_CLIENT
 #if V12_R2_CONFIG == 13
-  std::printf("W12_R2_BOOT profile=%s enrollment_sha=%s RF=AUTO precision=UNAVAILABLE\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA);
+  std::printf("W12_R2_BOOT RF=AUTO\n");
 #else
   std::printf("W12_R2_BOOT profile=%s enrollment_sha=%s self=3 roster=4 RF=AUTO_CLIENT_AFTER_HOST_SYNC active=PERSISTENT_ONCE_PER_BOOT precision=UNAVAILABLE\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA);
 #endif
