@@ -56,6 +56,7 @@ static uint8_t retained[R2_UI_FRAME_BYTES];static const uint8_t *retained_fb;sta
 static uint64_t first_saver;static unsigned saver_positions;static bool dim_seen,awake_after_dim;
 static unsigned random_calls;static uint64_t random_at[32];
 static unsigned sync_grace_frames;static bool sync_long_expired,sync_recovered;
+static unsigned shadow_page_events;
 static uint64_t first_help,first_menu,input_help_at,input_menu_at;static bool help_release_seen;
 #ifdef R2_LORA
 static unsigned lora_consumptions;static uint64_t lora_consumed_at;static bool fake_lora_requested=true;
@@ -177,12 +178,20 @@ static void k_sleep(unsigned ms){
   if(mode==36&&fake_now>=14000&&fake_now<14020)(void)r2_ui_page(3);
   if(mode==41&&fake_now>=300700&&fake_now<300720)(void)r2_ui_page(4);
   if(mode==25&&fake_now>=300700&&fake_now<300720)(void)r2_ui_page(R2_UI_SHADOW_PAGE);
-  if(fake_now>=(mode==35||mode==36||mode==40?622000:mode==41?316000:mode==39?30000:mode>=26?25000:mode==24?622000:mode==25?316000:mode==16?367000:mode>=18?301200:3500))r2_ui_stop();
+  /* Mode 25 needs three post-warmup PPS records, each delivered 800 ms late
+   * and consumed on the next 250 ms observer poll, before the stop fence. */
+  if(fake_now>=(mode==35||mode==36||mode==40?622000:mode==41?316000:mode==39?30000:mode>=26?25000:mode==24?622000:mode==25?317000:mode==16?367000:mode>=18?301200:3500))r2_ui_stop();
   return;
  }
  if(mode>=8&&mode<14){struct r2_ui_model m={.profile_rc=true,.sampled_ms=fake_now,.unit="TC-03",.scope_active=true,.role=(mode==9||(mode==13&&fake_now>=3500&&fake_now<4500))?R2_UI_GM:R2_UI_FOLLOWER,.clock={.pps_present=mode!=12,.pps_age_us=10},.precision={.map_valid=true}};r2_ui_publish(&m);
-  if(mode==11&&fake_now>=2000&&fake_now<2020)(void)r2_ui_page(0);
-  if(mode==11&&fake_now>=2800&&fake_now<2820)(void)r2_ui_page(R2_UI_SHADOW_PAGE);
+  /* Display calls advance fake time too. Deliver each due command once,
+   * rather than losing it when a frame crosses a narrow acceptance window. */
+  if(mode==11&&fake_now>=2000&&!(shadow_page_events&1)){
+   assert(!r2_ui_page(0));shadow_page_events|=1;
+  }
+  if(mode==11&&fake_now>=2800&&!(shadow_page_events&2)){
+   assert(shadow_page_events&1);assert(!r2_ui_page(R2_UI_SHADOW_PAGE));shadow_page_events|=2;
+  }
  }
  if(mode==1||fake_now>=(mode==8||mode==11?23000:mode>=4?6500:3300))r2_ui_stop();}
 static void k_thread_create(struct k_thread *t,char *stack,size_t size,void (*fn)(void*,void*,void*),void *a,void *b,void *c,int p,int opts,int delay){entry=fn;priority=p;}

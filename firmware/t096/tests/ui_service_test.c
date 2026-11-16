@@ -71,7 +71,7 @@ int main(int argc,char **argv){
   if(mode>=8&&mode<14){assert(!status.shadow.active&&!r2_ui_close_result());
    if(mode==8)assert(status.shadow.session==1&&status.shadow.samples>=3&&status.shadow.mean_tenth_ns==-370&&status.shadow.max_ns==37);
    if(mode==9||mode==10||mode==12)assert(!status.shadow.session&&!status.shadow.samples);
-   if(mode==11)assert(status.shadow.session==1&&status.shadow.samples>=3&&status.shadow.elapsed_ms<12000);
+   if(mode==11){assert(shadow_page_events==3);assert(status.shadow.session==1&&status.shadow.samples>=3&&status.shadow.elapsed_ms<12000);}
    if(mode==13)assert(!status.shadow.session&&!status.shadow.samples);
   }
  }

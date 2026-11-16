@@ -7,9 +7,11 @@
   Refresh the initialization-order assertion and formatter fixture for shared
   diagnostic scratch, input servicing and the LoRa menu boolean.
   The UI closure fixture now distinguishes pending buffer release from the
-  retained draw timeout. Publication checks still fail UI shadow cases 11
-  (page return) and 25 (wake after dimming); these remain unresolved and the
-  full T096 host suite is not passing. No hardware acceptance is implied.
+  retained draw timeout. Deliver simulated shadow-page commands once when due,
+  even when a display operation advances past their scheduled time, and allow
+  the post-wake test to consume its third delayed PPS sample before stopping.
+  Keep the production shadow assertions and require both page commands to run.
+  These fixture corrections do not establish hardware acceptance.
 
 ## 0.15.359
 
