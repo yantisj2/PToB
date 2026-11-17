@@ -30,7 +30,7 @@ def main():
     args = parser.parse_args()
     cases = [(name, APP / 'tools' / (name + '.py'), True) for name in SUITES]
     cases += [(name, APP / 'tests' / (name + '.py'), False)
-              for name in ('power_capture_test', 'roaming_capture_test')]
+              for name in ('power_capture_test', 'roaming_capture_test', 'dual_radio_test_test')]
     if args.list:
         print(json.dumps([name for name, _, _ in cases], indent=2))
         return

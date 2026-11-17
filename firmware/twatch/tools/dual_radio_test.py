@@ -42,6 +42,7 @@ def plan(receipt=None, ble_correction_ns=0, lora_correction_ns=0):
         'gnss_stable_seconds_before_measurement': 60,
         'phase_blind_settling_seconds': 10,
         'existing_empirical_correction_ns': {'ble': ble_correction_ns, 'lora': lora_correction_ns},
+        'offset_confirmation': {'ble': 'LONG_HELD_OUT_VALIDATION_REQUIRED', 'lora': 'UNMEASURED'},
         'lora_engineering_event_delay_ns': 99328000,
         'lora_event_delay_is_empirical_calibration': False,
         'required_measurement_contract': CONTRACT,
@@ -62,6 +63,9 @@ def plan(receipt=None, ble_correction_ns=0, lora_correction_ns=0):
             'Restore requested radios and verify USB/TTY/unit-lock release at completion or failure',
         ],
         'phases': [dict(name=n, seconds=s, radios=r, purpose=p) for n, s, r, p in PHASES],
+        'separate_followup_cohorts': ['LoRa-only cold acquisition with reviewed boot radio intent',
+                                     'GM/source-context failover and fresh admission',
+                                     'Display sleep/wake and USB reconnect without clock reset'],
         'limits': ['Measurement goals must be frozen before held-out validation; no accuracy threshold is invented here',
                    'PPS samples from one LoRa prediction are correlated; report distinct physical timing pairs',
                    'GNSS is an independent witness, not a live input to the delivered clock',
@@ -131,9 +135,10 @@ def analyze(records):
     coverage = Counter()
     runs = {}
     missing = 0
+    reference_epochs = 0
     clock_checks = {'instances': set(), 'domains': set(), 'utc_backsteps': 0,
                     'counter_reversals': 0, 'hold_authority_claims': 0,
-                    'coarse_fine_claims': 0, 'handoffs': []}
+                    'coarse_fine_claims': 0, 'unknown_rate_records': 0, 'handoffs': []}
     clock_last = {}
     clock_groups = {}
     holdover_points = {}
@@ -143,6 +148,10 @@ def analyze(records):
         run, stage, boot, firmware = (record.get(k) for k in ('run', 'stage', 'boot', 'firmware'))
         if not all(isinstance(v, str) and v for v in (run, stage, boot, firmware)):
             raise ValueError('Run/stage/boot/firmware identity required')
+        elapsed = integer(record['stage_elapsed_us'], 'stage_elapsed_us')
+        duration = next((s for n, s, _, _ in PHASES if n == stage), None)
+        if elapsed < 0 or (duration is not None and elapsed >= duration * 1000000):
+            raise ValueError('Record outside its fixed stage window')
         ref = record['pps']
         number = integer(ref['number'], 'PPS number')
         seen = integer(ref['seen_us'], 'PPS seen_us')
@@ -150,6 +159,7 @@ def analyze(records):
         if number <= 0 or seen <= 0 or epoch <= 0:
             raise ValueError('Positive PPS identities required')
         previous = runs.get(run)
+        reference_good = ref.get('reference_valid') is True and ref.get('capture_valid') is True
         if previous:
             if previous[:2] != (boot, firmware):
                 raise ValueError('Mixed boot or image in a run; start a new run identity')
@@ -157,7 +167,11 @@ def analyze(records):
                 raise ValueError('Duplicate or backwards PPS record')
             if epoch == previous[2]:
                 missing += number - previous[3] - 1
-        runs[run] = (boot, firmware, epoch, number, seen)
+                if reference_good and previous[5] and abs((seen - previous[4]) - (number - previous[3]) * 1000000) > 250000:
+                    raise ValueError('Valid PPS cadence inconsistent with the 1 Hz contract')
+            else:
+                reference_epochs += 1
+        runs[run] = (boot, firmware, epoch, number, seen, reference_good)
         coverage[(run, stage)] += 1
         for channel in ('ble', 'lora'):
             value = record.get(channel, {})
@@ -165,9 +179,11 @@ def analyze(records):
             correction = value.get('current_correction_ns', 'UNKNOWN')
             domain = value.get('counter_domain', 'UNKNOWN')
             key = (run, stage, channel, str(scope), str(domain), str(correction), epoch)
-            group = groups.setdefault(key, dict(values=[], seen=[], observations=set(), invalid=Counter()))
+            group = groups.setdefault(key, dict(values=[], seen=[], observations=set(), invalid=Counter(), rows=0, invalid_rows=0))
+            group['rows'] += 1
             reasons = channel_reasons(record, channel)
             if reasons:
+                group['invalid_rows'] += 1
                 group['invalid'].update(reasons)
             else:
                 group['values'].append(value['phase_ns'])
@@ -184,19 +200,25 @@ def analyze(records):
             clock_checks['domains'].add((run, clock['counter_domain']))
             utc = integer(clock['utc_ns'], 'clock UTC')
             tick = integer(clock['counter_tick'], 'clock counter')
+            reference_ready = (ref.get('reference_valid') is True and ref.get('capture_valid') is True
+                               and ref.get('aided') is False)
+            phase = integer(clock['phase_ns'], 'clock phase_ns') if reference_ready else None
+            rate = clock.get('rate_ppb')
+            if type(rate) not in (int, float) or not math.isfinite(rate):
+                rate = None
+                clock_checks['unknown_rate_records'] += 1
             old = clock_last.get(run)
             if old:
                 clock_checks['utc_backsteps'] += utc < old[0]
                 clock_checks['counter_reversals'] += tick <= old[1]
                 if mode != old[2]:
                     clock_checks['handoffs'].append(dict(run=run, stage=stage, before=old[2], after=mode,
-                        phase_change_ns=clock['phase_ns'] - old[3]))
-            clock_last[run] = (utc, tick, mode, clock['phase_ns'])
+                        phase_change_ns=phase - old[3] if phase is not None and old[3] is not None else None,
+                        rate_change_ppb=rate - old[4] if rate is not None and old[4] is not None else None))
+            clock_last[run] = (utc, tick, mode, phase, rate)
             clock_checks['hold_authority_claims'] += mode == 'HOLD' and clock.get('authoritative') is not False
             clock_checks['coarse_fine_claims'] += mode == 'LORA_COARSE' and clock.get('fine') is not False
-            if (ref.get('reference_valid') is True and ref.get('capture_valid') is True
-                    and ref.get('aided') is False and mode != 'UNSYNCED'):
-                phase = integer(clock['phase_ns'], 'clock phase_ns')
+            if reference_ready and mode != 'UNSYNCED':
                 clock_groups.setdefault((run, stage, clock['instance'], mode), []).append(phase)
                 if mode == 'HOLD' and type(clock.get('holdover_age_us')) is int:
                     age = clock['holdover_age_us']
@@ -205,6 +227,8 @@ def analyze(records):
                         key = (run, stage, clock['instance'], seconds)
                         if distance <= 500000 and (key not in holdover_points or distance < holdover_points[key]['distance_us']):
                             holdover_points[key] = dict(age_us=age, phase_ns=phase, distance_us=distance)
+    if not coverage:
+        raise ValueError('No PPS records supplied')
     rows, candidates = [], []
     for key, group in sorted(groups.items()):
         run, stage, channel, scope, domain, correction, ref_epoch = key
@@ -212,6 +236,7 @@ def analyze(records):
         summary = dict(run=run, stage=stage, channel=channel, scope=scope, counter_domain=domain,
                        reference_capture_epoch=ref_epoch,
                        current_correction_ns=correction, observed_stage_rows=coverage[(run, stage)],
+                       context_rows=group['rows'], ineligible_rows=group['invalid_rows'],
                        distinct_observations=len(group['observations']), invalid_reasons=dict(group['invalid']),
                        **statistics(values))
         if group['seen']:
@@ -242,6 +267,7 @@ def analyze(records):
     clock_checks['domains'] = sorted([list(x) for x in clock_checks['domains']])
     return dict(schema=1, status='OFFLINE_ANALYSIS_COMPLETE', hardware_access=False,
                 records=sum(coverage.values()), missing_PPS_records=missing, statistics=rows,
+                reference_capture_epoch_changes=reference_epochs,
                 calibration_candidates=candidates, shared_clock_evidence=clock_checks,
                 clock_statistics=[dict(run=r, stage=s, instance=i, mode=m, **statistics(v))
                                   for (r, s, i, m), v in sorted(clock_groups.items())],
@@ -275,11 +301,14 @@ def main():
     if args.action == 'prepare':
         receipt = json.loads(args.receipt.read_text()) if args.receipt else None
         result = plan(receipt, args.ble_correction_ns, args.lora_correction_ns)
+        if args.receipt:
+            result['native_receipt_sha256'] = hashlib.sha256(args.receipt.read_bytes()).hexdigest()
     else:
         raw = args.input.read_bytes()
         records = [json.loads(line) for line in raw.decode().splitlines() if line.strip()]
         result = analyze(records)
         result['input_sha256'] = hashlib.sha256(raw).hexdigest()
+    result['tool_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     args.out.mkdir(parents=True)
     (args.out / 'receipt.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps({k: result[k] for k in ('status', 'hardware_access')}))

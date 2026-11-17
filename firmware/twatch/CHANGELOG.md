@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add offline preparation and analysis for a 90-minute BLE/LoRa PPS campaign:
+  separate corrections, held-out validation, shared-clock handovers and learned
+  holdover. Check original model availability/expiry, context separation,
+  correlated LoRa pair counts and clock continuity. Explicit firmware capability
+  gates keep the current selected-BLE-only firmware from claiming readiness.
+
 - Add one offline check command covering all watch regressions and capture
   parsers, with per-check logs and an aggregate receipt. Native builds and
   hardware qualification remain separate.

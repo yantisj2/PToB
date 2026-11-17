@@ -84,6 +84,11 @@ The [device measurement note](../../docs/twatch/shadow-pps-note.md) records a
 short settled shadow-PPS baseline and the tested unit's provisional fixed phase
 adjustment, with post-correction residual validation still pending.
 
+The [longer BLE/LoRa test](../../docs/twatch/dual-radio-test.md) prepares separate
+offset measurements, held-out validation and a future shared-clock handover and
+holdover trial. Parallel LoRa PPS observation and shared discipline are not yet
+implemented in current firmware; activation is gated on confirmed offsets.
+
 ## Build and flash
 
 1. Confirm **Ultra V1 / SX1262**; SX1280 variants are not supported. Prepare
