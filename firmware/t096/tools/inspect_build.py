@@ -285,6 +285,13 @@ def inspect(out,allow_development=False):
         require(len(common_commands)==1,'Unique USB common compiled owner')
         require('NRF_USBD_COMMON_USE_WORKAROUND_FOR_ANOMALY_211=' not in str(common_commands),
                 'USB resume workaround overridden by compiler flags')
+        awake_control=r.get('usb_awake_control',False)
+        require(('R2_USB_AWAKE_CONTROL=1' in str(common_commands))==awake_control,'USB PHY power policy compile binding')
+        main_commands=[c for c in json.loads(commands) if c['file'].endswith('/src/main.c')]
+        require(len(main_commands)==1 and ('R2_USB_AWAKE_CONTROL=1' in str(main_commands))==awake_control,'USB awake status compile binding')
+        if awake_control:
+            require(gm7 and r['profile'] in ('GM','RC'),'USB awake control profile')
+            require(r.get('usb_power_policy')=='PHY_AWAKE_DIAGNOSTIC_BUS_SUSPEND_PRESERVED','USB awake control declaration')
     if gm7 and tuple(map(int,r['version'].split('.'))) >= (0,15,202):
         require_tz_compile_mode(json.loads(commands))
     ui_partial_enabled='R2_UI_PARTIAL_JOBS=1' in commands
@@ -716,6 +723,13 @@ def inspect(out,allow_development=False):
     if boot_rx:
         require(slow and not r.get('lora_bw_experiment') and not r.get('lora_tx_diagnostic') and r['profile'] in ('GM','RC'),'LoRa boot RX profile')
         private_sha=hashlib.sha256((private_sha+':lora-boot-rx:1').encode()).hexdigest()
+    boot_tx=r.get('lora_boot_tx',False)
+    require(('R2_LORA_BOOT_TX=1' in commands)==boot_tx,'LoRa boot TX definition binding')
+    if boot_tx:
+        require(slow and gm7 and r['profile']=='GM' and not boot_rx and not r.get('lora_bw_experiment') and not r.get('lora_tx_diagnostic'),'LoRa boot TX profile')
+        private_sha=hashlib.sha256((private_sha+':lora-boot-tx:1').encode()).hexdigest()
+    if r.get('usb_awake_control',False):
+        private_sha=hashlib.sha256((private_sha+':usb-awake-control:1').encode()).hexdigest()
     binding=hashlib.sha256((r['source_sha256']+':'+private_sha+':'+sha(out/'target/zephyr/.config')).encode()).hexdigest()
     require(binding==r['watchdog_binding_sha256'],'Watchdog binding')
     return {'lora_manual_role_added_bytes':manual_role_added,'lora_manual_role_allocations':manual_role_objects,'ui_partial':ui_partial,'ui_partial_build_definition':('R2_UI_PARTIAL_JOBS=1' if ui_partial_enabled else None),'ui_label_cache_mutable_bytes':ui_label_cache_added,'ui_label_cache_allocation':ui_label_cache_allocation,'ui_label_cache_budget_bytes':24 if ui_label_cache_added else 0,'fault_durable_NV_boundary':boot_fault_store,'boot_fault_store':boot_fault_store,'fault_only_retention':fault_retention,'rf_presentation_mutable_bytes':rf_added,'rf_presentation_mutable_budget_bytes':192 if rf_enabled else 0,'rf_presentation_owner_allocations':rf_objects,'rf_presentation_UI_copy_bytes':rf_ui_added,'rf_presentation_UI_model_bytes':rf_ui_model_bytes,'lora_stage2_total_including_rf_bytes':lora_stage2_total,'ble_causal_mutable_bytes':causal_mutable_bytes,'ble_causal_added_mutable_bytes':causal_added,'ble_causal_budget_bytes':1024 if causal_expected else 0,'lab_audit_mutable_bytes':lab_audit_bytes,'lab_audit_added_mutable_bytes':lab_audit_added,'lab_audit_increment_budget_bytes':lab_audit_allowance,'lora_enhanced_added_mutable_bytes':lora_enhanced_added,'lora_enhanced_mutable_budget_bytes':lora_enhanced_allowance,'audit_mutable_bytes':audit_mutable_bytes,'audit_mutable_budget_bytes':1108,'holdover_mutable_bytes':holdover_mutable_bytes,'holdover_mutable_budget_bytes':1280,'status':'PASS','flash_load_end':flash_end,'ram_allocated_end':ram_end,'static_unallocated_bytes':0x20040000-ram_end,'crash_diagnostic_static_allowance_bytes':crash_allowance,'rc8_incremental_static_budget_bytes':4096,'hot_diagnostic_static_budget_bytes':hot_allowance,'tz_static_budget_bytes':tz_allowance,'auto_tz_static_budget_bytes':auto_tz_allowance,'menu_static_budget_bytes':menu_allowance,'ui_mutable_symbol_bytes':ui_mutable_bytes,'lora_stage2_static_budget_bytes':lora_stage2_allowance,'lora_stage2_added_mutable_bytes':lora_stage2_added,'lora_display_static_budget_bytes':lora_display_allowance,'lora_display_added_mutable_bytes':lora_display_added,'lora_display_mutable_by_unit':lora_display_mutable,'lora_passive_fast':r.get('lora_passive_fast',False),'lora_passive_slow':slow,'executable_end_exclusive':executable_end,'hardware':'NOT_TESTED','deployment_authorized':False}

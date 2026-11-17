@@ -27,7 +27,7 @@ int main(){
  assert(!n30_fine_start(1,PTOB_N30_FINE_FACTORY,fake_now,1000,1));
  assert(!n30_fine_window_start(1,PTOB_N30_FINE_FACTORY,fake_now,1000));
  assert(n30_fine_backend_start(2,PTOB_N30_FINE_FACTORY,fake_now));
- assert(active&&production_owned&&history.until()==UINT64_MAX&&routed&&fake_callbacks==1&&!fake_channels[1].fsm);
+ assert(active&&production_owned&&history.until()==UINT64_MAX&&routed&&fake_callbacks==2&&!fake_channels[1].fsm);
  assert(!n30_fine_window_start(3,PTOB_N30_FINE_FACTORY,fake_now,1000));
  assert(!n30_fine_window_begin(1,1,2,incarnation)&&!n30_fine_window_refuse(1)&&!n30_fine_window_rearm());
  const uint64_t origin=first_raw32;uint64_t current20=0;
@@ -123,6 +123,18 @@ int main(){
  total_callbacks=500000;edge(last_raw80-100,0);assert(active&&!error&&total_callbacks==500001);
  assert(history.until()==UINT64_MAX&&!fake_channels[1].fsm&&history.tx()==0);
  for(unsigned i=166;i<=168;++i)assert(GPIO.func_in_sel_cfg[i].val==0xabcd0000+i);
+ // PPS CH1 is independent of RX0 and the production clock. Its pending IRQ
+ // must neither starve packet association nor become a late radio marker.
+ GPIO.func_out_sel_cfg[13].val=SIG_GPIO_OUT_IDX;
+ assert(watch_pps_start(99,PTOB_N30_FINE_FACTORY,fake_now));
+ assert(pps_enabled&&!pps_clock_owned&&production_owned);
+ const auto radio_seen=history.seen(),claimed_before=receiver.status().claimed;
+ fake_device.int_raw.val|=1u<<28;uint64_t with_pps=0;
+ assert(n30_fine_backend_current(&with_pps));
+ mcpwm_capture_event_data_t physical{fake_raw,0};channels[1]->cb(channels[1],&physical,nullptr);
+ WatchPpsCapture observed;assert(watch_pps_take(observed,nullptr)&&observed.valid&&observed.enclosure_ns==50);
+ assert(history.seen()==radio_seen&&receiver.status().claimed==claimed_before&&!receiver.status().fault);
+ assert(watch_pps_stop()&&production_owned&&active&&!channel_enabled[1]);
  // A fresh accepted window followed by a late pending edge must withdraw the
  // owner before CURRENT/finalize can release an invalid value.
  const auto d=last_raw80+800000;advance(12000);edge(d-10000,0);edge(d+PTOB_N30_FINE_TRANSLATION80,1);advance(2000);
@@ -131,5 +143,6 @@ int main(){
  fake_radio_capture[0]=uint32_t(d+120000);fake_device.int_raw.val|=1u<<27;
  assert(!n30_fine_backend_current(&current20)&&contained&&!active&&receiver.status().fault&&!GPIO.oe[17]);
  n30_fine_stop();assert(n30_fine_released());
+
  std::puts("PASS actual watch continuous RX17 G1: endpoint guards, pending/unique/missing/ambiguous,125ns fall to50ns coordinate, lifetime enclosure,persistent wrap,TXzero/LoRa isolation,late failclosed");
 }

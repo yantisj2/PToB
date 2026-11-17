@@ -1,25 +1,28 @@
 # T096 sync diagnostics
 
-## USB state without a working USB console
+## USB state and reset-retained observations
 
-The ordinary GM/RC System screen shows a live, read-only USB register view.
-Use the physical button to select System. Uptime and last reset remain above
-eight hexadecimal rows: F health flags, P worker/DMA progress, G EP0 generation,
-N frame counter, C EVENTCAUSE, I INTEN, H HFCLKSTAT and V USBREGSTATUS. Photograph
-the whole screen and retain the exact installed image, device and observed boot.
-The existing UHW1 flag assignments still apply; inaccessible low-power registers
-can read zero. These words are observations, not a fault diagnosis.
+The normal System screen shows uptime, reset, satellite, receive/authentication
+counts and BLE state, with the ordinary screensaver policy. Raw USB register
+rows are removed from the display. The read-only UHW1 USB request and
+`tools/usb_debug_decode.py` retain the diagnostic words: F health flags,
+P worker/DMA progress, G EP0 generation, N frame counter, C EVENTCAUSE, I INTEN,
+H HFCLKSTAT and V USBREGSTATUS. Keep the exact image, factory and observed boot
+with every capture. Inaccessible low-power registers can read zero; these words
+are observations, not a fault diagnosis. Live reads require working USB access.
 Observation layout V13 (also used by driver patch revision V14) additionally
 reports USBD NVIC pending in F bit22;
 F bit13 reports NVIC enable, while I is the peripheral interrupt mask. Older
 layout V12 images do not capture pending state. A pending bit alone does not
 establish an interrupt stall or explain its cause.
+F bit9 also reports an unfinished host-activity PHY wake. During that transition,
+I can temporarily contain only USBEVENT; endpoint events remain latched until
+readiness is confirmed. A transition lasting 30 seconds uses the existing USB
+health failure path. A single sampled transition is not itself a stall.
 
-System stays visible while selected in both UI workers; other pages keep their
-normal screensaver policy. The display reads these words only while rendering
-System. The watchdog also samples the same read-only state at its existing
-125 ms cadence. Neither path sends USB traffic, wakes or resets the peripheral.
-The screen is a live view and cannot itself survive power removal.
+The UI performs no raw USB sampling. The watchdog samples the same read-only
+state at its existing 125 ms cadence. This sends no USB traffic and neither
+wakes nor resets the peripheral.
 
 GM/RC durable diagnostics also retain the last sampled USB lifecycle observation
 in the existing 136 B capsule. Capture starts after attachment/readiness and
@@ -34,8 +37,7 @@ including a nonterminal NO_SYNC request, which stops later USB observations.
 After a reset, valid retained observations can be appended by the startup-only
 journal writer below. There is no runtime flash write, automatic erase or new
 reset trigger. Power loss, bootloader RAM changes or a different image layout
-before that startup commit can lose the observation. Photograph the live state
-before recovery where possible; a normal same-image restart gives retained
+before that startup commit can lose the observation. A normal same-image restart gives retained
 bytes a chance to reach the journal before a later power cycle or update.
 
 Offline snapshot and display checks:

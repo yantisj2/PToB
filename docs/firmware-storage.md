@@ -39,7 +39,11 @@ Retained bundles stay at their existing paths. Cleanup removes their private
 Python/CMake caches and unbound compiler object, archive and dependency files.
 It preserves receipt-bound artifacts, generated sources, headers, effective
 configuration, images, symbols, maps, stack-usage evidence and source snapshots.
-This retains compatibility with existing native inspectors.
+New T096 passive bundles also bind the application archive and the two fault
+owner objects needed to repeat the NV ownership/allocation audit, plus the
+original inspection report. Other compiler objects and SDK archives remain
+disposable. Earlier compacted bundles without these inputs retain their original
+inspection report, but cannot repeat that object-level audit without rebuilding.
 
 Retired builds lose their generated `target/` contents and root T096 UF2, except
 GCC `.su` stack evidence and compiler/CMake logs. Their source snapshots, local

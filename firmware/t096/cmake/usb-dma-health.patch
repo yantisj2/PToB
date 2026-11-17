@@ -9,7 +9,7 @@
  #endif
  
  /**
-@@ -223,6 +223,44 @@
+@@ -223,6 +223,48 @@
  
  /* Endpoint on which DMA was started. */
  static nrf_usbd_common_ep_t dma_ep;
@@ -18,6 +18,10 @@
 + * No software timeout establishes DMA retirement or permits buffer reuse. */
 +static atomic_t r2_lifecycle_failure;
 +static bool r2_wakeup_requested;
++/* Preserve the caller SOF policy; temporarily observe frames during suspend. */
++static bool r2_sof_requested;
++static volatile bool r2_host_resume_pending;
++static volatile uint32_t r2_host_resume_inten;
 +bool r2_usb_common_failed(void) { return atomic_get(&r2_lifecycle_failure) != 0; }
 +static void r2_usb_fail(unsigned reason) { (void)atomic_cas(&r2_lifecycle_failure, 0, reason); }
 +static bool r2_usb_dma_take(void)
@@ -44,7 +48,7 @@
 +uint32_t r2_usb_dma_health(uint32_t *progress)
 +{
 +	uint32_t flags = ((uint32_t)dma_ep << 24) | ((uint32_t)nrf_usbd_common_errata_199() << 16) |
-+  ((uint32_t)atomic_get(&r2_lifecycle_failure) << 19) | ((uint32_t)nrf52_errata_162() << 17) | ((uint32_t)nrf_usbd_common_errata_211() << 18);
++  ((uint32_t)atomic_get(&r2_lifecycle_failure) << 19) | ((uint32_t)nrf52_errata_162() << 17) | ((uint32_t)nrf_usbd_common_errata_211() << 18) | ((uint32_t)r2_host_resume_pending << 9);
 +	if (!k_sem_count_get(&dma_available)) {
 +		*progress = r2_dma_completions;
 +		flags |= 1u << 8;
@@ -54,7 +58,7 @@
  
  /**
   * @brief Tracks whether total bytes transferred by DMA is even or odd.
-@@ -279,7 +317,7 @@
+@@ -279,7 +321,7 @@
  /* Early declaration. Documentation above definition. */
  static void usbd_dmareq_process(void);
  static inline void usbd_int_rise(void);
@@ -63,7 +67,7 @@
  
  /* Get EasyDMA end event address for given endpoint */
  static volatile uint32_t *usbd_ep_to_endevent(nrf_usbd_common_ep_t ep)
-@@ -564,7 +602,7 @@
+@@ -564,7 +606,7 @@
  void nrf_usbd_common_ep_abort(nrf_usbd_common_ep_t ep)
  {
  	/* Only abort if there is no active DMA */
@@ -72,7 +76,7 @@
  	usbd_ep_abort(ep);
  	k_sem_give(&dma_available);
  
-@@ -617,6 +655,7 @@
+@@ -617,6 +659,7 @@
  static void ev_usbreset_handler(void)
  {
  	m_bus_suspend = false;
@@ -80,7 +84,7 @@
  	m_last_setup_dir = NRF_USBD_COMMON_EPOUT0;
  
  	const nrf_usbd_common_evt_t evt = {.type = NRF_USBD_COMMON_EVT_RESET};
-@@ -626,6 +665,7 @@
+@@ -626,6 +669,7 @@
  
  static void nrf_usbd_dma_finished(nrf_usbd_common_ep_t ep)
  {
@@ -88,7 +92,7 @@
  	/* DMA finished, track if total bytes transferred is even or odd */
  	m_dma_odd ^= usbd_ep_amount_get(ep) & 1;
  	usbd_dma_pending_clear();
-@@ -740,6 +780,7 @@
+@@ -740,6 +784,7 @@
  	if (event & USBD_EVENTCAUSE_SUSPEND_Msk) {
  		LOG_DBG("USBD event: SUSPEND");
  		m_bus_suspend = true;
@@ -96,7 +100,7 @@
  		const nrf_usbd_common_evt_t evt = {.type = NRF_USBD_COMMON_EVT_SUSPEND};
  
  		m_event_handler(&evt);
-@@ -747,15 +788,17 @@
+@@ -747,15 +792,17 @@
  	if (event & USBD_EVENTCAUSE_RESUME_Msk) {
  		LOG_DBG("USBD event: RESUME");
  		m_bus_suspend = false;
@@ -115,18 +119,18 @@
  
  			NRF_USBD->DPDMVALUE = USBD_DPDMVALUE_STATE_Resume
  				<< USBD_DPDMVALUE_STATE_Pos;
-@@ -832,8 +875,10 @@
+@@ -832,8 +879,10 @@
   */
  static void usbd_dmareq_process(void)
  {
-+	if (r2_usb_common_failed()) return;
++	if (r2_usb_common_failed() || r2_host_resume_pending) return;
  	if ((m_ep_dma_waiting & m_ep_ready) &&
  	    (k_sem_take(&dma_available, K_NO_WAIT) == 0)) {
 +		if (r2_usb_common_failed()) { k_sem_give(&dma_available); return; }
  		const bool low_power = nrf_usbd_common_suspend_check();
  		uint32_t req;
  
-@@ -992,7 +1037,7 @@
+@@ -992,7 +1041,7 @@
  /**
   * @brief Enable USBD peripheral.
   */
@@ -135,7 +139,7 @@
  {
  	if (nrf_usbd_common_errata_187()) {
  		usbd_errata_187_211_begin();
-@@ -1006,7 +1051,10 @@
+@@ -1006,7 +1055,10 @@
  	NRF_USBD->ENABLE = 1;
  
  	/* Waiting for peripheral to enable, this should take a few us */
@@ -147,7 +151,7 @@
  	}
  	NRF_USBD->EVENTCAUSE = USBD_EVENTCAUSE_READY_Msk;
  
-@@ -1017,6 +1065,7 @@
+@@ -1017,6 +1069,7 @@
  	if (nrf_usbd_common_errata_187()) {
  		usbd_errata_187_211_end();
  	}
@@ -155,7 +159,85 @@
  }
  /** @} */
  
-@@ -1146,16 +1195,17 @@
+@@ -1025,8 +1078,61 @@
+  *
+  * @{
+  */
++/* A frame is host activity, including SOF-only resume without RESUME.
++ * Never drive remote wake. Keep DMA fenced until the MAC confirms readiness. */
++static void r2_usb_host_activity(void)
++{
++ if (r2_usb_common_failed()) {
++  if (r2_host_resume_pending) NRF_USBD->INTENCLR = NRF_USBD->INTEN;
++  return;
++ }
++ if (!nrf_usbd_common_is_started()) return;
++ if (r2_host_resume_pending) {
++  /* Ack before sampling causes: a later readiness edge must remain pending. */
++  NRF_USBD->EVENTS_USBEVENT = 0;
++  uint32_t event = NRF_USBD->EVENTCAUSE;
++  if (!(event & (USBD_EVENTCAUSE_USBWUALLOWED_Msk | USBD_EVENTCAUSE_RESUME_Msk))) return;
++  NRF_USBD->EVENTCAUSE = event;
++  r2_host_resume_pending = false;
++  NRF_USBD->INTENSET = r2_host_resume_inten;
++  r2_host_resume_inten = 0;
++  if (nrf_usbd_common_errata_171()) usbd_errata_171_end();
++  m_bus_suspend = false;
++  r2_wakeup_requested = false;
++  if (!NRF_USBD->EVENTS_USBRESET) {
++   const nrf_usbd_common_evt_t evt = {.type = NRF_USBD_COMMON_EVT_RESUME};
++   m_event_handler(&evt);
++   if ((event & USBD_EVENTCAUSE_SUSPEND_Msk) && !(event & USBD_EVENTCAUSE_RESUME_Msk)) {
++    m_bus_suspend = true;
++    NRF_USBD->EVENTS_SOF = 0; /* Pre-idle frames cannot undo this new suspend. */
++    const nrf_usbd_common_evt_t idle = {.type = NRF_USBD_COMMON_EVT_SUSPEND};
++    m_event_handler(&idle);
++   }
++  }
++ }
++ if (m_bus_suspend && NRF_USBD->EVENTS_SOF) {
++  r2_wakeup_requested = false;
++  if (nrf_usbd_common_suspend_check()) {
++   r2_host_resume_pending = true;
++   r2_host_resume_inten = NRF_USBD->INTEN;
++   /* Preserve latched endpoint events without spinning on them while waking. */
++   NRF_USBD->INTENCLR = r2_host_resume_inten & ~USBD_INTEN_USBEVENT_Msk;
++   NRF_USBD->EVENTCAUSE = USBD_EVENTCAUSE_USBWUALLOWED_Msk | USBD_EVENTCAUSE_SUSPEND_Msk;
++   NRF_USBD->LOWPOWER = USBD_LOWPOWER_LOWPOWER_ForceNormal << USBD_LOWPOWER_LOWPOWER_Pos;
++   if (nrf_usbd_common_errata_171()) usbd_errata_171_begin();
++  } else {
++   m_bus_suspend = false;
++   const nrf_usbd_common_evt_t evt = {.type = NRF_USBD_COMMON_EVT_RESUME};
++   m_event_handler(&evt);
++  }
++ }
++ if (!m_bus_suspend && !r2_sof_requested) NRF_USBD->INTENCLR = USBD_INTEN_SOF_Msk;
++}
++
+ void nrf_usbd_common_irq_handler(void)
+ {
++	r2_usb_host_activity();
++	if (r2_host_resume_pending) { NRF_USBD->EVENTS_SOF = 0; return; }
+ 	volatile uint32_t *dma_endevent;
+ 	uint32_t epdatastatus = 0;
+ 
+@@ -1079,6 +1185,7 @@
+ 
+ 	if (NRF_USBD->EVENTS_USBEVENT) {
+ 		NRF_USBD->EVENTS_USBEVENT = 0;
++		r2_usb_host_activity(); /* ForceNormal can complete within this ISR. */
+ 		ev_usbevent_handler();
+ 	}
+ 
+@@ -1091,6 +1198,7 @@
+ 	}
+ 
+ 	usbd_dmareq_process();
++	if (!m_bus_suspend && !r2_sof_requested) NRF_USBD->INTENCLR = USBD_INTEN_SOF_Msk;
+ }
+ 
+ /** @} */
+@@ -1146,16 +1254,17 @@
  void nrf_usbd_common_enable(void)
  {
  	__ASSERT_NO_MSG(m_drv_state == NRFX_DRV_STATE_INITIALIZED);
@@ -175,7 +257,7 @@
  
  		m_first_enable = false;
  	}
-@@ -1208,34 +1258,52 @@
+@@ -1208,41 +1317,66 @@
  void nrf_usbd_common_disable(void)
  {
  	__ASSERT_NO_MSG(m_drv_state != NRFX_DRV_STATE_UNINITIALIZED);
@@ -194,11 +276,14 @@
 +	 * detach/reinit, never an idle-suspend polling workaround. ForceNormal
 +	 * does not drive RESUME; prevent the ISR from turning WUALLOWED into
 +	 * DPDMDRIVE. A racing host RESUME also proves the PHY exited suspend. */
-+	if (nrf_usbd_common_suspend_check()) {
++	if (nrf_usbd_common_suspend_check() || r2_host_resume_pending) {
 +		unsigned key = irq_lock();
 +		irq_disable(USBD_IRQn);
 +		m_bus_suspend = false;
 +		bool waking = nrf_usbd_common_suspend_check();
++		bool host_pending = r2_host_resume_pending;
++		r2_host_resume_pending = false;
++		r2_host_resume_inten = 0;
 +		if (waking) {
 +			NRF_USBD->EVENTCAUSE = USBD_EVENTCAUSE_USBWUALLOWED_Msk;
 +			NRF_USBD->LOWPOWER = USBD_LOWPOWER_LOWPOWER_ForceNormal
@@ -206,7 +291,7 @@
 +			if (nrf_usbd_common_errata_171()) usbd_errata_171_begin();
 +		}
 +		irq_unlock(key);
-+		if (waking) {
++		if (waking || host_pending) {
 +			bool awake = r2_usb_wait(&NRF_USBD->EVENTCAUSE,
 +				USBD_EVENTCAUSE_USBWUALLOWED_Msk | USBD_EVENTCAUSE_RESUME_Msk);
 +			if (nrf_usbd_common_errata_171()) usbd_errata_171_end();
@@ -244,15 +329,18 @@
  #endif
  }
  
-@@ -1243,6 +1311,7 @@
+ void nrf_usbd_common_start(bool enable_sof)
  {
  	__ASSERT_NO_MSG(m_drv_state == NRFX_DRV_STATE_POWERED_ON);
++	r2_sof_requested = enable_sof;
++	r2_host_resume_pending = false;
++	r2_host_resume_inten = 0;
  	m_bus_suspend = false;
 +	r2_wakeup_requested = false;
  
  	uint32_t int_mask = USBD_INTEN_USBRESET_Msk | USBD_INTEN_ENDEPIN0_Msk |
  		USBD_INTEN_ENDEPIN1_Msk | USBD_INTEN_ENDEPIN2_Msk |
-@@ -1271,14 +1340,14 @@
+@@ -1271,14 +1405,14 @@
  	NRF_USBD->USBPULLUP = 1;
  }
  
@@ -269,26 +357,47 @@
  		/* Abort transfers */
  		usbd_ep_abort_all();
  
-@@ -1314,7 +1383,7 @@
+@@ -1314,11 +1448,19 @@
  	unsigned int irq_lock_key;
  
  	/* DMA doesn't work in Low Power mode, ensure there is no active DMA */
 -	k_sem_take(&dma_available, K_FOREVER);
-+	if (!r2_usb_dma_take()) return false;
++	if (r2_host_resume_pending || !nrf_usbd_common_is_started() || !r2_usb_dma_take()) return false;
  	irq_lock_key = irq_lock();
  
- 	if (m_bus_suspend) {
-@@ -1342,7 +1411,8 @@
+-	if (m_bus_suspend) {
++	if (m_bus_suspend && !r2_host_resume_pending) {
+ 		if (!(NRF_USBD->EVENTCAUSE & USBD_EVENTCAUSE_RESUME_Msk)) {
++			/* A pre-suspend frame cannot authorize a later wake. */
++			NRF_USBD->EVENTS_SOF = 0;
++			NRF_USBD->INTENSET = USBD_INTEN_SOF_Msk;
++#if defined(R2_USB_AWAKE_CONTROL) && R2_USB_AWAKE_CONTROL
++            /* Diagnostic control: report real bus suspend while avoiding only
++             * PHY low-power entry. No host traffic or remote wake is invented. */
++            suspended = !(NRF_USBD->EVENTCAUSE & USBD_EVENTCAUSE_RESUME_Msk);
++#else
+ 			NRF_USBD->LOWPOWER = USBD_LOWPOWER_LOWPOWER_LowPower
+ 				<< USBD_LOWPOWER_LOWPOWER_Pos;
+ 			(void)NRF_USBD->LOWPOWER;
+@@ -1328,6 +1470,7 @@
+ 			} else {
+ 				suspended = true;
+ 			}
++#endif
+ 		}
+ 	}
+ 
+@@ -1342,7 +1485,8 @@
  	bool started = false;
  	unsigned int irq_lock_key = irq_lock();
  
 -	if (m_bus_suspend && nrf_usbd_common_suspend_check()) {
-+	if (m_bus_suspend && nrf_usbd_common_suspend_check() && nrf_usbd_common_is_started() && !r2_usb_common_failed()) {
++	if (m_bus_suspend && !r2_host_resume_pending && nrf_usbd_common_suspend_check() && nrf_usbd_common_is_started() && !r2_usb_common_failed()) {
 +		r2_wakeup_requested = true;
  		NRF_USBD->LOWPOWER = USBD_LOWPOWER_LOWPOWER_ForceNormal
  			<< USBD_LOWPOWER_LOWPOWER_Pos;
  		started = true;
-@@ -1377,6 +1447,7 @@
+@@ -1377,6 +1521,7 @@
  void nrf_usbd_common_force_bus_wakeup(void)
  {
  	m_bus_suspend = false;
@@ -296,7 +405,7 @@
  }
  
  void nrf_usbd_common_ep_max_packet_size_set(nrf_usbd_common_ep_t ep, uint16_t size)
-@@ -1442,7 +1513,7 @@
+@@ -1442,7 +1587,7 @@
  	int ep_num = NRF_USBD_COMMON_EP_NUM(ep);
  
  	/* Only disable endpoint if there is no active DMA */
@@ -305,7 +414,7 @@
  	usbd_ep_abort(ep);
  	if (ep_in) {
  		NRF_USBD->EPINEN &= ~BIT(ep_num);
-@@ -1466,6 +1537,7 @@
+@@ -1466,6 +1611,7 @@
  	unsigned int irq_lock_key = irq_lock();
  
  	__ASSERT_NO_MSG(p_transfer != NULL);

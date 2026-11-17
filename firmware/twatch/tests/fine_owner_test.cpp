@@ -56,16 +56,16 @@ int main(){
  CHECK(n30_fine_start(2,PTOB_N30_FINE_FACTORY,fake_now,1000,1));
  CHECK(active&&fake_group==1&&fake_channels[2].fsm&&!(fake_device.int_ena.val&(1u<<29)));
 #if PTOB_N30_FINE_PINS
- CHECK(routed&&fake_callbacks==1&&fake_channels[0].fsm&&!fake_channels[1].fsm);
+ CHECK(routed&&fake_callbacks==2&&fake_channels[0].fsm&&!fake_channels[1].fsm);
  CHECK(GPIO.oe[17]&&GPIO.ie[17]&&GPIO.func_out_sel_cfg[17].val==unsigned(RW_RX_ON_IDX+1024));
  CHECK(GPIO.func_in_sel_cfg[175].val==unsigned(128+17)&&GPIO.func_in_sel_cfg[176].val==unsigned(128+GPIO_MATRIX_CONST_ZERO_INPUT));
  CHECK((fake_device.int_ena.val&(3u<<27))==(1u<<27));
  edge();CHECK(history.rx()==1&&history.tx()==0);
 #else
- CHECK(!routed&&fake_callbacks==0&&!fake_channels[0].fsm&&!fake_channels[1].fsm&&fake_gpio_calls==0);
+ CHECK(!routed&&fake_callbacks==1&&!fake_channels[0].fsm&&!fake_channels[1].fsm&&fake_gpio_calls==0);
 #endif
  static v12::ConsoleFrame frame;frame={};n30_fine_frame(frame,0,fake_now);
- CHECK(!frame.failed&&std::strstr(frame.bytes,"TX=NONE_CONSTANT0")&&std::strstr(frame.bytes,"capture_channels=0/2 tx_channel=1_CONSTANT0")&&std::strstr(frame.bytes,"backend=0 phase80=0"));
+ CHECK(!frame.failed&&std::strstr(frame.bytes,"TX=NONE_CONSTANT0")&&std::strstr(frame.bytes,"capture_channels=RX0/CURRENT2 auxiliary=GNSS_PPS13_CH1")&&std::strstr(frame.bytes,"backend=0 phase80=0"));
  {FILE* file=std::fopen("fine-frame.txt","w");CHECK(file);std::fwrite(frame.bytes,1,frame.length,file);std::fclose(file);}
  fake_now=history.until();n30_fine_poll(fake_now);CHECK(n30_fine_released());
 #if PTOB_N30_FINE_PINS
@@ -131,6 +131,19 @@ int main(){
  CHECK(!GPIO.oe[17]);(void)calls;
 #endif
  fake_start_delay=0;clear_error();
+ // Dedicated physical PPS queue: no radio history, fine-domain mutation or
+ // group0 changes. An observer-only counter retires when this face leaves.
+ GPIO.func_out_sel_cfg[13].val=SIG_GPIO_OUT_IDX;
+ CHECK(watch_pps_start(90,PTOB_N30_FINE_FACTORY,fake_now));
+ CHECK(pps_enabled&&channel_enabled[1]&&pps_clock_owned&&history.until()==UINT64_MAX);
+ const auto rx_before=history.seen();
+ for(unsigned i=0;i<6;++i){mcpwm_capture_event_data_t p{fake_raw,0};channels[1]->cb(channels[1],&p,nullptr);}
+ CHECK(history.seen()==rx_before&&pps_count==4&&pps_sequence==6);
+ WatchPpsCapture pps;auto read_clock=[](uint64_t* t){*t=fake_now*20;return true;};
+ CHECK(watch_pps_take(pps,read_clock)&&pps.valid&&pps.number==1&&pps.enclosure_ns<200000);
+ CHECK(watch_pps_stop()&&n30_fine_released()&&!pps_enabled&&!pps_clock_owned&&!GPIO.oe[13]);
+ CHECK(!watch_pps_take(pps,read_clock));
+ clear_error();
  for(unsigned i=166;i<=168;++i)CHECK(GPIO.func_in_sel_cfg[i].val==0xabcd0000+i);
  std::puts("PASS actual watch RX17-only owner:default off,identity/ownership,single RX IRQ,constant-zero TX,finite expiry,partial/startup/IRQ faults,stop release,group0 isolation; production backend disabled");
 }

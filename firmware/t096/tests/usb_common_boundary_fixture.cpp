@@ -32,6 +32,7 @@
 #define K_FOREVER 0xffffffffu
 #define K_NO_WAIT 0
 #define K_MSEC(x) (x)
+#define USBD_INTEN_SOF_Msk 2u
 #define USBD_IRQn 39
 #define BIT(x) (1u<<(x))
 enum {NRFX_DRV_STATE_UNINITIALIZED,NRFX_DRV_STATE_INITIALIZED,NRFX_DRV_STATE_POWERED_ON};
@@ -54,7 +55,8 @@ enum {NRFX_SUCCESS,NRFX_ERROR_INVALID_STATE,NRFX_ERROR_INVALID_ADDR,NRFX_ERROR_B
 typedef struct {unsigned status,max_packet_size,transfer_cnt;bool more_transactions;nrf_usbd_common_ep_transfer_t transfer_state;} usbd_ep_state_t;
 static usbd_ep_state_t ep_state;
 static volatile unsigned dma_available;
-static bool m_bus_suspend,irq_enabled,affected171,affected211,affected223,m_first_enable,r2_wakeup_requested;
+static bool m_bus_suspend,irq_enabled,affected171,affected211,affected223,m_first_enable,r2_wakeup_requested,r2_sof_requested,r2_host_resume_pending;
+static unsigned r2_host_resume_inten;
 static unsigned m_drv_state,m_dma_odd,r2_dma_completions,m_ep_dma_waiting,m_ep_ready,m_last_setup_dir,dma_ep;
 static unsigned now_ms,wake_at,ready_at,done_at,normal_dma_at,delayed,stops,starts,aborts,clears;
 static unsigned race,removed_at,mask_depth,lp_reads,invalid_access,drives,begins171,ends171,fault_at;
@@ -81,7 +83,7 @@ static struct {
  W1C EVENTCAUSE;
  LowPower LOWPOWER;
  Enable ENABLE;
- volatile uint32_t USBPULLUP,INTEN,ISOSPLIT,ISOINCONFIG,EPINEN,EPOUTEN;
+ volatile uint32_t USBPULLUP,INTEN,INTENSET,EVENTS_SOF,ISOSPLIT,ISOINCONFIG,EPINEN,EPOUTEN;
  volatile uint32_t EVENTS_ENDEPIN[9];
  volatile uint32_t DPDMVALUE;
  Drive TASKS_DPDMDRIVE;
@@ -91,7 +93,7 @@ typedef unsigned atomic_t;
 static atomic_t r2_lifecycle_failure;
 static unsigned atomic_get(atomic_t *p){return *p;}
 static bool atomic_cas(atomic_t *p,unsigned old,unsigned value){if(*p!=old)return false;*p=value;return true;}
-static void host_resume(void){regs.LOWPOWER.value=0;regs.EVENTCAUSE.value|=2;}
+static void host_resume(void){regs.LOWPOWER.value=0;regs.EVENTCAUSE.value|=2;wake_at=0;}
 static void boundary(unsigned point){
  if(race==point){race=0;host_resume();}
  if(removed_at==point){removed_at=0;removed=true;}
@@ -153,7 +155,7 @@ static bool nrf_usbd_common_suspend_check(void){
 }
 static void usbd_ep_dma_start(unsigned ep,uint32_t addr,size_t size){
  (void)addr;assert((ep&0x80)&&size==1&&dma_available==0);++starts;
- if(regs.LOWPOWER.value||!regs.ENABLE.value){++invalid_access;return;}
+ if(regs.LOWPOWER.value||!regs.ENABLE.value||wake_at){++invalid_access;return;}
  if(!parity_missing)done_at=now_ms+delayed;
  if(!delayed&&!parity_missing){regs.EVENTS_ENDEPIN[0]=1;done_at=0;}
 }
@@ -176,7 +178,7 @@ static void usbd_dma_pending_set(void){}
 static void reset(void){
  regs.EVENTCAUSE.value=regs.LOWPOWER.value=0;regs.ENABLE.value=regs.USBPULLUP=regs.INTEN=1;
  for(unsigned i=0;i<9;i++)regs.EVENTS_ENDEPIN[i]=0;
- m_bus_suspend=r2_wakeup_requested=false;irq_enabled=true;affected171=affected223=false;affected211=true;m_first_enable=true;
+ m_bus_suspend=r2_wakeup_requested=r2_host_resume_pending=r2_sof_requested=false;r2_host_resume_inten=0;irq_enabled=true;affected171=affected223=false;affected211=true;m_first_enable=true;
  dma_available=1;m_dma_odd=1;m_drv_state=NRFX_DRV_STATE_POWERED_ON;dma_ep=0x81;
  r2_lifecycle_failure=0;now_ms=wake_at=ready_at=done_at=normal_dma_at=delayed=0;
  stops=starts=aborts=clears=lp_reads=invalid_access=drives=begins171=ends171=0;
@@ -201,6 +203,9 @@ int main(int argc,char **argv){
   nrf_usbd_common_enable();assert(false);
  }
  unsigned cases=0;
+ reset();r2_host_resume_pending=true;ep_state.more_transactions=true;m_ep_dma_waiting=m_ep_ready=1;
+ usbd_dmareq_process();assert(!starts&&dma_available==1);++cases;
+
  for(unsigned a=0;a<2;a++)for(unsigned r=0;r<=7;r++)for(unsigned cut=0;cut<=7;cut++){
   reset();regs.LOWPOWER.value=1;m_bus_suspend=true;affected171=a;race=r;removed_at=cut;delayed=3;
   nrf_usbd_common_disable();closed();++cases;
@@ -208,6 +213,8 @@ int main(int argc,char **argv){
   assert(!(regs.EVENTCAUSE.value&4));
   m_bus_suspend=true;ev_usbevent_handler();assert(!drives); /* next suspend cannot consume an old WUREQ */
  }
+ reset();r2_host_resume_pending=true;r2_host_resume_inten=0x1dffffd;wake_at=2;delayed=3;
+ nrf_usbd_common_disable();closed();assert(!r2_host_resume_pending&&!r2_host_resume_inten);++cases;
  reset();delayed=19;nrf_usbd_common_disable();closed();++cases;
  reset();dma_available=0;normal_dma_at=19;delayed=0;
  nrf_usbd_common_disable();closed();assert(r2_dma_completions);++cases;

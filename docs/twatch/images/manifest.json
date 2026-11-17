@@ -2,19 +2,35 @@
   "schema": 1,
   "scope": "SYNTHETIC_NATIVE_RENDERER_PREVIEWS_NOT_HARDWARE",
   "renderer": "firmware/twatch/main/watch.cpp",
-  "renderer_sha256": "26408ca66df166459e2e87a647c648c4d1541c65aa27fc71f90c501202c036c8",
+  "renderer_sha256": "31e4c211e654baf85d228d999e9589daf3427d47b118e51587485d94ad66e90c",
   "fixture": "firmware/twatch/tools/preview.cpp",
-  "fixture_sha256": "2b24c0593b60357b1e404288edd0b626cfb1efefb282a81cf27c818819e5f5ef",
+  "fixture_sha256": "6e997bd01a1c5921f57aeab7b7c09a9ee8dcdabd213ae93dfb591a76b0345cd3",
   "images": {
-    "launcher.png": "8fd8eb0f1a26d99202a8adaa18790c6ff533bbb19ea7f52473dde3058978791f",
-    "settings.png": "0e3aeeef14d1ea3f6339adb4b0ee1c0b87282b311ced137efd5e4823db1c817d",
+    "battery.png": "14a8d7ab1b85efb7b83e9b5e77e6d23e34e42a7fb219fbb86d4d0613789b719f",
     "digital.png": "1baf74911568dd3ccb96d4768a2e844cda601f488ac79f0330bb87eb410e998e",
     "instrument.png": "3278af330e6aacff413c3d1ddf01f5cfcbcfc51a6a461b8d3908d60956c1bbe3",
-    "solar.png": "b863e52406068b57ad990d114c4ed7dd9af8e390ce5890bebeb54869ff8ba8d6"
+    "launcher.png": "241232ee5da483836a94619efd477034a499de2c5b62f86f86739a8c0124851a",
+    "settings.png": "0e3aeeef14d1ea3f6339adb4b0ee1c0b87282b311ced137efd5e4823db1c817d",
+    "solar.png": "b863e52406068b57ad990d114c4ed7dd9af8e390ce5890bebeb54869ff8ba8d6",
+    "shadow.png": "2182a8bb80ed563cba4c79237a143cc9d2f8692d479e75ce5c10678a528abfce"
   },
   "calendar": "firmware/twatch/main/calendar.cpp",
   "calendar_sha256": "58e39c74ee82ef527a598b578cb2dab0be67d48ef609128205359cbc793f2a69",
   "solar_fixture": "solar: 2026-11-15 solar noon, calculated Santa Rosa Beach ephemeris and synthetic radio/precision values",
   "geometry": "firmware/twatch/main/solar_geometry.hpp",
-  "geometry_sha256": "fee3acbbceabca49dc6d21cb30574ceb4aab77baf2fe86a48508564e0354a38a"
+  "geometry_sha256": "fee3acbbceabca49dc6d21cb30574ceb4aab77baf2fe86a48508564e0354a38a",
+  "battery_fixture": "battery: synthetic25h23m boot session,30s gauge samples,1h scale, illustrative display-on segments; not hardware evidence",
+  "battery_history": "firmware/twatch/main/battery_history.hpp",
+  "battery_history_sha256": "721d9fb6c3ca6c69dd136239c2306c62347c69c83f9be5638ea339543be365d4",
+  "shadow_renderer": "firmware/twatch/main/shadow_face.inc",
+  "shadow_renderer_sha256": "16dc94d4795912633fdfbf173076b1e050df4daacb35be496b965857cb87b6e1",
+  "shadow_model": "firmware/twatch/main/shadow_model.hpp",
+  "shadow_model_sha256": "b4039fb33055e3710bc385cdc210d94ba55d0d3c7e1f1c43ffd91cd1da677a42",
+  "shadow_fixture": "shadow: synthetic 11/18 satellites, captured-edge pulse annunciator, +87.4 ns MEAN, 246 ns P99 ABS, 112 ns RMS; no hardware observation",
+  "shadow_revalidation": {
+    "method": "Current native fixture with the documented100pixel rounded black preview mask exactly matches all retained PNG pixels",
+    "native_fixture_ppm_sha256": "e927a61b09ea9cf274647d5156bdb8e4455efd972bd16178cc16d421730ea39b",
+    "previous_model_sha256": "1646f36516c74e909f511d4813471595f210903be9da54f0d5bd6bb4e5b0b883",
+    "scope": "SYNTHETIC_NATIVE_RENDERER_PREVIEW_NOT_HARDWARE"
+  }
 }

@@ -1,6 +1,6 @@
 ---
 name: T-Watch Ultra instruments
-description: Target-scoped Digital, Instrument and Solar native watch faces
+description: Target-scoped Digital, Instrument, Solar and Shadow native watch faces
 colors:
   black: "#040809"
   face: "#111A1B"
@@ -52,6 +52,12 @@ colors:
   solar-sun-limb: "#FFCF8B"
   solar-sun-disc: "#FFE5B3"
   solar-sun-core: "#FFF6DD"
+  shadow-case: "#0D1317"
+  shadow-ink: "#EBF2E8"
+  shadow-lime: "#D3F26B"
+  shadow-muted: "#9BAFB5"
+  shadow-rule: "#36494F"
+  shadow-dim: "#1E2B2F"
 typography:
   title:
     fontFamily: Rajdhani
@@ -102,6 +108,17 @@ components:
   dial-caption:
     textColor: "{colors.instrument-etch}"
     typography: "{typography.dial-label}"
+  shadow-case:
+    backgroundColor: "{colors.shadow-case}"
+    textColor: "{colors.shadow-ink}"
+    width: 374px
+    height: 462px
+  shadow-metric:
+    textColor: "{colors.shadow-ink}"
+    typography: "{typography.title}"
+  shadow-active:
+    textColor: "{colors.shadow-lime}"
+    typography: "{typography.label}"
 
 ---
 
@@ -111,12 +128,12 @@ components:
 
 **Creative North Star: "The Wrist Instrument"**
 
-Digital retains the Casio-inspired dark segmented display, pale phosphor time and amber controls within a chamfered bezel and inset LCD frame. Instrument translates the approved olive perpetual-calendar reference into original PToB mechanical indicators inside a squarish instrument case, with pale lume and restrained red needles. Directional bevels, grooved recessed wells and broad outlined pilot hands give Instrument physical depth. Neither face copies a brand mark. Solar adds the approved daily-orbit reference as a third visual world: marine blue sky, calculated twilight, a warm sun and pale blue corner scales. Digital and Instrument retain their established visual systems.
+Digital retains the Casio-inspired dark segmented display, pale phosphor time and amber controls within a chamfered bezel and inset LCD frame. Instrument translates the approved olive perpetual-calendar reference into original PToB mechanical indicators inside a squarish instrument case, with pale lume and restrained red needles. Directional bevels, grooved recessed wells and broad outlined pilot hands give Instrument physical depth. Solar adds the approved daily-orbit reference as a third visual world: marine blue sky, calculated twilight, a warm sun and pale blue corner scales. Shadow adds the user-pinned Casio/Garmin instrument direction as a fourth world: graphite, pale segmented time, lime activity and blue-grey diagnostic labels. Each face uses original PToB artwork without brand marks and preserves the other faces' established visual systems.
 
-This visual authority applies only to firmware/twatch. The native C++ framebuffer is authoritative; sidecar swatches illustrate components. Host captures and offline finish reviews establish source/render quality only. The operator has confirmed physical rendering of the earlier Digital face; Instrument appearance on hardware, optical timing, precision and power remain unqualified.
+This visual authority applies only to firmware/twatch. The native C++ framebuffer is authoritative; sidecar swatches illustrate components. Host captures and offline finish reviews establish source/render quality only. The operator has confirmed physical rendering of the earlier Digital face; Instrument appearance on hardware, optical timing, precision and power remain unqualified. Native Shadow preview approval and finish review do not establish installed GNSS behavior, physical appearance, independent precision or power acceptance.
 
 **Key Characteristics:**
-- Time-first segmented Digital, mechanical Instrument or daily-orbit Solar display.
+- Time-first segmented Digital, mechanical Instrument, daily-orbit Solar or GNSS-comparison Shadow display.
 - Chamfered case geometry and inset readable content.
 - Face-specific palette with shared utility screens and controls.
 - Explicit unavailable evidence and display-only local hold.
@@ -139,15 +156,19 @@ Instrument uses olive case and dial, bevel/etch rings, pale lume hands and lette
 
 Solar uses its own marine-blue sky and twilight ramps, warm solar marker, pale blue text and scales, and muted teal tide indication. The frontmatter records every Solar source RGB endpoint; blends and RGB565 quantization are computed by the renderer.
 
+Shadow uses six dedicated tokens: graphite case, pale ink, lime activity, blue-grey muted labels, quiet rules and dim reception fields. It reuses the shared black surround and amber fault/loss attention color. Lime carries reception, pulse and progression alongside explicit state text; it does not independently certify precision or source authority. These colors belong to Shadow and do not replace any incumbent palette.
+
 The frontmatter records the source RGB values. The renderer packs them to RGB565 and alpha-blends the atlas, so sampled screenshot colors can differ through quantization.
 
 ## Typography
 
 Rajdhani SemiBold is rasterized into the bundled ASCII atlas at the four frontmatter sizes. It is licensed under SIL OFL 1.1; see NOTICE.md and fonts/OFL.txt. There is no runtime font fallback. Unsupported characters become a question mark; use the implemented ASCII unit spelling (`us`).
 
-Titles and navigation rows use the title role; date, diagnostic values and secondary headings use body; supporting copy and status captions use label; small Instrument scale bounds and captions use the 14px dial-label role. Coordinates are top-oriented atlas positions, not CSS baseline metrics. No browser line height or tracking is prescribed.
+Titles and navigation rows use the title role; date, diagnostic values and secondary headings use body; supporting copy and status captions use label; small Instrument scale bounds and captions and compact Shadow labels use the 14px dial-label role. Shadow's MEAN/P99 values use 36px, with long P99 values falling back to 26px; RMS and sample count remain 14px. Coordinates are top-oriented atlas positions, not CSS baseline metrics. No browser line height or tracking is prescribed.
 
 Digital uses original seven-segment geometry, not font glyphs. Main digits are 55 × 108 pixels; seconds are 16 × 34. Inactive segments remain visible in dim; missing time renders segment dashes. Instrument uses broad outlined pilot hands with luminous inserts and offset shadows, printed cardinal numerals with crossing ticks omitted, and 14px subdial labels. Its scales are drawn geometry, not numeric digital readouts.
+
+Shadow reuses the original segment geometry at 45 × 76px for hours/minutes and 19 × 36px for seconds, with pale primary time and lime seconds. Missing mesh time renders segment dashes. It adds no runtime font or raster artwork.
 
 ## Layout
 
@@ -155,11 +176,15 @@ The only viewport is 410 × 502 pixels; there are no responsive breakpoints. Dig
 
 Inset utility text starts at x=42, with 326px rules, header text at y=42 and a separator at y=96. Bottom copy is inset further. Review all screens under the conservative synthetic 100px rounded-corner aperture; this is a design check, not measured panel geometry. Keep vital labels and controls away from corner cutouts.
 
-All three faces retain the y>=430 MODE touch zone. The common header touch region is y<95. Face-selection rows begin at y=111, 216 and 321; their hit regions are 105<=y<210 (Digital), 210<=y<315 (Instrument) and 315<=y<425 (Solar). Keep these regions in sync with View::touch.
+All four faces retain the y>=430 MODE touch zone. The common header touch region is y<95. Face-selection title rows begin at y=108, 188, 268 and 348; their half-open hit regions are 105<=y<185 (Digital), 185<=y<265 (Instrument), 265<=y<345 (Solar) and 345<=y<425 (Shadow). Keep these regions in sync with View::touch.
+
+Shadow's 374 × 462px case begins at (18, 20) with 44px chamfers. Time occupies the upper band; the physical pulse and selected mesh-source strip separates it from reception. The actual sky plot centers on (109, 250), radius 49px, beside twelve C/N0 bars. Status and the SCAN / FIX / PPS / 10s / LIVE rail lead to two metric columns divided at x=216, with MEAN at x=44 and P99 ABS at x=235. RMS/sample count sits below them and MODE remains clear of the aperture.
 
 ## Elevation & Depth
 
 Digital retains flat tonal fields, narrow chamfer frames and LCD compartments without gradients or drop shadows. Instrument deliberately adds depth: annular metal shading lights raised rims from the upper left and reverses that direction on recessed rims. Its olive field blends the dial-highlight and instrument-dial tokens with radial/directional weighting; wells shade from well-top to well-bottom, with concentric well-groove lines and a (1, 2)px well-shadow offset. Broad outlined pilot hands carry luminous inserts above a (2, 3)px hand-shadow offset. These are deterministic RGB565 geometry and tonal blends, not photographic textures or a global shadow treatment. Preserve this distinction between the faces.
+
+Shadow is flat: paired chamfer outlines, graphite fields, quiet rules and narrow lime accents provide structure without gradients, material shadows or photographic texture.
 
 ## Shapes
 
@@ -177,7 +202,7 @@ Large text, a supporting line, a right chevron and a thin bottom separator ident
 
 ### Settings
 
-Brightness cycles from 10 through 100 percent in ten-point increments; display sleep cycles through 15, 30, 60 and 90 seconds (30 is the default). Both rows state that they can be tapped. Save failure replaces the persistence footer with an amber retry instruction. GNSS OFF is a status, not a control. First touch or button after sleep only wakes the display. Timing stays active during display sleep; this is not a measured battery-life claim.
+Brightness cycles from 10 through 100 percent in ten-point increments; display sleep cycles through 15, 30, 60 and 90 seconds (30 is the default). Both rows state that they can be tapped. Save failure replaces the persistence footer with an amber retry instruction. GNSS follows awake-visible Shadow rather than a Settings toggle. First touch or button after sleep only wakes the display. Timing stays active during display sleep; this is not a measured battery-life claim.
 
 ### Instrument face
 
@@ -206,9 +231,21 @@ The UI worker caches ephemerides per UTC minute. A 411640-byte PSRAM Solar backd
 Solar also allocates one 63,600-byte immutable geometry cache explicitly in PSRAM at first use. It retains the subdial/rim coordinates, fixed subdial alpha operations, solar halo and resampled numeric glyph masks. Only its pointer and initialization guard live in internal RAM; a compile-time 64KiB cap prevents silent cache growth. The renderer preserves the original ordered RGB565 blending and exact fractional medallion position. Geometry-allocation failure uses the original calculations, and oversized future glyphs use the uncached path. No graphics cache falls back to scarce internal SPI/DMA/radio memory. The first Solar frame constructs this cache; subsequent frames reuse it. Host work counters and exact static/moving-frame comparisons verify the optimization, while actual device latency and power still require measurement. Moving soft-disc edges use hardware float square roots away from raster decision boundaries, reverting to double near integer span edges and 8-bit alpha thresholds or for squared distances above 84². The conservative guard preserves quantized pixels without adding cache memory. Its square-root work counter counts double-precision calls only; float roots are excluded. The performance check also runs an uninstrumented moving sequence to catch accidental float-to-double promotion by measurement wrappers.
 
 
+### Shadow face
+
+Shadow is the fourth face, with a segmented mesh clock above an independent GNSS reception and PPS comparison instrument. Its sweep rotates once every four seconds while the powered receiver searches without a fix; the sweep contains no synthetic satellite dots. The sky plot draws only actual azimuth/elevation records whose `position_known` flag is true. Up to sixteen records may appear on the plot; twelve C/N0 bars show receiver-reported levels against the printed 0–55 dBHz scale. Missing position removes the dot without inventing a sky location; C/N0 can remain available independently.
+
+The PPS line is a physical-capture annunciator, independent of clock seconds and sweep motion. A captured edge remains recent for at most 1.5 seconds and flashes for 220ms. Explicit status text covers starting, search, fix/wait PPS, wait mesh, settling, measuring, lost, fault and off. The SCAN / FIX / PPS / 10s / LIVE rail supplements that text. Fault and loss use shared amber; reception and progress use lime.
+
+Ten phase-blind settling seconds precede measurement. MEAN is signed offset; P99 ABS is the 99th percentile of absolute offset, with `~` for coarse histogram tails. Smaller RMS and N preserve the metric hierarchy. Units adapt through ns/us/ms, while missing evidence remains `--`. This P99 is an error statistic; P99 on the other faces retains its sampled sub-1us hold-duration meaning.
+
+Statistics require current selected fresh BLE/RC1/RC2 evidence and a valid independent GNSS fix/PPS reference. LoRa, RC9, local HOLD, expired mesh or stale presentation suppress the values and show waiting without retaining the preceding BLE population. Source/scope changes, reference loss, PPS gaps and a new visit restart the settling window. The renderer also gates the metrics against the selected source so a stale observer snapshot cannot expose an old population.
+
+Awake-visible Shadow alone requests GNSS main power. Leaving the face, opening an app, display sleep or maintenance stops that request; backup power is preserved. GNSS is an RX-only observer: no receiver configuration/aid, mesh admission, servo training or clock authority. Solar retains its fixed Santa Rosa Beach coordinates. Native source/build checks and synthetic previews do not establish installed behavior, absolute UTC, receiver bias, power savings or independent precision.
+
 ### Face selection
 
-Digital, Instrument and Solar are three selectable text rows. SELECTED copy identifies the current choice. Tapping one returns to that face and saves its selection; the last selected face opens at boot. A left swipe advances Digital → Instrument → Solar → Digital; a right swipe reverses that order. Both persist the choice using modulo-three selection. Resolve taps and swipes on release, so swiping across MODE cannot first activate navigation. A switch requires at least 64px horizontal travel, more than twice the vertical travel, and at most 1.5 seconds; taps require less than 20px displacement on each axis. Vertical/long gestures do not switch. Wake consumes the whole initial contact gesture, including its release. MODE taps and physical-button navigation remain available. There is no obsolete one-face preview or future-library promise.
+Digital, Instrument, Solar and Shadow are four selectable text rows. SELECTED copy identifies the current choice. Tapping one returns to that face and saves its selection; the last selected face opens at boot. A left swipe advances Digital → Instrument → Solar → Shadow → Digital; a right swipe reverses that order. Both persist the choice using modulo-four selection. Resolve taps and swipes on release, so swiping across MODE cannot first activate navigation. A switch requires at least 64px horizontal travel, more than twice the vertical travel, and at most 1.5 seconds; taps require less than 20px displacement on each axis. Vertical/long gestures do not switch. Wake consumes the whole initial contact gesture, including its release. MODE taps and physical-button navigation remain available. There is no obsolete one-face preview or future-library promise.
 
 ### Display-only local hold
 
@@ -223,7 +260,8 @@ Green LOCK and amber WAIT/HOLD/ACQ keep text meanings independent of color. The 
 - Do keep this visual authority scoped to firmware/twatch.
 - Do use the bundled Rajdhani atlas and original segment geometry.
 - Do preserve units, unavailable states and explicit status labels.
-- Do review all three faces and all utility screens at native resolution, with the rounded aperture and unavailable, local-hold, overflow, RC9 and lower-bound states, plus release-resolved swipe and wake gestures.
+- Do review all four faces and all utility screens at native resolution, with the rounded aperture and unavailable, local-hold, overflow, RC9 and lower-bound states, plus release-resolved swipe and wake gestures.
+- Do preserve Shadow's actual satellite-position gating, physical PPS pulse and fresh selected-source measurement gate.
 - Don't use synthetic preview values as hardware evidence.
 - Don't convey lock, selection, saturation or failure through color alone.
 - Don't treat display-only local hold as current timing authority or retain precision during it.

@@ -2158,6 +2158,10 @@ void r2_lora_init(uint64_t f,uint64_t boot,uint64_t tx,const struct r2_group_con
  r2_diag_scratch.lora.journal_result=-ENODATA;factory=f;physical_boot=boot;transmitter_factory=tx;group=g;transmitter=f&&f==tx;
 #ifdef R2_LORA_BOOT_RX
  transmitter=false;
+#elif defined(R2_LORA_BOOT_TX) && R2_LORA_BOOT_TX
+ /* Same local role as an explicit menu TX request. Keep the configured mesh
+  * transmitter/priority, authenticated source admission and airtime gates. */
+ transmitter=f&&boot&&tx&&g&&g->id;
 #endif
 #if defined(R2_LORA_PASSIVE_SLOW) && defined(R2_LORA_FIXED500_EXPERIMENT)
  if(!transmitter)memset(&role.watch,0,sizeof role.watch);

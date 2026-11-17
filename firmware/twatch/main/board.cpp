@@ -2,6 +2,9 @@
 // Register sequences derived from LILYGO/SensorLib; see NOTICE.md.
 #include "board.hpp"
 #include "watch.hpp"
+#include "power_key.hpp"
+#include "panel_sleep.hpp"
+#include "energy.hpp"
 #include "driver/i2c_master.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
@@ -31,6 +34,7 @@ bool byte(uint8_t cmd,uint8_t value){return command(cmd,&value,1);}
 }
 bool init(){if(initialized)return true;i2c_master_bus_config_t c{};c.i2c_port=I2C_NUM_0;c.sda_io_num=GPIO_NUM_3;c.scl_io_num=GPIO_NUM_2;c.clk_source=I2C_CLK_SRC_DEFAULT;c.glitch_ignore_cnt=7;c.flags.enable_internal_pullup=true;if(i2c_new_master_bus(&c,&bus)!=ESP_OK||!device(0x34,&pmu)||!device(0x20,&io))return false;uint8_t id;if(!read(pmu,3,id)||id!=0x4a)return false;
  // Preserve charging, CPU and backup configuration. Gate only reviewed peripheral rails.
+ if(!watch::PowerKey::init([](uint8_t r,uint8_t& v){return read(pmu,r,v);},[](uint8_t r,uint8_t v){return write(pmu,r,v);}))return false;
  if(!bits(pmu,0x93,0x1f,28)||!bits(pmu,0x94,0x1f,28)||!bits(pmu,0x90,0xbf,0x06))return false;
  // XL9555 P0.7 display enable; P0.6 haptics off; P1.0 touch reset; P1.3 internal antenna.
  if(!bits(io,2,0xc0,0x80)||!bits(io,3,0x09,0x08)||!bits(io,6,0xc0,0)||!bits(io,7,0x09,0))return false;
@@ -40,6 +44,7 @@ bool init(){if(initialized)return true;i2c_master_bus_config_t c{};c.i2c_port=I2
  for(auto pin:{GPIO_NUM_4,GPIO_NUM_21,GPIO_NUM_36})if(gpio_set_level(pin,1)!=ESP_OK)return false;
  if(gpio_config(&pins)!=ESP_OK)return false;
  storage=nvs_flash_init()==ESP_OK; // Never erase or migrate unknown factory storage on an error.
+ bool usb=false;if(usb_power(usb))watch::energy::usb(usb);
  initialized=true;return true;
 }
 // UI owns PMU/IMU; the touch worker owns CST9217. ESP-IDF serializes
@@ -58,7 +63,11 @@ bool display_init(){if(!initialized)return false;gpio_config_t pins{};pins.pin_b
  for(int repeat=0;repeat<2;++repeat){if(!byte(0xfe,0)||!byte(0xc4,0x80)||!byte(0x3a,0x55)||!byte(0x35,0)||!byte(0x53,0x20)||!byte(0x63,0xff)||!byte(0x36,0)||!command(0x11))return false;vTaskDelay(pdMS_TO_TICKS(120));if(!command(0x29))return false;vTaskDelay(pdMS_TO_TICKS(120));}return brightness(0);
 }
 bool brightness(uint8_t percent){return byte(0x51,uint8_t(unsigned(std::min(percent,uint8_t(100)))*255/100));}
-bool sleep(bool asleep){return command(asleep?0x28:0x29);}
+bool sleep(bool asleep){
+ if(!asleep)return command(0x29);
+ return watch::PanelSleep::sleep(true,[](uint8_t c){return command(c);},[](bool on){return bits(io,2,0x80,on?0x80:0);},[](unsigned ms){vTaskDelay(pdMS_TO_TICKS(ms));});
+}
+bool wake_prepare(){return watch::PanelSleep::sleep(false,[](uint8_t c){return command(c);},[](bool on){return bits(io,2,0x80,on?0x80:0);},[](unsigned ms){vTaskDelay(pdMS_TO_TICKS(ms));});}
 bool flush(const uint16_t* frame,const watch::RenderCache* cache){
  if(panel_failed)return false;
  constexpr int tile=watch::RenderCache::Tile,cols=watch::RenderCache::Cols;
@@ -80,11 +89,19 @@ bool flush(const uint16_t* frame,const watch::RenderCache* cache){
 }
 bool touch(int& x,int& y,bool* valid){if(valid)*valid=false;uint8_t reg[]={0xd0,0},buf[30]{},ack[]={0xd0,0,0xab};if(i2c_master_transmit_receive(tp,reg,2,buf,sizeof buf,10)!=ESP_OK||i2c_master_transmit(tp,ack,3,10)!=ESP_OK)return false;if(valid)*valid=true;if(buf[0]==0xab||buf[6]!=0xab||(buf[0]&15)!=6||(buf[5]&0x7f)==0||(buf[4]&0xf0))return false;x=(buf[1]<<4)|(buf[3]>>4);y=(buf[2]<<4)|(buf[3]&15);return x<watch::Width&&y<watch::Height;}
 int battery(){uint8_t b;return read(pmu,0xa4,b)&&b<=100?b:-1;}
+bool power_key(bool& pressed){return watch::PowerKey::poll([](uint8_t r,uint8_t& v){return read(pmu,r,v);},[](uint8_t r,uint8_t v){return write(pmu,r,v);},pressed);}
 // AXP2101 STATUS1 bit5: valid VBUS, including a full battery or charge-only USB.
 bool usb_power(bool& present){uint8_t status;if(!read(pmu,0x00,status))return false;present=(status&0x20)!=0;return true;}
 // AXP2101 COMMON_CONFIG bit0, matching XPowersAXP2101::shutdown().
 // UI task has stopped before this main-task ownership transfer; no live I2C peer.
 bool power_off(){return initialized&&idle()&&bits(pmu,0x10,0x01,0x01);}
+bool gnss_power(bool on){
+ if(!initialized)return false;
+ if(on&&!bits(pmu,0x96,0x1f,28))return false; // BLDO1 3.3V, vendor Ultra profile.
+ if(!bits(pmu,0x90,0x10,on?0x10:0))return false;
+ uint8_t enabled=0,voltage=0;
+ return read(pmu,0x90,enabled)&&bool(enabled&0x10)==on&&(!on||(read(pmu,0x96,voltage)&&(voltage&0x1f)==28));
+}
 bool settings_load(void* data,unsigned size){if(!storage)return false;nvs_handle_t h;if(nvs_open("ptobwatch",NVS_READONLY,&h)!=ESP_OK)return false;size_t n=size;bool ok=nvs_get_blob(h,"settings",data,&n)==ESP_OK&&n==size;nvs_close(h);return ok;}
 bool settings_save(const void* data,unsigned size){if(!storage)return false;nvs_handle_t h;if(nvs_open("ptobwatch",NVS_READWRITE,&h)!=ESP_OK)return false;bool ok=nvs_set_blob(h,"settings",data,size)==ESP_OK&&nvs_commit(h)==ESP_OK;nvs_close(h);return ok;}
 }

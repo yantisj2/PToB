@@ -2,6 +2,8 @@
 // N30 adaptation of the selected public W12 entry point.
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #include "native_transport.hpp"
+#include "energy.hpp"
+#include "console_power.hpp"
 #include "native_device_binding.hpp"
 #include "rc9_diagnostics.hpp"
 #include "capture_contract.hpp"
@@ -66,6 +68,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "gnss_pps.hpp"
+#include "shadow_gnss.hpp"
+#include "watch.hpp"
+#include "control_frame.hpp"
 #include "w12_device_profile.hpp"
 #include "display.hpp"
 #include "button_input.hpp"
@@ -119,7 +124,7 @@ v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false,rc9_diagnostic_response=false;
 bool timing_diagnostic_response=false;uint32_t timing_after=0;
 bool imu_diagnostic_response=false;
-bool dual_diagnostic_response=false;uint32_t dual_after=0,dual_parent_after=0;
+bool compact_control=false;bool shadow_diagnostic_response=false;bool dual_diagnostic_response=false;uint32_t dual_after=0,dual_parent_after=0;
 bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=0;
 bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;
 struct CommandResult {uint64_t nonce=0,admitted_us=0;bool accepted=false;const char* action="STATUS";const char* reason="READ_ONLY";} last_command;
@@ -213,7 +218,7 @@ void pps(const gnss_pps::Observation& edge){
  const auto mesh=v12::r2_status();
   response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " following=%u requested=%u fault=%u pcfg=%08" PRIx32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.following),unsigned(mesh.requested),unsigned(mesh.fault),uint32_t(v12::rc7_provisional_config().id>>32));
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=0\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session);
- if(imu_diagnostic_response)n30_display_imu_frame(response);else if(dual_diagnostic_response)n30_display_dual_frame(response,dual_after,dual_parent_after,begin);else if(rc9_diagnostic_response)n30_rc9_diagnostics(response);else if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else {n30_lora_diagnostics(response);watch_lora_shadow_diagnostics(response);}
+ if(shadow_diagnostic_response)watchshadow::detail(response);else if(imu_diagnostic_response)n30_display_imu_frame(response);else if(dual_diagnostic_response)n30_display_dual_frame(response,dual_after,dual_parent_after,begin);else if(rc9_diagnostic_response)n30_rc9_diagnostics(response);else if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else {n30_lora_diagnostics(response);watch_lora_shadow_diagnostics(response);}
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  n30_display_status(response);v12::frame_submit(response);
 }
@@ -229,6 +234,8 @@ void pps(const gnss_pps::Observation& edge){
 #ifdef V12_R2_ENABLED
   const auto mesh=v12::r2_status();
 #if V12_R2_CONFIG == 13
+  if(compact_control)watch::control_mesh(response,mesh,V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA);
+  else {
   response.format(
 
     "W12_R2_STATUS profile=%s enrollment_sha=%s self=%u mode=%u requested=%u scan=%u advertising=%u sync_pending=%u synced=%u connecting=%u connections=%"
@@ -280,6 +287,7 @@ void pps(const gnss_pps::Observation& edge){
 #endif
     ,mesh.rc7_path_hex,unsigned(mesh.g1_parent_entries),int(mesh.g1_parent_score),int(mesh.g1_parent_best),unsigned(mesh.g1_parent_reason)
     );
+  }
 #else
   response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=%u mode=%u requested=%u scan=%u advertising=%u sync_pending=%u synced=%u connecting=%u connections=%u owner_busy=%u off_ack=%u fault=%u active_used=%u"
     " ready=%u coordinator=%u root=%u standby=%u members=%u role=%u serving=%u following=%u source=%u clock_valid=%u follower_utc_us=%" PRIu64
@@ -355,7 +363,7 @@ void pps(const gnss_pps::Observation& edge){
   if(work>console_max_us)console_max_us=uint32_t(work);
   // These peripherals are absent/disabled in this target. Compact literal
   // rows reserve the display row within the unchanged shared whole-frame cap.
-  response.format("W12_V12_GPS inputs=0 coarse=0 PPS=0 GPS=ABSENT\n");
+  response.format("W12_V12_GPS inputs=0 coarse=0 PPS=0 GPS=SHADOW_ONLY\n");
   response.format("W12_V12_LORA_STATUS enabled=%u initialized=%u failed=%u requested=%u worker_busy=%u off_ack=%u errors=%" PRIu32 " generation=%" PRIu32 " acknowledged_generation=%" PRIu32 " off_proof=%u cleanup_fault=%u TX=OFF\n",
     unsigned(lora.enabled),unsigned(lora.initialized),unsigned(lora.failed),unsigned(lora.requested),unsigned(lora.worker_busy),unsigned(lora.off_acknowledged),lora.radio_errors,lora.request_generation,lora.off_ack_generation,n30_lora_off_proof(),unsigned(n30_lora_cleanup_fault()));
   const auto public_status=v12::public_observer_status();const auto& p=public_status.records;
@@ -435,10 +443,10 @@ void pps(const gnss_pps::Observation& edge){
     ,unsigned(mesh.rc7_relay_only),unsigned(mesh.rc7_relay_only_requested),unsigned(mesh.rc7_upstream_mode_pending),unsigned(ui_subus),unsigned(ui_gps_present),unsigned(ui_gps_lamps)
 #endif
     );
-  n30_display_status(response);
+  if(compact_control)watch::display_control(response);else n30_display_status(response);
   v12::frame_submit(response);
 }
-void respond_status(uint64_t nonce,uint64_t begin){if(imu_diagnostic_response||dual_diagnostic_response||rc9_diagnostic_response||lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
+void respond_status(uint64_t nonce,uint64_t begin){if(shadow_diagnostic_response||imu_diagnostic_response||dual_diagnostic_response||rc9_diagnostic_response||lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
 [[gnu::noinline]] void ui(){
   if(!ui_ready)return;
   const auto s=v12::transport_status();const auto gps=gnss_pps::shadow_view(ticks());
@@ -507,6 +515,7 @@ void respond_status(uint64_t nonce,uint64_t begin){if(imu_diagnostic_response||d
   n30_display_publish(mesh,state,micros(),ble_ui_off);
 }
 void stop_all(){
+  watchshadow::stop();
   if(update_gate.latched()||power_off.requested())watch::radio_journal_stop();
   ble_ui_off=true;
   (void)v12::transport_watch_ble_request(false,micros());
@@ -532,12 +541,16 @@ void stop_all(){
   if(!std::strcmp(text,"v12 off")){stop_all();v12::capture_stop();return;}
   char nonce_text[17]{},ticket_text[17]{},mac[18]{},boot_text[17]{};char extra=0;uint64_t nonce=0,permit=0,boot=0;
   const uint64_t admitted=micros();
+  if(N30_COMMAND_SCAN(text,"v12 control %16s %c",nonce_text,&extra)==1&&v12::hex_id(nonce_text,nonce)&&nonce!=last_nonce){
+    compact_control=true;last_nonce=nonce;last_command={nonce,admitted,true,"CONTROL_STATUS","READ_ONLY"};status(nonce,admitted);return;
+  }
   if(N30_COMMAND_SCAN(text,"v12 status %16s %c",nonce_text,&extra)==1&&v12::hex_id(nonce_text,nonce)&&nonce!=last_nonce){
-    last_nonce=nonce;last_command={nonce,admitted,true,"STATUS","READ_ONLY"};respond_status(nonce,admitted);return;
+    compact_control=false;last_nonce=nonce;last_command={nonce,admitted,true,"STATUS","READ_ONLY"};respond_status(nonce,admitted);return;
   }
   int at=0;
   if(N30_COMMAND_SCAN(text,"v12 do %16s %16s %17s %16s %n",ticket_text,nonce_text,mac,boot_text,&at)!=4||at<=0||
       !v12::hex_id(nonce_text,nonce))return;
+  compact_control=true;
   last_command={nonce,admitted,false,"REFUSE","TICKET_OR_BOOT_BINDING"};
   const bool authorized=identity&&!std::strcmp(mac,factory_text)&&v12::hex_id(boot_text,boot)&&boot==session&&
     nonce!=last_nonce&&v12::hex_id(ticket_text,permit)&&ticket.consume(permit,admitted);
@@ -553,7 +566,14 @@ void stop_all(){
   }else if(update_gate.latched()){last_command.reason="UPDATE_GATE_LATCHED";}
   // Presentation owns no BLE resource. Retain ticket/boot/maintenance guards,
   // then admit it before the shared radio-ownership fence.
-  else if(!std::strcmp(action,"ui page 0")||!std::strcmp(action,"ui page 1")||!std::strcmp(action,"ui page 2")||!std::strcmp(action,"ui page 3")){
+  else if(!std::strcmp(action,"ui sleep")){
+    const bool ok=!power_off.requested()&&watch::display_sleep_request();last_command={nonce,admitted,ok,"UI_SLEEP",ok?"DISPLAY_OWNER_QUEUED":"DISPLAY_UNAVAILABLE"};
+  }
+  else if(!std::strcmp(action,"ui face 0")||!std::strcmp(action,"ui face 1")||!std::strcmp(action,"ui face 2")||!std::strcmp(action,"ui face 3")){
+    const bool ok=!update_gate.latched()&&!power_off.requested()&&watch::display_select_face(unsigned(action[8]-'0'));
+    last_command={nonce,admitted,ok,"UI_FACE",ok?"DISPLAY_OWNER_QUEUED":"DISPLAY_UNAVAILABLE"};
+  }
+  else if(!std::strcmp(action,"ui page 0")||!std::strcmp(action,"ui page 1")||!std::strcmp(action,"ui page 2")||!std::strcmp(action,"ui page 3")||!std::strcmp(action,"ui page 4")){
     const bool ok=n30_display_page(action[8]-'0');last_command={nonce,admitted,ok,"UI_PAGE",ok?"DISPLAY_ONLY":"INVALID_PAGE"};
   }
   else if(!std::strcmp(action,"ui radio ble")||!std::strcmp(action,"ui radio lora")){
@@ -561,6 +581,7 @@ void stop_all(){
     last_command={nonce,admitted,ok,"UI_RADIO",ok?"QUEUED_OWNER_ACTION":"BUSY_OR_MAINTENANCE"};
   }
   else if(!std::strcmp(action,"imu restart")){const bool ok=n30_display_imu_restart();last_command={nonce,admitted,ok,"IMU_RESTART",ok?"QUEUED_UI_OWNER":"BUSY_OR_MAINTENANCE"};}
+  else if(!std::strcmp(action,"shadow diag")){shadow_diagnostic_response=true;last_command={nonce,admitted,true,"SHADOW_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strcmp(action,"imu diag")){imu_diagnostic_response=true;last_command={nonce,admitted,true,"IMU_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strcmp(action,"lora diag")){lora_diagnostic_response=true;last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strcmp(action,"lora hold60")){const bool ok=n30_lora_hold60(nonce);last_command={nonce,admitted,ok,"LORA_HOLD60",ok?"REQUESTED":"DISABLED_FAULT_OR_RESOURCE"};}
@@ -569,7 +590,7 @@ void stop_all(){
     const auto request=n30::window::parse(action);window_diagnostic_response=true;window_edge_response=window_late_response=false;window_after=0;
     last_command={nonce,admitted,false,"WINDOW","INVALID_BOUNDS_OR_SYNTAX"};
     if(request.command==n30::window::Command::Start){const bool ok=n30_window_start(nonce,fine_factory,admitted,request.duration,request.count);last_command={nonce,admitted,ok,"WINDOW_START",ok?"FINITE_RW_PACKET_OBSERVER":"ACTIVE_BINDING_OR_LATCH_REFUSED"};}
-    else if(request.command==n30::window::Command::Stop){const bool ok=!n30_fine_backend_selected();if(ok)n30_window_stop();last_command={nonce,admitted,ok,"WINDOW_STOP",ok?"OBSERVER_RELEASE_ONLY":"PRODUCTION_OWNER_MAINTENANCE_ONLY"};}
+    else if(request.command==n30::window::Command::Stop){const bool ok=!n30_fine_backend_selected()&&watchshadow::control().off;if(ok)n30_window_stop();last_command={nonce,admitted,ok,"WINDOW_STOP",ok?"OBSERVER_RELEASE_ONLY":"PRODUCTION_OWNER_MAINTENANCE_ONLY"};}
     else if(request.command==n30::window::Command::Packet){last_command={nonce,admitted,true,"WINDOW_PACKET","NONCONSUMING_CRC_METADATA"};}
     else if(request.command==n30::window::Command::Edges){window_edge_response=true;window_after=request.cursor;last_command={nonce,admitted,true,"WINDOW_EDGES","NONCONSUMING_CRC_CURSOR"};}
     else if(request.command==n30::window::Command::Late){window_late_response=true;window_after=request.cursor;last_command={nonce,admitted,true,"WINDOW_LATE","NONCONSUMING_STICKY_INVALIDATION"};}
@@ -588,7 +609,7 @@ void stop_all(){
       const bool ok=n30_fine_probe(nonce,fine_factory,admitted,spacing,edges);fine_after=0;
       last_command={nonce,admitted,ok,"FINE_PROBE",ok?"FINITE_SYNTHETIC_GPIO_ONLY":"BINDING_RESOURCE_OR_LATCH_REFUSED"};
     }else if(request.command==n30::timing::Command::Stop){
-      const bool ok=!n30_fine_backend_selected();if(ok)n30_fine_stop();fine_after=0;last_command={nonce,admitted,ok,"FINE_STOP",ok?"RAW_OBSERVER_ONLY":"PRODUCTION_OWNER_MAINTENANCE_ONLY"};
+      const bool ok=!n30_fine_backend_selected()&&watchshadow::control().off;if(ok)n30_fine_stop();fine_after=0;last_command={nonce,admitted,ok,"FINE_STOP",ok?"RAW_OBSERVER_ONLY":"PRODUCTION_OWNER_MAINTENANCE_ONLY"};
     }else if(request.command==n30::timing::Command::Read){
       fine_after=request.after;last_command={nonce,admitted,true,"FINE_READ","NONCONSUMING_CRC_CURSOR"};
     }else if(request.command==n30::timing::Command::Start){
@@ -675,10 +696,13 @@ void stop_all(){
     const bool ok=v12::capture_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE",ok?"FINITE_OBSERVER_LEASE":"BUSY_OR_BOUND"};
   }else{last_command.reason="UNKNOWN_OR_UNAVAILABLE_PROTOCOL";}
   if(!last_command.accepted&&commands_rejected!=UINT32_MAX)++commands_rejected;
-  respond_status(nonce,admitted);imu_diagnostic_response=dual_diagnostic_response=rc9_diagnostic_response=lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
+  respond_status(nonce,admitted);shadow_diagnostic_response=imu_diagnostic_response=dual_diagnostic_response=rc9_diagnostic_response=lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
 }
 [[gnu::noinline]] void input(){
   static char line[192]{};static unsigned used=0;static bool discard=false;
+  static uint32_t generation=0;const auto next_generation=v12::log_usb_generation();
+  if(next_generation!=generation){generation=next_generation;used=0;discard=true;}
+  if(!watch::energy::usb()){used=0;discard=true;return;}
   uint8_t bytes[64];const int n=n30_console::read(bytes,sizeof(bytes));
   for(int i=0;i<n;++i){const char c=char(bytes[i]);
     if(c=='\r')continue;
@@ -692,6 +716,7 @@ void stop_all(){
 // Large snapshots live only across their own bounded operation. They must
 // not reserve the main loop's frame across parser, console, UI and fit work.
 [[gnu::noinline]] void g1_task_diagnostics(uint64_t now){
+    if(!watch::energy::usb())return;
     if(now>=last_g1_diagnostic+10000000){const auto begin=micros();last_g1_diagnostic=now;const auto mesh=v12::r2_status();char line[v12::G1DiagnosticLineBytes];
       const auto log=v12::log_status();
       if(log.capture_active){
@@ -741,7 +766,7 @@ void stop_all(){
   }
   proof.fine_off=n30_fine_released();proof.fine_cleanup_fault=n30_fine_cleanup_fault();
   if(update_gate.stage==v12::UpdateStage::Draining){
-    proof.display_off=n30_display_power_ready();
+    proof.display_off=n30_display_power_ready()&&watchshadow::released();
     update_gate.poll(now,proof.services());
     if(update_gate.stage==v12::UpdateStage::Ready||update_gate.stage==v12::UpdateStage::Fault)update_completed_us=micros();
     if(power_off.requested()&&update_gate.stage==v12::UpdateStage::Fault)watch::button_power_stage(4,ESP_ERR_INVALID_STATE);
@@ -912,12 +937,14 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("TWATCH_TARGET version=0.1.2 profile=RC GPS=OFF flash_mb=16 console=USB_JTAG hardware=UNVALIDATED\n");
+  std::printf("TWATCH_TARGET version=0.1.8 profile=RC GPS=SHADOW_FACE_AUTO flash_mb=16 console=USB_JTAG hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
+  if(!watch::energy::init()){std::printf("W12_V12_FATAL reason=CPU_POWER_POLICY\n");return;}
   for(const auto byte:factory)fine_factory=(fine_factory<<8)|byte;
   n30_timing_init();
   watch::holdover_init();
   n30_window_init(clock_reference_read);
+  watchshadow::init(session,fine_factory,clock_reference_read);
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes
   // legacy NVS. Native credentials remain refused until that separate gate.
@@ -932,6 +959,7 @@ extern "C" void app_main(){
   gpio_config_t button{};button.pin_bit_mask=1;button.mode=GPIO_MODE_INPUT;button.pull_up_en=GPIO_PULLUP_ENABLE;
   if(gpio_config(&button)!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=BUTTON\n");return;}
   if(n30::power_wake_init()!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=POWER_WAKE\n");return;}
+  v12::log_usb_power(watch::energy::usb()); // PMU known, before slow UI/IMU startup.
   // The N30 display worker is the sole button interpreter.
   gps_ready=gnss_pps::init(clock_timer,pps);
 #ifdef V12_R2_ENABLED
@@ -972,6 +1000,7 @@ extern "C" void app_main(){
 #endif
     gnss_pps::poll(ticks());
     #endif
+    watchshadow::poll(micros());
     input();
     // Physical display-worker action; the main owner calls the unchanged W12
     // mode API, which fences the old source and retains its original2s drain.
@@ -1001,6 +1030,7 @@ extern "C" void app_main(){
     v12::Report row;for(unsigned budget=0;budget<8&&v12::transport_pop(row);++budget){
       n30_window_report(row);
       if(!row.refusal&&(row.kind==1||row.kind==3))v12::public_observer_enqueue(row.bytes,row.length);
+      if(!watch::energy::usb())continue; // Keep observers; skip unused USB text/hex work.
       const uint64_t begin=micros();
 #if defined(V12_R2_ENABLED) && V12_R2_CONFIG == 13
       if(row.kind==5&&(!v12::log_status().capture_active||!g1_record_budget.emit(row)))continue;

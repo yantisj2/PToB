@@ -16,6 +16,9 @@ fresh_nonce=base.fresh_nonce
 INPUT_ABORT=b'\x00\n'
 def status_command(nonce):
  return INPUT_ABORT+base.status_command(nonce)
+def control_status_command(nonce):
+ base.require(bool(base.HEX16.fullmatch(nonce)) and int(nonce,16)!=0,'Fresh nonzero nonce required')
+ return INPUT_ABORT+f"v12 control {nonce}\n".encode()
 class Parser(base.Parser):
  def __init__(self,nonce,manifest,session=None):
   super().__init__(nonce,manifest,session)
@@ -24,10 +27,12 @@ class Parser(base.Parser):
   self.fine_profile=manifest.get('fine_capture_profile')
   if manifest.get('watch_frame')=='LORA':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','N30_LORA_CONTEXT','N30_LORA_ORIGINAL','N30_LORA_QUALITY','N30_LORA_COUNTERS','N30_LORA_HARDWARE','N30_LORA_POLICY','W12_V12_COMMAND','TWATCH_UI')
   if manifest.get('watch_frame')=='LORA' and manifest.get('lora_shadow_schedule')=='SHADOW_ONLY_V1':self.expected_rows=(*self.expected_rows[:-2],'TWATCH_LORA_SHADOW',*self.expected_rows[-2:])
+  if manifest.get('watch_frame')=='LORA' and manifest.get('lora_shadow_schedule') in ('GUARDED_SLEEP_MISS_RELEARN_V2','EARLY_SLEEP_COMPLETE_DATA_V3'):self.expected_rows=(*self.expected_rows[:-2],'TWATCH_LORA_SHADOW','TWATCH_LORA_SLEEP',*self.expected_rows[-2:])
   if manifest.get('watch_frame','').startswith('WINDOW_'):self.expected_rows=(*getattr(timing,manifest['watch_frame']+'_ROWS')[:-1],'TWATCH_UI')
   if manifest.get('watch_frame')=='FINE':self.expected_rows=(*timing.FINE_ROWS[:-1],'TWATCH_UI')
   if manifest.get('watch_frame')=='TIMING':self.expected_rows=(*timing.TIMING_ROWS[:-1],'TWATCH_UI')
   if manifest.get('watch_frame')=='IMU':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','TWATCH_IMU','W12_V12_COMMAND','TWATCH_UI')
+  if manifest.get('watch_frame')=='SHADOW':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','TWATCH_SHADOW','W12_V12_COMMAND','TWATCH_UI')
   if manifest.get('watch_frame')=='DUAL':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','TWATCH_SOURCE','W12_V12_COMMAND','TWATCH_UI')
  def feed(self,data):
   frames=super().feed(data)
@@ -35,12 +40,19 @@ class Parser(base.Parser):
    if 'N30_WINDOW_STATUS' in frame['rows']:validate_window(frame['rows'])
    if 'N30_FINE_STATUS' in frame['rows']:validate_fine(frame['rows'],self.fine_profile)
    if 'N30_TIMING_STATUS' in frame['rows']:timing.validate_timing(frame['rows'])
+   if 'TWATCH_LORA_SLEEP' in frame['rows']:validate_lora_sleep(frame['rows'],self.manifest.get('lora_shadow_schedule'))
    if 'TWATCH_IMU' in frame['rows']:
     imu=frame['rows']['TWATCH_IMU'];base.require(imu.get('version')=='1' and imu.get('diagnostic_only')=='1','Unexpected IMU diagnostic contract')
    ui=frame['rows']['TWATCH_UI']
-   for key,value in [('version','1'),('width','410'),('height','502'),('GNSS','OFF'),('precision','UNQUALIFIED')]:
+   for key,value in [('version','1'),('width','410'),('height','502'),('GNSS','FACE_AUTO' if self.manifest.get('version') in ('0.1.7','0.1.8','0.1.9','0.1.10') or self.manifest.get('GNSS')=='SHADOW_FACE_AUTO_RX_ONLY_V1' or self.manifest.get('control_contract')=='BOUNDED_CONTROL_V1' else 'OFF'),('precision','UNQUALIFIED')]:
     base.require(ui.get(key)==value,'Unexpected watch UI contract: '+key)
+   if ui.get('GNSS')=='FACE_AUTO':base.require(ui.get('shadow_version')=='1','Missing shadow diagnostic contract')
    base.require(ui.get('ready') in ('0','1'),'Missing display readiness')
+   if ui.get('control_version')=='1':
+    mesh=frame['rows']['W12_R2_STATUS']
+    for key,value in [('profile','r2-g1'),('self','3'),('control','1'),('enrollment_sha',self.manifest['r2_enrollment_sha256'])]:base.require(mesh.get(key)==value,'Compact control binding/'+key)
+    for key in ('display_off_proof','fine_off_proof','fine_cleanup_fault','shadow_requested','shadow_powered','shadow_transition','shadow_owner','shadow_uart','shadow_capture','shadow_off_proof','shadow_cleanup_fault'):base.require(ui.get(key) in ('0','1'),'Missing physical control proof/'+key)
+
   return frames
 
 def validate_window(rows):
@@ -82,11 +94,15 @@ def validate_fine(rows,profile=None):
   if key in s:
    value=timing.timing_number(s,key,64)
    if s.get('active')=='1' and s.get('error')=='0':base.require(value<=100,'Watch latch exceeded wall deadline')
+ base.require(k.get('pps_aux','0')=='0','Leave Shadow face before finite fine diagnostics')
  if mode!='CURRENT_ONLY' and int(s.get('incarnation','0')):
   base.require(s.get('tx_in')=='188','Watch TX capture input must be constant zero')
   if s.get('active')=='1':
    base.require(s.get('rx_in')=='145' and int(s.get('rx_out','0'))&511==238 and s.get('OE')=='1','Watch active RX17 route readback')
- for key,value in dict(RX='RW_RX_ON_238_GPIO17',TX='NONE_CONSTANT0',capture_channels='0/2',tx_channel='1_CONSTANT0',backend=str(int(production)),phase80=str(phase),provenance=mode).items():
+ base.require(k.get('capture_channels') in ('0/2','RX0/CURRENT2'),'Watch radio capture channels')
+ if k.get('capture_channels')=='RX0/CURRENT2':base.require(k.get('auxiliary')=='GNSS_PPS13_CH1','Watch auxiliary capture contract')
+ else:base.require(k.get('tx_channel')=='1_CONSTANT0','Legacy watch TX channel')
+ for key,value in dict(RX='RW_RX_ON_238_GPIO17',TX='NONE_CONSTANT0',capture_channels=k.get('capture_channels'),backend=str(int(production)),phase80=str(phase),provenance=mode).items():
   base.require(k.get(key)==value,'Watch fine contract '+key)
  for key in ('TX','issued1','rise1','fall1'):
   base.require(s.get(key)=='0','Watch TX must remain inactive: '+key)
@@ -122,7 +138,7 @@ def capture_action(action):
  return bool(m and 10000<=int(m[1])<=600000)
 
 def mutation_command(frame,nonce,action):
- base.require(timing_action(action) or fine_action(action) or window_action(action) or capture_action(action) or action in ('prepare_update','bootrom','ui page 0','ui page 1','ui page 2','ui page 3','lora diag','imu diag','imu restart','dual read 0 0','upstream auto','upstream relay','rc-parent auto','gm-parent auto','lora auto','ui radio ble','ui radio lora') or re.fullmatch(r'dual read (?:[0-9]|10) 0',action) or re.fullmatch(r'(rc|gm)-parent [0-9a-f]{16}',action),'Unsupported watch action')
+ base.require(timing_action(action) or fine_action(action) or window_action(action) or capture_action(action) or re.fullmatch(r'ui face [0-3]',action) or action in ('prepare_update','bootrom','ui page 0','ui page 1','ui page 2','ui page 3','ui page 4','lora diag','imu diag','imu restart','shadow diag','ui sleep','dual read 0 0','upstream auto','upstream relay','rc-parent auto','gm-parent auto','lora auto','ui radio ble','ui radio lora') or re.fullmatch(r'dual read (?:[0-9]|10) 0',action) or re.fullmatch(r'(rc|gm)-parent [0-9a-f]{16}',action),'Unsupported watch action')
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh nonce required')
  b=frame['begin']
  return INPUT_ABORT+f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()
@@ -136,6 +152,9 @@ def require_update_off(frame,manifest):
  if manifest.get('ble_power_lifecycle')!='FAULT_CLEANUP_OFF_V2':
   return base.require_off(frame,controller_off=manifest.get('ble_power_lifecycle')=='CONTROLLER_OFF_V1')
  rows=frame['rows'];power=rows['TWATCH_UI'];lor=rows['W12_V12_LORA_STATUS'];cmd=rows['W12_V12_COMMAND']
+ if manifest.get('control_contract')=='BOUNDED_CONTROL_V1':
+  for key,value in dict(control_version='1',display_off_proof='1',fine_off_proof='1',fine_cleanup_fault='0',shadow_requested='0',shadow_powered='0',shadow_transition='0',shadow_owner='0',shadow_uart='0',shadow_capture='0',shadow_off_proof='1',shadow_cleanup_fault='0').items():base.require(power.get(key)==value,'Bounded control physical OFF/'+key)
+
  def exact(row,rules):
   for key,value in rules.items():base.require(row.get(key)==value,'Physical OFF proof/'+key)
  def number(row,key):
@@ -154,3 +173,13 @@ def require_update_off(frame,manifest):
  base.require(0<completed<deadline and deadline-completed<=2000000,'Original application drain deadline')
  base.require(not any(frame.get('request_delta',{'missing':1}).values()),'OFF proof coverage loss')
  return frame
+
+def validate_lora_sleep(rows,contract='EARLY_SLEEP_COMPLETE_DATA_V3'):
+ s=rows['TWATCH_LORA_SHADOW'];p=rows['TWATCH_LORA_SLEEP']
+ base.require(s.get('version')=='2' and s.get('shadow_only')=='0','Unexpected LoRa window contract')
+ base.require(p.get('version')=='1' and p.get('enabled')=='1','Unexpected LoRa sleep contract')
+ for k in ('sleeping','active'):base.require(p.get(k) in ('0','1'),'Invalid sleep state: '+k)
+ base.require(p.get('sleeping')!='1' or p.get('active')=='1','Inactive receiver cannot be asleep')
+ for k in ('sleeps','wakes','refused','sleep_us','rx_us','transition_us'):
+  base.require(p.get(k,'').isdigit(),'Missing sleep diagnostic: '+k)
+ base.require(p.get('wake_lead_us')==('1000000' if contract=='GUARDED_SLEEP_MISS_RELEARN_V2' else '0') and p.get('poll_ms')=='50','Unexpected sleep guard')

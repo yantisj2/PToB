@@ -118,6 +118,27 @@ class RetentionTests(unittest.TestCase):
         self.assertTrue((root / 'target/generated.c').exists())
         self.assertTrue((root / 'target/header.h').exists())
         self.assertEqual(storage.verify_bundle(root), before)
+
+    def test_compaction_keeps_bound_t096_nv_audit_inputs(self):
+        root = self.build()
+        receipt = storage.read(root / 'receipt.json')
+        names = ('target/app/libapp.a',
+                 'target/CMakeFiles/app.dir/src/fault_boot.c.obj',
+                 'target/CMakeFiles/app.dir/src/fault_store.c.obj')
+        for name in names:
+            p = root / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(b'native audit input')
+            receipt['artifacts'][name] = storage.digest(p)
+        storage.atomic_json(root / 'receipt.json', receipt)
+        os.utime(root / 'receipt.json', (time.time() - 10000,) * 2)
+        before = storage.verify_bundle(root)
+        self.apply(storage.make_plan(self.repo, 'compact'))
+        self.assertEqual(storage.verify_bundle(root), before)
+        self.assertFalse((root / 'target/code.obj').exists())
+        (root / names[0]).write_bytes(b'corrupted audit input')
+        with self.assertRaisesRegex(ValueError, 'Retained hash mismatch'):
+            storage.verify_bundle(root)
         self.assertEqual(storage.make_plan(self.repo)['actions'], [])
 
     def test_latest_previous_and_historical_logs(self):
@@ -147,6 +168,21 @@ class RetentionTests(unittest.TestCase):
         normal.update(artifact_class='PTOB_T096_RC7', lora_passive_fast=True)
         experiment = {**normal, 'lora_bw_experiment': True}
         self.assertNotEqual(storage.grouping(root, normal), storage.grouping(root, experiment))
+
+    def test_tx_boot_default_separates_configuration_without_ordinary_group_change(self):
+        root = self.build()
+        legacy = storage.read(root / 'receipt.json')
+        self.assertEqual(storage.grouping(root, legacy), storage.grouping(root, {**legacy, 'lora_boot_tx': False}))
+        self.assertNotEqual(storage.grouping(root, legacy), storage.grouping(root, {**legacy, 'lora_boot_tx': True}))
+
+    def test_usb_awake_control_has_separate_retention_without_ordinary_group_change(self):
+        root = self.build(profile='GM')
+        legacy = storage.read(root / 'receipt.json')
+        legacy['artifact_class'] = 'PTOB_T096_RC7'
+        normal = {**legacy, 'usb_awake_control': False}
+        control = {**legacy, 'usb_awake_control': True}
+        self.assertEqual(storage.grouping(root, legacy), storage.grouping(root, normal))
+        self.assertNotEqual(storage.grouping(root, normal), storage.grouping(root, control))
 
     def test_diagnostic_tx_and_normal_fast_have_separate_retention(self):
         normal, diagnostic = [], []

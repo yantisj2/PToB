@@ -7,6 +7,10 @@ int main(){
  assert(!watch::console_shape(11,"normal"));
  assert(!watch::console_shape(11,"\nTWATCH_LORA_SHADOW version=1 shadow_only=1\n"));
  assert(!watch::console_shape(12,"\nN30_LORA_HARDWARE enabled=1\nTWATCH_LORA_SHADOW version=1 shadow_only=1\n"));
+ assert(watch::console_shape(12,"\nN30_LORA_HARDWARE active=1\nTWATCH_LORA_SHADOW version=2 shadow_only=0\nTWATCH_LORA_SLEEP version=1 sleeping=1\n"));
+ assert(!watch::console_shape(12,"\nN30_LORA_HARDWARE active=1\nTWATCH_LORA_SHADOW version=2 shadow_only=0\n"));
+ assert(!watch::console_shape(11,"\nN30_LORA_HARDWARE active=1\nTWATCH_LORA_SHADOW version=2 shadow_only=0\nTWATCH_LORA_SLEEP version=1 sleeping=1\n"));
  assert(watch::console_shape(5,"\nTWATCH_IMU version=1 ready=1\n"));
+ assert(watch::console_shape(5,"\nTWATCH_SHADOW version=1 shadow_requested=1\n"));
  assert(!watch::console_shape(5,"normal"));
 }

@@ -62,10 +62,19 @@ def main():
     variants['legacy'] = old
     no_launch = fixed_functions.copy()
     no_launch['usbd_dmareq_process'] = no_launch['usbd_dmareq_process'].replace(
-        '\tif (r2_usb_common_failed()) return;\n', '').replace(
+        '\tif (r2_usb_common_failed() || r2_host_resume_pending) return;\n', '\tif (r2_host_resume_pending) return;\n').replace(
         '\t\tif (r2_usb_common_failed()) { k_sem_give(&dma_available); return; }\n', '')
     assert no_launch['usbd_dmareq_process'] != fixed_functions['usbd_dmareq_process']
     variants['negative-launch'] = no_launch
+    no_host_dma = fixed_functions.copy()
+    no_host_dma['usbd_dmareq_process'] = no_host_dma['usbd_dmareq_process'].replace(
+        'r2_usb_common_failed() || r2_host_resume_pending', 'r2_usb_common_failed()')
+    variants['negative-host-dma'] = no_host_dma
+    no_host_close = fixed_functions.copy()
+    no_host_close['nrf_usbd_common_disable'] = no_host_close['nrf_usbd_common_disable'].replace(
+        'nrf_usbd_common_suspend_check() || r2_host_resume_pending', 'nrf_usbd_common_suspend_check()')
+    variants['negative-host-close'] = no_host_close
+
     no_acquire = fixed_functions.copy()
     no_acquire['r2_usb_dma_take'] = no_acquire['r2_usb_dma_take'].replace(
         'if (!r2_usb_common_failed()) return true;', 'return true;')
@@ -125,7 +134,7 @@ def main():
                            'Native pointer-width casts only map MCU DMA address payloads; all ordering branches retain generated bodies.',
                            'No hardware, remote wake, USB retry loop or retained radio role is introduced.'])
     (out / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
-    print('PASS exact common USB lifecycle/ownership and six negative controls; no hardware')
+    print('PASS exact common USB lifecycle/ownership and eight negative controls; no hardware')
 
 
 if __name__ == '__main__':

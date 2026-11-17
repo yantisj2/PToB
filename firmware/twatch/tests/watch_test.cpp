@@ -22,7 +22,7 @@ int main(){using namespace watch;View v;assert(valid(v.settings));v.touch(200,46
  std::array<uint16_t,Width*Height+2> pixels;pixels.fill(0xbeef);Model m;m.time_valid=true;m.utc_us=1794679698000000ULL;m.sampled_us=1;m.until_us=1000000;m.rms_ns=UINT32_MAX-1;m.hold_valid=true;m.hold_trials=100;m.hold_ms=UINT32_MAX;m.source=Source::BLE;
  render(pixels.data()+1,m,v,2);assert(pixels.front()==0xbeef&&pixels.back()==0xbeef);auto live=pixels;
  render(pixels.data()+1,m,v,250001);assert(pixels!=live);m.time_valid=false;auto expired=pixels;render(pixels.data()+1,m,v,2);assert(pixels==expired);
- for(auto screen:{Screen::Face,Screen::Launcher,Screen::Settings,Screen::Faces}){v.screen=screen;render(pixels.data()+1,m,v,2);assert(pixels.front()==0xbeef&&pixels.back()==0xbeef);}
+ for(auto screen:{Screen::Face,Screen::Launcher,Screen::Settings,Screen::Faces,Screen::Battery}){v.screen=screen;render(pixels.data()+1,m,v,2);assert(pixels.front()==0xbeef&&pixels.back()==0xbeef);}
  v.asleep=true;render(pixels.data()+1,m,v,2);assert(std::all_of(pixels.begin()+1,pixels.end()-1,[&](auto p){return p==pixels[1];}));
  // Analog lower bounds move the needle and carry an explicit >= unit mark.
  View analog;analog.settings.face=1;Model bounded;bounded.time_valid=true;bounded.sampled_us=1;bounded.until_us=1000000;bounded.utc_us=1794679698000000ULL;bounded.source=Source::BLE;bounded.hold_valid=true;bounded.hold_trials=100;bounded.hold_ms=58000;bounded.hold_lower=true;

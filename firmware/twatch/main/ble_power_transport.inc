@@ -48,6 +48,9 @@ void watch_power_prepare(ble_npl_event*){
  publish();watch_power_notify();
 }
 bool watch_start_stack(){
+ // The shared capture install checks 240MHz before acquiring its own lock.
+ // Boost before every SDK/host generation, including a same-boot restart.
+ if(!watch::energy::ble(true)){portENTER_CRITICAL(&mux);watch_power.fail(-5,micros());portEXIT_CRITICAL(&mux);return false;}
  portENTER_CRITICAL(&mux);const bool retired=watch_retired_resources_locked();portEXIT_CRITICAL(&mux);
  if(watch_host_epoch&&(!retired||!r2_watch_capture_retired()||!watch_rearm_after_off())){portENTER_CRITICAL(&mux);watch_power.fail(-16,micros());portEXIT_CRITICAL(&mux);return false;}
  if(watch_host_epoch==UINT32_MAX){portENTER_CRITICAL(&mux);watch_power.fail(-75,micros());portEXIT_CRITICAL(&mux);return false;}
@@ -82,6 +85,12 @@ bool watch_start_stack(){
  return true;
 }
 void watch_power_step(){
+ struct ReleaseCpu {
+  ~ReleaseCpu(){
+   portENTER_CRITICAL(&mux);const bool off=watch_power.off_ack()&&watch_retired_resources_locked();portEXIT_CRITICAL(&mux);
+   if(off&&r2_watch_capture_retired())(void)watch::energy::ble(false);
+  }
+ } release_cpu;
  portENTER_CRITICAL(&mux);watch_power.observe(micros());const auto stage=watch_power.stage;portEXIT_CRITICAL(&mux);
  if(stage==watch::BlePower::Init){(void)watch_start_stack();return;}
  if(stage==watch::BlePower::Draining){

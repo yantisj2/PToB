@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "license": "CC-BY-4.0",
+  "copyright": "2026 Jonathan Yantis",
+  "date": "2026-11-17",
+  "subject": "One LILYGO T-Watch Ultra V1 SX1262 test unit",
+  "scope": "Captured GNSS PPS compared with delivered BLE software-clock projection; provisional aggregate phase, no independent UTC/output qualification",
+  "baseline": {
+    "firmware": "0.1.9",
+    "application_sha256": "d1cec854c9f63c7bd6e83e70df5034e73b96c7893205b40d073c9e85990e8d6c",
+    "source_sha256": "ca130a3e0d674851447ee1c5ab5a6d65750e1f70e2744b55926f39ffd9eb8b14",
+    "settling_seconds": 10,
+    "selected_source": "direct BLE",
+    "samples": 14,
+    "mean_ns": -2910.4,
+    "p99_abs_ns": 3071,
+    "p99_approximate": true,
+    "rms_ns": 2911,
+    "selection": "Largest completed settled same-context population by sample count, without phase trimming, under operator lab time limit",
+    "run_seconds": 180.7816560000647,
+    "observed_PPS_edges_delta": 181,
+    "missing_PPS_edges_delta": 0,
+    "unusable_PPS_edges_delta": 33,
+    "other_populations": "Not combined; raw local trace retains resets, permission gaps and source changes",
+    "context_binding": "Firmware-enforced same-context cohort; exact per-edge GM identities not exported. The saved derivation source checkpoint is a later RC1 observation, distinct from this direct-BLE cohort."
+  },
+  "fixed_adjustment": {
+    "firmware": "0.1.10",
+    "application_sha256": "40a0a4bc79fbc4c98fe45681ce1046a2451439feb6d88bcc6c0a02e76ce11d3f",
+    "source_sha256": "5cebac0fb47487fa4ae0122f4dc72f8705e10503b18255a44adb4032283641d7",
+    "correction_ns": 2900,
+    "coordinate_step_ns": 50,
+    "phase80_before": 125808,
+    "phase80_after": 126040,
+    "runtime_GNSS_feedback": false,
+    "application_readback": "PASS",
+    "protected_prefix_and_partial_sector_tail": "UNCHANGED",
+    "configuration": "One tested unit local fine-input profile; not a public default or a constant for every build of this firmware version."
+  },
+  "post_correction": {
+    "status": "RESIDUAL_NOT_YET_VALIDATED",
+    "capture_seconds": 180.45327616704162,
+    "samples": 0,
+    "reason": "No valid GNSS/PPS comparison population after restart",
+    "arithmetic_prediction_is_measurement": false
+  },
+  "provenance": {
+    "selection": "Explicit sanitized aggregate export for README/device note; factory/boot/mesh identities, enrollment and raw captures excluded",
+    "baseline_record_sha256": "cd88ab1d61e38749f1dc54866802681d4ac1df8941c066fd9fca82c7fc76505b",
+    "baseline_trace_sha256": "16ea128773128982c09f11a8e4d4ed24857809b91423a7d6604fa8cfc20b7403",
+    "derivation_sha256": "09934257ad75135268a0f1dcc31fae06027c84d3d7da9f6acc05bbe39b554d44",
+    "correction_sign_test_sha256": "50a2704b444a59ce58b4f69a352932415d3ba3db4217d19ce8d8183217ab69f4",
+    "residual_capture_summary_sha256": "a59c73447a6d368041c4550c6df12c9b54f3674800759c0090820a86a425c83b",
+    "raw_evidence": "Retained privately; this record is not a full raw measurement dataset",
+    "context_clarification_sha256": "d90763607b5d47be7db590707e298d1fc8e362038adf9f91464ceb1ff3fb26a9"
+  }
+}

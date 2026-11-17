@@ -28,3 +28,11 @@ bool n30_fine_window_rearm();
 n30::fine::WindowStatus n30_fine_window_status();
 unsigned n30_fine_window_read(uint32_t after,n30::fine::Edge* out,unsigned capacity);
 unsigned n30_fine_window_late(uint32_t after,n30::fine::Window::Late* out,unsigned capacity,n30::fine::WindowStatus* snapshot=nullptr);
+
+// Independent GPIO13 physical PPS input on the otherwise unused CH1. It never
+// enters the radio history, packet association or production actuator.
+struct WatchPpsCapture {uint64_t tick20=0,seen_us=0;uint32_t number=0,incarnation=0,enclosure_ns=UINT32_MAX;bool valid=false;};
+bool watch_pps_start(uint64_t boot,uint64_t factory,uint64_t now);
+bool watch_pps_stop();
+bool watch_pps_healthy();
+bool watch_pps_take(WatchPpsCapture&,bool (*read20)(uint64_t*));

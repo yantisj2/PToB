@@ -11,7 +11,7 @@ int main(){
  assert(clock.present(input,86400001000ULL).time_valid); // indefinite display-only fallback until reboot
  assert(!clock.present(input,999).time_valid); // monotonic reset cannot retain an old anchor
  watch::View v;assert(v.settings.timeout_s==30);v.tick(29999999);assert(!v.asleep);v.tick(30000000);assert(v.asleep);
- v.asleep=false;v.screen=watch::Screen::Faces;v.touch(200,300,90000001);assert(v.settings.face==1&&v.dirty&&v.screen==watch::Screen::Face);
+ v.asleep=false;v.screen=watch::Screen::Faces;v.touch(200,230,90000001);assert(v.settings.face==1&&v.dirty&&v.screen==watch::Screen::Face);
  assert(watch::valid(v.settings));v.screen=watch::Screen::Settings;v.touch(200,260,90000002);assert(v.settings.timeout_s==60);v.touch(200,260,90000003);assert(v.settings.timeout_s==90);v.touch(200,260,90000004);assert(v.settings.timeout_s==15);
  // Wrist events wake only a sleeping face; repeated events never extend the glance.
  watch::View glance;glance.asleep=true;glance.screen=watch::Screen::Settings;
@@ -43,12 +43,13 @@ int main(){
  g.update(v,true,200,455,2100000);assert(g.update(v,false,0,0,2110000));assert(v.screen==watch::Screen::Launcher);
  v.screen=watch::Screen::Settings;auto brightness=v.settings.brightness;
  g.update(v,true,300,150,2200000);g.update(v,true,80,150,2210000);g.update(v,false,0,0,2220000);assert(v.settings.brightness==brightness&&v.settings.face==0);
- // Three faces wrap in both directions and Solar is a valid persistent setting.
+ // Four faces wrap in both directions; all are valid persistent settings.
  v={};g={};v.settings.face=1;
  g.update(v,true,300,200,3000000);g.update(v,true,80,200,3010000);g.update(v,false,0,0,3020000);assert(v.settings.face==2&&v.dirty&&watch::valid(v.settings));
- g.update(v,true,300,200,3100000);g.update(v,true,80,200,3110000);g.update(v,false,0,0,3120000);assert(v.settings.face==0);
- g.update(v,true,80,200,3200000);g.update(v,true,300,200,3210000);g.update(v,false,0,0,3220000);assert(v.settings.face==2);
- v.screen=watch::Screen::Faces;v.touch(200,370,3300000);assert(v.settings.face==2&&v.screen==watch::Screen::Face);
+ g.update(v,true,300,200,3100000);g.update(v,true,80,200,3110000);g.update(v,false,0,0,3120000);assert(v.settings.face==3);
+ g.update(v,true,300,200,3130000);g.update(v,true,80,200,3140000);g.update(v,false,0,0,3150000);assert(v.settings.face==0);
+ g.update(v,true,80,200,3200000);g.update(v,true,300,200,3210000);g.update(v,false,0,0,3220000);assert(v.settings.face==3);
+ v.screen=watch::Screen::Faces;v.touch(200,290,3300000);assert(v.settings.face==2&&v.screen==watch::Screen::Face);
  watch::Settings saved=v.settings;assert(watch::valid(saved)&&saved.face==2);
 
 }

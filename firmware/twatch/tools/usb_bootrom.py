@@ -26,7 +26,7 @@ def main():
  assert repo/'artifacts' in out.parents and not out.exists()
  assert subprocess.run(['git','-C',str(repo),'check-ignore','--quiet',str(out)]).returncode==0
  r=json.loads(a.receipt.read_text());assert r['artifact_class']=='PTOB_TWATCH_RC' and r['device_id']=='0000'+factory.replace(':','')
- manifest=dict(r['runtime_identity'],factory_mac=factory,r2_profile='r2-g1',console_frame_bytes=8704,fault_watchdog='SUSTAINED_FAULT_120S_V1')
+ manifest=dict(r['runtime_identity'],factory_mac=factory,r2_profile='r2-g1',console_frame_bytes=8704,fault_watchdog='SUSTAINED_FAULT_120S_V1',control_contract=r.get('control_contract'))
  ports=[q for q in list_ports.comports() if (q.vid,q.pid)==(0x303a,0x1001) and (q.serial_number or '').lower()==factory]
  assert len(ports)==1,'Exact native USB watch required'
  port=ports[0].device;out.mkdir(mode=0o700)
@@ -40,7 +40,7 @@ def main():
    def request(action=None,prior=None):
     nonlocal session
     nonce=console.fresh_nonce();parser=console.Parser(nonce,manifest,session)
-    usb.write(console.status_command(nonce) if action is None else console.mutation_command(prior,nonce,action))
+    usb.write((console.control_status_command(nonce) if r.get('control_contract')=='BOUNDED_CONTROL_V1' else console.status_command(nonce)) if action is None else console.mutation_command(prior,nonce,action))
     until=time.monotonic()+1.5
     while time.monotonic()<until:
      data=usb.read(8192);log.write(data);log.flush();found=parser.feed(data)

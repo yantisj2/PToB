@@ -52,6 +52,7 @@ static bool nrf_usbd_common_errata_211(void){return true;}
 static int dma_available=1, dma_ep=0x81;
 static uint32_t r2_dma_completions;
 static unsigned r2_lifecycle_failure;
+static bool r2_host_resume_pending;
 static unsigned atomic_get(unsigned *p){return *p;}
 static unsigned k_sem_count_get(int *s){return *s;}
 static bool irq_is_enabled(int irq){(void)irq;return enabled;}
@@ -120,6 +121,13 @@ int main(void){
  regs.USBPULLUP=0;regs.FRAMECNTR=0;dma_ep=0x82;ctx.ep0_generation=44;ctx.health_progress=1377;
  r2_usb_health_snapshot(s);assert(s[0]==0x8205ec1f);
  assert(!r2_usb_health_stalled(&h,s,140000));assert(!r2_usb_health_stalled(&h,s,240000));
+ /* An unfinished host wake is observable even when unrelated work progresses. */
+ r2_host_resume_pending=true;h=(struct r2_usb_health){0};r2_usb_health_snapshot(s);
+ assert(s[0]&512);assert(!r2_usb_health_stalled(&h,s,0));
+ ctx.health_progress+=100;r2_usb_health_snapshot(s);
+ assert(r2_usb_health_stalled(&h,s,30000));
+ r2_host_resume_pending=false;r2_usb_health_snapshot(s);
+ assert(!r2_usb_health_stalled(&h,s,30001));
  /* Pending work/DMA and missing readiness/ENABLE/IRQ still fail in suspend. */
  ctx.health_pending=1;r2_usb_health_snapshot(s);
  assert(!r2_usb_health_stalled(&h,s,250000));assert(r2_usb_health_stalled(&h,s,280000));

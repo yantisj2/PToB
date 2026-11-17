@@ -2,10 +2,10 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Revision one prioritizes continuous timing reception. BLE listens at 100%; LoRa
-runs passive continuous RX on its own SPI host. Neither source is suspended when
-the display sleeps. This sets a real power floor: deep-sleep battery figures from
-the vendor do not describe this receiver workload.
+BLE listens at 100%; LoRa learns authenticated transmit windows on its own SPI
+host and sleeps between them. Unknown or missed schedules use continuous RX.
+Display sleep does not stop the clock or either enabled receiver policy. MCU
+deep-sleep battery figures do not describe this workload.
 
 ## First revision
 
@@ -21,7 +21,7 @@ the vendor do not describe this receiver workload.
   8-row internal DMA strip. Bound SPI and
   I2C transactions; fence a failed display transfer instead of reusing in-flight
   buffers. The UI runs at low priority on the core opposite BLE.
-- Disable the main GNSS BLDO1 supply. Preserve backup and CPU rails. SD, audio,
+- Gate the main GNSS BLDO1 supply to the awake, visible Shadow face. Preserve backup and CPU rails. SD, audio,
   NFC supplies are off. Enable the sensor’s ALDO4 at 1.8 V for Bosch
   glance detection; only gesture events are subscribed. Do not rewrite battery gauge calibration,
   charge voltage or charge current during app startup.
@@ -29,10 +29,62 @@ the vendor do not describe this receiver workload.
   motion does not extend the glance. Touch restores the normal timeout.
 - Persist user settings only on changes. Do not persist radio candidates,
   clock fits or timing permission. Reboot requires fresh authenticated admission.
-- Keep the timing counter continuous. CPU scaling/light sleep/deep sleep are
-  deferred until capture continuity, radio deadlines and wake behavior are tested.
+- Keep the timing counters continuous. CPU frequency scaling uses an 80 MHz
+  minimum and 240 MHz maximum with explicit BLE and panel holds. MCU light
+  sleep and deep sleep remain disabled.
+
+## CPU, console and panel power
+
+The CPU uses ESP-IDF frequency scaling between 80 and 240 MHz. Active tasks
+can still run at 240 MHz; 80 MHz is the eligible idle floor, not a promise that
+all screen-off work runs at 80 MHz. BLE capture keeps its existing 240 MHz
+requirement. An additional watch hold boosts before SDK/capture initialization
+and releases only after actual controller, host and capture retirement. The UI
+holds 240 MHz during presentation and releases it after panel sleep. The XTAL
+20 MHz coordinate and APB 80 MHz capture clocks remain continuous. No timing
+phase correction, LoRa schedule or IMU configuration changes with this policy.
+
+With VBUS absent, console input performs no driver reads, routine USB text and
+hex rendering are skipped, and output blocks on task notification. Empty output
+also blocks on USB. Pending output retains its existing bounded retry and
+expiry. Cable transitions abandon queued/partial output with explicit drop
+counters, disarm diagnostic capture, and invalidate partial input lines; old
+responses do not replay after reconnect. The existing UI PMU observation updates
+VBUS state every 500 ms, so disconnect handling has that observation latency.
+Persistent fault recording remains independent of USB. A charge-only supply
+still counts as VBUS; it is not evidence that a host is reading diagnostics.
+
+Panel sleep sends Display Off and Sleep In, waits 120 ms, then lowers only the
+XL9555 display-enable output. ALDO2 and the CST9217 touch controller remain
+powered; touch reset and touch polling are preserved. Wake raises display enable,
+sends Sleep Out and waits 120 ms before transferring fresh pixels and issuing
+Display On. Do not substitute an ALDO2 cutoff: the vendor documents increased
+leakage with that approach. Physical touch reliability and energy savings require
+field observation.
+
+`TWATCH_UI` adds `cpu_mhz`, `cpu_ble`, `cpu_panel` and `cpu_rc`. The frequency is
+a sample taken during an active status task; it does not measure idle residency
+or current. `cpu_rc` retains the first power-manager failure. Source permissions,
+counter-wrap service and the main timing loop's cadence are preserved.
+
+Offline regressions include the actual power-manager calls, owner holds, failed
+acquire/release, repeated BLE startup/teardown, panel command ordering, USB
+dormancy, partial-frame disconnect, reconnect and original response expiry:
+
+```sh
+python3 firmware/twatch/tools/energy_tests.py --out artifacts/watch-energy-01
+python3 firmware/twatch/tools/console_input_tests.py --out artifacts/watch-input-01
+```
 
 ## Measure before optimizing
+
+The Battery app records gauge percentage every 30 seconds, including display
+sleep, and integrates actual panel-on time into minute buckets in PSRAM. Its
+aligned 1/6/12/24-hour charts default to one hour and retain a rolling 24-hour
+boot session. Partial-minute window edges are proportional. System uptime is
+shown separately. Neither gauge history nor display duty cycle measures current,
+energy or battery endurance. The upper-left PMU key explicitly sleeps/wakes the
+panel even on USB; this does not change either radio's runtime policy.
 
 Record battery current, voltage, display duty cycle, uptime, reset reason and
 source continuity for screen-on, screen-off, BLE acquisition, BLE lock and LoRa
@@ -43,8 +95,9 @@ rates with display activity; report battery lifetime only from actual discharge.
 
 Then consider lower brightness, partial panel updates and a verified light-sleep
 policy. Deep sleep is an explicit receiver-off mode and must never masquerade as
-continuous LoRa fallback. GNSS shadow PPS remains a later opt-in revision with
-verified PPS routing and a power budget; it cannot silently discipline BLE.
+continuous LoRa fallback. The Shadow face requests GNSS only while visible and awake, with verified main-rail
+OFF on exit/sleep and independent capture retirement. Its reception, physical PPS
+routing and power budget remain hardware checks; it cannot discipline BLE.
 
 ## Radio power implementation
 
@@ -52,9 +105,10 @@ BLE Settings OFF now drains receiver ownership, stops the NimBLE host and
 successfully disables/deinitializes the controller before acknowledging OFF.
 The previous activity-only stop left the controller initialized. This change
 establishes controller state, not measured battery savings. LoRa remains
-independent and uses continuous boosted RX (`SetRx(0xffffff)`); its worker still
-wakes every 2 ms. The window scheduler is observation-only: radio sleep is not
-enabled.
+independent and uses boosted RX (`SetRx(0xffffff)`) inside guarded windows,
+with configuration-retaining sleep between them. Its worker polls at 2 ms while
+receiving and 50 ms while asleep; OFF and maintenance notifications interrupt
+the wait. The MCU and timing counter remain running.
 
 ### 1. BLE controller OFF and restart
 
@@ -82,98 +136,79 @@ The retained display clock does not grant fresh timing authority.
 Enabled-controller modem sleep remains a separate experiment requiring fine
 capture continuity checks. USB diagnostics expose requested and actual states.
 
-### 2. Learn and shadow LoRa receive windows
+### 2. Learn receive windows
 
-The watch's fixed-channel schedule8 is **30 s per timing pair**, **360 s between
-periodic META** (12 beats), with SYNC at nominal slot +7 s and FOLLOW nominally
-2.5 s later; the existing FOLLOW acceptance limit is 4.5 s. Launch delay,
-packet airtime, header capture and processing deadlines must remain distinct.
-These values come from `firmware/t096/protocol/lora_passive_schedule.h`, not the
-ordinary non-fixed profile's 300 s metadata cadence.
+The fixed-channel schedule8 uses a **30-second timing-pair cycle** and periodic
+**META every 360 seconds**. The watch starts in continuous RX and requires four
+consecutive authenticated pairs plus two META observations one cycle apart in
+the same transmitter/boot/context. Physical receive timestamps set the phase;
+UTC modulo arithmetic and unauthenticated RF activity do not qualify a schedule.
 
-Start in continuous RX. Require authenticated META and at least four successful
-pairs in the same emitter/boot/stream/context before predicting sleeps. Use
-physical receive timestamps and authenticated cursor progression, not UTC modulo
-30 s or unauthenticated RF activity. First run the scheduler in shadow mode,
-recording whether its proposed windows would have captured every actual packet.
+Wake starts **2 seconds before predicted SYNC or META**, including radio startup.
+Once an authenticated SYNC/FOLLOW pair completes, sleep immediately unless the
+META window is still outstanding; authenticated META likewise completes its own
+window. SYNC alone, bad authentication or an incomplete packet cannot end RX.
+If data is missing, listen through **8 seconds after SYNC** or **2 seconds after
+META**, then discard the forecast and remain in continuous RX. Overlapping
+windows merge. A pending header/payload blocks sleep.
 
-Initial conservative proposal: RX from **4 s before predicted SYNC until 8 s
-after it**, covering both packets. Derive extra margin from measured scheduling
-residuals, elapsed oscillator drift, TCXO/startup time and task wake latency;
-never shrink below the initial margin in the first release. Keep RX through any
-in-flight header/payload or pending FOLLOW deadline. Add an overlapping window
-for META approximately 7 s ahead of SYNC on its scheduled beat. Unknown META
-phase means continuous RX until learned; skipped/retried or manually requested
-META must not be assumed to follow the regular phase.
+A single missed pair or META window discards the entire forecast, including its
+META phase. The radio remains in continuous RX until four consecutive pairs and
+two periodic META observations qualify again. Reacquisition can therefore take
+more than six minutes. A changed emitter/boot/context, irregular cadence,
+out-of-window packet, invalid capture map or worker gap over 250 ms also cancels
+the forecast. This policy applies whether BLE or LoRa supplies the display.
+It never extends source permissions or timing evidence.
 
-A missed pair, out-of-window packet in shadow mode, stale metadata, counter/map
-fault or changed emitter/boot/context returns immediately to continuous RX.
-Relearn before sleeping again. This also discovers replacement transmitters
-whose phase differs from the old source. Source selection remains independent:
-LoRa follows this policy whether BLE is selected or OFF. The displayed held
-clock keeps running during reacquisition, with stale quality withdrawn.
+### 3. Configuration-retaining radio sleep
 
-### 3. Sleep the SX1262 without discarding timing state
+Only the SX1262 sleeps. The capture timer/epoch, clock estimator, authentication
+and replay floors remain alive. The worker continues bounded counter-map upkeep
+at 50 ms rather than polling every 2 ms. Source loss retains the watch clock
+under the existing HOLD policy, with unknown accuracy.
 
-Use configuration-retaining radio sleep between windows, with a timer wake and
-bounded NSS/BUSY/TCXO startup, rather than invoking the existing LoRa OFF/reset
-path each cycle. Preserve authentication, replay floors, estimator, continuous
-capture counter and its epoch. Refresh the capture-to-reference mapping before
-RX and refuse precision if its mapping is stale; never reuse an unverified old
-map. Clear retired IRQ state and verify boosted-gain configuration on wake.
-Keep boosted RX initially to avoid trading field sensitivity for power.
+The owner enters standby and rechecks pending IRQ state before `SetSleep(0x04)`.
+It does not wait for BUSY after sleep: BUSY remains high until wake. SPI stays
+quiet for at least 500 µs. Wake asserts NSS before the bounded BUSY wait, verifies
+standby status, restores/verifies boosted gain, and rearms continuous RX.
+The two-second lead includes startup; no timing calibration is changed.
 
-Replace the 2 ms worker polling during sleep with deadline/event waits. Keep
-maintenance/OFF/fault notifications immediately actionable, and prevent the
-heartbeat watchdog from treating deliberate sleep as a stalled worker. This
-first step sleeps only the radio; MCU deep sleep and changes to the continuous
-timebase remain out of scope.
+OFF/maintenance uses the existing reset and bounded capture retirement instead
+of pretending sleep is OFF. Wake/SPI failures use the existing radio-only fault
+path; they do not reboot the watch or discard its retained time. A header racing
+standby or an unexpected IRQ during sleep cancels the schedule and resumes RX.
 
-Semtech's [SX126x reference driver](https://github.com/Lora-net/sx126x_driver/tree/v2.3.2)
-provides sleep, wake HAL and RX duty-cycle primitives. Prefer host-scheduled
-windows for our two-packet protocol; autonomous `SetRxDutyCycle` requires separate
-preamble and timeout analysis. Semtech also lists
-[AN1200.36 on its SX1262 page](https://www.semtech.com/products/wireless-rf/lora-connect/sx1262).
-Chip typical currents are not watch-level battery measurements.
+Protocol commands follow Semtech's
+[SX126x reference driver](https://github.com/Lora-net/sx126x_driver/tree/v2.3.2)
+and the SX1261/2 command-interface sleep/wake requirements. This is host-scheduled
+sleep, not `SetRxDutyCycle`. No Semtech driver source is copied into this owner.
 
-### Validation and rollout
+### Diagnostics and validation
 
-First qualify real BLE controller OFF/ON, then shadow LoRa scheduling, then
-opt-in radio sleep. Test late/early packets, skipped cycles, missing FOLLOW/META,
-new transmitters, stale callbacks, wake failures and OFF/maintenance while asleep.
-Compare continuous and windowed RX for accepted pairs, missing samples, RMS,
-holdover, source transitions and clock continuity. Add RAM counters for RX/sleep
-residency, wake lateness, missed windows, fallback reasons and emitter changes;
-read detail over USB, with no periodic flash logging.
+`lora diag` reports `TWATCH_LORA_SHADOW version=2 shadow_only=0` for the learned
+forecast and `TWATCH_LORA_SLEEP version=1` for actual owner state. The latter
+includes `sleeping`, `active`, `sleeps`, `wakes`, `refused`, `sleep_us`, `rx_us` and
+`transition_us`. Residency is sampled software state, not measured current.
+All counters are RAM-only; there is no periodic flash logging.
 
-The initial ordinary window is 12/30 s RX, or a theoretical 60% reduction in RX
-residency before META windows and recovery overhead. It is not a 60% reduction
-in total watch power. Measure battery-side current with display asleep for BLE
-ON, true BLE OFF with continuous LoRa, and true BLE OFF with windowed LoRa.
-Retain continuous RX as the fallback until live transmitter and field tests pass.
+Forecast fields retain `qualified`, `meta_phase`, `next_sync_us`, `next_meta_us`,
+`covered`, `outside`, `misses` and `resets`. Reasons: 0 learning, 1 tracking,
+2 OFF/fault, 3 context change, 4 missing pair, 5 outside window, 6 cadence,
+7 clock reversal, 8 META unavailable, 9 worker/IRQ discontinuity, 10 map unavailable.
+Forecast `would_rx` predicts receive demand; use the separate sleep record to
+inspect actual residency. The additional `wake_lead_us` is zero in this policy.
 
-## Shadow scheduler diagnostics
+```sh
+python3 firmware/twatch/tools/lora_shadow_tests.py --out artifacts/watch-windows-01
+python3 firmware/twatch/tools/radio_owner_tests.py --out artifacts/watch-sleep-owner-01
+python3 firmware/twatch/tools/radio_tests.py --idf "$IDF_PATH" --out artifacts/watch-radio-01
+```
 
-The shadow-only scheduler leaves continuous boosted RX unchanged. It observes
-only authenticated/admitted META, SYNC and completed pairs through the actual
-receiver. Four consecutive pairs and two META events approximately 360 seconds
-apart are required before it predicts sleeping. The `lora diag` USB response
-adds `TWATCH_LORA_SHADOW`, version 1, with `shadow_only=1` and `sleeping=0`.
-
-`tracking`, `meta_phase`, `qualified`, `next_sync_us` and `next_meta_us` describe
-learning. `would_rx` is the proposed state only. `covered` and `outside` score
-packets against the forecast before the packet changes it; `misses` counts
-expired expected pair windows. `rx_us` and `sleep_us` are sampled virtual
-residency while the receiver is active; OFF/fault time is separate `inactive_us`.
-Service gaps longer than 250 ms go into `unknown_us`, not savings.
-Reasons are 0 learning, 1 tracking, 2 OFF/fault, 3 changed context, 4 missing
-pair, 5 outside window, 6 cadence mismatch, 7 clock reversal, 8 META unavailable.
-All counters are RAM-only. No state enables radio sleep or changes timing leases.
-
-Offline checks: `python3 firmware/twatch/tools/lora_shadow_tests.py --out
-artifacts/watch-lora-shadow-check`. The actual authenticated event bridge is
-also exercised by `radio_tests.py`. Live shadow coverage needs a running TX and
-at least two metadata broadcasts before any proposed savings can be evaluated.
+These offline tests cover windows, complete relearning, the actual owner's
+SPI/BUSY/IRQ boundaries, cancellation and failure containment with simulated
+peripherals. Live window coverage, late/early transmissions, train resets,
+out-of-range return, clock continuity and battery-side current still require
+hardware validation. No measured battery-life improvement is claimed.
 
 ## BLE controller lifecycle diagnostics
 
@@ -214,3 +249,27 @@ frame said `ready=1`. Phases: 0 not started, 1 initialization, 2 input, 3 IMU,
 9 rendering, 10 transfer, 11 waiting, 12 shutdown, 13 stopped, 14 failed.
 The live power-cycle harness rejects an awake USB display snapshot over three
 seconds old. A finite passing capture does not establish indefinite stall freedom.
+
+## Field test for the power candidate
+
+Use the same brightness, timeout, face and radio settings for comparisons.
+
+1. Unplug USB, set BLE OFF and leave LoRa in its normal enabled mode. Let the
+   screen time out, then try at least 20 touch wakes, including after 10 minutes
+   asleep. Each first touch should reveal the current time; a second gesture
+   operates the UI. Check both buttons and every face for a black or stale frame.
+2. Use the Battery app's 1h and 6h charts to record starting/ending percentage,
+   elapsed time and display-on total. A two-hour comparison is useful; an
+   overnight run is stronger. Record restarts, warm casing, missed wakes and
+   unexpected display activity. Percentage is not a measured current.
+3. Turn BLE ON, confirm reception returns, then repeat OFF/ON and touch wake
+   several times. Report a persistent WAIT/FAULT, frozen time, backward step or
+   lost touch response. Leave LoRa and wrist detection at their normal settings.
+4. Reconnect USB after a long battery interval. Diagnostics and ordinary update
+   access should return within a few seconds. Check that Battery history and
+   uptime survived; an unexplained reset is a failure, even if time reacquires.
+
+If the screen fails to wake, try the upper-left power key and retain the
+circumstances. Use the documented BOOT/recessed-RESET recovery only when needed.
+A passing field run establishes finite behavior, not independently measured
+UTC accuracy or calibrated battery capacity.

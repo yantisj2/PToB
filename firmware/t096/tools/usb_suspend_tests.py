@@ -75,7 +75,7 @@ def main():
 enum {NRFX_DRV_STATE_UNINITIALIZED, NRFX_DRV_STATE_INITIALIZED,
       NRFX_DRV_STATE_POWERED_ON};
 static struct {
- uint32_t ENABLE, EVENTCAUSE, ISOSPLIT, ISOINCONFIG, EVENTS_ENDEPIN[9], LOWPOWER;
+ uint32_t ENABLE, EVENTCAUSE, ISOSPLIT, ISOINCONFIG, EVENTS_ENDEPIN[9], LOWPOWER, EVENTS_SOF, INTENSET;
 } regs;
 #define NRF_USBD (&regs)
 static uint32_t unlock_register, workaround_register;
@@ -85,7 +85,8 @@ static volatile uint32_t *mmio(uintptr_t address) {
  return address == UINT32_C(0x4006ec00) ? &unlock_register : &workaround_register;
 }
 static bool affected187, affected211, affected223;
-static bool m_first_enable, m_bus_suspend, r2_wakeup_requested;
+static bool m_first_enable, m_bus_suspend, r2_wakeup_requested, r2_host_resume_pending;
+static uint32_t r2_host_resume_inten;
 static unsigned m_drv_state, dma_available, m_dma_odd, dma_clears, stops, dma_ep, r2_lifecycle_failure;
 static int64_t fake_ms;
 static unsigned atomic_get(unsigned *p){return *p;}
@@ -94,8 +95,10 @@ static int64_t k_uptime_get(void){return fake_ms;}
 static void k_sleep(unsigned ms){fake_ms+=ms;}
 static bool irq_is_enabled(unsigned irq){(void)irq;return true;}
 static void irq_disable(unsigned irq){(void)irq;}
+#define USBD_INTEN_SOF_Msk 2u
 #define USBD_IRQn 39
 static bool nrf_usbd_common_suspend_check(void){return regs.LOWPOWER!=0;}
+static bool nrf_usbd_common_is_started(void){return m_drv_state==NRFX_DRV_STATE_POWERED_ON;}
 static uint32_t m_ep_ready, m_ep_dma_waiting, m_last_setup_dir;
 static bool nrf_usbd_common_errata_187(void) {return affected187;}
 static bool nrf_usbd_common_errata_211(void) {return affected211;}

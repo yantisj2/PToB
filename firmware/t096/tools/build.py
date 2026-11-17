@@ -80,6 +80,7 @@ def main():
     parser.add_argument('--profile', choices=['GM', 'RC', 'DC', 'PC'], required=True)
     parser.add_argument('--pc-parent', help='Exact direct-GM identity, or auto for authenticated direct-GM discovery')
     parser.add_argument('--registry', type=Path, default=REPO/'registry/example.json')
+    parser.add_argument('--lora-boot-tx', action='store_true', help='Explicit GM passive-slow local TX boot default; preserves mesh priority and source admission')
     parser.add_argument('--lora-boot-rx', action='store_true', help='Boot passive slow in RX even on designated TX; manual TX remains available')
     parser.add_argument('--lora-transmitter-factory', help='Explicit normal-image sole LoRa TX factory ID; absent disables LoRa')
     parser.add_argument('--lora-passive-fast', action='store_true', help='Default-off RAM_LAB_4_12 image; explicit per-boot console selection required')
@@ -90,6 +91,7 @@ def main():
     parser.add_argument('--lora-passive-slow', action='store_true', help='Production30/120/300 schedule; normal GM/RC boot with RX on')
     parser.add_argument('--lora-backup-transmitter-factory', help='Explicit first own-GNSS backup emitter')
     parser.add_argument('--controller-diagnostics', action='store_true', help='Opt-in normal GM/RC prepare FIFO diagnostic canary')
+    parser.add_argument('--usb-awake-control', action='store_true', help='Diagnostic normal GM/RC image: keep USB PHY awake while still reporting bus suspend')
     parser.add_argument('--development', action='store_true')
     parser.add_argument('--gm7', action='store_true', help='Explicit normal GM7 selection (already the GM/RC default)')
     parser.add_argument('--legacy-gm-regression', action='store_true', help='Historical GM5/6 regression image only; never an automatic fallback')
@@ -125,6 +127,10 @@ def main():
     if (args.gm7 and args.legacy_gm_regression) or ((dc or pc) and (args.gm7 or args.legacy_gm_regression)):
         parser.error('GM backend selectors apply only to normal GM/RC and are mutually exclusive')
     args.gm7 = not (dc or pc or args.legacy_gm_regression)
+    if args.usb_awake_control and not args.gm7:
+        parser.error('USB awake control requires a normal GM/RC image')
+    if args.lora_boot_tx and (args.lora_boot_rx or not args.lora_passive_slow or args.profile!='GM' or not args.gm7 or args.lora_bw_experiment or args.lora_tx_diagnostic):
+        parser.error('TX boot override requires ordinary passive slow GM without RX override')
     try:
         tz = time_zone_config(args.tz_mode,args.tz_id,args.tz_offset_min,args.gm7)
     except ValueError as error:
@@ -195,7 +201,7 @@ def main():
                'registry_sha256':sha(args.registry),
                'registry_generator_sha256':sha(REPO/'registry/registry.py'),
                'device_config_sha256':sha(args.device_config),
-               'lora_transmitter_factory':transmitter,'lora_boot_rx':args.lora_boot_rx,
+               'lora_transmitter_factory':transmitter,'lora_boot_rx':args.lora_boot_rx,'lora_boot_tx':args.lora_boot_tx,
                'lora_backup_transmitter_factory':backup,'lora_passive_slow':args.lora_passive_slow,
                'lora_tx_diagnostic':args.lora_tx_diagnostic,
                'lora_bw_experiment':args.lora_bw_experiment,
@@ -204,6 +210,8 @@ def main():
                'secondary_lora_class':'RAM_FIXED500_30_360' if args.lora_fixed500_experiment else ('RAM_BW_SWEEP_30' if args.lora_passive_slow else 'RAM_BW_AB_4_12') if args.lora_bw_experiment else 'RAM_DIAG_4_12' if args.lora_tx_diagnostic else 'RAM_30_120_300' if args.lora_passive_slow else 'RAM_LAB_4_12' if args.lora_passive_fast else 'RC8' if int(transmitter,16) else 'DISABLED',
                'lora_passive_fast':args.lora_passive_fast}
     if args.gm7:receipt['rc_check_site_encoding']='RC_CHECK_LINE12_EIO_V1'
+    receipt['usb_awake_control'] = args.usb_awake_control
+    receipt['usb_power_policy'] = 'PHY_AWAKE_DIAGNOSTIC_BUS_SUSPEND_PRESERVED' if args.usb_awake_control else 'NORMAL_SUSPEND'
     receipt['time_zone'] = tz
     receipt['lora_rx_gain'] = 'SX1262_BOOSTED_08AC_96_READBACK_KCT8103L_RX_LNA_V1'
     if args.lora_bw_experiment:
@@ -304,7 +312,9 @@ def main():
              '-DR2_GM7_NATIVE='+('ON' if args.gm7 else 'OFF'),
              '-DR2_LEGACY_GM_REGRESSION='+('ON' if args.legacy_gm_regression else 'OFF'),
              '-DR2_CONTROLLER_DIAGNOSTICS='+('ON' if args.controller_diagnostics else 'OFF'),
+             '-DR2_USB_AWAKE_CONTROL='+('ON' if args.usb_awake_control else 'OFF'),
              '-DR2_SOURCE_DIRTY='+str(int(dirty)),
+             '-DR2_IMAGE_PROFILE='+args.profile,
              '-DR2_LORA_PASSIVE_FAST='+('ON' if args.lora_passive_fast else 'OFF'),
              '-DR2_LORA_TX_DIAGNOSTIC='+('ON' if args.lora_tx_diagnostic else 'OFF'),
              '-DR2_LORA_BW_EXPERIMENT='+('ON' if args.lora_bw_experiment else 'OFF'),
@@ -316,6 +326,7 @@ def main():
                 '-DR2_TZ_MANUAL_MIN='+str(tz['offset_min'])] if tz else []),
              '-DR2_LORA_TRANSMITTER_FACTORY='+transmitter,
              '-DR2_LORA_BOOT_RX='+('ON' if args.lora_boot_rx else 'OFF'),
+             '-DR2_LORA_BOOT_TX='+('ON' if args.lora_boot_tx else 'OFF'),
              '-DZEPHYR_MODULES='+';'.join(str(deps/p['path']) for p in lock['modules']),
              *(['-DR2_DC_PROFILE=ON','-DCONF_FILE='+str(APP/'dc.conf'),'-DDTC_OVERLAY_FILE='+str(APP/'dc.overlay')] if dc else
                [*(['-DR2_PC_PROFILE=ON'] if pc else ['-DDTC_OVERLAY_FILE='+str(APP/('lora_passive.overlay' if (args.lora_passive_fast or args.lora_passive_slow) else 'lora.overlay'))]),*(['-DR2_PC_AUTO_PARENT=ON'] if pc_auto else []),'-DEXTRA_CONF_FILE='+';'.join(str(APP/p) for p in ['rc_dynamic.conf','rc_unicast.conf','watchdog.conf','rc_hf_synth.conf']+([] if pc else ['lora.conf']+(['lora_passive.conf'] if (args.lora_passive_fast or args.lora_passive_slow) else [])))])]
@@ -335,6 +346,8 @@ def main():
             private_hash=hashlib.sha256((private_hash+':event-delay-ns:'+str(args.lora_fixed500_event_delay_ns)).encode()).hexdigest()
         if args.controller_diagnostics:private_hash=hashlib.sha256((private_hash+':controller-diag:1').encode()).hexdigest()
         if args.lora_boot_rx:private_hash=hashlib.sha256((private_hash+':lora-boot-rx:1').encode()).hexdigest()
+        if args.lora_boot_tx:private_hash=hashlib.sha256((private_hash+':lora-boot-tx:1').encode()).hexdigest()
+        if args.usb_awake_control:private_hash=hashlib.sha256((private_hash+':usb-awake-control:1').encode()).hexdigest()
         binding=hashlib.sha256((source_hash+':'+private_hash+':'+sha(target/'.config')).encode()).hexdigest()
         if '#define R2_WATCHDOG_BINDING "'+binding+'"' not in (out/'target/build_identity.h').read_text():
             raise ValueError('Watchdog binding mismatch')
@@ -355,10 +368,22 @@ def main():
             else:raise ValueError('Unexpected compiled source')
         receipt['artifacts']={str(p.relative_to(out)):sha(p) for p in out.rglob('*') if p.is_file()
                               and (p.suffix in ['.elf','.bin','.hex','.map','.uf2','.su'] or p.name in ['.config','zephyr.dts','build_identity.h','ptob_device.h','ptob_registry.h','registry.json','device.json','registry_generator.py','r2_enrollment.h','compile_commands.json','rc_check_sites.json'])}
+        if args.lora_passive_fast or args.lora_passive_slow:
+            # These are native audit inputs, not disposable intermediates:
+            # inspect() checks every application's NV reference and the two
+            # fault owners' mutable allocations after ordinary compaction too.
+            for name in ('target/app/libapp.a',
+                         'target/CMakeFiles/app.dir/src/fault_boot.c.obj',
+                         'target/CMakeFiles/app.dir/src/fault_store.c.obj'):
+                if not (out/name).is_file():
+                    raise ValueError('Missing native inspection input: '+name)
+                receipt['artifacts'][name]=sha(out/name)
         receipt['status']='DEVELOPMENT_NOT_FLASHABLE' if dirty else 'BUILD_COMPLETE_PHYSICAL_UNKNOWN'
         write(out/'receipt.json',receipt)
         from inspect_build import inspect
         write(out/'inspection.json',inspect(out,allow_development=args.development))
+        receipt['artifacts']['inspection.json']=sha(out/'inspection.json')
+        write(out/'receipt.json',receipt)
         print('Build and portable layout checks passed:',out)
     except BaseException:
         receipt['status']='FAILED';write(out/'receipt.json',receipt);raise

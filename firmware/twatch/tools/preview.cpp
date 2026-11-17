@@ -54,6 +54,40 @@ int main(int argc,char** argv){if(argc!=3)return 2;watch::Model m;m.ble_state=wa
   if(!std::strcmp(argv[1],"solar-over")){m.rms_ns=10001;m.hold_lower=true;m.source_rssi=-108;}
   m.utc_us=utc*1000000;m.calendar=watch::calendar::snapshot(utc,m.time_valid,m.local_time);
  }
- static uint16_t frame[watch::Width*watch::Height];watch::render(frame,m,v,1000000);
+ uint64_t now=1000000;
+ static watch::BatteryHistory history;
+ if(!std::strncmp(argv[1],"battery",7)){
+  v.screen=watch::Screen::Battery;now=25*watch::BatteryHistory::Hour+23*watch::BatteryHistory::Minute;m.uptime_s=now/1000000;m.battery_history=&history;
+  if(!std::strcmp(argv[1],"battery-6h"))v.battery_hours=6;
+  if(!std::strcmp(argv[1],"battery-12h"))v.battery_hours=12;
+  if(!std::strcmp(argv[1],"battery-24h"))v.battery_hours=24;
+  const bool empty=!std::strcmp(argv[1],"battery-empty"),missing=!std::strcmp(argv[1],"battery-unavailable"),low=!std::strcmp(argv[1],"battery-low"),usb=!std::strcmp(argv[1],"battery-usb"),gaps=!std::strcmp(argv[1],"battery-gaps");
+  if(empty){now=18000000;m.uptime_s=18;m.battery=-1;history.observe(now,false);}
+  else if(missing){m.battery_history=nullptr;m.battery=-1;}
+  else{
+   history.observe(0,false);
+   for(uint64_t t=0;t<=now;t+=30000000){const uint64_t minute=t/watch::BatteryHistory::Minute;const bool on=minute%11<2||minute%23==0;
+    history.observe(t,on);int level=low?4:usb?std::min(100,60+int(t*36/now)):98-int(t*14/now);
+    if(gaps&&minute%19<5)level=-1;
+    history.sample(t,level,usb);
+   }
+   history.observe(now,false);m.battery=low?4:usb?96:84;m.charging=usb;
+  }
+ }
+ if(!std::strncmp(argv[1],"shadow",6)){
+  v.settings.face=3;auto& s=m.shadow;s.sampled_us=now;s.powered=true;s.stage=watch::ShadowStage::Measuring;s.fix=true;s.pps=true;s.last_pps_us=now-50000;s.fix_dimension=3;s.in_view=18;s.used=11;s.satellite_count=12;s.valid=true;s.samples=128;s.mean_tenth_ns=874;s.p99_ns=246;s.rms_ns=112;s.settling_ms=10000;
+  for(unsigned i=0;i<12;++i)s.satellites[i]={uint16_t(i+1),uint16_t((i*137)%360),uint8_t(10+(i*23)%75),uint8_t(22+(i*7)%30),'G'};
+  if(!std::strcmp(argv[1],"shadow-search")){s.stage=watch::ShadowStage::Searching;s.fix=s.pps=s.valid=false;s.in_view=s.used=s.satellite_count=0;}
+  if(!std::strcmp(argv[1],"shadow-fix")){s.stage=watch::ShadowStage::WaitPps;s.pps=s.valid=false;}
+  if(!std::strcmp(argv[1],"shadow-settle")){s.stage=watch::ShadowStage::Settling;s.valid=false;s.samples=0;s.settling_ms=6000;}
+  if(!std::strcmp(argv[1],"shadow-mesh")){s.stage=watch::ShadowStage::WaitMesh;s.valid=false;m.time_valid=false;}
+  if(!std::strcmp(argv[1],"shadow-lost")){s.stage=watch::ShadowStage::Lost;s.pps=s.fix=s.valid=false;}
+  if(!std::strcmp(argv[1],"shadow-fault")){s.stage=watch::ShadowStage::Fault;s.pps=s.fix=s.valid=false;s.powered=false;s.used=s.in_view=s.satellite_count=0;}
+  if(!std::strcmp(argv[1],"shadow-lora"))m.source=watch::Source::LOR;
+  if(!std::strcmp(argv[1],"shadow-hold")){m.local_time=true;m.holding=true;}
+  if(!std::strcmp(argv[1],"shadow-invalid-sky"))for(unsigned i=0;i<12;++i)s.satellites[i].position_known=false;
+  if(!std::strcmp(argv[1],"shadow-tail")){s.mean_tenth_ns=-12345678;s.p99_ns=500000000;s.approximate=true;s.rms_ns=250000000;s.samples=UINT32_MAX;}
+ }
+ static uint16_t frame[watch::Width*watch::Height];watch::render(frame,m,v,now);
  FILE* f=std::fopen(argv[2],"wb");if(!f)return 3;std::fprintf(f,"P6\n%d %d\n255\n",watch::Width,watch::Height);for(auto p:frame){unsigned char c[]={uint8_t((p>>11)*255/31),uint8_t(((p>>5)&63)*255/63),uint8_t((p&31)*255/31)};std::fwrite(c,1,3,f);}std::fclose(f);
 }

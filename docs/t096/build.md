@@ -228,6 +228,10 @@ Build with `--lora-boot-rx` to make even the designated transmitter boot in RX.
 This keeps the configured transmitter identity and manual TX capability; reboot
 returns that image to RX. The override applies only to ordinary passive slow
 GM/RC builds.
+`--lora-boot-tx` explicitly boots a normal passive-slow GM image into local TX,
+including a device that is not the configured transmitter. It preserves mesh
+priority, enrollment and eligible-source/airtime gates. It is mutually exclusive
+with `--lora-boot-rx`; RC/DC/PC and other experiment modes reject it.
 The LoRa submenu can explicitly switch a GM from RX to TX; changing GM/RC
 profile alone does not promote an RX-default radio. The radio closes before a
 role change, with airtime debt, cooldowns and replay floors retained. Reboot
@@ -383,14 +387,28 @@ python3 firmware/t096/tools/lora_diagnostics_tests.py --deps artifacts/deps --ou
 python3 firmware/t096/tools/lora_console_note_tests.py --deps artifacts/deps --out artifacts/lora-console-note-01
 python3 firmware/t096/tools/usb_debug_tests.py --deps artifacts/deps --out artifacts/usb-debug-01
 python3 firmware/t096/tools/usb_suspend_tests.py --deps artifacts/deps --out artifacts/usb-suspend-01
+python3 firmware/t096/tools/usb_host_resume_tests.py --deps artifacts/deps --out artifacts/usb-host-resume-01
+python3 firmware/t096/tools/usb_awake_control_tests.py --deps artifacts/deps --out artifacts/usb-awake-control-01
 python3 firmware/t096/tools/usb_health_tests.py --deps artifacts/deps --out artifacts/usb-health-01
 python3 firmware/t096/tools/usb_common_boundary_tests.py --deps artifacts/deps --out artifacts/usb-common-boundary-01
 python3 firmware/t096/tools/usb_lifecycle_boundary_tests.py --deps artifacts/deps --out artifacts/usb-lifecycle-boundary-01
 ```
 
+The optional `--usb-awake-control` build flag is a diagnostic control for normal
+GM/RC images. It keeps the PHY awake during actual bus suspend, which increases
+suspended USB power use. Bus suspend callbacks, USB source withdrawal/expiry,
+DMA ownership and fresh-frame resume remain active. It does not drive remote
+wake. The mode appears as `usb_awake_control:true` in runtime status and has a
+separate build identity and artifact retention group. It is default-off and does
+not establish a fix for the TX-associated USB outage.
+
 The USB suspend runner checks the pinned driver lifecycle against a synthetic
 silicon model, including a disabled-workaround negative control. It does not
 reproduce or establish the cause of a physical USB outage.
+The host-resume runner delivers explicit fresh frames and PHY-ready events to
+the generated suspend and interrupt bodies. It checks stale-frame refusal,
+endpoint/DMA fences, restored interrupt masks and absence of remote-wake drive.
+These synthetic boundaries do not establish the physical outage's trigger.
 The health runner also checks awake-bus frame freezes independently of queued
 work, suspend/unplug exclusions, counter wrap and resumed low-power mismatch.
 A silent suspended PHY without observable host activity remains indistinguishable

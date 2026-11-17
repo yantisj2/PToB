@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only raw USB snapshot and physical System pixels; no hardware.
+"""Read-only USB API snapshot and restored normal System pixels; no hardware.
 Copyright(c)2026 Jonathan Yantis. SPDX-License-Identifier: MIT.
 """
 from pathlib import Path
@@ -31,7 +31,7 @@ def main():
   run('critical-ui-compile',flags+['-DR2_USB_SAVER_BODY="'+str(out/'critical-saver.inc')+'"',str(APP/'tests/usb_debug_ui_test.c'),str(APP/'src/precision.c'),'-o',str(out/'critical-ui')])
   run('critical-ui',[str(out/'critical-ui'),str(out)])
   assert before=={str(f):sha(f)for f in inputs}
-  r['status']='PASS_READ_ONLY_USB_SNAPSHOT_AND_SYSTEM_PIXELS'
+  r['status']='PASS_READ_ONLY_USB_API_AND_NORMAL_SYSTEM_PIXELS'
   r['limits']='Synthetic MMIO/IRQ and production raster boundaries. No hardware, persistent automatic capture, root-cause or recovery claim.'
  finally:
   r['files']={str(f.relative_to(out)):sha(f)for f in out.rglob('*')if f.is_file()and f.name!='receipt.json'}

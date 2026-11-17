@@ -23,10 +23,15 @@ code='''#include <algorithm>
 #include <iterator>
 #include <vector>
 std::vector<char> bytes;size_t cursor=0,chunk=64;
-namespace n30_console {int read(void* out,size_t n){n=std::min({n,chunk,bytes.size()-cursor});if(n)std::memcpy(out,bytes.data()+cursor,n);cursor+=n;return int(n);}}
+bool usb_online=true;uint32_t usb_generation=0;unsigned reads=0;
+namespace watch::energy {bool usb(){return usb_online;}}
+namespace v12 {uint32_t log_usb_generation(){return usb_generation;}}
+namespace n30_console {int read(void* out,size_t n){++reads;n=std::min({n,chunk,bytes.size()-cursor});if(n)std::memcpy(out,bytes.data()+cursor,n);cursor+=n;return int(n);}}
 void command(const char* line){std::cout<<line<<'\\n';}
 '''+body+'''
-int main(int argc,char** argv){assert(argc==2);chunk=std::stoul(argv[1]);assert(chunk&&chunk<=64);bytes.assign(std::istreambuf_iterator<char>(std::cin),{});while(cursor<bytes.size())input();}
+int main(int argc,char** argv){assert(argc==2||argc==3);chunk=std::stoul(argv[1]);assert(chunk&&chunk<=64);bytes.assign(std::istreambuf_iterator<char>(std::cin),{});while(cursor<bytes.size())input();
+ if(argc==3){const auto before=reads;usb_online=false;++usb_generation;input();assert(reads==before);usb_online=true;++usb_generation;const char suffix[]="rom\\n\\x00\\nstatus 0000000000000002\\n";bytes.assign(suffix,suffix+sizeof(suffix)-1);cursor=0;while(cursor<bytes.size())input();}}
+
 '''
 (out/'actual_input.cpp').write_text(code)
 cxx=os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').exists() else 'clang++')
@@ -71,6 +76,10 @@ with (out/'runtime.log').open('w') as log:
    actual=r.stdout.splitlines();assert actual==expected,(name,chunk,actual,expected,r.stderr)
    results.append({'case':name,'read_chunk':chunk,'dispatches':len(actual)})
    log.write(f'PASS {name} chunk={chunk} dispatches={len(actual)}\n')
+for chunk in (1,7,64):
+ r=subprocess.run([str(out/'actual_input'),str(chunk),'cycle'],input=b'boot',capture_output=True,check=True,timeout=5)
+ assert r.stdout.splitlines()==[b'status 0000000000000002'],r.stdout
+ results.append({'case':'usb_disconnect_no_read_partial_command_aborted','read_chunk':chunk,'dispatches':1})
 files=[Path(__file__),source,host,APP.parent/'w12/tools/framed_console.py',APP.parent/'n30/tools/framed_console.py']
 (out/'receipt.json').write_text(json.dumps(dict(status='PASS',scope='ACTUAL_WATCH_INPUT_BODY_WITH_USB_READ_AND_COMMAND_DISPATCH_FAKES_ASAN_UBSAN',hardware_access=False,firmware_modified=False,cases=results,sources={str(q):hashlib.sha256(q.read_bytes()).hexdigest()for q in files}),indent=2)+'\n')
-print('PASS actual input: binary/overflow negative controls, NUL+LF safe abort, partial mutation never dispatched, fresh request once; 36 executions')
+print('PASS actual input: binary/overflow negative controls, NUL+LF safe abort, partial mutation never dispatched, fresh request once; 39 executions including USB disconnect/reconnect')

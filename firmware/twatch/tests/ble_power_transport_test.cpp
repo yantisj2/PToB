@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 uint64_t fake_now=1000;
+namespace watch::energy {bool ble(bool required);}
 #include "../../w12/main/native_transport.cpp"
 FakeHsCfg ble_hs_cfg;
 int fixture_ensure_rc=0,r2_sync_rc=0;uint8_t r2_sync_site=2;
@@ -19,8 +20,10 @@ unsigned task_sequence=1,worker_creations=0,allocation_failures=0;
 bool create_race=false,create_toggle=false;
 bool reserving_host=false,host_allocation_fail=false,service_fail=false;
 bool capture_retired=true,rearm_ok=true,queue_blocked=false;
+bool cpu_ble=true,cpu_fail=false;
 bool preempt_prepare=false;
 unsigned host_run_calls=0;
+namespace watch::energy {bool ble(bool required){if(cpu_fail)return false;cpu_ble=required;return true;}}
 struct CreationBlocked{};
 namespace v12 {
 DirectStatus direct_status(){return {};}
@@ -62,7 +65,7 @@ int xTaskCreatePinnedToCore(void(*fn)(void*),const char*,unsigned stack,void* ar
 }
 void retire_worker(){assert(v12::watch_power_task);current_task=v12::watch_power_task;v12::watch_power_worker(nullptr);current_task=nullptr;assert(!v12::watch_power_task&&!v12::watch_power.worker_running);}
 int esp_bt_controller_get_status(){return controller;}
-int nimble_port_init(){++init_calls;order.push_back(1);assert(!controller&&v12::watch_host_task&&v12::watch_power.host_running);if(!init_rc)controller=2;
+int nimble_port_init(){++init_calls;order.push_back(1);assert(cpu_ble&&!controller&&v12::watch_host_task&&v12::watch_power.host_running);if(!init_rc)controller=2;
  if(toggle_during_init){toggle_during_init=false;assert(v12::transport_watch_ble_request(false,fake_now));assert(v12::transport_watch_ble_request(true,fake_now+1));}
  return init_rc;}
 void nimble_port_run(){++host_run_calls;}
@@ -93,6 +96,7 @@ void fresh(){
  tasks.clear();current_task=nullptr;worker_creations=allocation_failures=0;fixture_ensure_rc=r2_sync_rc=0;
  host_allocation_fail=service_fail=reserving_host=false;host_run_calls=0;
  capture_retired=rearm_ok=true;queue_blocked=false;
+ cpu_ble=true;cpu_fail=false;
  preempt_prepare=false;
  watch_port_initialized=watch_port_init_attempted=watch_events_initialized=watch_host_run_entered=watch_sync_callback_seen=watch_off_owners_retired=false;watch_sdk_operation=0;watch_host_task=nullptr;
  watch_power_task=nullptr;watch_power_creating=false;watch_power_retry_us=0;
@@ -119,10 +123,12 @@ int main(){
  watch_power_step();assert(!stop_calls&&watch_power.stage==watch::BlePower::HostStop);
  assert(!transport_watch_ble_clock_begin());transport_watch_ble_clock_end();watch_power_step();watch_power_step();
  assert(watch_power.off_ack()&&init_calls==1&&stop_calls==1&&deinit_calls==1);
+ assert(!cpu_ble);
  const auto stopped_aux=aux_stops;transport_stop();transport_watch_ble_stop_aux();transport_g1_cleanup_schedule();
  assert(aux_stops==stopped_aux&&!command_pending); // Maintenance on OFF never posts to freed NPL.
  const auto old_epoch=watch_host_epoch;assert(transport_watch_ble_request(true,fake_now+1));watch_power_step();sync();
  assert(init_calls==2&&service_calls==2&&watch_power.stage==watch::BlePower::Active&&watch_host_epoch!=old_epoch);
+ assert(cpu_ble);
  ble_gap_event stale{};stale.type=BLE_GAP_EVENT_PERIODIC_SYNC;stale.periodic_sync.status=0;stale.periodic_sync.sync_handle=9;
  const auto old_late=late;gap(&stale,reinterpret_cast<void*>(uintptr_t(old_epoch)));assert(late==old_late+1&&!client.synced);
  fresh();quiet=false;assert(transport_watch_ble_request(false,fake_now));pump();const auto original=watch_power.deadline_us;

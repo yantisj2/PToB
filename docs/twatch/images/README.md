@@ -12,6 +12,10 @@ Generate PPMs with `python3 firmware/twatch/tools/test.py --out artifacts/watch-
 Convert the selected PPMs to PNG with Pillow; retain the synthetic/provenance
 metadata. No image-generation model or raster artwork was used.
 
+`battery.png` shows the one-hour Battery app with synthetic percentage samples,
+aligned display-on bars and uptime. Its values illustrate the UI, not observed
+discharge or battery endurance. `launcher.png` includes the Battery destination.
+
 `solar.png` previews the third face with synthetic timing inputs and calculated
 Santa Rosa Beach/Central astronomy. Its stars are illustrative and tide progress
 is approximate prediction interpolation, not a measurement. No reference raster
@@ -22,3 +26,10 @@ actual morning/evening event chords set seasonal horizon and twilight bands.
 Corner subdials share equal antialias-aware case clearance; their main-circle
 clearance varies by at most 1.4px. Source text is the identifier; strength is
 encoded in its ring. The moon is a phase graphic without a percentage caption.
+
+`shadow.png` previews the fourth face with synthetic satellites, a physical-PPS
+annunciator and illustrative signed MEAN/P99 ABS/RMS. These are timing-error
+statistics, distinct from the hold-duration P99 on the other faces. The actual
+receiver never fabricates sky positions when GSV coordinates are unavailable.
+Search, fix, PPS, ten-second settling and measurement are native states; preview
+motion and values do not establish installed GNSS reception or timing accuracy.

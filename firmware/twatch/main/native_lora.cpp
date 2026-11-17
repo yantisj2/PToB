@@ -1,7 +1,7 @@
 // Selected N30 adapter; provenance in imports.json.
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Jonathan Yantis.
-// SX1262 RX-only owner for HeltecV3 N30. No SetTx opcode, BLE map update or
+// SX1262 RX-only owner for LILYGO T-Watch Ultra. No SetTx opcode, BLE map update or
 // listener transmission. Actual MCPWM DIO1 capture, never an ISR arrival time.
 #include "native_lora.hpp"
 #include "n30_lora.hpp"
@@ -57,6 +57,8 @@ bool recover_pending=false;uint64_t recover_requested_at=0;
 uint32_t recover_owner_generation=0,recover_cancel_serial=0;
 bool timer_enabled=false,timer_started=false,map_enabled=false,edge_enabled=false,current_enabled=false,emergency=false;
 uint32_t capture_drops=0,capture_invalid=0;
+watch::LoRaSleepView sleep_state,sleep_published;
+bool radio_sleeping=false;
 watch::LoRaShadow shadow;watch::LoRaShadow::View shadow_published;
 uint64_t now(){return uint64_t(esp_timer_get_time());}
 void inc(uint32_t& v){if(v<UINT32_MAX)++v;}
@@ -104,7 +106,7 @@ int busy(){
  }
  return cancelled()?-ECANCELED:0;
 }
-int transfer(size_t size){
+int transfer(size_t size,bool entering_sleep=false){
  if(inflight||size>sizeof tx||!size)return -EBUSY;
  int result=busy();if(result)return result;
  std::memset(rx,0,size);transaction={};transaction.length=size*8;transaction.tx_buffer=tx;transaction.rx_buffer=rx;
@@ -117,6 +119,8 @@ int transfer(size_t size){
  if(spi_device_get_trans_result(spi,&completed,pdMS_TO_TICKS(5))!=ESP_OK||completed!=&transaction){inc(hardware.spi_error);return -ETIMEDOUT;}
  inflight=false;gpio_set_level(Nss,1);inc(hardware.spi_ok);
  if(cancelled())return -ECANCELED;
+ // BUSY stays high throughout sleep: no ordinary post-command BUSY wait.
+ if(entering_sleep)return 0;
  result=busy();return result;
 }
 int command(uint8_t op,const uint8_t* args,size_t size){
@@ -235,7 +239,7 @@ int start(){
  uint8_t value=0;
  if(!(rc=reg_write(0x08e7,0x38))&&!(rc=reg_read(0x0736,value)))rc=reg_write(0x0736,value|4u);
  // Semtech boosted RX gain; reapply on every reset and verify before RX.
- // The owner uses continuous RX/standby, never sleep or RX duty cycling.
+ // Recheck boosted gain after each configuration-retaining sleep as well.
  if(!rc)rc=reg_write(RxGainReg,RxGainBoosted);
  if(!rc)rc=reg_read(RxGainReg,value);
  if(!rc&&value!=RxGainBoosted)rc=-EIO;
@@ -248,6 +252,53 @@ int start(){
  if(rc)return rc;
  rc=capture_start();if(rc)return rc;
  return rearm();
+}
+// Sleep retains the radio configuration, not a source permission. The capture
+// timer, protocol model, replay floors and epoch remain live throughout.
+bool irq_pending(){portENTER_CRITICAL(&mux);const bool pending=latched;portEXIT_CRITICAL(&mux);return pending||gpio_get_level(Irq)||header_pending;}
+int sleep_radio(){
+ if(inflight||irq_pending())return 0;
+ hardware.stage=8;
+ const uint8_t standby[]={0};int rc=command(0x80,standby,sizeof standby);if(rc)return rc;
+ // A header racing standby invalidates this forecast. Do not sleep on it.
+ if(irq_pending()){shadow.lose(9);inc(sleep_state.refused);return rearm();}
+ if(cancelled())return -ECANCELED;
+ hardware.opcode=0x84;tx[0]=0x84;tx[1]=4; // warm start; RTC wake disabled
+ rc=transfer(2,true);if(rc)return rc;
+ radio_sleeping=true;sleep_state.last_transition=now();inc(sleep_state.sleeps);
+ // Semtech requires >=500us with no further SPI after SetSleep. This also
+ // bounds how soon an OFF notification can reuse/reset this owner.
+ vTaskDelay(pdMS_TO_TICKS(2)+1);
+ return cancelled()?-ECANCELED:0;
+}
+int wake_radio(){
+ hardware.stage=9;
+ if(cancelled())return -ECANCELED;
+ // NSS wakes the chip while BUSY is high. Waiting for BUSY before NSS deadlocks.
+ if(gpio_set_level(Nss,0)!=ESP_OK)return -EIO;
+ vTaskDelay(pdMS_TO_TICKS(1)+1);
+ const int wake=busy();gpio_set_level(Nss,1);if(wake)return wake;
+ radio_sleeping=false;
+ uint8_t dummy=0;int rc=command(0xc0,&dummy,1);
+ if(!rc&&(!status_ok(rx[1])||(rx[1]&0x70)!=0x20))rc=-EIO;
+ uint8_t gain=0;
+ if(!rc)rc=reg_write(RxGainReg,RxGainBoosted);
+ if(!rc)rc=reg_read(RxGainReg,gain);
+ if(!rc&&gain!=RxGainBoosted)rc=-EIO;
+ if(!rc)rc=rearm();
+ if(!rc){inc(sleep_state.wakes);sleep_state.last_transition=now();}
+ return rc;
+}
+int schedule_radio(){
+ const auto at=now();
+ if(shadow.v.last_us&&at>=shadow.v.last_us&&at-shadow.v.last_us>250000)shadow.lose(9);
+ shadow.tick(at,owned.enabled&&!failed);
+ uint64_t tick=0;
+ const bool mapped=local(tick)&&qualified_map.available&&tick>=qualified_map.available&&tick-qualified_map.available<=10000000;
+ if(shadow.v.tracking&&!mapped)shadow.lose(10);
+ if(radio_sleeping&&irq_pending())shadow.lose(9);
+ if(radio_sleeping)return shadow.receive_due(at)?wake_radio():0;
+ return !shadow.receive_due(at)&&!irq_pending()?sleep_radio():0;
 }
 int receive(){
  uint32_t raw,gen,serial;bool have;portENTER_CRITICAL(&mux);have=latched;raw=raw_capture;gen=raw_generation;serial=raw_serial;portEXIT_CRITICAL(&mux);
@@ -311,10 +362,16 @@ void publish(){
  view.hold_requested_id=hold_last_id;view.hold_result=hold_result;
  view.spi_retired=!inflight;view.capture_released=!capture_active&&!edge_enabled&&!map_enabled&&!current_enabled&&!timer_enabled&&!timer_started;view.reset_asserted=resources&&gpio_get_level(Reset)==0;
  shadow.tick(available,owned.enabled&&!failed);
- portENTER_CRITICAL(&mux);shadow_published=shadow.v;view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;published_serial=active_serial;worker_published_us=available;published_cleanup_fault=cleanup_failed||owner.stuck;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
+ if(sleep_state.at&&available>=sleep_state.at&&sleep_state.active){
+  const auto dt=available-sleep_state.at;
+  // Observed owner state residency, not a measured supply-current saving.
+  (sleep_state.sleeping?sleep_state.sleep_us:sleep_state.rx_us)+=dt;
+ }
+ sleep_state.at=available;sleep_state.active=owned.enabled&&!failed;sleep_state.sleeping=radio_sleeping&&sleep_state.active;
+ portENTER_CRITICAL(&mux);shadow_published=shadow.v;sleep_published=sleep_state;view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;published_serial=active_serial;worker_published_us=available;published_cleanup_fault=cleanup_failed||owner.stuck;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
 }
 void retire_capture(){
- reset_radio();owned.enabled=false;
+ reset_radio();owned.enabled=false;radio_sleeping=false;shadow.tick(now(),false);
  if(capture_active||edge_enabled||map_enabled||current_enabled||timer_enabled||timer_started)capture_stop();
  if(core_generation){(void)n30_rc8_switch(false);portENTER_CRITICAL(&mux);core_generation=0;portEXIT_CRITICAL(&mux);}
 }
@@ -360,13 +417,13 @@ void worker_step(bool configured){
    owned.enabled=rc==0;
   }
   if(owned.enabled&&!want){reset_radio();owned.enabled=false;}
-  if(owned.enabled){map_step();const int rc=receive();if(rc){if(rc!=-ECANCELED)fault(rc);reset_radio();owned.enabled=false;}}
+  if(owned.enabled){map_step();int rc=radio_sleeping?0:receive();if(!rc)rc=schedule_radio();if(rc){if(rc!=-ECANCELED)fault(rc);reset_radio();owned.enabled=false;}}
   if(!owned.enabled)retire_capture();
   finish_worker(generation,begin);
   if(hold_id){const uint64_t at=now();hold_last_id=hold_id;hold_result=at>=hold_at&&at-hold_at<250000&&owned.enabled&&!failed&&!cancelled()&&n30_rc8_hold60(hold_id,at)?1:2;}
   hardware.work_max_us=std::max(hardware.work_max_us,uint32_t(now()-begin));publish();
  }
-void worker(void*){const bool configured=configured_receiver();for(;;){worker_step(configured);ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(2));}}
+void worker(void*){const bool configured=configured_receiver();for(;;){worker_step(configured);ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(radio_sleeping?50:2));}}
 }
 namespace v12 {
 bool lora_start_worker(){return xTaskCreatePinnedToCore(worker,"n30_lora",8192,nullptr,1,&task,1)==pdPASS;}
@@ -433,4 +490,8 @@ extern "C" void watch_lora_shadow_event(uint8_t kind,const uint8_t context[16],u
 }
 watch::LoRaShadow::View watch_lora_shadow_snapshot(){
  portENTER_CRITICAL(&mux);const auto s=shadow_published;portEXIT_CRITICAL(&mux);return s;
+}
+
+watch::LoRaSleepView watch_lora_sleep_snapshot(){
+ portENTER_CRITICAL(&mux);const auto s=sleep_published;portEXIT_CRITICAL(&mux);return s;
 }

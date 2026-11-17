@@ -15,8 +15,9 @@ static LoRaShadow trained(){
 int main(){
  auto s=trained();assert(s.v.next_sync==368000000);s.tick(366000000);assert(s.v.would_rx);
  pair(s,12,368000000);assert(s.v.tracking&&s.v.outside==0);
- s.tick(377000000);assert(!s.v.would_rx);for(uint64_t t=377020000;t<=393000000;t+=20000)s.tick(t);assert(s.v.sleep_us>=16000000);
- s.tick(394000000);assert(s.v.would_rx);
+ assert(!s.receive_due(370500000)); // Complete FOLLOW: no tail dwell.
+ s.tick(377000000);assert(!s.v.would_rx);for(uint64_t t=377020000;t<=396000000;t+=20000)s.tick(t);assert(s.v.sleep_us>=16000000);
+ s.tick(396000000);assert(s.v.would_rx);
  pair(s,13,398000000);assert(s.v.tracking&&s.v.outside==0);
  s.tick(437000001);assert(!s.v.tracking&&s.v.misses==1&&s.v.would_rx);
  s=trained();pair(s,12,377000000);assert(s.v.outside>0&&!s.v.tracking); // late FOLLOW outside frozen window
@@ -27,5 +28,19 @@ int main(){
  s=trained();s.tick(1);assert(!s.v.tracking&&s.v.reason==7);
  s=trained();pair(s,13,368000000);assert(!s.v.tracking&&s.v.qualified==1); // skipped cursor
  s=trained();s.observe(2,ctx,1,24,362000000,0,true);assert(!s.v.tracking); // irregular META => relearn
- puts("PASS shadow-only windows: four pairs plus observed META phase, frozen pre-event coverage, full pair tail, virtual residency, missing/late/context/OFF/withdrawal/rollback/skip recovery");
+ // Wake starts two seconds before SYNC; successful FOLLOW ends RX immediately.
+ s=trained();pair(s,12,368000000);s.tick(377000000);
+ assert(!s.receive_due(395999999)&&s.receive_due(396000000));
+ assert(s.receive_due(406000000));s.tick(406000001);
+ assert(!s.v.tracking&&!s.v.meta_phase&&s.v.qualified==0&&s.receive_due(500000000));
+ for(unsigned i=14;i<19;i++)pair(s,i,8000000+30000000ULL*i);
+ assert(!s.v.tracking); // Fresh pairs alone cannot revive discarded META phase.
+ s=trained();for(unsigned i=12;i<24;i++)pair(s,i,8000000+30000000ULL*i);
+ s.tick(725000001);assert(!s.v.tracking&&!s.v.meta_phase&&s.v.reason==8);
+ // After complete phase/cadence reacquisition sleep may resume.
+ s.observe(2,ctx,1,48,721000000,0,true);
+ for(unsigned i=24;i<36;i++)pair(s,i,8000000+30000000ULL*i);
+ s.observe(2,ctx,1,72,1081000000,0,true);s.tick(1081000000);
+ assert(s.v.tracking&&s.v.qualified==4);
+ puts("PASS guarded receive windows: four pairs plus observed META phase, frozen pre-event coverage, full pair tail, virtual residency, missing/late/context/OFF/withdrawal/rollback/skip recovery");
 }

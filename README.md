@@ -44,7 +44,7 @@ Start with the target matching your hardware:
 | M5Stack StickS3 (SS3) | Receiver and experimental relay with estimated transmit timing | [SS3 README](firmware/ss3/README.md) |
 | Meshnology N30 | BLE RC with passive LoRa timing fallback and portrait OLED | [N30 README](firmware/n30/README.md) |
 | M5Stack CoreS3-SE | Precision diagnostics instrument: receiver quality, mesh lineage and GM reference status | [CoreS3-SE README](firmware/corese/README.md) |
-| LILYGO T-Watch Ultra | Digital, Instrument and Solar faces; BLE/LoRa timing and USB recovery | [T-Watch README](firmware/twatch/README.md) |
+| LILYGO T-Watch Ultra | Digital, Instrument, Solar and Shadow PPS faces; BLE/LoRa timing and USB recovery | [T-Watch README](firmware/twatch/README.md) |
 | macOS | USB time client and chrony bridge | [macOS README](clients/macos/README.md) |
 | Raspberry Pi 5 + M-HAT | Experimental BLE → PPS → chrony → NTP/PTP gateway; private diagnostics | [Pi 5 README](gateways/pi5/README.md) · [setup](docs/pi5/setup.md) · [monitor](gateways/pi5/dashboard/README.md) |
 
@@ -75,12 +75,18 @@ describes the proposed future storage/API; it is not implemented firmware.
 
 ## See the clocks
 
-| T096 · relay clock | W12 · relay clock | StickS3 · network health | N30 · BLE + LoRa clock |
-| :---: | :---: | :---: | :---: |
-| [<img src="docs/images/t096-rc-preview.png" width="120" alt="T096 preview with digital time, analog dial and BLE source status">](firmware/t096/README.md) | [<img src="docs/images/w12-rc-preview.png" width="192" alt="W12 OLED preview with time, relay parent and timing diagnostics">](firmware/w12/README.md) | [<img src="docs/images/ss3-health-preview.png" width="135" alt="StickS3 preview with network delivery, signal and source health">](firmware/ss3/README.md) | [<img src="docs/images/n30-clock-preview.png" width="96" alt="N30 portrait OLED clock dashboard with UTC, analog dial and BLE source">](firmware/n30/README.md) |
+| T096 · relay clock | W12 · relay clock | StickS3 · network health | N30 · BLE + LoRa clock | T-Watch · Shadow PPS |
+| :---: | :---: | :---: | :---: | :---: |
+| [<img src="docs/images/t096-rc-preview.png" width="120" alt="T096 preview with digital time, analog dial and BLE source status">](firmware/t096/README.md) | [<img src="docs/images/w12-rc-preview.png" width="192" alt="W12 OLED preview with time, relay parent and timing diagnostics">](firmware/w12/README.md) | [<img src="docs/images/ss3-health-preview.png" width="135" alt="StickS3 preview with network delivery, signal and source health">](firmware/ss3/README.md) | [<img src="docs/images/n30-clock-preview.png" width="96" alt="N30 portrait OLED clock dashboard with UTC, analog dial and BLE source">](firmware/n30/README.md) | [<img src="docs/twatch/images/shadow.png" width="123" alt="T-Watch Shadow preview with satellite reception, PPS and signed mean and P99 error">](firmware/twatch/README.md#shadow-pps) |
 
 Firmware-rendered previews with illustrative values, not live measurements.
 Select a screen to open its target guide.
+
+The T-Watch's fourth face automatically powers GNSS while visible and compares
+its PPS with selected BLE timing. On the tested watch, a short **14-sample**
+settled baseline measured **−2.9104 µs MEAN**; its local profile now applies a
+provisional **+2.900 µs** adjustment. Post-correction residual validation remains
+pending. See the [device measurement note](docs/twatch/shadow-pps-note.md).
 
 The [T096 timing schematic](https://ptob.dev/hardware/t096/timing/) and
 [ESP32-S3 timing schematic](https://ptob.dev/hardware/esp32-s3/timing/) show how

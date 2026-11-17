@@ -856,13 +856,7 @@ static void worker(void *a,void *b,void *c)
   if((unsigned)atomic_get(&model_interval)!=interval)atomic_set(&model_interval,(int)interval);
    bool page_changed=s.page!=observed_page;
   if(page_changed){observed_page=s.page;atomic_set(&model_requested,1);}
-  /* The raw USB System view must stay visible for an unattended failure.
-   * Other pages retain their existing saver and measurement policy. */
-  bool saver=!s.menu.open&&!stable&&!wake_press&&now>=idle_since&&now-idle_since>=R2_UI_IDLE_MS&&r2_ui_saver_allowed(&m,now)
-#ifdef R2_USB_SOURCE_STREAM
-   &&s.page!=4
-#endif
-   ;
+  bool saver=!s.menu.open&&!stable&&!wake_press&&now>=idle_since&&now-idle_since>=R2_UI_IDLE_MS&&r2_ui_saver_allowed(&m,now);
   uint64_t period=saver&&now>=saver_since?(now-saver_since)/R2_UI_SAVER_MOVE_MS:0;
   bool move=saver&&s.screensaver&&period!=saver_period;
   /* Existing public PRNG, outside the UI lock; no draw-time RNG or RF work. */

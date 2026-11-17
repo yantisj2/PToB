@@ -27,7 +27,7 @@ if(V12_R2_PROFILE)
     endif()
   endif()
 endif()
-idf_component_register(SRCS "imu.cpp" "../vendor/bhi260/bhy2.c" "../vendor/bhi260/bhy2_hif.c" "native_main.cpp" "board.cpp" "fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp" "lora_core.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_counter.c"
+idf_component_register(SRCS "energy.cpp" "imu.cpp" "../vendor/bhi260/bhy2.c" "../vendor/bhi260/bhy2_hif.c" "native_main.cpp" "board.cpp" "fault_watchdog.cpp" "${w12}/main/native_transport.cpp" "${w12}/main/public_crypto.cpp" "${w12}/main/public_receiver.cpp" "bounded_log.cpp" "native_lora.cpp" "lora_core.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_thermal.c" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_diagnostics.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_counter.c"
   "${w12}/../t096/protocol/lora_passive.c" "${w12}/../t096/src/lora_passive_core.c"
   "${w12}/main/native_direct.cpp" "${w12}/main/native_credentials.cpp" "${w12}/main/native_diagnostic_tx.cpp" "${w12}/main/periodic_rx.cpp" "${w12}/main/periodic_tx.cpp" "${w12}/main/s3_clock_reference.c" "${w12}/main/direct_auth.cpp" "${control_source}" ${r2_sources}
   "${w12}/main/shared/public_codec.c" "${w12}/main/shared/p256_canonical.c" "${w12}/main/public_observer.cpp"
@@ -36,7 +36,7 @@ idf_component_register(SRCS "imu.cpp" "../vendor/bhi260/bhy2.c" "../vendor/bhi26
   LDFRAGMENTS "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_map.lf"
   REQUIRES bt mbedtls esp_driver_spi esp_driver_gptimer esp_driver_i2c esp_driver_gpio
     esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_pm esp_timer esp_hw_support nvs_flash)
-target_sources(${COMPONENT_LIB} PRIVATE "watch_holdover.cpp" "calendar.cpp" "lora_shadow_diagnostics.cpp")
+target_sources(${COMPONENT_LIB} PRIVATE "shadow_gnss.cpp" "watch_holdover.cpp" "calendar.cpp" "lora_shadow_diagnostics.cpp")
 if(V12_R2_RX_SHADOW)
   file(SHA256 "$ENV{IDF_PATH}/components/esp_driver_gptimer/src/gptimer_priv.h" timer_abi_sha)
   if(NOT timer_abi_sha STREQUAL "1b75930c75158fd6f32640d0ff094919a786d4057c0b9e9258e71ce6495542d4")

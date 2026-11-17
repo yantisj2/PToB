@@ -1,8 +1,8 @@
 {
-  "revision": "RC_USB_BOUNDED_LIFECYCLE_LOCAL_CLOSE_V4",
+  "revision": "RC_USB_HOST_SOF_RESUME_OPTIONAL_AWAKE_CONTROL_V6",
   "upstream_commit": "7823374e872145b5bd018bfe447839eb36042611",
   "path": "drivers/usb/common/nrf_usbd_common/nrf_usbd_common.c",
   "original": "8c004c6a431bc7bc9e52fbe560579116b0569060bd648797adefc46a0fe82046",
-  "fixed": "eefd02ff3b4a88586b82f93e353476b8aab2342b732fe3aee5dff244b946e6aa",
-  "patch_sha256": "dc0a8cee86f66788568f18d66f0f5e9b50179411576318fb83ad34852bac2b16"
+  "fixed": "57e087538ca9d38299fa6d90b40ed8d8b573b1bf1e47c0e0996e7fb52339e287",
+  "patch_sha256": "3a134bb3d82944749216a239508dd2ddddb10d9da155d8d7e9aa88a12be970dc"
 }

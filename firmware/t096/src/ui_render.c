@@ -4,9 +4,6 @@
 /* SPDX-License-Identifier: Apache-2.0
  * Original pre-Zephyr watch/RF drawing, with an R2-only state adapter. */
 #include "ui.h"
-#ifdef R2_USB_SOURCE_STREAM
-#include "usb_health.h"
-#endif
 #ifdef R2_TZ_AUTO
 #include "time_zone_config.h"
 #endif
@@ -1230,18 +1227,6 @@ static bool render_full(uint8_t *fb,const struct r2_ui_model *m,const struct r2_
   R2_UI_BOOL_CALL(row_label3(fb,149,"UTC ACC --",C_DIM));return true;
  }
  R2_UI_BOOL_CALL(watch_panel(fb,1,13));R2_UI_BOOL_CALL(row_label7(fb,4,"SYSTEM",C_WHITE));
-#ifdef R2_USB_SOURCE_STREAM
- char text[16];
- /* Physical button access remains available when every USB endpoint fails.
-  * No observer work on the ordinary TX/dial pages or in an ISR. */
- uint32_t usb[8];r2_usb_debug_snapshot(usb);
- R2_UI_OPTIONAL_CALL(r2_ui_uptime_text(text,now));R2_UI_BOOL_CALL(row_label5(fb,21,text,C_WHITE));
- R2_UI_BOOL_CALL(row_label5(fb,35,r2_ui_reset_text(m->reset_kind),C_DIM));
- for(unsigned i=0;i<8;i++){
-  R2_UI_BOOL_CALL(snprintf(text,sizeof text,"%c%08X","FPGNCIHV"[i],(unsigned)usb[i]));
-  R2_UI_BOOL_CALL(row_label5(fb,50+12*i,text,C_WHITE));
- }
-#else
  char text[16];R2_UI_BOOL_CALL(row_label5(fb,23,"UPTIME",C_DIM));
  R2_UI_OPTIONAL_CALL(r2_ui_uptime_text(text,now));R2_UI_BOOL_CALL(row_label5(fb,35,text,C_WHITE));
  R2_UI_BOOL_CALL(row_label5(fb,51,"LAST RESET",C_DIM));
@@ -1251,7 +1236,6 @@ static bool render_full(uint8_t *fb,const struct r2_ui_model *m,const struct r2_
  R2_UI_BOOL_CALL(snprintf(text,sizeof(text),"AUTH %u",m->authenticated));R2_UI_BOOL_CALL(row_label5(fb,106,text,C_WHITE));
  R2_UI_BOOL_CALL(snprintf(text,sizeof(text),"DROP %u",m->queue_drops));R2_UI_BOOL_CALL(row_label5(fb,118,text,C_WHITE));
  R2_UI_BOOL_CALL(row_label5(fb,134,m->ble_active?"BLE RUNNING":"BLE STOPPED",C_CYAN));
-#endif
  R2_UI_BOOL_CALL(row_label5(fb,149,"HOLD: MENU",C_DIM));
 
  return true;

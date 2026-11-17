@@ -1,4 +1,5 @@
 #include "console_shape.hpp"
+#include "console_power.hpp"
 // Selected N30 adapter; provenance in imports.json.
 #include "bounded_log.hpp"
 #include "bootrom.hpp"
@@ -24,6 +25,7 @@ Ring<ConsoleFrame,2> frames;
 portMUX_TYPE log_mux=portMUX_INITIALIZER_UNLOCKED;
 LogStatus stats;
 TaskHandle_t log_task=nullptr;
+bool usb_online=false;uint32_t usb_generation=0;uint64_t usb_since=0;
 uint64_t live_next_us=0,capture_generation=0,completed_frame_nonce=0;
 bool tx_mode=false;uint32_t tx_filtered=0;
 uint64_t now_us(){const auto n=esp_timer_get_time();return n>0?uint64_t(n):0;}
@@ -37,7 +39,18 @@ Line current_line;
 char trailer[800]{};
 void output(void*){
   size_t offset=0,line_offset=0,end_offset=0,end_length=0;bool frame_active=false,ending=false;
+  uint32_t generation=0;
   while(true){
+    portENTER_CRITICAL(&log_mux);const bool online=usb_online;const auto current_generation=usb_generation;portEXIT_CRITICAL(&log_mux);
+    if(generation!=current_generation){
+      // Never replay an old response/partial line after a cable transition.
+      portENTER_CRITICAL(&log_mux);
+      if(frame_active)frame_drop();
+      if(current_line.length&&line_offset<current_line.length)line_drop();
+      portEXIT_CRITICAL(&log_mux);
+      frame_active=ending=false;offset=line_offset=end_offset=end_length=0;current_line.length=0;generation=current_generation;
+    }
+    if(!online){ulTaskNotifyTake(pdTRUE,portMAX_DELAY);continue;}
     for(unsigned budget=0;budget<4;++budget){
       const uint64_t now=now_us();
       if(frame_active&&now>=current_frame.deadline_us){
@@ -123,10 +136,28 @@ void output(void*){
       if(written<=0){if(written<0){portENTER_CRITICAL(&log_mux);increment(stats.write_errors);portEXIT_CRITICAL(&log_mux);}break;}
       line_offset+=size_t(written);portENTER_CRITICAL(&log_mux);add(stats.transmitted,unsigned(written));portEXIT_CRITICAL(&log_mux);
     }
-    vTaskDelay(pdMS_TO_TICKS(1));
+    portENTER_CRITICAL(&log_mux);const bool queued=frames.count||lines.count;portEXIT_CRITICAL(&log_mux);
+    const bool pending=frame_active||line_offset<current_line.length||queued;
+    // An empty console sleeps until a producer or cable transition notifies it.
+    // A blocked USB transfer alone retains the original bounded retry/expiry.
+    ulTaskNotifyTake(pdTRUE,pending?pdMS_TO_TICKS(1):portMAX_DELAY);
   }
 }
 }
+void log_usb_power(bool present){
+ portENTER_CRITICAL(&log_mux);
+ if(present!=usb_online){
+  usb_online=present;++usb_generation;usb_since=now_us();
+  if(!present){
+   stats.capture_active=false;
+   while(frames.count){--frames.count;frame_drop();}frames.head=frames.tail=0;
+   while(lines.count){--lines.count;line_drop();}lines.head=lines.tail=0;
+  }
+  if(log_task)xTaskNotifyGive(log_task);
+ }
+ portEXIT_CRITICAL(&log_mux);
+}
+uint32_t log_usb_generation(){portENTER_CRITICAL(&log_mux);const auto n=usb_generation;portEXIT_CRITICAL(&log_mux);return n;}
 uint64_t watch_completed_frame(){portENTER_CRITICAL(&log_mux);const auto n=completed_frame_nonce;portEXIT_CRITICAL(&log_mux);return n;}
 bool ConsoleFrame::format(const char* fmt,...){
   if(failed)return false;
@@ -148,15 +179,16 @@ bool frame_submit(const ConsoleFrame& f){
   // Keep W12's shared constants/ABI unchanged.
   static_assert(ConsoleResponseRows==9&&ConsoleFrameBytes==8704);
   portENTER_CRITICAL(&log_mux);
-  const bool accepted=!f.failed&&watch::console_shape(f.rows,f.bytes)&&now_us()<f.deadline_us&&frames.push(f);
+  const bool accepted=usb_online&&f.request_us>=usb_since&&!f.failed&&watch::console_shape(f.rows,f.bytes)&&now_us()<f.deadline_us&&frames.push(f);
   if(!accepted)frame_drop();
+  if(accepted&&log_task)xTaskNotifyGive(log_task);
   portEXIT_CRITICAL(&log_mux);return accepted;
 }
 static bool capture_admit(uint64_t id,uint32_t duration,uint32_t maximum,bool tx=false){
   const auto now=now_us();portENTER_CRITICAL(&log_mux);
   const bool active=stats.capture_active&&now<stats.capture_deadline_us;
   if(capture_generation==UINT64_MAX)stats.counter_exhausted=true;
-  const bool ok=id&&duration>=1000&&duration<=maximum&&!active&&!stats.counter_exhausted&&now<=UINT64_MAX-uint64_t(duration)*1000;
+  const bool ok=usb_online&&id&&duration>=1000&&duration<=maximum&&!active&&!stats.counter_exhausted&&now<=UINT64_MAX-uint64_t(duration)*1000;
   if(ok){++capture_generation;tx_mode=tx;tx_filtered=0;stats.capture_id=id;stats.capture_deadline_us=now+uint64_t(duration)*1000;stats.capture_active=true;
     stats.base_dropped=stats.dropped;stats.base_truncated=stats.truncated;stats.base_isr=stats.isr_refused;
     stats.base_errors=stats.write_errors;stats.base_expired=stats.expired;stats.base_frames=stats.frame_drops;}
@@ -172,10 +204,11 @@ static int finish_log(Line& line,uint64_t begin,bool tx,uint64_t generation,uint
   bool accepted=false;
   if(tx&&(generation!=capture_generation||!tx_mode||id!=stats.capture_id)){line_drop();}
   else if(truncated||malformed){increment(stats.truncated);line_drop();}
-  else if(now_us()>=line.deadline){line_drop(true);}
+  else if(!usb_online||begin<usb_since||now_us()>=line.deadline){line_drop(true);}
   else if(!(accepted=lines.push(line))){line_drop();}
   stats.peak=lines.peak;const uint64_t work=now_us()-begin;add(stats.enqueue_work_us,work);
   if(work>stats.enqueue_max_us)stats.enqueue_max_us=work>UINT32_MAX?UINT32_MAX:uint32_t(work);
+  if(accepted&&log_task)xTaskNotifyGive(log_task);
   portEXIT_CRITICAL(&log_mux);return accepted?int(line.length):0;
 }
 static int filtered_log(uint64_t generation,uint64_t id){
@@ -189,6 +222,7 @@ static __attribute__((noinline)) int logv_impl(const char* format,va_list args,b
   if(xPortInIsrContext()){portENTER_CRITICAL_ISR(&log_mux);increment(stats.isr_refused);portEXIT_CRITICAL_ISR(&log_mux);return 0;}
   const uint64_t begin=now_us();uint64_t id=0,seq=0,deadline=0,generation=0;bool tx=false;
   portENTER_CRITICAL(&log_mux);
+  if(!usb_online){if(stats.suppressed_no_capture!=UINT64_MAX)++stats.suppressed_no_capture;portEXIT_CRITICAL(&log_mux);return 0;}
   if(live){if(begin<live_next_us){portEXIT_CRITICAL(&log_mux);return 0;}
     if(begin>UINT64_MAX-10000000){stats.counter_exhausted=true;portEXIT_CRITICAL(&log_mux);return 0;}live_next_us=begin+10000000;}
   if(!stats.capture_active||begin>=stats.capture_deadline_us){
@@ -267,6 +301,7 @@ int logf(const char* format,...){va_list args;va_start(args,format);const int n=
 static int live_format(const char* format,...){va_list args;va_start(args,format);const int n=logv_impl(format,args,true);va_end(args);return n;}
 int log_live(const char* snapshot){
   if(xPortInIsrContext()){portENTER_CRITICAL_ISR(&log_mux);increment(stats.isr_refused);portEXIT_CRITICAL_ISR(&log_mux);return 0;}
+  portENTER_CRITICAL(&log_mux);const bool online=usb_online;portEXIT_CRITICAL(&log_mux);if(!online)return 0;
   if(!snapshot)return 0;
   unsigned length=0;for(;length<768&&snapshot[length];++length){}
   if(length>=768||length<12||std::strncmp(snapshot,"W12_G1_LIVE ",12))return 0;

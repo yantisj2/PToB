@@ -3,10 +3,11 @@
 #include <cstdint>
 #include <cstring>
 namespace watch {
-// Observation only. No radio command, estimator update, or permission grant.
+struct LoRaSleepView {uint64_t sleep_us=0,rx_us=0,at=0,last_transition=0;uint32_t sleeps=0,wakes=0,refused=0;bool sleeping=false,active=false;};
+// Authenticated receive schedule. No estimator update or permission grant.
 class LoRaShadow {
  public:
- static constexpr uint64_t Beat=30000000,Meta=360000000,Lead=4000000,Tail=8000000;
+ static constexpr uint64_t Beat=30000000,Meta=360000000,Lead=2000000,Tail=8000000,WakeLead=0;
  struct View {
   uint64_t next_sync=0,next_meta=0,rx_us=0,sleep_us=0,unknown_us=0,inactive_us=0,last_us=0;
   uint32_t pairs=0,qualified=0,covered=0,outside=0,misses=0,resets=0,meta_seen=0;
@@ -20,14 +21,18 @@ class LoRaShadow {
  bool covered(uint64_t t)const {
   if(!v.tracking)return true;
   const auto inside=[](uint64_t t,uint64_t x,uint64_t pre,uint64_t post){return x&&t>=(x>pre?x-pre:0)&&(t<=x||t-x<=post);};
-  // Include previous pair's trailing window after predicting the next pair.
-  return inside(t,v.next_sync,Lead,Tail)||inside(t,last_sync_,Lead,Tail)||
-   inside(t,v.next_meta,Lead,Lead)||inside(t,last_meta_,Lead,Lead);
+  // A completed authenticated pair/META advances its deadline immediately.
+  // No trailing dwell after receipt; an outstanding window stays open.
+  return inside(t,v.next_sync,Lead,Tail)||inside(t,v.next_meta,Lead,Lead);
  }
- void fence(uint8_t why){if(v.tracking||v.qualified)inc(v.resets);v.tracking=false;v.qualified=0;v.reason=why;v.would_rx=true;v.next_sync=0;}
+ void fence(uint8_t why){if(v.tracking||v.qualified)inc(v.resets);v.tracking=false;v.qualified=0;v.reason=why;v.would_rx=true;v.next_sync=0;v.next_meta=0;v.meta_phase=false;last_sync_=last_meta_=0;}
  public:
+ // Drop the complete forecast: a single later packet cannot resume sleep.
+ void lose(uint8_t why){fence(why);}
+ // Wake two seconds before the physical event; startup fits inside this lead.
+ bool receive_due(uint64_t at)const {return covered(at)||at>UINT64_MAX-WakeLead||covered(at+WakeLead);}
  // Reasons:0 learning,1 tracking,2 OFF/fault,3 context,4 missing pair,
- // 5 outside window,6 cadence,7 clock reversal,8 META stale/phase unknown.
+ // 5 outside window,6 cadence,7 clock reversal,8 META stale/phase unknown,9 worker/IRQ discontinuity,10 map unavailable.
  void tick(uint64_t now,bool healthy=true){
   if(v.last_us&&now<v.last_us){fence(7);context_known_=false;last_sync_=last_meta_=0;v.meta_phase=false;v.next_meta=0;v.last_us=now;return;}
   if(v.last_us){const auto dt=now-v.last_us;if(!v.active)v.inactive_us+=dt;else if(dt>250000)v.unknown_us+=dt;else if(v.would_rx)v.rx_us+=dt;else v.sleep_us+=dt;}

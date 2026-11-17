@@ -4,13 +4,13 @@
 int main(){
  using namespace watch;TouchCapture input;TouchStroke out;View v;v.settings.face=2;
  // A complete swipe occurs while a slow frame is drawing. Compressed capture
- // survives until the UI consumes it and cycles Solar -> Digital.
+ // survives until the UI consumes it and cycles Solar -> Shadow.
  assert(!input.update(true,true,330,250,7,100000,out));
  assert(!input.update(true,true,210,253,7,180000,out));
  assert(!input.update(true,false,0,0,7,190000,out)); // inter-report gap
  assert(!input.update(true,true,70,251,7,230000,out));
  assert(input.update(true,false,0,0,7,270000,out));
- assert(out.apply(v,7,650000)&&v.settings.face==0&&v.screen==Screen::Face);
+ assert(out.apply(v,7,650000)&&v.settings.face==3&&v.screen==Screen::Face);
  // Right swipe escapes Solar to Instrument as well.
  input={};v.settings.face=2;
  input.update(true,true,60,250,8,700000,out);input.update(true,true,320,252,8,850000,out);

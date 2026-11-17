@@ -56,6 +56,14 @@ def main():
                                  ('i<2&&PTOB_N30_FINE_PINS', 'i<1&&PTOB_N30_FINE_PINS'),
                                  ('(3u<<27)', '(1u<<27)'), ('const unsigned ch=pin==4?0:1;', 'const unsigned ch=0;')]:
                     text = text.replace(old, new)
+            if src.name == 'fine_fake.hpp':
+                text = text.replace('using gpio_num_t=int;', 'constexpr int GPIO_NUM_13=13;using gpio_num_t=int;')
+                text = text.replace('c->flags.pos_edge==unsigned(i<1&&PTOB_N30_FINE_PINS)', 'c->flags.pos_edge==unsigned(i==1||(i<1&&PTOB_N30_FINE_PINS))')
+                text = text.replace('x==(1u<<29)||x==(1u<<27)', 'x==(1u<<29)||x==(1u<<28)||x==(1u<<27)')
+                text = text.replace('(x==(1u<<29)&&fake_clear_ok)', '((x==(1u<<29)||x==(1u<<28))&&fake_clear_ok)')
+                text = text.replace('bits==(1u<<27)', 'bits==(1u<<27)||bits==(1u<<28)')
+                text = text.replace('gpio==GPIO_MATRIX_CONST_ZERO_INPUT||', 'gpio==GPIO_MATRIX_CONST_ZERO_INPUT||gpio==13||')
+                text = text.replace('assert(pin==17);++fake_gpio_calls', 'assert(pin==17||pin==13);++fake_gpio_calls')
             dst.write_text(text)
             paths.append(src)
         value = profile(device)

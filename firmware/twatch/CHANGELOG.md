@@ -2,7 +2,87 @@
 
 ## Unreleased
 
-- Refresh the public target guide with all three face previews, everyday controls,
+- Add one offline check command covering all watch regressions and capture
+  parsers, with per-check logs and an aggregate receipt. Native builds and
+  hardware qualification remain separate.
+
+- Prepare 0.1.10 for separately measured empirical fine-input phase profiles.
+  Keep exact-device inputs and baseline evidence local; validate a corrected
+  image against a separate post-flash PPS cohort. This is a provisional
+  aggregate-path adjustment, without a running GNSS feedback loop or UTC bound.
+
+- Prepare 0.1.9 to retain scored PPS samples across brief permission gaps on
+  the same selected BLE path. Hide paused results and require a new eligible
+  physical PPS to resume; preserve source/context, GNSS reference and capture
+  discontinuity resets. Add the observed settling-reset regression with real
+  controller/witness tests and expired-permission negative cases. Fixed phase
+  calibration still requires a measured, settled baseline and residual check.
+
+- Prepare 0.1.8 with a bounded `v12 control` status path and compact mutation
+  acknowledgments/refusals. Preserve exact identity/nonce/ticket/CRC binding,
+  original drain/ACK deadlines and direct BLE/LoRa/fine/display/GNSS retirement
+  proofs. Detailed Shadow statistics use their own response, preventing the
+  expanded 0.1.7 normal status from consuming maintenance capacity.
+- Fix the GNSS power-acknowledgment race and prevent rearm after retained
+  cleanup/start/health failures. Preserve first cleanup evidence and expose
+  receive-only UART/NMEA activity for indoor checks. Add actual-controller,
+  maximum-width production formatter, fragmented parser/handshake, overflow,
+  backpressure, reconnect and physical-proof regressions. Hardware qualification
+  remains separate from offline acceptance.
+
+- Prepare 0.1.7 Shadow as a fourth face with original Casio/Garmin inspired
+  graphite/lime styling, satellite sky/reception displays, physical PPS flash
+  and animated search/fix/PPS/settling/measurement stages. Gate GNSS BLDO1 to
+  the awake visible face and require UART/capture/rail retirement for maintenance.
+- Add a read-only PPS witness on the existing fine owner's unused CH1, separate
+  from radio association and training. After ten phase-blind settling seconds,
+  show signed MEAN, P99 ABS and RMS; reset across source/reference/gap changes.
+  Gate statistics to fresh selected BLE/RC1/RC2, withhold invalid sky geometry,
+  preserve missing/skipped samples and mark approximate histogram tails.
+  Native/host checks and synthetic previews are offline; no installation,
+  independent timing accuracy or power savings are established.
+
+- Prepare 0.1.6 power field candidate: CPU DFS 80–240 MHz with explicit BLE
+  startup/retirement and panel holds; continuous timing counters and existing
+  BLE capture requirements remain intact.
+- Block empty console output on notification and suppress USB polling/formatting
+  on battery. Cable transitions count discarded output and invalidate partial
+  commands while preserving fault records and original deadlines.
+- Use panel Sleep In/Out and display-enable sequencing while retaining touch
+  power and polling. Transfer fresh pixels before Display On. Add actual-code
+  host regressions and a power field-test checklist; energy savings remain
+  unmeasured. LoRa and IMU behavior are unchanged.
+
+- Move Battery chart scratch and large UI working state into explicit PSRAM
+  allocations. Reuse the single-owner summary, bound column counters and expose
+  UI stack headroom. Retain the failed first runtime's freeze/StoreProhibited
+  evidence; a source memory fix alone does not establish installed acceptance.
+
+- Add the Battery app with aligned battery-percentage and display-on charts,
+  a selected-period display-on total and compact uptime. Default to one hour;
+  allow 6/12/24-hour scales. Sample the gauge every 30 seconds even during
+  display sleep and retain minute buckets in bounded PSRAM for a rolling
+  24-hour boot session. Preserve unknown intervals and reset history at reboot.
+- Handle the upper-left AXP2101 short-press key as display sleep/wake, including
+  explicit sleep on USB power. Consume wake gestures, suppress immediate wrist
+  re-wake and preserve PMU recovery behavior. Add host retention, panel-duty,
+  navigation and PMU acknowledgment regressions plus native-renderer fixtures.
+  Host rendering and offline compilation do not establish installed acceptance.
+
+- Enable configuration-retaining SX1262 sleep between authenticated transmit
+  windows. Wake two seconds before predicted SYNC or META and sleep immediately
+  after complete authenticated data, unless another window remains outstanding.
+  Wait through the eight-second SYNC/FOLLOW deadline when data is missing, then
+  stay in continuous RX until reacquisition. Require four consecutive pairs and
+  two periodic META observations. A missed pair/META, context change, worker gap
+  or invalid counter map discards the forecast and restores continuous RX until
+  full reacquisition. Preserve clock/capture epochs, replay floors and models.
+- Add RAM-only actual sleep/wake residency and failure diagnostics, bounded
+  NSS/BUSY wake, boosted-gain verification and OFF/IRQ race regressions. Sleeping
+  radio service polls at 50 ms while the timing counter continues. Hardware wake
+  reliability, live packet coverage and supply-current savings remain unqualified.
+
+- Refresh the public target guide with all four face previews, everyday controls,
   build/update steps and explicit build-time location and tide-station setup.
   Keep experimental radio, wrist-wake and accuracy limits visible.
 
@@ -28,10 +108,6 @@
   events and timestamp readers while preserving the continuous held clock and
   oscillator estimate. Rebuild the controller mapping and require fresh admission
   after restart; expose actual controller state and bounded lifecycle failures.
-- Add authenticated LoRa shadow-window prediction with conservative SYNC/FOLLOW
-  and META margins, coverage/miss counters and continuous-RX fallback. Actual
-  LoRa sleep remains disabled pending live window validation.
-
 - Replace the fixed LoRa transmitter pin with authenticated field-emitter discovery,
   retaining four non-evicting replay floors across radio OFF/ON and requiring
   fresh metadata/pairs after emitter changes. Physical reception on the updated

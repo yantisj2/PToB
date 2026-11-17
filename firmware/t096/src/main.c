@@ -514,6 +514,12 @@ static void __attribute__((noinline)) reply_body(const struct r2_request *r,uint
 #ifdef R2_CONTROLLER_DIAGNOSTICS
     "\"controller_diagnostics\":true,"
 #endif
+#if defined(R2_LORA_BOOT_TX) && R2_LORA_BOOT_TX
+    "\"lora_boot_tx\":true,"
+#endif
+#if defined(R2_USB_AWAKE_CONTROL) && R2_USB_AWAKE_CONTROL
+    "\"usb_awake_control\":true,"
+#endif
     "\"silicon\":\"%s\",\"unit\":\"%s\",\"boot\":\"%016llx\",\"battery\":%d,"
     "\"uptime_ms\":%llu,\"heartbeat\":%u,\"result\":%d,\"identity_rc\":%d,\"pins_rc\":%d,"
     "\"platform_ready\":%s,\"boot_timeout\":%s,\"clock\":[%d,%d,%d,%d,%llu,%llu],"

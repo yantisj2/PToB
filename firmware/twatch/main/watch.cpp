@@ -392,6 +392,47 @@ void solar_face(Canvas& c,const Model& m,uint64_t now,RenderCache* cache){
 }
 
 void row(Canvas& c,int y,const char* title,const char* detail){c.text(42,y,title,36,Ink);c.text(42,y+40,detail,20,Muted);c.chevron(350,y+21);c.rect(y>350?64:42,y+79,y>350?282:326,1,Rule);}
+void duration(char* out,unsigned size,uint64_t seconds){
+ if(seconds>=3600)std::snprintf(out,size,"%lluh %02llum",(unsigned long long)(seconds/3600),(unsigned long long)(seconds/60%60));
+ else if(seconds>=60)std::snprintf(out,size,"%llum %02llus",(unsigned long long)(seconds/60),(unsigned long long)(seconds%60));
+ else std::snprintf(out,size,"%llus",(unsigned long long)seconds);
+}
+void battery_app(Canvas& c,const Model& m,const View& v,uint64_t now){
+ constexpr auto Level=rgb(119,224,103),Awake=rgb(104,189,249);
+ constexpr int left=42,plot_width=282,level_top=229,level_base=295,awake_top=355,awake_base=407;
+ char b[64];
+ const uint8_t scales[]={1,6,12,24};
+ for(unsigned i=0;i<4;++i){const int x=42+int(i)*82;const bool selected=v.battery_hours==scales[i];
+  if(selected){c.rect(x,104,80,36,Dim);c.rect(x+20,138,40,2,Ink);}
+  std::snprintf(b,sizeof b,"%uh",scales[i]);centered(c,x+40,108,b,20,selected?Ink:Muted);
+ }
+ std::snprintf(b,sizeof b,m.battery>=0&&m.battery<=100?"%d%%":"--%%",m.battery);c.text(42,150,b,36,m.battery>=0?Level:Muted);
+ c.text(213,163,m.battery<0?"Gauge unavailable":m.charging?"USB power":"On battery",20,Muted);
+ c.text(42,201,"Battery level",20,Level);
+ c.text(335,220,"100%",14,Muted);c.text(335,281,"0%",14,Muted);
+ for(int y:{level_top,level_base})c.rect(left,y,plot_width,1,Rule);
+ c.text(42,315,"Display on",20,Awake);
+ static constexpr BatteryHistory::Window empty{};
+ const auto& window=m.battery_history?m.battery_history->snapshot(now,v.battery_hours):empty;
+ duration(b,sizeof b,window.awake_us/1000000);centered(c,277,309,m.battery_history?b:"--",26,Ink);
+ const uint64_t segment_us=uint64_t(v.battery_hours)*BatteryHistory::Hour/BatteryHistory::Columns;
+ std::snprintf(b,sizeof b,"%llum",(unsigned long long)(segment_us/60000000));c.text(335,346,b,14,Muted);c.text(335,393,"0",14,Muted);
+ for(int y:{awake_top,awake_base})c.rect(left,y,plot_width,1,Rule);
+ bool levels=false;
+ for(unsigned i=0;i<BatteryHistory::Columns;++i){const auto& bar=window.columns[i];const int x=left+int(i)*plot_width/BatteryHistory::Columns+1;
+  if(bar.level>=0){levels=true;const int h=std::max(2,bar.level*(level_base-level_top)/100);c.rect(x,level_base-h,6,h,Level);}
+  if(bar.observed_us){const int h=std::max(1,int(std::min<uint64_t>(bar.awake_us,segment_us)*(awake_base-awake_top)/segment_us));c.rect(x,awake_base-h,6,h,bar.awake_us?Awake:Rule);}
+ }
+ if(!levels)centered(c,183,250,m.battery_history?"Collecting battery history":"History unavailable",20,Muted);
+ std::snprintf(b,sizeof b,"-%uh",v.battery_hours);c.text(left,415,b,14,Muted);
+ if(v.battery_hours==1)std::snprintf(b,sizeof b,"-30m");else std::snprintf(b,sizeof b,"-%uh",v.battery_hours/2);
+ centered(c,left+plot_width/2,415,b,14,Muted);c.text(300,415,"Now",14,Muted);
+ if(m.uptime_s>=86400)std::snprintf(b,sizeof b,"Up %llud %02lluh %02llum",(unsigned long long)(m.uptime_s/86400),(unsigned long long)(m.uptime_s/3600%24),(unsigned long long)(m.uptime_s/60%60));
+ else if(m.uptime_s>=60)std::snprintf(b,sizeof b,"Up %02lluh %02llum",(unsigned long long)(m.uptime_s/3600),(unsigned long long)(m.uptime_s/60%60));
+ else std::snprintf(b,sizeof b,"Up %llus",(unsigned long long)m.uptime_s);
+ centered(c,205,452,b,20,Muted);
+}
+#include "shadow_face.inc"
 }
 const char* zone_name(uint16_t id,int16_t offset){
  if(id==2&&offset==-360)return "CST";
@@ -402,11 +443,12 @@ void hold_text(char* out,unsigned size,uint64_t us){
  const auto value=us>=1000000?us/1000000:us>=1000?us/1000:us;
  std::snprintf(out,size,"%llu %s",static_cast<unsigned long long>(value),us>=1000000?"s":us>=1000?"ms":"us");
 }
-void View::tick(uint64_t now,bool usb){if(usb){asleep=false;glance_until_us=0;activity_us=now;return;}if(now<activity_us){activity_us=now;glance_until_us=0;return;}if(glance_until_us?now>=glance_until_us:now-activity_us>=uint64_t(settings.timeout_s)*1000000){asleep=true;glance_until_us=0;}}
-void View::button(uint64_t now){glance_until_us=0;activity_us=now;if(asleep){asleep=false;return;}screen=screen==Screen::Face?Screen::Launcher:Screen::Face;}
-void View::touch(int x,int y,uint64_t now){if(x<0||x>=Width||y<0||y>=Height)return;glance_until_us=0;activity_us=now;if(asleep){asleep=false;return;}if(screen==Screen::Face){if(y>=430)screen=Screen::Launcher;return;}if(y<95){screen=screen==Screen::Launcher?Screen::Face:Screen::Launcher;return;}if(screen==Screen::Launcher){if(y<215)screen=Screen::Faces;else if(y<325)screen=Screen::Settings;else if(y>=400)screen=Screen::Face;}else if(screen==Screen::Faces){if(y>=105&&y<425){settings.face=y<210?0:y<315?1:2;dirty=true;screen=Screen::Face;}}else if(screen==Screen::Settings){if(y>=105&&y<185){settings.brightness=uint8_t(settings.brightness==100?10:std::min(100,int(settings.brightness)+10));dirty=true;}else if(y>=185&&y<265){settings.timeout_s=settings.timeout_s==15?30:settings.timeout_s==30?60:settings.timeout_s==60?90:15;dirty=true;}else if(y>=265&&y<345){radio_request=1;}else if(y>=345&&y<425){radio_request=2;}}}
+void View::tick(uint64_t now,bool usb){if(usb&&!manual_sleep){asleep=false;glance_until_us=0;activity_us=now;return;}if(now<activity_us){activity_us=now;glance_until_us=0;return;}if(glance_until_us?now>=glance_until_us:now-activity_us>=uint64_t(settings.timeout_s)*1000000){asleep=true;glance_until_us=0;}}
+void View::button(uint64_t now){glance_until_us=0;activity_us=now;if(asleep){asleep=false;manual_sleep=false;return;}screen=screen==Screen::Face?Screen::Launcher:Screen::Face;}
+void View::touch(int x,int y,uint64_t now){if(x<0||x>=Width||y<0||y>=Height)return;glance_until_us=0;activity_us=now;if(asleep){asleep=false;manual_sleep=false;return;}if(screen==Screen::Face){if(y>=430)screen=Screen::Launcher;return;}if(y<95){screen=screen==Screen::Launcher?Screen::Face:Screen::Launcher;return;}if(screen==Screen::Launcher){if(y<215)screen=Screen::Faces;else if(y<325)screen=Screen::Settings;else if(y<425)screen=Screen::Battery;else screen=Screen::Face;}else if(screen==Screen::Battery){if(x>=42&&x<368&&y>=100&&y<148){const uint8_t hours[]={1,6,12,24};battery_hours=hours[std::min(3,(x-42)/82)];}}else if(screen==Screen::Faces){if(y>=105&&y<425){settings.face=uint8_t((y-105)/80);dirty=true;screen=Screen::Face;}}else if(screen==Screen::Settings){if(y>=105&&y<185){settings.brightness=uint8_t(settings.brightness==100?10:std::min(100,int(settings.brightness)+10));dirty=true;}else if(y>=185&&y<265){settings.timeout_s=settings.timeout_s==15?30:settings.timeout_s==30?60:settings.timeout_s==60?90:15;dirty=true;}else if(y>=265&&y<345){radio_request=1;}else if(y>=345&&y<425){radio_request=2;}}}
 void render(uint16_t* pixels,const Model& m,const View& v,uint64_t now,RenderCache* cache){
  Canvas c{pixels};
+ if(!v.asleep&&v.screen==Screen::Face&&v.settings.face==3){if(cache){cache->valid=false;std::memset(cache->changed,1,sizeof cache->changed);}shadow_face(c,m,now);return;}
  if(!v.asleep&&v.screen==Screen::Face&&v.settings.face==2){solar_face(c,m,now,cache);return;}
  if(!v.asleep&&v.screen==Screen::Face&&v.settings.face==1){instrument(c,m,now,cache);return;}
  if(cache){cache->valid=false;std::memset(cache->changed,1,sizeof cache->changed);}
@@ -417,8 +459,9 @@ void render(uint16_t* pixels,const Model& m,const View& v,uint64_t now,RenderCac
  char b[64];
 
  if(v.screen!=Screen::Face){
-  c.text(52,42,"<",36,Amber);c.text(89,42,v.screen==Screen::Launcher?"APPS":v.screen==Screen::Settings?"SETTINGS":"WATCH FACES",36,Ink);c.rect(42,96,326,1,Rule);
-  if(v.screen==Screen::Launcher){row(c,116,"Watch faces",v.settings.face==0?"DIGITAL / selected":v.settings.face==1?"INSTRUMENT / selected":"SOLAR / selected");row(c,226,"Settings","Display and radio controls");c.text(42,357,m.lora_on?"BLE preferred / LoRa receiving":"BLE preferred / LoRa off",20,m.lora_on?Muted:Amber);row(c,405,"Return to watch","Last face opens at boot");}
+  c.text(52,42,"<",36,Amber);c.text(89,42,v.screen==Screen::Launcher?"APPS":v.screen==Screen::Settings?"SETTINGS":v.screen==Screen::Battery?"BATTERY":"WATCH FACES",36,Ink);c.rect(42,96,326,1,Rule);
+  if(v.screen==Screen::Launcher){row(c,116,"Watch faces",v.settings.face==0?"DIGITAL / selected":v.settings.face==1?"INSTRUMENT / selected":v.settings.face==2?"SOLAR / selected":"SHADOW / selected");row(c,226,"Settings","Display and radio controls");row(c,336,"Battery","Level and display-on history");centered(c,205,448,"Return to watch",20,Muted);}
+  else if(v.screen==Screen::Battery)battery_app(c,m,v,now);
   else if(v.screen==Screen::Settings){
    auto setting=[&](int y,const char* name,const char* value,const char* detail,bool warn=false){c.text(42,y,name,26,Ink);c.text(275,y,value,26,warn?Amber:Ink);c.text(42,y+32,detail,20,Muted);c.rect(42,y+68,326,1,Rule);};
    std::snprintf(b,sizeof b,"%u%%",v.settings.brightness);setting(108,"Brightness",b,"Tap to adjust");
@@ -427,7 +470,7 @@ void render(uint16_t* pixels,const Model& m,const View& v,uint64_t now,RenderCac
    radio(268,"BLE radio",m.ble_state);radio(348,"LoRa radio",m.lora_state);
    c.text(64,438,v.save_failed?"Display save failed":"Radios reset ON at boot",20,v.save_failed?Amber:Muted);
   }
-  else {row(c,111,"Digital",v.settings.face==0?"SELECTED / segmented instrument":"Segmented instrument");row(c,216,"Instrument",v.settings.face==1?"SELECTED / mechanical indicators":"Mechanical indicators");row(c,321,"Solar",v.settings.face==2?"SELECTED / sun, moon and tides":"Sun, moon and tides");c.text(64,438,"Tap a face to wear it",20,Muted);}
+  else {const char* names[]={"Digital","Instrument","Solar","Shadow"};const char* details[]={"Segmented instrument","Mechanical indicators","Sun, moon and tides","GNSS / PPS comparison"};for(unsigned i=0;i<FaceCount;++i){const int y=108+int(i)*80;c.text(42,y,names[i],26,Ink);c.text(42,y+32,v.settings.face==i?"SELECTED":details[i],20,v.settings.face==i?Green:Muted);c.chevron(350,y+14);c.rect(42,y+68,326,1,Rule);}c.text(64,438,"Tap a face to wear it",20,Muted);}
 
   return;
  }

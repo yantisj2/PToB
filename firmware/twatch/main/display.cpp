@@ -8,6 +8,9 @@
 #include "n30_lora.hpp"
 #include "ptob_registry.h"
 #include "watch.hpp"
+#include "shadow_gnss.hpp"
+#include "control_frame.hpp"
+#include "fine_capture.hpp"
 #include "watch_button.hpp"
 #include "touch_capture.hpp"
 #include "radio_candidates.hpp"
@@ -16,6 +19,8 @@
 #include "watch_holdover.hpp"
 #include "calendar.hpp"
 #include "board.hpp"
+#include "energy.hpp"
+#include "console_power.hpp"
 #include "imu.hpp"
 #include "driver/gpio.h"
 #include "esp_timer.h"
@@ -23,6 +28,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <cstring>
+#include <new>
 namespace {
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 bool imu_restart_pending=false,imu_restarting=false;
@@ -31,6 +37,20 @@ uint8_t button_singles_pending=0,button_power=0;int button_power_error=0;
 uint32_t button_edges=0,button_singles=0,button_doubles=0,button_gap_us=0;
 watch::WatchButton physical_button;esp_timer_handle_t button_timer=nullptr;
 uint64_t button_sample_at=0;bool button_raw=false;
+uint32_t power_key_presses=0,power_key_errors=0;
+uint32_t ui_stack_min=6144;
+struct BatteryStatus {uint64_t at=0,sample_at=0,awake_us=0,observed_us=0;uint32_t samples=0;int percent=-1;uint8_t page=0,hours=1,columns=0;bool available=false;};
+BatteryStatus battery_status;
+struct UiWorkspace {
+ watch::PresentationClock presentation;watch::InstrumentMotion motion;
+ watch::RenderCache render_cache;watch::calendar::Snapshot agenda;watch::Model model;
+};
+static_assert(sizeof(UiWorkspace)<=4096,"Keep large UI working state within its PSRAM budget");
+// Keep the 30-column temporary out of the worker's rendering call stack.
+__attribute__((noinline)) void history_totals(const watch::BatteryHistory& history,uint64_t now,BatteryStatus& b){
+ const auto& w=history.snapshot(now,b.hours);b.awake_us=w.awake_us;b.observed_us=w.observed_us;
+ for(const auto& c:w.columns)b.columns+=c.level>=0;
+}
 watch::TouchStroke touch_queue[8];unsigned touch_head=0,touch_count=0;
 uint32_t touch_context=0,touch_tag=UINT32_MAX,touch_samples=0,touch_errors=0,touch_drops=0,touch_gap_us=0,touch_stack=0,touch_strokes=0,touch_actions=0;
 bool touch_stopped=true;
@@ -47,7 +67,7 @@ uint8_t radio_pending=0,radio_busy=0,radio_failed=0;uint64_t radio_retry_after[2
 watch::calendar::Snapshot published_calendar;
 watch::MobileSelection selection;uint32_t ble_refusal_seen=0;
 watchimu::Status imu_status;bool shown_asleep=false;uint32_t wrist_wakes=0;
-watch::Model published;uint32_t frames=0,errors=0,render_us=0,flush_us=0,frame_gap_max_us=0;uint64_t shown_utc=0,shown_at=0;uint8_t shown_source=0;bool ready=false,stop_requested=false,stopped=false;int page_request=-1;uint8_t shown_face=0,sleep_seconds=30;bool shown_local=false,shown_clock=false,shown_usb=false;
+watch::Model published;uint32_t frames=0,errors=0,render_us=0,flush_us=0,frame_gap_max_us=0;uint64_t shown_utc=0,shown_at=0;uint8_t shown_source=0;bool ready=false,stop_requested=false,stopped=false;int page_request=-1;int face_request=-1;bool sleep_request=false;uint8_t shown_face=0,sleep_seconds=30;bool shown_local=false,shown_clock=false,shown_usb=false;
 bool radio_request(unsigned index){
  if(index>1)return false;
  const uint8_t bit=1u<<index;const auto now=uint64_t(esp_timer_get_time());
@@ -71,7 +91,7 @@ void sample_button(void*){
  if(action!=watch::ButtonAction::None&&ui_task)xTaskNotifyGive(ui_task);
  portEXIT_CRITICAL(&mux);
 }
-void fail(){phase(14);const bool idle=watchboard::idle();portENTER_CRITICAL(&mux);++errors;ready=false;stopped=idle;ui_task=nullptr;portEXIT_CRITICAL(&mux);}
+void fail(){watchshadow::visible(false);phase(14);const bool idle=watchboard::idle();portENTER_CRITICAL(&mux);++errors;ready=false;stopped=idle;ui_task=nullptr;portEXIT_CRITICAL(&mux);}
 void publish_touch_view(const watch::View& view){
  const uint32_t tag=unsigned(view.screen)|(unsigned(view.settings.face)<<4)|(unsigned(view.asleep)<<8);
  portENTER_CRITICAL(&mux);if(tag!=touch_tag){touch_tag=tag;++touch_context;}portEXIT_CRITICAL(&mux);
@@ -96,29 +116,47 @@ void touch_worker(void*){
 void worker(void*){
  phase(1);
  portENTER_CRITICAL(&mux);ui_task=xTaskGetCurrentTaskHandle();portEXIT_CRITICAL(&mux);
- watch::View view;watch::Settings saved;watch::PresentationClock presentation;watch::InstrumentMotion motion;watch::RenderCache render_cache;
+ // Keep persistent models, ephemerides and damage bookkeeping off the task stack.
+ // Graphics state never falls back to scarce internal radio/DMA memory.
+ auto* workspace_memory=heap_caps_malloc(sizeof(UiWorkspace),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+ if(!workspace_memory){fail();vTaskDelete(nullptr);return;}
+ auto& workspace=*new(workspace_memory) UiWorkspace;
+ auto& presentation=workspace.presentation;auto& motion=workspace.motion;auto& render_cache=workspace.render_cache;auto& agenda=workspace.agenda;
+ watch::View view;watch::Settings saved;
  if(watchboard::settings_load(&saved,sizeof saved)){
   if(watch::migrate(saved))view.dirty=true;
   if(watch::valid(saved))view.settings=saved;
  }
  view.activity_us=now_us();bool sleeping=true;
- uint64_t last_frame=0,last_battery=0,last_usb=0,wake_event_at=0;uint8_t wake_kind=0;int battery=-1;bool usb=false;
+ uint64_t last_frame=0,last_battery=0,last_usb=0,last_power_key=0,last_history_status=0,wake_event_at=0;uint8_t wake_kind=0;int battery=-1;bool usb=false;uint32_t battery_samples=0;
  auto* frame=static_cast<uint16_t*>(heap_caps_malloc(watch::Width*watch::Height*2,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
  if(!frame||!watchboard::display_init()){fail();vTaskDelete(nullptr);return;}
  if(!watchboard::sleep(true)){fail();vTaskDelete(nullptr);return;}
+ if(!watch::energy::display(false)){fail();vTaskDelete(nullptr);return;}
+ // No internal-RAM fallback: retain radio/DMA headroom if PSRAM is exhausted.
+ auto* history_memory=heap_caps_malloc(sizeof(watch::BatteryHistory),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+ auto* history=history_memory?new(history_memory) watch::BatteryHistory:nullptr;
+ if(history)history->observe(now_us(),false);
  watchimu::init();
  publish_touch_view(view);portENTER_CRITICAL(&mux);touch_stopped=false;portEXIT_CRITICAL(&mux);
  if(xTaskCreatePinnedToCore(touch_worker,"watch_touch",2560,nullptr,2,nullptr,1)!=pdPASS){portENTER_CRITICAL(&mux);touch_stopped=true;portEXIT_CRITICAL(&mux);fail();vTaskDelete(nullptr);return;}
- watch::calendar::Snapshot agenda;
  uint8_t brightness=255;uint64_t calendar_minute=UINT64_MAX;bool calendar_valid=false,calendar_estimated=false;
- for(;;){uint64_t now=now_us();const auto loop_start=now;watch::Model m;int request;
+ for(;;){uint64_t now=now_us();const auto loop_start=now;auto& m=workspace.model;int request,requested_face;bool requested_sleep;
   portENTER_CRITICAL(&mux);const bool stop=stop_requested;portEXIT_CRITICAL(&mux);
-  if(stop){phase(12);const bool ok=watchboard::sleep(true);phase(ok?13:14);portENTER_CRITICAL(&mux);stopped=ok;ready=false;ui_task=nullptr;if(!ok)++errors;portEXIT_CRITICAL(&mux);vTaskDelete(nullptr);return;}
+  if(stop){watchshadow::visible(false);phase(12);const bool ok=watch::energy::display(true)&&watchboard::sleep(true);if(ok)(void)watch::energy::display(false);phase(ok?13:14);portENTER_CRITICAL(&mux);stopped=ok;ready=false;ui_task=nullptr;if(!ok)++errors;portEXIT_CRITICAL(&mux);vTaskDelete(nullptr);return;}
   portENTER_CRITICAL(&mux);const bool restart=imu_restart_pending;imu_restart_pending=false;if(restart){imu_restarting=true;imu_status={};}portEXIT_CRITICAL(&mux);
   if(restart){phase(1);watchimu::init();portENTER_CRITICAL(&mux);imu_status=watchimu::status();imu_restarting=false;portEXIT_CRITICAL(&mux);}
-  portENTER_CRITICAL(&mux);m=published;request=page_request;page_request=-1;portEXIT_CRITICAL(&mux);
+  portENTER_CRITICAL(&mux);request=page_request;page_request=-1;requested_face=face_request;face_request=-1;requested_sleep=sleep_request;sleep_request=false;portEXIT_CRITICAL(&mux);
   phase(2);
-  bool force=last_frame==0;if(request>=0){view.screen=static_cast<watch::Screen>(request);view.asleep=false;view.glance_until_us=0;view.activity_us=now;force=true;}
+  bool force=last_frame==0;if(request>=0){view.screen=static_cast<watch::Screen>(request);view.asleep=false;view.manual_sleep=false;view.glance_until_us=0;view.activity_us=now;force=true;}
+  if(requested_face>=0){view.settings.face=uint8_t(requested_face);view.screen=watch::Screen::Face;view.asleep=false;view.manual_sleep=false;view.activity_us=now;view.dirty=true;force=true;}
+  if(requested_sleep){view.asleep=true;view.manual_sleep=true;view.glance_until_us=0;view.activity_us=now;force=true;}
+  // PMU I2C remains with this owner, never the GPIO timer or touch task.
+  // The PMU latches a short press across slow frames. Poll while asleep too.
+  if(!last_power_key||now-last_power_key>=80000){bool pressed=false;const bool ok=watchboard::power_key(pressed);last_power_key=now;
+   if(pressed){if(view.asleep){wake_event_at=now;wake_kind=4;}view.power_button(now);force=true;publish_touch_view(view);}
+   portENTER_CRITICAL(&mux);if(pressed)++power_key_presses;if(!ok)++power_key_errors;portEXIT_CRITICAL(&mux);
+  }
   portENTER_CRITICAL(&mux);const bool single=button_singles_pending!=0;if(single)--button_singles_pending;portEXIT_CRITICAL(&mux);
   if(single){if(view.asleep){wake_event_at=now;wake_kind=2;}view.button(now);force=true;}
   portENTER_CRITICAL(&mux);const bool touch_wake=touch_wake_pending&&touch_wake_context==touch_context;const auto contact_at=touch_wake_at;touch_wake_pending=false;portEXIT_CRITICAL(&mux);
@@ -135,18 +173,31 @@ void worker(void*){
   if(movement==watchimu::Motion::Lower&&view.lower_arm(now))force=true;
   if(movement==watchimu::Motion::Raise&&view.wrist_raise(now)){force=true;wake_event_at=now;wake_kind=3;portENTER_CRITICAL(&mux);++wrist_wakes;portEXIT_CRITICAL(&mux);}
   phase(4);
-  if(!last_usb||now-last_usb>=500000){(void)watchboard::usb_power(usb);last_usb=now;}
+  if(!last_usb||now-last_usb>=500000){if(watchboard::usb_power(usb)){watch::energy::usb(usb);v12::log_usb_power(usb);}last_usb=now;}
   view.tick(now,usb);
+  watchshadow::visible(view.shadow_visible());
   publish_touch_view(view);
   portENTER_CRITICAL(&mux);imu_status=watchimu::status();shown_asleep=view.asleep;shown_usb=usb;portEXIT_CRITICAL(&mux);
   phase(5);
   if(view.dirty){view.save_failed=!watchboard::settings_save(&view.settings,sizeof view.settings);view.dirty=false;force=true;}
-  if(!sleeping&&view.asleep){if(!watchboard::sleep(true)){fail();vTaskDelete(nullptr);return;}sleeping=true;}
+  if(!sleeping&&view.asleep){if(!watchboard::sleep(true)){fail();vTaskDelete(nullptr);return;}sleeping=true;if(history)history->observe(now_us(),false);}
   const bool waking=sleeping&&!view.asleep;if(waking){force=true;render_cache.valid=false;}
+  if(!view.asleep&&!watch::energy::display(true)){fail();vTaskDelete(nullptr);return;}
+  if(waking&&!watchboard::wake_prepare()){fail();vTaskDelete(nullptr);return;}
   if(brightness!=view.settings.brightness){if(!watchboard::brightness(view.settings.brightness)){fail();vTaskDelete(nullptr);return;}brightness=view.settings.brightness;}
   phase(6);
   now=now_us();portENTER_CRITICAL(&mux);m=published;portEXIT_CRITICAL(&mux);
+  if(history)history->observe(now,!sleeping);
+  // Gauge history continues at 30 seconds regardless of app or panel state.
+  if(!last_battery||now-last_battery>=30000000){battery=watchboard::battery();last_battery=now;++battery_samples;if(history)history->sample(now,battery,usb);}
+  // Publish small RAM-only diagnostics from the history's sole owner, asleep too.
+  if(force||!last_history_status||now-last_history_status>=1000000){
+   BatteryStatus b;b.at=now;b.sample_at=last_battery;b.samples=battery_samples;b.percent=battery;b.page=uint8_t(view.screen);b.hours=view.battery_hours;b.available=history!=nullptr;
+   if(history)history_totals(*history,now,b);
+   portENTER_CRITICAL(&mux);battery_status=b;portEXIT_CRITICAL(&mux);last_history_status=now;
+  }
   m=presentation.present(m,now);
+  m.shadow=watchshadow::snapshot();
   const uint64_t minute=m.utc_us/60000000;
   if(minute!=calendar_minute||m.time_valid!=calendar_valid||m.local_time!=calendar_estimated){
    phase(7);
@@ -157,16 +208,19 @@ void worker(void*){
   m.calendar=agenda;
   portENTER_CRITICAL(&mux);shown_face=view.settings.face;sleep_seconds=view.settings.timeout_s;shown_local=m.local_time;shown_clock=m.time_valid;shown_utc=m.utc_us;shown_at=now;shown_source=uint8_t(m.source);portEXIT_CRITICAL(&mux);
 
-  if(!view.asleep&&(force||now-last_frame>=(view.screen==watch::Screen::Face&&view.settings.face==1?50000:view.settings.face==2?100000:1000000))){
+  if(!view.asleep&&(force||now-last_frame>=(view.screen==watch::Screen::Face?(view.settings.face==1?50000:(view.settings.face==2||view.settings.face==3)?100000:1000000):1000000))){
    phase(8);
-   if(!last_battery||now-last_battery>=30000000){battery=watchboard::battery();last_battery=now;}m.battery=battery;m.uptime_s=now/1000000;motion.apply(m,now);
+   m.battery=battery;m.uptime_s=now/1000000;m.charging=usb;m.battery_history=history;motion.apply(m,now);
    phase(9);const auto render_begin=now_us();watch::render(frame,m,view,now,&render_cache);const auto render_elapsed=now_us()-render_begin;phase(10);const auto flush_begin=now_us();bool ok=watch::commit_frame(waking,[&](){return watchboard::flush(frame,&render_cache);},[&](){return watchboard::sleep(false);});if(ok&&waking)sleeping=false;const auto flush_elapsed=now_us()-flush_begin;const auto gap=last_frame?now-last_frame:0;last_frame=now;
+   if(history)history->observe(now_us(),!sleeping);
    portENTER_CRITICAL(&mux);render_us=uint32_t(render_elapsed);flush_us=uint32_t(flush_elapsed);if(gap<1000000&&gap>frame_gap_max_us)frame_gap_max_us=uint32_t(gap);ready=ok;if(ok)++frames;else ++errors;
    if(ok&&waking){wake_latency_us=uint32_t(std::min<uint64_t>(UINT32_MAX,now_us()-(wake_event_at?wake_event_at:render_begin)));wake_render_us=uint32_t(render_elapsed);wake_flush_us=uint32_t(flush_elapsed);wake_source=wake_kind;wake_event_at=0;wake_kind=0;}
    portEXIT_CRITICAL(&mux);
-   if(!ok){const bool idle=watchboard::idle();portENTER_CRITICAL(&mux);stopped=idle;ui_task=nullptr;portEXIT_CRITICAL(&mux);vTaskDelete(nullptr);return;}
+   if(!ok){watchshadow::visible(false);const bool idle=watchboard::idle();portENTER_CRITICAL(&mux);stopped=idle;ui_task=nullptr;portEXIT_CRITICAL(&mux);vTaskDelete(nullptr);return;}
   }
-  portENTER_CRITICAL(&mux);++ui_loops;ui_loop_max_us=std::max(ui_loop_max_us,uint32_t(std::min<uint64_t>(UINT32_MAX,now_us()-loop_start)));portEXIT_CRITICAL(&mux);
+  const auto stack_free=uint32_t(uxTaskGetStackHighWaterMark(nullptr));
+  portENTER_CRITICAL(&mux);++ui_loops;ui_stack_min=std::min(ui_stack_min,stack_free);ui_loop_max_us=std::max(ui_loop_max_us,uint32_t(std::min<uint64_t>(UINT32_MAX,now_us()-loop_start)));portEXIT_CRITICAL(&mux);
+  if(sleeping&&!watch::energy::display(false)){fail();vTaskDelete(nullptr);return;}
   phase(11);ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(sleeping?80:30));
  }
 }
@@ -207,18 +261,30 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  auto zone_model=n30::model(s,d,now,ptob_registry_name(s.root_identity),ble_parked);
  static n30::DisplayTimeZone zone;zone.update(zone_model,s.tz_received,s.joined_peer,s.joined_boot,lora,now);
  if(r2_tz_valid(zone_model.tz)&&now<zone_model.tz_until_us){w.tz_minutes=zone_model.tz.offset_min;w.tz_id=zone_model.tz.id;}
+ watchshadow::selected(w,now);
  portENTER_CRITICAL(&mux);published=w;portEXIT_CRITICAL(&mux);
 }
 
-void n30_display_status(v12::ConsoleFrame& f){portENTER_CRITICAL(&mux);auto n=frames,e=errors,duration=render_us,flush=flush_us,gap=frame_gap_max_us;bool r=ready,local=shown_local,clock=shown_clock;auto face=shown_face,sleep=sleep_seconds,source=shown_source;auto utc=shown_utc,at=shown_at;auto imu=imu_status;auto wakes=wrist_wakes;const auto edges=button_edges,singles=button_singles,doubles=button_doubles,gap_button=button_gap_us;const auto power=button_power;const auto power_error=button_power_error;const auto ts=touch_samples,te=touch_errors,td=touch_drops,tg=touch_gap_us,tk=touch_stack,tst=touch_strokes,tact=touch_actions,wl=wake_latency_us,wr=wake_render_us,wf=wake_flush_us;const auto ws=wake_source,ph=ui_phase;const auto ph_at=ui_phase_at;const auto loops=ui_loops,loop_max=ui_loop_max_us;bool asleep=shown_asleep,usb=shown_usb;portEXIT_CRITICAL(&mux);f.format("TWATCH_UI version=1 width=410 height=502 frames=%u errors=%u ready=%u face=%u sleep_s=%u local=%u clock=%u render_us=%u flush_us=%u frame_gap_max_us=%u source=%u utc_us=%llu sampled_us=%llu asleep=%u imu=%u imu_algorithm=1001 imu_stage=%u imu_error=%d imu_events=%u imu_errors=%u wrist_wakes=%u imu_samples=%u arm_lower=%u imu_bus=%u imu_budget=%u glance_s=5 usb=%u key_edges=%u key_single=%u key_double=%u key_gap_us=%u power_stage=%u power_error=%d touch_samples=%u touch_errors=%u touch_drops=%u touch_gap_us=%u touch_stack=%u touch_strokes=%u touch_actions=%u wake_us=%u wake_render_us=%u wake_flush_us=%u wake_source=%u GNSS=OFF precision=UNQUALIFIED",unsigned(n),unsigned(e),unsigned(r),unsigned(face),unsigned(sleep),unsigned(local),unsigned(clock),unsigned(duration),unsigned(flush),unsigned(gap),unsigned(source),(unsigned long long)utc,(unsigned long long)at,unsigned(asleep),unsigned(imu.ready),unsigned(imu.stage),int(imu.error),unsigned(imu.wake_events),unsigned(imu.errors),unsigned(wakes),unsigned(imu.samples),unsigned(imu.lowered),unsigned(imu.bus_errors),unsigned(imu.budget_errors),unsigned(usb),unsigned(edges),unsigned(singles),unsigned(doubles),unsigned(gap_button),unsigned(power),power_error,unsigned(ts),unsigned(te),unsigned(td),unsigned(tg),unsigned(tk),unsigned(tst),unsigned(tact),unsigned(wl),unsigned(wr),unsigned(wf),unsigned(ws));
+void watch::display_control(v12::ConsoleFrame& f){
+ watch::ControlUi u;portENTER_CRITICAL(&mux);u.frames=frames;u.errors=errors;u.face=shown_face;u.ready=ready;u.asleep=shown_asleep;u.display_off=stopped&&touch_stopped;portEXIT_CRITICAL(&mux);
+ const auto p=v12::transport_watch_ble_status();const auto g=watchshadow::control();
+ watch::control_ui(f,u,p,g,n30_fine_released(),n30_fine_cleanup_fault());
+}
+void n30_display_status(v12::ConsoleFrame& f){portENTER_CRITICAL(&mux);auto n=frames,e=errors,duration=render_us,flush=flush_us,gap=frame_gap_max_us;bool r=ready,local=shown_local,clock=shown_clock;auto face=shown_face,sleep=sleep_seconds,source=shown_source;auto utc=shown_utc,at=shown_at;auto imu=imu_status;auto wakes=wrist_wakes;const auto edges=button_edges,singles=button_singles,doubles=button_doubles,gap_button=button_gap_us;const auto power=button_power;const auto power_error=button_power_error;const auto ts=touch_samples,te=touch_errors,td=touch_drops,tg=touch_gap_us,tk=touch_stack,tst=touch_strokes,tact=touch_actions,wl=wake_latency_us,wr=wake_render_us,wf=wake_flush_us;const auto ws=wake_source,ph=ui_phase;const auto ph_at=ui_phase_at;const auto loops=ui_loops,loop_max=ui_loop_max_us;bool asleep=shown_asleep,usb=shown_usb;portEXIT_CRITICAL(&mux);f.format("TWATCH_UI version=1 width=410 height=502 frames=%u errors=%u ready=%u face=%u sleep_s=%u local=%u clock=%u render_us=%u flush_us=%u frame_gap_max_us=%u source=%u utc_us=%llu sampled_us=%llu asleep=%u imu=%u imu_algorithm=1001 imu_stage=%u imu_error=%d imu_events=%u imu_errors=%u wrist_wakes=%u imu_samples=%u arm_lower=%u imu_bus=%u imu_budget=%u glance_s=5 usb=%u key_edges=%u key_single=%u key_double=%u key_gap_us=%u power_stage=%u power_error=%d touch_samples=%u touch_errors=%u touch_drops=%u touch_gap_us=%u touch_stack=%u touch_strokes=%u touch_actions=%u wake_us=%u wake_render_us=%u wake_flush_us=%u wake_source=%u GNSS=FACE_AUTO precision=UNQUALIFIED",unsigned(n),unsigned(e),unsigned(r),unsigned(face),unsigned(sleep),unsigned(local),unsigned(clock),unsigned(duration),unsigned(flush),unsigned(gap),unsigned(source),(unsigned long long)utc,(unsigned long long)at,unsigned(asleep),unsigned(imu.ready),unsigned(imu.stage),int(imu.error),unsigned(imu.wake_events),unsigned(imu.errors),unsigned(wakes),unsigned(imu.samples),unsigned(imu.lowered),unsigned(imu.bus_errors),unsigned(imu.budget_errors),unsigned(usb),unsigned(edges),unsigned(singles),unsigned(doubles),unsigned(gap_button),unsigned(power),power_error,unsigned(ts),unsigned(te),unsigned(td),unsigned(tg),unsigned(tk),unsigned(tst),unsigned(tact),unsigned(wl),unsigned(wr),unsigned(wf),unsigned(ws));
  f.format(" ui_phase=%u ui_phase_age_us=%llu ui_loops=%u ui_loop_max_us=%u",unsigned(ph),(unsigned long long)(now_us()>=ph_at?now_us()-ph_at:0),unsigned(loops),unsigned(loop_max));
+ portENTER_CRITICAL(&mux);const auto pk=power_key_presses,pke=power_key_errors,ui_stack=ui_stack_min;const auto battery=battery_status;portEXIT_CRITICAL(&mux);
+ f.format(" pmu_key=%u pmu_key_errors=%u",unsigned(pk),unsigned(pke));
+ f.format(" ui_stack_min_bytes=%u ui_psram_bytes=%u battery_psram_bytes=%u",unsigned(ui_stack),unsigned(sizeof(UiWorkspace)),unsigned(sizeof(watch::BatteryHistory)));
+ f.format(" app=%u battery_history=%u battery_pct=%d battery_samples=%u battery_sample_us=%llu battery_at_us=%llu battery_hours=%u battery_columns=%u battery_awake_us=%llu battery_observed_us=%llu",unsigned(battery.page),unsigned(battery.available),battery.percent,unsigned(battery.samples),(unsigned long long)battery.sample_at,(unsigned long long)battery.at,unsigned(battery.hours),unsigned(battery.columns),(unsigned long long)battery.awake_us,(unsigned long long)battery.observed_us);
  f.format(" heap_internal_largest=%u heap_internal_min=%u",unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)),unsigned(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)));
+ const auto energy=watch::energy::status();f.format(" cpu_mhz=%u cpu_ble=%u cpu_panel=%u cpu_rc=%d",unsigned(energy.cpu_mhz),unsigned(energy.ble),unsigned(energy.display),energy.error);
  const auto p=v12::transport_watch_ble_status();
  f.format(" ble_power_stage=%u ble_power_requested=%u ble_controller=%u ble_host_running=%u ble_power_off_ack=%u ble_power_generation=%u ble_power_rc=%ld ble_power_failed_stage=%u ble_power_deadline_us=%llu ble_power_stack=%u ble_sync_site=%u ble_sync_rc=%ld ble_power_worker=%u ble_power_alloc_failures=%u",unsigned(p.stage),unsigned(p.requested),unsigned(p.controller),unsigned(p.host_running),unsigned(p.off_ack()),unsigned(p.generation),long(p.error),unsigned(p.failed_stage),(unsigned long long)p.deadline_us,unsigned(p.stack_min_bytes),unsigned(p.sync_site),long(p.sync_error),unsigned(p.worker_running),unsigned(p.worker_alloc_failures));
  const bool cleanup_off=p.cleanup_completed_us&&p.cleanup_completed_us==p.off_proven_us;
- f.format(" ble_off_proof=%u ble_off_gen=%u ble_off_start_us=%llu ble_off_deadline_us=%llu ble_off_at_us=%llu ble_operating_fault=%u ble_cleanup_rc=%ld\n",
+ f.format(" ble_off_proof=%u ble_off_gen=%u ble_off_start_us=%llu ble_off_deadline_us=%llu ble_off_at_us=%llu ble_operating_fault=%u ble_cleanup_rc=%ld",
  unsigned(p.off_proven),unsigned(p.off_generation),(unsigned long long)(cleanup_off?p.cleanup_started_us:p.started_us),
  (unsigned long long)(cleanup_off?p.cleanup_deadline_us:p.deadline_us),(unsigned long long)p.off_proven_us,unsigned(p.operating_fault),long(p.cleanup_error));
+ watchshadow::status(f);
 }
 bool n30_display_imu_restart(){portENTER_CRITICAL(&mux);const bool ok=!stop_requested&&!imu_restart_pending&&!imu_restarting;if(ok)imu_restart_pending=true;portEXIT_CRITICAL(&mux);return ok;}
 void n30_display_imu_frame(v12::ConsoleFrame& f){
@@ -243,7 +309,9 @@ void n30_display_dual_frame(v12::ConsoleFrame& f,uint32_t fault_slot,uint32_t,ui
  f.format("\n");
 }
 void n30_display_trace_poll(){}
-bool n30_display_page(unsigned p){if(p>3)return false;portENTER_CRITICAL(&mux);page_request=int(p);portEXIT_CRITICAL(&mux);return true;}
+bool watch::display_sleep_request(){portENTER_CRITICAL(&mux);const bool ok=!stop_requested&&ui_task&&!stopped;if(ok){sleep_request=true;xTaskNotifyGive(ui_task);}portEXIT_CRITICAL(&mux);return ok;}
+bool watch::display_select_face(unsigned face){if(face>=watch::FaceCount)return false;portENTER_CRITICAL(&mux);const bool ok=!stop_requested&&ui_task&&!stopped;if(ok){face_request=int(face);if(ui_task)xTaskNotifyGive(ui_task);}portEXIT_CRITICAL(&mux);return ok;}
+bool n30_display_page(unsigned p){if(p>4)return false;portENTER_CRITICAL(&mux);page_request=int(p);portEXIT_CRITICAL(&mux);return true;}
 bool n30_display_radio_toggle(unsigned index){return radio_request(index);}
 bool n30_display_take_upstream_toggle(uint64_t){return false;}bool n30_display_take_lora_toggle(uint64_t){return radio_take(1);}bool n30_display_take_ble_toggle(uint64_t){return radio_take(0);}
 void n30_display_action_result(n30::Action action,bool accepted){

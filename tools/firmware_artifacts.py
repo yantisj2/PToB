@@ -178,6 +178,12 @@ def grouping(root, r):
                'lora_rx', 'lora_passive_fast', 'lora_passive_slow', 'lora_tx_diagnostic', 'lora_bw_experiment', 'rc9', 'controller_diagnostics', 'gnss_fast_map_diagnostic')}
     options['listening_percent'] = r.get('listening_percent', 100)
     options['gnss'] = bool(device.get('gnss_profile'))
+    # Preserve existing ordinary group identities. Explicit PHY controls must
+    # never rotate an ordinary image out of its latest-two retention group.
+    if r.get('usb_awake_control', False):
+        options['usb_awake_control'] = True
+    if r.get('lora_boot_tx', False):
+        options['lora_boot_tx'] = True
     if kind == 'ESP32_REF':
         options.update(board=r.get('board'), pulse_gpio=r.get('pulse_gpio'),
                        w12_lora_present=r.get('w12_lora_present'))

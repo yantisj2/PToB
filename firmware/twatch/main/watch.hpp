@@ -5,17 +5,24 @@
 #include <cmath>
 #include "calendar.hpp"
 #include "solar_geometry.hpp"
+#include "battery_history.hpp"
+#include "shadow_model.hpp"
+namespace v12 {struct ConsoleFrame;}
 namespace watch {
 constexpr int Width=410,Height=502;
-enum class Screen:uint8_t {Face,Launcher,Settings,Faces};
+enum class Screen:uint8_t {Face,Launcher,Settings,Faces,Battery};
 enum class RadioState:uint8_t {Off,On,Changing,Fault};
 enum class Source:uint8_t {None,BLE,LOR,RC1,RC2,RC9};
 struct Settings {uint8_t version=3,face=0,brightness=40,timeout_s=30;};
-inline bool valid(const Settings& s){return s.version==3&&s.face<=2&&s.brightness>=10&&s.brightness<=100&&(s.timeout_s==15||s.timeout_s==30||s.timeout_s==60||s.timeout_s==90);}
+constexpr uint8_t FaceCount=4;
+inline bool valid(const Settings& s){return s.version==3&&s.face<FaceCount&&s.brightness>=10&&s.brightness<=100&&(s.timeout_s==15||s.timeout_s==30||s.timeout_s==60||s.timeout_s==90);}
 inline bool migrate(Settings& s){
  if((s.version==1||s.version==2)&&s.face<=1&&s.brightness>=10&&s.brightness<=100){s.version=3;s.timeout_s=30;return true;}
  return false;
 }
+void display_control(v12::ConsoleFrame&);
+bool display_sleep_request();
+bool display_select_face(unsigned); // Authenticated UI mailbox, implemented by the native display owner.
 const char* zone_name(uint16_t id,int16_t offset);
 void hold_text(char* out,unsigned size,uint64_t duration_us);
 // Keep retained panel RAM hidden until the new frame has fully transferred.
@@ -23,6 +30,8 @@ template<class Flush,class Reveal> bool commit_frame(bool waking,Flush flush,Rev
 struct SolarPosition {double x=0,y=35;};
 inline SolarPosition solar_opposition(double angle){const double a=angle*3.14159265358979323846/180;return {-35*std::sin(a),35*std::cos(a)};}
 struct Model {
+ ShadowView shadow{};
+ const BatteryHistory* battery_history=nullptr; // UI-owned PSRAM; never published across tasks.
  uint64_t utc_us=0,sampled_us=0,until_us=0,uptime_s=0;
  uint32_t rms_ns=UINT32_MAX,hold_ms=0,hold_trials=0;
  calendar::Snapshot calendar{};
@@ -36,6 +45,10 @@ struct Model {
  bool motion=false,slewing=false,lora_receiving=false;
  bool local_time=false,time_valid=false,locked=false,holding=false,hold_valid=false,hold_lower=false,lora_on=false,charging=false;
 };
+inline bool shadow_comparison_allowed(const Model& m,uint64_t now){
+ return m.time_valid&&!m.local_time&&!m.holding&&now>=m.sampled_us&&now-m.sampled_us<250000&&now<m.until_us&&
+  (m.source==Source::BLE||m.source==Source::RC1||m.source==Source::RC2);
+}
 inline bool sampled_hold(const Model& m){
  return m.time_valid&&!m.local_time&&!m.holding&&m.hold_valid&&m.hold_trials>=100&&
   (m.source==Source::BLE||m.source==Source::RC1||m.source==Source::RC2);
@@ -74,16 +87,19 @@ struct PresentationClock {
 };
 
 struct View {
- Settings settings{};Screen screen=Screen::Face;bool asleep=false,dirty=false,save_failed=false;
+ Settings settings{};Screen screen=Screen::Face;bool asleep=false,dirty=false,save_failed=false,manual_sleep=false;
+ uint8_t battery_hours=1;
  uint8_t radio_request=0; // one-shot UI requests; radio owner executes them
  uint64_t activity_us=0,glance_until_us=0;
+ bool shadow_visible()const{return !asleep&&screen==Screen::Face&&settings.face==3;}
  bool wrist_raise(uint64_t now){
-  if(!asleep)return false;
-  asleep=false;screen=Screen::Face;activity_us=now;glance_until_us=now+5000000;return true;
+  if(!asleep||(manual_sleep&&(now<activity_us||now-activity_us<1500000)))return false;
+  asleep=false;manual_sleep=false;screen=Screen::Face;activity_us=now;glance_until_us=now+5000000;return true;
  }
  bool lower_arm(uint64_t now){if(!glance_until_us||asleep)return false;glance_until_us=0;activity_us=now;asleep=true;return true;}
  void touch(int x,int y,uint64_t now);
  void button(uint64_t now);
+ void power_button(uint64_t now){glance_until_us=0;activity_us=now;asleep=!asleep;manual_sleep=asleep;}
  void tick(uint64_t now,bool usb=false);
 };
 // Resolve touch only on release, so a swipe never first activates a tap target.
@@ -92,13 +108,13 @@ struct Gesture {
  bool update(View& v,bool contact,int x,int y,uint64_t now){
   if(contact){
    const bool began=!down;
-   if(!down){down=true;wake=v.asleep;start_x=x;start_y=y;started=now;screen=v.screen;if(wake)v.asleep=false;}
+   if(!down){down=true;wake=v.asleep;start_x=x;start_y=y;started=now;screen=v.screen;if(wake){v.asleep=false;v.manual_sleep=false;}}
    last_x=x;last_y=y;v.glance_until_us=0;v.activity_us=now;return began&&wake;
   }
   if(!down)return false;
   down=false;const int dx=last_x-start_x,dy=last_y-start_y,ax=dx<0?-dx:dx,ay=dy<0?-dy:dy;
   if(wake||now<started||now-started>1500000||screen!=v.screen)return false;
-  if(screen==Screen::Face&&ax>=64&&ax>2*ay){v.settings.face=uint8_t((v.settings.face+(dx<0?1:2))%3);v.dirty=true;v.activity_us=now;return true;}
+  if(screen==Screen::Face&&ax>=64&&ax>2*ay){v.settings.face=uint8_t((v.settings.face+(dx<0?1:FaceCount-1))%FaceCount);v.dirty=true;v.activity_us=now;return true;}
   if(ax<20&&ay<20){v.touch(start_x,start_y,now);return true;}
   return false;
  }

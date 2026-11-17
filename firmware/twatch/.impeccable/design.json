@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-16T00:51:32.924418+00:00",
+  "generatedAt": "2026-11-17T14:17:25.836971+00:00",
   "title": "Design System: T-Watch Ultra",
   "extensions": {
     "colorMeta": {
@@ -310,6 +310,90 @@
         "role": "secondary",
         "displayName": "Solar Sun Core",
         "canonical": "#FFF6DD"
+      },
+      "shadow-case": {
+        "role": "neutral",
+        "displayName": "Shadow graphite case",
+        "tonalRamp": [
+          "oklch(15.000% 0.0124 237.55)",
+          "oklch(26.430% 0.0124 237.55)",
+          "oklch(37.860% 0.0124 237.55)",
+          "oklch(49.290% 0.0124 237.55)",
+          "oklch(60.710% 0.0124 237.55)",
+          "oklch(72.140% 0.0124 237.55)",
+          "oklch(83.570% 0.0124 237.55)",
+          "oklch(95.000% 0.0124 237.55)"
+        ]
+      },
+      "shadow-ink": {
+        "role": "neutral",
+        "displayName": "Shadow pale ink",
+        "tonalRamp": [
+          "oklch(15.000% 0.0152 136.08)",
+          "oklch(26.430% 0.0152 136.08)",
+          "oklch(37.860% 0.0152 136.08)",
+          "oklch(49.290% 0.0152 136.08)",
+          "oklch(60.710% 0.0152 136.08)",
+          "oklch(72.140% 0.0152 136.08)",
+          "oklch(83.570% 0.0152 136.08)",
+          "oklch(95.000% 0.0152 136.08)"
+        ]
+      },
+      "shadow-lime": {
+        "role": "primary",
+        "displayName": "Shadow lime activity",
+        "tonalRamp": [
+          "oklch(15.000% 0.1642 120.57)",
+          "oklch(26.430% 0.1642 120.57)",
+          "oklch(37.860% 0.1642 120.57)",
+          "oklch(49.290% 0.1642 120.57)",
+          "oklch(60.710% 0.1642 120.57)",
+          "oklch(72.140% 0.1642 120.57)",
+          "oklch(83.570% 0.1642 120.57)",
+          "oklch(95.000% 0.1642 120.57)"
+        ]
+      },
+      "shadow-muted": {
+        "role": "neutral",
+        "displayName": "Shadow blue-grey labels",
+        "tonalRamp": [
+          "oklch(15.000% 0.0239 217.71)",
+          "oklch(26.430% 0.0239 217.71)",
+          "oklch(37.860% 0.0239 217.71)",
+          "oklch(49.290% 0.0239 217.71)",
+          "oklch(60.710% 0.0239 217.71)",
+          "oklch(72.140% 0.0239 217.71)",
+          "oklch(83.570% 0.0239 217.71)",
+          "oklch(95.000% 0.0239 217.71)"
+        ]
+      },
+      "shadow-rule": {
+        "role": "neutral",
+        "displayName": "Shadow quiet rules",
+        "tonalRamp": [
+          "oklch(15.000% 0.0259 219.18)",
+          "oklch(26.430% 0.0259 219.18)",
+          "oklch(37.860% 0.0259 219.18)",
+          "oklch(49.290% 0.0259 219.18)",
+          "oklch(60.710% 0.0259 219.18)",
+          "oklch(72.140% 0.0259 219.18)",
+          "oklch(83.570% 0.0259 219.18)",
+          "oklch(95.000% 0.0259 219.18)"
+        ]
+      },
+      "shadow-dim": {
+        "role": "neutral",
+        "displayName": "Shadow dim reception fields",
+        "tonalRamp": [
+          "oklch(15.000% 0.0192 218.70)",
+          "oklch(26.430% 0.0192 218.70)",
+          "oklch(37.860% 0.0192 218.70)",
+          "oklch(49.290% 0.0192 218.70)",
+          "oklch(60.710% 0.0192 218.70)",
+          "oklch(72.140% 0.0192 218.70)",
+          "oklch(83.570% 0.0192 218.70)",
+          "oklch(95.000% 0.0192 218.70)"
+        ]
       }
     },
     "typographyMeta": {
@@ -352,6 +436,16 @@
         "name": "solar-indications",
         "value": "Sun extrapolates minute ephemeris; metric rings use elapsed-time easing; clock acquisition <=12px/s",
         "purpose": "Continuous sun progress and opposing medallion trajectory within 35px internal circle; retain clock position without known astronomy."
+      },
+      {
+        "name": "shadow-search-sweep",
+        "value": "4s rotation while powered without fix",
+        "purpose": "Acquisition cue only; no synthetic satellite dots or PPS meaning."
+      },
+      {
+        "name": "shadow-physical-pulse",
+        "value": "220ms flash after captured PPS; recent for <=1.5s",
+        "purpose": "Independent physical PPS annunciator, never driven by clock seconds or the acquisition sweep."
       }
     ],
     "breakpoints": [],
@@ -427,21 +521,26 @@
       },
       "faceSelection": {
         "rowTopY": [
-          111,
-          216,
-          321
+          108,
+          188,
+          268,
+          348
         ],
         "hitYHalfOpen": [
           [
             105,
-            210
+            185
           ],
           [
-            210,
-            315
+            185,
+            265
           ],
           [
-            315,
+            265,
+            345
+          ],
+          [
+            345,
             425
           ]
         ]
@@ -509,13 +608,75 @@
           "bottom": "00",
           "left": "06"
         }
+      },
+      "shadow": {
+        "case": [
+          18,
+          20,
+          374,
+          462,
+          44
+        ],
+        "mainDigitSize": [
+          45,
+          76
+        ],
+        "secondsDigitSize": [
+          19,
+          36
+        ],
+        "skyCenter": [
+          109,
+          250
+        ],
+        "skyRadius": 49,
+        "maxSkyRecords": 16,
+        "receptionBars": {
+          "count": 12,
+          "firstX": 186,
+          "stepX": 14,
+          "width": 9,
+          "topY": 264,
+          "height": 27,
+          "scaleDbHz": [
+            0,
+            55
+          ]
+        },
+        "progressRail": {
+          "firstX": 45,
+          "stepX": 65,
+          "topY": 342,
+          "segmentWidth": 56,
+          "labels": [
+            "SCAN",
+            "FIX",
+            "PPS",
+            "10s",
+            "LIVE"
+          ]
+        },
+        "metricColumnsX": [
+          44,
+          235
+        ],
+        "metricDividerX": 216,
+        "secondaryMetricY": 425,
+        "modeFrame": [
+          164,
+          445,
+          82,
+          29,
+          4
+        ]
       }
     },
     "presentationPolicy": {
       "faces": [
         "Digital",
         "Instrument",
-        "Solar"
+        "Solar",
+        "Shadow"
       ],
       "defaultSleepSeconds": 90,
       "sleepChoicesSeconds": [
@@ -525,7 +686,7 @@
       ],
       "localHold": "Display only, less than 24h from valid anchor; withdraw source, lock, RMS and sampled hold. Never feeds timing/admission.",
       "wake": "First touch/button wakes only",
-      "gesture": "Resolve on release: horizontal displacement >=64px and >2x vertical displacement within 1.5s; tap displacement <20px on each axis. Left advances Digital \u2192 Instrument \u2192 Solar \u2192 Digital; right reverses, modulo three. Selection persists. Wake consumes the entire gesture.",
+      "gesture": "Resolve on release: horizontal displacement >=64px and >2x vertical displacement within 1.5s; tap displacement <20px on each axis. Left advances Digital \u2192 Instrument \u2192 Solar \u2192 Shadow \u2192 Digital; right reverses, modulo four. Selection persists. Wake consumes the entire gesture.",
       "receiver": "Calendar bridge: independent source drum and RX apertures flank a concentric PLL phase well. Source shows BLE for BLE/RC1/RC2, LOR, distinct RC9, HOLD during valid hold, or --- without time. Full/half/dark phase means lock/hold/acquisition or unavailable. RX jewel reports powered receiver independently of source selection and packet freshness. No source selector ring or triangle.",
       "rms": "Linear 0ns\u201310us, 2.5us divisions; OVER above 10000ns, unavailable red parking outside sweep.",
       "solar": {
@@ -541,6 +702,16 @@
         "tide": "TIDE ~ approximate predicted event interpolation, low=0/high=1; RISE/FALL; unavailable ring dim with active endpoint removed, EXP at expiry and -- otherwise.",
         "hold": "HOLD withdraws live source/precision; estimated sky never grants timing authority.",
         "clock": "Pale-rimmed 83px-radius medallion moves opposite the sun according to current Central civil time on 35px internal circle, carrying Central date/time and lunar graphic; no SOLAR or lunar-percentage copy. Seasonal changes do not add clock displacement. Acquisition <=12px/s; unknown astronomy retains position."
+      },
+      "shadow": {
+        "power": "GNSS main power requested only while Shadow is awake and visible; leaving the face, opening an app, display sleep or maintenance removes the request. Backup power is preserved.",
+        "observer": "RX-only GNSS observer; no receiver configuration/aid, mesh admission, servo training or clock authority. Solar location remains fixed.",
+        "sky": "Plot only actual azimuth/elevation with position_known; unknown position suppresses its dot, while C/N0 can remain independently available.",
+        "sourceGate": "Current selected fresh BLE/RC1/RC2 only; LoRa, RC9, local HOLD, expiry or stale presentation suppress retained BLE statistics and show waiting.",
+        "settling": "Ten phase-blind seconds before collection; source/scope or reference changes, PPS gaps and new visits reset the population. No phase trimming or outlier removal.",
+        "metrics": "Signed MEAN and P99 ABS with coarse tails marked ~; smaller RMS/N; ns/us/ms and -- for missing evidence. Other-face P99 retains sampled-hold meaning.",
+        "reference": "Independent GNSS fix and recent captured PPS required; physical pulse is independent of mesh seconds and acquisition sweep.",
+        "qualification": "Native preview approval, source/build checks and finish review establish source/render quality only; installed behavior, receiver bias, absolute UTC, independent precision and power remain unqualified."
       }
     },
     "material": {
@@ -548,7 +719,8 @@
       "rings": "Directional metal-shadow to metal-highlight interpolation; upper-left raised highlights, reversed for recesses.",
       "wells": "Vertical well-top to well-bottom blend, well-groove circles every 4px.",
       "dial": "Radial/directional blend from dial-highlight to instrument-dial; RGB565 interpolation.",
-      "digital": "Retains flat tonal fields and chamfer frames."
+      "digital": "Retains flat tonal fields and chamfer frames.",
+      "shadow": "Flat graphite fields, paired chamfer outlines, quiet rules and narrow lime accents; no gradients, material shadows or photographic texture. Dedicated palette does not replace incumbent faces."
     },
     "rendering": {
       "scope": "Native single-owner renderer",
@@ -569,6 +741,11 @@
         "allocationFallback": "Draw the same base directly.",
         "qualification": "Synthetic cache equivalence is not installed-device performance or timing qualification.",
         "skyConstruction": "Cache four chord column-height arrays and a 256-entry daylight palette per backdrop rebuild; no per-pixel pow/trigonometry in sky bands."
+      },
+      "shadow": {
+        "source": "main/shadow_face.inc",
+        "technique": "Native RGB565 full-frame geometry with the existing bundled Rajdhani atlas; no new runtime font or raster artwork.",
+        "authority": "Native C++ renderer and current source/reference gates are authoritative; panel swatches are schematic only."
       }
     }
   },
@@ -627,13 +804,29 @@
       "description": "Illustrative geometry schematic, not a native screenshot. Native 14px glyph atlas, exact pixel centers and current state semantics remain authoritative. Preview only; no hardware acceptance.",
       "html": "<svg class=\"ds-bridge\" xmlns=\"http://www.w3.org/2000/svg\" width=\"160\" height=\"90\" viewBox=\"125 105 160 90\" role=\"img\" aria-label=\"Calendar bridge source, PLL phase and independent LoRa RX\"><rect x=\"125\" y=\"105\" width=\"160\" height=\"90\" fill=\"#1B271D\"/><g fill=\"#0C1711\" stroke=\"#495844\"><rect x=\"136\" y=\"142\" width=\"41\" height=\"25\"/><rect x=\"234\" y=\"142\" width=\"41\" height=\"25\"/><circle cx=\"205\" cy=\"154\" r=\"24\"/></g><circle cx=\"205\" cy=\"154\" r=\"17\" fill=\"#CBD3AE\"/><circle cx=\"265\" cy=\"154\" r=\"2\" fill=\"#CBD3AE\"/><g fill=\"#94A384\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\"><text x=\"205\" y=\"124\">PLL</text><text x=\"156\" y=\"158\">BLE</text><text x=\"247\" y=\"158\">RX</text><text x=\"156\" y=\"185\">RADIO</text><text x=\"254\" y=\"185\">LORA</text></g></svg>",
       "css": ".ds-bridge { display: block; }"
+    },
+    {
+      "name": "Shadow comparison",
+      "kind": "custom",
+      "refersTo": "shadow-metric",
+      "description": "Illustrative geometry and hierarchy schematic, not a native capture or measured offset. Native atlas, source gate and unavailable states are authoritative.",
+      "html": "<svg class=\"ds-shadow-metrics\" xmlns=\"http://www.w3.org/2000/svg\" width=\"326\" height=\"94\" viewBox=\"0 0 326 94\" role=\"img\" aria-label=\"Shadow mean and absolute P99 schematic\"><rect width=\"326\" height=\"94\" fill=\"#0D1317\"/><path d=\"M0 1H326M172 9V55\" stroke=\"#36494F\"/><g fill=\"#9BAFB5\" font-family=\"sans-serif\" font-size=\"10\"><text x=\"0\" y=\"17\">MEAN</text><text x=\"191\" y=\"17\">P99 ABS</text><text x=\"95\" y=\"71\">RMS -- ns   N 0</text></g><g fill=\"#EBF2E8\" font-family=\"sans-serif\" font-size=\"28\"><text x=\"0\" y=\"47\">--</text><text x=\"191\" y=\"47\">--</text></g></svg>",
+      "css": ".ds-shadow-metrics { display: block; }"
+    },
+    {
+      "name": "Shadow acquisition rail",
+      "kind": "custom",
+      "refersTo": "shadow-active",
+      "description": "Illustrative status rail; native state text distinguishes searching, waiting, settling, measuring, lost and fault. No simulated pulse or interactive web states.",
+      "html": "<svg class=\"ds-shadow-rail\" xmlns=\"http://www.w3.org/2000/svg\" width=\"326\" height=\"58\" viewBox=\"0 0 326 58\" role=\"img\" aria-label=\"Shadow acquisition progression schematic\"><rect width=\"326\" height=\"58\" fill=\"#0D1317\"/><text x=\"0\" y=\"17\" fill=\"#D3F26B\" font-family=\"sans-serif\" font-size=\"14\">PPS LOCK / SETTLING</text><path d=\"M0 29H56M65 29H121M130 29H186M195 29H251\" stroke=\"#D3F26B\" stroke-width=\"2\"/><path d=\"M260 29H316\" stroke=\"#36494F\" stroke-width=\"2\"/><g fill=\"#9BAFB5\" font-family=\"sans-serif\" font-size=\"10\"><text x=\"0\" y=\"47\">SCAN</text><text x=\"65\" y=\"47\">FIX</text><text x=\"130\" y=\"47\">PPS</text><text x=\"195\" y=\"47\">10s</text><text x=\"260\" y=\"47\">LIVE</text></g></svg>",
+      "css": ".ds-shadow-rail { display: block; }"
     }
   ],
   "narrative": {
     "northStar": "The Wrist Instrument",
-    "overview": "Digital retains the Casio-inspired dark segmented display, pale phosphor time and amber controls within a chamfered bezel and inset LCD frame. Instrument translates the approved olive perpetual-calendar reference into original PToB mechanical indicators inside a squarish instrument case, with pale lume and restrained red needles. Directional bevels, grooved recessed wells and broad outlined pilot hands give Instrument physical depth. Neither face copies a brand mark.\n\nThis visual authority applies only to firmware/twatch. The native C++ framebuffer is authoritative; sidecar swatches illustrate components. Host captures and offline finish reviews establish source/render quality only. The operator has confirmed physical rendering of the earlier Digital face; Instrument appearance on hardware, optical timing, precision and power remain unqualified.\n\nSolar adds the approved solarpath.webp daily orbit: calculated Santa Rosa Beach/Central sun, twilight and lunar phase, original native geometry and four compact circular corner subdials and a pale-rimmed clock moving opposite the sun. Its scope is this third face; Digital and Instrument retain their established visual systems. Synthetic previews do not establish hardware acceptance.",
+    "overview": "Digital retains the Casio-inspired dark segmented display, pale phosphor time and amber controls within a chamfered bezel and inset LCD frame. Instrument translates the approved olive perpetual-calendar reference into original PToB mechanical indicators inside a squarish instrument case, with pale lume and restrained red needles. Directional bevels, grooved recessed wells and broad outlined pilot hands give Instrument physical depth. Neither face copies a brand mark.\n\nThis visual authority applies only to firmware/twatch. The native C++ framebuffer is authoritative; sidecar swatches illustrate components. Host captures and offline finish reviews establish source/render quality only. The operator has confirmed physical rendering of the earlier Digital face; Instrument appearance on hardware, optical timing, precision and power remain unqualified.\n\nSolar adds the approved solarpath.webp daily orbit: calculated Santa Rosa Beach/Central sun, twilight and lunar phase, original native geometry and four compact circular corner subdials and a pale-rimmed clock moving opposite the sun. Its scope is this third face; Digital and Instrument retain their established visual systems. Synthetic previews do not establish hardware acceptance.\n\nShadow adds the user-pinned Casio/Garmin instrument direction as a fourth world: graphite, pale segmented time, lime activity and blue-grey diagnostic labels. Each face uses original PToB artwork without brand marks and preserves the other faces' established visual systems. Native preview approval and finish review do not establish installed GNSS behavior, independent precision or power acceptance.",
     "keyCharacteristics": [
-      "Time-first segmented Digital, mechanical Instrument or daily-orbit Solar display.",
+      "Time-first segmented Digital, mechanical Instrument, daily-orbit Solar or GNSS-comparison Shadow display.",
       "Chamfered case geometry and inset readable content.",
       "Face-specific palette with shared utility screens and controls.",
       "Explicit unavailable evidence and display-only local hold."
@@ -659,7 +852,8 @@
       "Do keep this visual authority scoped to firmware/twatch.",
       "Do use the bundled Rajdhani atlas and original segment geometry.",
       "Do preserve units, unavailable states and explicit status labels.",
-      "Do review all three faces and all utility screens at native resolution, with the rounded aperture and unavailable, local-hold, overflow, RC9 and lower-bound states, plus release-resolved swipe and wake gestures."
+      "Do review all four faces and all utility screens at native resolution, with the rounded aperture and unavailable, local-hold, overflow, RC9 and lower-bound states, plus release-resolved swipe and wake gestures.",
+      "Do preserve Shadow's actual satellite-position gating, physical PPS pulse and fresh selected-source measurement gate."
     ],
     "donts": [
       "Don't use synthetic preview values as hardware evidence.",

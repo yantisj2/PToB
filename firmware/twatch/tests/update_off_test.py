@@ -27,3 +27,11 @@ bad=copy.deepcopy(f);bad['request_delta']['lost']=1;reject(bad)
 reject(f,{'ble_power_lifecycle':'CONTROLLER_OFF_V1'})
 reject(f,{})
 print('PASS: physical OFF proof, retained history, missing fields, generation, cleanup, original deadlines and old-image guards')
+
+new=copy.deepcopy(f);new_manifest=dict(manifest,control_contract='BOUNDED_CONTROL_V1')
+proof=dict(control_version='1',display_off_proof='1',fine_off_proof='1',fine_cleanup_fault='0',shadow_requested='0',shadow_powered='0',shadow_transition='0',shadow_owner='0',shadow_uart='0',shadow_capture='0',shadow_off_proof='1',shadow_cleanup_fault='0')
+new['rows']['TWATCH_UI'].update(proof);c.require_update_off(new,new_manifest)
+for key,value in proof.items():
+ bad=copy.deepcopy(new);del bad['rows']['TWATCH_UI'][key];reject(bad,new_manifest)
+ bad=copy.deepcopy(new);bad['rows']['TWATCH_UI'][key]='0' if value=='1' else '1';reject(bad,new_manifest)
+print('PASS compact maintenance: every physical display/fine/GNSS proof and missing/false/transition guard')

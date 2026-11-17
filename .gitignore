@@ -24,3 +24,4 @@ node_modules/
 # Local design-review snapshots.
 /.impeccable/
 /gateways/pi5/dashboard/.impeccable/
+/firmware/twatch/.impeccable/review/

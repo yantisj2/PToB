@@ -93,14 +93,18 @@ GM-profile device requests TX unless built with `--lora-boot-rx`, and may export
 qualified own-GNSS time or fresh
 authenticated qualified BLE time from another GM. Becoming ACTIVE does not enable
 LoRa TX on another device. Use **Menu → LoRa → TX ON** to enable a field
-GM explicitly. RX and TX are exclusive; **RX ON** stops TX before receiving.
+GM explicitly, or build its explicit GM `--lora-boot-tx` default without changing
+mesh priority. RX and TX are exclusive; **RX ON** stops TX before receiving.
 There is no automatic backup emitter. Run only one transmitter on the selected
 LoRa channel. Updated receivers authenticate field emitters and retain replay
 floors for up to four emitter identities per boot; a fifth is refused. Older
 receivers pinned to the designated transmitter need compatible firmware to
 follow a field emitter.
 
-USB availability during sustained LoRa TX remains under investigation. The
+The optional `--usb-awake-control` workaround keeps the USB PHY awake during
+bus suspend, with higher suspended USB power. Bus suspend reporting, source
+expiry and ownership guards remain active. USB availability during sustained
+LoRa TX remains under investigation. The
 [diagnostic guide](../../docs/t096/diagnostics.md) explains live USB state,
 reset-retained observations and their persistence limits. The recovery-path
 repairs have offline regression coverage; a confirmed field root-cause fix
@@ -260,7 +264,9 @@ floors. The dial TX mast stays orange while enabled and waiting, and blue only
 with current permission and a recent completed timing pair.
 
 Boot retains the configured defaults: the designated device requests TX unless
-`--lora-boot-rx` selects RX; other devices request RX. Manual role and on/off choices are RAM-only. Reboot restores
+`--lora-boot-rx` selects RX; other devices request RX unless an explicit
+`--lora-boot-tx` GM image selects local TX. This option preserves mesh priority,
+enrollment and all source/airtime gates. Manual role and on/off choices are RAM-only. Reboot restores
 those defaults. No role selection changes mesh enrollment or grants timing authority.
 
 BLE RX OFF drains and parks the BLE owner in either GM or RC mode. It does

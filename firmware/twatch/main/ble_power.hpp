@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Jonathan Yantis. SPDX-License-Identifier: MIT
 #pragma once
 #include <cstdint>
+#include "energy.hpp"
 namespace watch {
 struct BlePower {
  enum Stage:uint8_t {Active,Draining,Preparing,HostStop,HostExit,Deinit,Off,Init,Sync,Fault};

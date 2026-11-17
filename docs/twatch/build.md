@@ -16,10 +16,17 @@ CS36, RESET47, BUSY48 and DIO1=14. Radio SPI2 and display SPI3 are independent.
 The expander uses pin 7 for display enable, pin 8 (P1.0) for touch reset and
 pin 11 (P1.3) for the built-in radio antenna. This follows the vendor schematic
 and board definition; the descriptive hardware table incorrectly lists touch
-reset as pin 10, which is SD detection. GNSS UART43/44 is not opened;
+reset as pin 10, which is SD detection. GNSS uses receive-only UART1 at 38400 baud on MCU RX44; TX43 is not driven.
 BHI260AP uses I2C 0x28, HIRQ8 and ALDO4 at 1.8 V; its Bosch RAM firmware
 and selected driver are included with provenance. See [wrist wake](wrist-wake.md).
-native USB Serial/JTAG owns diagnostics. GNSS PPS13 is not configured.
+Native USB Serial/JTAG owns diagnostics. Shadow configures GPIO13 as input-only
+PPS on MCPWM1 CH1, independently of RX17/CH0 and CURRENT/CH2. Its BLDO1 main
+rail is enabled only for the awake visible face, with voltage/enable readback;
+backup power and other rails are preserved. The PMU stays with the UI owner.
+The main owner retires UART/capture; maintenance requires both retirement and
+verified rail-off within the existing drain. This follows the
+[LILYGO Ultra implementation](https://github.com/Xinyuan-LilyGO/LilyGoLib/blob/master/src/LilyGoWatchUltra.cpp);
+physical routing, reception and power still require device checks.
 
 W12 G1/RC7 and the N30 thermal estimator compile directly. Watch-owned source
 selection and the selected LoRa observer adapter allow coarse time acquisition
@@ -77,11 +84,22 @@ Host rendering needs a C++17 compiler. Font regeneration additionally requires
 Pillow and the OFL Rajdhani SemiBold font; the generated atlas and font license
 are included. Preview values are synthetic and must not be shown as observations.
 
+Run all offline watch regressions, including UI, radio owners, power, Shadow PPS,
+console capacity and capture parsers, with the pinned public SDK cache:
+
+```sh
+python3 firmware/twatch/tools/check.py --idf "$IDF_PATH" --out artifacts/watch-check-01
+```
+
+Each check writes its own log; `receipt.json` reports the complete result. Use
+`--list` to inspect the checks without running them. Native builds and retained
+compiler stack audits remain separate. For UI checks and previews alone:
+
 ```sh
 python3 firmware/twatch/tools/test.py --out artifacts/watch-host-01
 ```
 
-This produces 55 actual-renderer PPM previews and a host-check receipt.
+This produces 75 actual-renderer PPM previews and a host-check receipt.
 The tests cover navigation, settings bounds, first-touch wake consumption,
 expired timing, framebuffer guards and all screen destinations. Solar checks
 cover fixed Central time independent of the mesh display zone, all eight visible
@@ -92,6 +110,11 @@ cover all eight event/chord alignments and band ordering across 365 days,
 solstices/equinoxes, per-event DST offsets and a wrong-offset reuse guard, fixed
 civil cardinal positions, antialias-aware case/main-circle clearances and the
 conservative 100px rounded aperture. These remain offline software checks.
+
+Battery checks cover panel-state integration, missing/invalid gauge reads,
+24-hour retention and ring wrap, boot reset, scale navigation, USB manual sleep
+and PMU-key acknowledgment/failure handling. Nine Battery fixtures cover all
+four scales, empty/unavailable history, low battery, USB power and gauge gaps.
 
 The focused timing checks also run offline, without enrollment or a native
 builder:
@@ -110,13 +133,88 @@ main-task work and the current waiting reason in `TWATCH_SOURCE`. These checks
 establish software behavior; synthetic nanosecond values are not hardware
 accuracy evidence.
 
+## Shadow receiver and statistics
+
+The fourth face opens the u-blox MIA-M10Q receive stream without sending receiver
+configuration or time aid. The bounded NMEA parser checks checksums, freshness,
+coherent valid RMC and GGA fix state. GSV multipart reception commits only when
+complete; missing or malformed elevation/azimuth retains signal strength but
+never becomes a plotted position. The visible bars show up to twelve strongest
+received signals; the retained sky population is bounded to sixteen.
+
+A bounded physical PPS queue remains separate from radio packet association,
+receiver training and clock authority. The fine profile projects the capture
+into its existing 20 MHz coordinate; the default GPTimer profile uses a sampled
+cross-counter enclosure and reports it. Neither establishes calibrated accuracy.
+BLE witness maps preserve publication availability, scope and original expiry;
+racing, missing, expired or unreferenced edges do not enter statistics. Collection
+also requires the actual selected clock to be fresh BLE/RC1/RC2. LoRa, RC9,
+local HOLD or selection expiry hide the results immediately.
+
+Each visit has a fresh phase-blind ten-second settling interval. A reference,
+source/scope or capture-incarnation change, sequence loss or PPS gap over 1.5 s
+restarts it. The startup boundary is excluded; subsequent usable edges supply
+signed MEAN, RMS and interpolated P99 magnitude. Histogram bins are exact through
+1023 ns; wider power-of-two tails carry `~`, matching the T096 UI convention.
+Short permission gaps on the same selected path pause its population, with no
+permission renewal. Ineligible PPS edges increment skipped coverage and cannot
+enter the sums. A newly eligible physical edge is required before the retained
+same-context population becomes current again; LoRa/RC9/None selection, actual
+clock-context changes, GNSS reference loss and PPS discontinuities clear it.
+No phase-dependent rejection or runtime GNSS correction is applied. Missing/skipped
+counts remain in diagnostics. The histogram/parser/witness workspace is allocated
+only in PSRAM, without an internal-RAM fallback or flash writes.
+
+The existing `TWATCH_UI` row appends compact `shadow_version=1` power/owner,
+stage, fix, pulse and validity fields. Authenticated `shadow diag` returns a
+separate five-row response with `TWATCH_SHADOW` reception, settling, population,
+missing/skipped and fault details. Full normal status retains its fixed frame
+budget; GNSS detail cannot displace it. CRC framing stays fixed.
+Authenticated `ui face 0` through `ui face 3` select a face through the UI owner.
+`ui sleep` requests manual panel sleep; `ui page 0` wakes the face. These commands
+queue work to the display owner and are refused during maintenance.
+Fine diagnostics expose CH1's GNSS auxiliary contract; leave Shadow before a
+finite fine-capture command. Partial starts and cleanup failures remain owned
+until their stop path proves retirement. `prepare_update` cannot acknowledge a
+live GNSS rail or capture owner.
+
+```sh
+python3 firmware/twatch/tools/test.py --out artifacts/watch-shadow-host-01
+python3 firmware/twatch/tools/fine_tests.py --out artifacts/watch-shadow-owner-01
+```
+
+These exercise synthetic reception, metrics, source withdrawal, the actual
+capture owner and all four faces. Native compilation and preview review are
+offline preparation; they do not establish installed reception, bias or energy.
+
+The actual-controller regression additionally exercises PMU acknowledgment
+preemption, partial UART/PPS starts, retained first cleanup failures, original
+owner retirement and a new ten-second population after source/face changes:
+
+```sh
+python3 firmware/twatch/tools/shadow_tests.py --out artifacts/watch-shadow-controller-01
+python3 firmware/twatch/tools/energy_tests.py --out artifacts/watch-control-01
+```
+
+The second command compiles the real output worker, extracts the production
+common-row printf templates, expands every numeric field to its full type width
+and bounds strings conservatively at 64 bytes. It checks total frame capacity,
+fragmented strict parser replay, CRC rejection and the compact maintenance
+handshake. Synthetic SDK/USB tests do not establish physical USB or GNSS behavior.
+
 ## USB ROM entry
 
 The watch keeps the ESP32-S3 native USB Serial/JTAG console active, including
 while its screen sleeps. Use the Console V3 CRC parser in
 `firmware/twatch/tools/framed_console.py` with the exact installed build identity.
-A fresh status response supplies a single-use ticket bound to factory MAC and
-boot session. Send `prepare_update` using that ticket, then poll fresh status
+Builds declaring `BOUNDED_CONTROL_V1` provide read-only `v12 control NONCE`, with
+a fixed control field set in the same ten-row V3 envelope. All mutation
+acknowledgments and refusals use that bounded form. Detailed parent, fit,
+satellite and battery-history populations cannot grow this path. The normal
+verbose status remains available for inspection; the recovery helper selects
+compact control from the exact build receipt. A fresh complete control response
+supplies a single-use ticket bound to factory MAC and boot session. Both CRCs,
+original response deadline and current-request coverage are still required. Send `prepare_update` using that ticket, then poll fresh status
 until `application_drained=1` (`update_stage=2`). This stops BLE, LoRa, capture
 and the display/settings worker within the original two-second deadline.
 Images declaring `CONTROLLER_OFF_V1` additionally require host exit and actual
@@ -125,6 +223,11 @@ controller deinitialization: `ble_controller=0`, `ble_power_stage=6`,
 original initialized-host checks. The helper can resume an already successful
 READY drain, using its original completion/deadline and a fresh command ticket;
 it never retries or renews a faulted drain.
+
+For `BOUNDED_CONTROL_V1`, the host additionally requires direct display and fine
+retirement, no fine cleanup fault, and actual GNSS rail/UART/capture retirement
+with no pending power transition or cleanup fault. A displayed OFF snapshot does
+not substitute for these physical owner proofs.
 
 `FAULT_CLEANUP_OFF_V2` additionally supplies current-generation physical BLE and
 LoRa retirement proofs. It permits retained operating-error history only when
@@ -471,6 +574,74 @@ USB `TWATCH_UI` adds `key_edges`, `key_single`, `key_double`, `key_gap_us`,
 2 draining, 3 request refused, 4 drain fault, 5 PMU command, 6 PMU returned.
 These are RAM counters with no periodic flash writes. A surviving USB session
 can distinguish a missed click from guarded shutdown refusal or PMU failure.
+
+### Upper-left display sleep key
+
+The UI owner polls the AXP2101 short-press latch with an 80 ms minimum interval,
+including while the panel sleeps. Slow frames can defer polling; the PMU retains
+the event. It enables only register 0x41 bit 3 and acknowledges only
+register 0x49 bit 3, following the [XPowers AXP2101 implementation](https://github.com/lewisxhe/XPowersLib/blob/master/src/XPowersAXP2101.hpp).
+Startup discards the old short-press latch. Unacknowledged reads never synthesize
+a press; other IRQ status and long-press/recovery settings are preserved.
+
+A short click sleeps the panel immediately or wakes the current screen. Explicit
+sleep overrides USB keep-awake. Touch and the lower-left button also wake without
+navigating; wrist raise is suppressed for 1.5 seconds after manual sleep. USB
+`TWATCH_UI` exposes `pmu_key` and `pmu_key_errors`; wake source 4 is this PMU key.
+Physical key latency, wrist behavior and endurance still require hardware checks.
+
+### Battery history
+
+The display owner samples AXP2101 percentage every 30 seconds independently of
+rendering or panel sleep. A PSRAM-only ring retains 1,441 minute records: the
+active minute and 24 hours of completed minutes. Allocation failure leaves the
+app usable with `History unavailable`; it does not consume internal radio/DMA RAM.
+There are no periodic flash writes. Reboot clears history and restores the 1h
+chart scale. After 24 hours, the chart shows the latest selected period.
+
+Each minute retains its most recent gauge sample. Invalid reads remain unknown;
+columns never interpolate across missing gauge intervals. Display-on microseconds
+are integrated from successful panel hide/reveal transitions, including retained
+panel state during a slow render. Each chart has 30 aligned segments: 2/12/24/48
+minutes at the 1/6/12/24-hour scales. Battery columns show the last valid sampled
+percentage in a segment, and display bars show accumulated on-time against that
+segment's full duration. Before-boot intervals remain empty. A selected window
+edge inside a minute prorates that minute's display time; totals have minute
+resolution rather than independent subsecond measurement accuracy. USB power is
+shown as power presence, without claiming battery charging current or discharge
+rate. This is gauge and panel-use history, not energy or lifetime qualification.
+
+RAM-only `TWATCH_UI` Battery fields report `app` (4 = Battery), `battery_history`
+(allocation available), `battery_pct`, `battery_samples`, `battery_sample_us`,
+`battery_at_us`, `battery_hours`, `battery_columns`, `battery_awake_us` and
+`battery_observed_us`. History counters are refreshed at 1 Hz, including during
+panel sleep. `ui page 4` opens Battery through the existing authenticated
+display-only page command; scale changes use the touchscreen. These fields let
+a finite capture distinguish gauge sampling from display-on accumulation.
+
+Large presentation models, ephemerides, damage bookkeeping and the current
+model live in a bounded PSRAM-only UI workspace. The Battery ring contains its
+own reusable chart summary in PSRAM; rendering and diagnostics share this
+single-owner scratch instead of returning a chart-sized value on the task
+stack. Each of 30 columns uses bounded 32-bit microsecond counters (maximum
+48 minutes per column), with 64-bit period totals. Static size assertions bound
+both allocations. `ui_psram_bytes`, `battery_psram_bytes` and
+`ui_stack_min_bytes` expose allocation sizes and the observed UI stack low-water
+mark. Allocation failure never borrows internal DMA/radio memory. Native stack
+receipts and host fixtures are preparation; installed stability remains a
+separate check.
+
+Check the retained native compiler stack receipts before a Battery hardware run:
+
+```sh
+python3 firmware/twatch/tools/ui_memory_check.py \
+  --build artifacts/watch-build-01 --out artifacts/watch-ui-memory-01
+```
+
+The direct-call budget includes the worker, render path and summary, reserving
+1,536 bytes of the unchanged 6,144-byte UI stack for helpers/library work. It
+does not measure actual high-water or prove a particular crash cause; compare
+`ui_stack_min_bytes` during the separately authorized installed run.
 
 ### Touch capture during rendering
 

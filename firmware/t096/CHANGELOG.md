@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Bind the passive native inspector's application archive, two fault-owner audit
+  objects and original report into retained bundles. Normal cleanup can then
+  release other compiler output without breaking repeated NV ownership checks.
+  Existing receipts and previously cleaned bundles remain unchanged.
+
 - Align controller-fault and register-capture regressions with boot-local operational diagnostics:
   reboot clears every capsule word; durable crash evidence is tested separately.
   Refresh the initialization-order assertion and formatter fixture for shared
@@ -12,6 +17,44 @@
   the post-wake test to consume its third delayed PPS sample before stopping.
   Keep the production shadow assertions and require both page commands to run.
   These fixture corrections do not establish hardware acceptance.
+
+## 0.15.362 — USB workaround and explicit GM TX boot default
+
+- Retain the optional PHY-awake USB workaround tested with LoRa TX. It preserves
+  real bus suspend and USB source expiry, with higher suspended USB power.
+- Add `--lora-boot-tx` for an explicit ordinary passive-slow GM boot default.
+  It selects the same local role as the menu without changing configured mesh
+  transmitter/priority, enrollment, source admission, caps or RC TX refusal.
+- Restore normal System information and screensaver eligibility. Remove the raw
+  USB register screen; read-only USB diagnostics and retained crash evidence
+  remain available through their existing interfaces.
+
+## 0.15.361 — USB PHY awake diagnostic control
+
+- Add default-off `--usb-awake-control` for normal GM/RC images. It avoids PHY
+  low-power entry while retaining actual bus suspend callbacks, USB source
+  withdrawal/expiry, DMA ownership and fresh-host-frame resume. It does not drive
+  remote wake. Suspended USB uses more power in this diagnostic mode.
+- Bind the mode into the private build identity, receipt, native compile
+  inspection, runtime status and separate artifact retention group.
+- Test the actual generated suspend/IRQ bodies with repeated idle/resume cycles
+  and causal negative controls. This isolates low-power entry as a candidate
+  failure path; it is not a root-cause finding or hardware acceptance result.
+
+## 0.15.360 — Host-frame USB resume candidate
+
+- Observe fresh host SOF activity while suspended, including resume without a
+  RESUME event. Request local PHY wake without driving remote wake, then fence
+  endpoint processing and new DMA until USBWUALLOWED or host RESUME confirms
+  readiness. Preserve latched endpoint events and restore the interrupt mask
+  and caller's normal SOF policy after wake.
+- Clear stale pre-suspend frames before arming the temporary SOF interrupt.
+  Idle alone still permits low power. Close waits for an in-flight host wake;
+  an unfinished wake remains visible to the existing USB health watchdog.
+- Production-body host tests cover host frames, delayed/missing readiness,
+  endpoint ownership, interrupt masks, legitimate idle and causal negative
+  controls. The captured field suspend state motivates this candidate; it does
+  not establish its physical trigger or sustained hardware acceptance.
 
 ## 0.15.359
 

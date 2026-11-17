@@ -12,6 +12,9 @@ subprocess.run(['c++','-std=c++17','-Wall','-Wextra','-Werror','-I'+str(app/'mai
 subprocess.run([str(a.out/'continuity-test')],check=True,timeout=10)
 subprocess.run(['c++','-std=c++17','-Wall','-Wextra','-Werror','-fsanitize=undefined','-I'+str(app/'main'),'-I'+str(app.parent/'w12/main'),str(app/'tests/watch_button_test.cpp'),'-o',str(a.out/'button-test')],check=True,timeout=60)
 subprocess.run([str(a.out/'button-test')],check=True,timeout=10)
+subprocess.run(['c++','-std=c++17','-Wall','-Wextra','-Werror','-fsanitize=undefined','-I'+str(app/'main'),str(app/'main/watch.cpp'),str(app/'main/calendar.cpp'),str(app/'tests/shadow_test.cpp'),'-o',str(a.out/'shadow-test')],check=True,timeout=60)
+subprocess.run([str(a.out/'shadow-test')],check=True,timeout=10)
+sources += [app/'main/shadow_model.hpp',app/'main/shadow_nmea.hpp',app/'main/shadow_face.inc',app/'tests/shadow_test.cpp']
 sources += [app/'main/watch_button.hpp',app/'tests/watch_button_test.cpp']
 mobile=['c++','-std=c++20','-DPTOB_N30=1','-Wall','-Wextra','-Werror',*['-I'+str(app.parent/q) for q in ['twatch/main','n30/main','w12/main','w12/legacy','w12/main/r2/r2-g1','w12/main/r2/rc7/include']],str(app/'tests/mobile_time_test.cpp'),str(app.parent/'n30/main/ui_model.cpp'),'-o',str(a.out/'mobile-test')]
 subprocess.run(mobile,check=True,timeout=60);subprocess.run([str(a.out/'mobile-test')],check=True,timeout=10)
@@ -26,6 +29,8 @@ subprocess.run(['python3',str(app/'tests/receiver_report_test.py')],check=True,t
 sources += [app/'tools/receiver_report.py',app/'tests/receiver_report_test.py']
 sources += [app/'main/imu.cpp',app/'main/imu.hpp',app/'tests/imu_adapter_test.cpp',*sorted((app/'tests/imu_stubs').rglob('*.h'))]
 base=['c++','-std=c++17','-Wall','-Wextra','-Werror','-I'+str(app/'main'),str(app/'main/watch.cpp'),str(app/'main/calendar.cpp')]
+subprocess.run(base+[str(app/'tests/battery_test.cpp'),'-fsanitize=undefined','-o',str(a.out/'battery-test')],check=True,timeout=60);subprocess.run([str(a.out/'battery-test')],check=True,timeout=15)
+sources += [app/'main/battery_history.hpp',app/'main/power_key.hpp',app/'tests/battery_test.cpp']
 subprocess.run(['c++','-std=c++17','-Wall','-Wextra','-Werror','-I'+str(app/'main'),str(app/'main/calendar.cpp'),str(app/'tests/solar_geometry_test.cpp'),'-o',str(a.out/'solar-geometry-test')],check=True,timeout=60)
 subprocess.run([str(a.out/'solar-geometry-test')],check=True,timeout=10)
 sources += [app/'main/solar_geometry.hpp',app/'tests/solar_geometry_test.cpp']
@@ -35,6 +40,8 @@ subprocess.run(base+[str(app/'tests/render_damage_test.cpp'),'-o',str(a.out/'dam
 sources += [app/'tests/render_damage_test.cpp',app/'main/calendar.hpp',app/'main/calendar.cpp']
 subprocess.run(base+[str(app/'tests/watch_test.cpp'),'-o',str(a.out/'test')],check=True,timeout=60);subprocess.run([str(a.out/'test')],check=True,timeout=10)
 subprocess.run(base+[str(app/'tools/preview.cpp'),'-o',str(a.out/'render')],check=True,timeout=60)
-for state in ['face','launcher','settings','faces','waiting','acquire','lora','hold','maximum','save-error','sleep','instrument','instrument-wait','instrument-hold','instrument-over','instrument-rc9','instrument-lora','instrument-acquire','instrument-noon','solar','solar-dawn','solar-sunset','solar-night','solar-new','solar-full','solar-expired','solar-wait','solar-hold','solar-over','solar-midnight','solar-morning','solar-afternoon','solar-civil','solar-nautical','solar-astronomical','solar-summer','solar-winter','solar-spring','solar-autumn','solar-dst-start-before','solar-dst-start-after','solar-dst-end-before','solar-dst-end-after']+[f'solar-month-{m:02d}' for m in range(1,13)]:subprocess.run([str(a.out/'render'),state,str(a.out/(state+'.ppm'))],check=True,timeout=10)
+states=['face','launcher','settings','faces','waiting','acquire','lora','hold','maximum','save-error','sleep','instrument','instrument-wait','instrument-hold','instrument-over','instrument-rc9','instrument-lora','instrument-acquire','instrument-noon','solar','solar-dawn','solar-sunset','solar-night','solar-new','solar-full','solar-expired','solar-wait','solar-hold','solar-over','solar-midnight','solar-morning','solar-afternoon','solar-civil','solar-nautical','solar-astronomical','solar-summer','solar-winter','solar-spring','solar-autumn','solar-dst-start-before','solar-dst-start-after','solar-dst-end-before','solar-dst-end-after']+[f'solar-month-{m:02d}' for m in range(1,13)]+['battery','battery-6h','battery-12h','battery-24h','battery-empty','battery-unavailable','battery-low','battery-usb','battery-gaps']
+states += ['shadow','shadow-search','shadow-fix','shadow-settle','shadow-mesh','shadow-lost','shadow-fault','shadow-tail','shadow-lora','shadow-hold','shadow-invalid-sky']
+for state in states:subprocess.run([str(a.out/'render'),state,str(a.out/(state+'.ppm'))],check=True,timeout=10)
 (a.out/'receipt.json').write_text(json.dumps({'status':'PASS','scope':'HOST_UI_ONLY','fixtures':'SYNTHETIC_NOT_HARDWARE','sources':{str(q.relative_to(app)):hashlib.sha256(q.read_bytes()).hexdigest() for q in sources}},indent=2)+'\n')
-print('PASS: navigation, settings bounds, wake consumption, expiry, framebuffer bounds and 55 native previews; analog selection, 15/30/60/90s sleep and display-only clock continuity')
+print(f'PASS: navigation, settings, wake/sleep, battery retention/duty cycle, expiry, framebuffer bounds and {len(states)} native previews')
