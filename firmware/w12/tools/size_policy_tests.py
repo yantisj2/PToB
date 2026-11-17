@@ -37,15 +37,6 @@ class SizePolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'effective -Oz'):
             self.check_policy()
 
-    def test_only_gnss_main_may_use_extra_size_option(self):
-        self.receipt['gnss_main_size'] = 'GNSS_NATIVE_MAIN_OZ_V1'
-        self.rows[0]['command'] += ' -Oz'
-        self.rows.append({'file': '/app/radio.cpp', 'command': 'cc -Og -Os -o esp-idf/main/CMakeFiles/__idf_main.dir/radio.cpp.obj'})
-        self.check_policy()
-        self.rows[-1]['command'] += ' -Oz'
-        with self.assertRaisesRegex(ValueError, 'effective -Os'):
-            self.check_policy()
-
     def test_later_debug_option_is_refused(self):
         self.rows[0]['command'] += ' -Og'
         with self.assertRaisesRegex(ValueError, 'effective -Os'):

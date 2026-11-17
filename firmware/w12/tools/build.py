@@ -72,15 +72,11 @@ def validate_map_compilation(receipt,device,compiled,config):
 def validate_size_compilation(receipt,compiled,config):
  policy={'W12_MAIN_OS_SDK_DEBUG_V1':'-Os','W12_MAIN_OZ_GNSS_SDK_DEBUG_V1':'-Oz'}.get(receipt.get('application_optimization'))
  if policy is None:raise ValueError('W12 application size policy missing')
- rows=[row for row in compiled if '__idf_main.dir/' in row['command']]
+ rows=[shlex.split(row['command']) for row in compiled if '__idf_main.dir/' in row['command']]
  if not rows or not any(row['file'].endswith('/native_main.cpp') and '__idf_main.dir/' in row['command'] for row in compiled):raise ValueError('W12 main component compile commands missing')
- main_size=receipt.get('gnss_main_size')
- if main_size not in (None,'GNSS_NATIVE_MAIN_OZ_V1'):raise ValueError('Unknown GNSS main size policy')
- for row in rows:
-  tokens=shlex.split(row['command'])
-  selected='-Oz' if main_size and row['file'].endswith('/native_main.cpp') else policy
+ for tokens in rows:
   optimization=[v for v in tokens if re.fullmatch(r'-O(?:[0-3sgz]|fast)',v)]
-  if not optimization or optimization[-1]!=selected:raise ValueError('W12 main component must compile with effective '+selected)
+  if not optimization or optimization[-1]!=policy:raise ValueError('W12 main component must compile with effective '+policy)
  inlining=receipt.get('main_inlining')
  if inlining not in (None,'DEFAULT','GNSS_MAIN_SHARED_CALLEES_V1'):raise ValueError('Unknown W12 main inlining policy')
  if inlining is not None:
@@ -240,7 +236,6 @@ def main():
  r['observer_queue_slots']=8
  r['cap_hci_diagnostics']='CAP2037_BEGIN_RETURN_ACK_NO_PAYLOAD_V1'
  r['main_inlining']='GNSS_MAIN_SHARED_CALLEES_V1' if 'gnss_profile' in d else 'DEFAULT'
- r['gnss_main_size']='GNSS_NATIVE_MAIN_OZ_V1' if 'gnss_profile' in d else None
  r['lora_selection_policy']='AUTH_META_FIELD_EMITTER_FOUR_NON_EVICTING_REPLAY_FLOORS_V1'
  r['source_renewal_policy']='AUTH_GR3_MATCHED_ORIGINAL_MIN_BOTH_GRANTS_V1'
  r['dual_state_diagnostics']='MAIN_ELIGIBILITY_DWELL_FIRST_LOSS_PARENT8_LORA_CRC_V2'
