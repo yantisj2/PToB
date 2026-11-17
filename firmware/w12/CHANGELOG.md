@@ -14,6 +14,8 @@ Reserve10KiB for the W12 host stack and retain the recovered RAM as heap
 headroom. Suppressed logging no longer reserves a formatting buffer. Extend
 native stack evidence to control, CAP, ATT and logger paths with the existing
 4096-byte reserve, and observe CAP data HCI commands without recording payloads.
+The GNSS main/console translation unit uses the compiler size option `-Oz`;
+BLE, capture and SDK/controller flags and assertions remain unchanged.
 Host checks and native resource audits do not establish hardware reliability.
 
 ## 0.2.47 — ATT controller-boundary observations
