@@ -8,4 +8,4 @@ TaskHandle_t xTaskCreateStaticPinnedToCore(TaskFunction_t f,const char*,unsigned
 void vTaskDelete(void*){}
 #include "../main/w12_host_task.hpp"
 static void entry(void*){}
-int main(){w12::HostTask<8192> task;assert(!task.start(nullptr,21,0)&&calls==0);fail=true;assert(!task.start(entry,21,0));fail=false;assert(task.start(entry,21,0));assert(depth==8192&&priority_seen==21&&core_seen==0&&reinterpret_cast<uintptr_t>(seen_stack)%16==0);const auto n=calls;assert(!task.start(entry,21,0)&&calls==n);task.exited();assert(!task.start(entry,21,0));std::puts("PASS full static host stack, exact scheduling, failed creation and single lifetime");}
+int main(){w12::HostTask<10240> task;assert(!task.start(nullptr,21,0)&&calls==0);fail=true;assert(!task.start(entry,21,0));fail=false;assert(task.start(entry,21,0));assert(depth==10240&&priority_seen==21&&core_seen==0&&reinterpret_cast<uintptr_t>(seen_stack)%16==0);const auto n=calls;assert(!task.start(entry,21,0)&&calls==n);task.exited();assert(!task.start(entry,21,0));std::puts("PASS full static host stack, exact scheduling, failed creation and single lifetime");}

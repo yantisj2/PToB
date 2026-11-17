@@ -11,6 +11,8 @@
 namespace v12 {
 namespace {
 struct Line {uint16_t length=0;uint64_t deadline=0;char bytes[1536]{};};
+// Match N30's bounded observer capacity, retaining controller/host heap.
+// Priority CRC frames have their own unchanged queue and deadline.
 Ring<Line,ConsoleLines> lines;
 Ring<ConsoleFrame,2> frames;
 portMUX_TYPE log_mux=portMUX_INITIALIZER_UNLOCKED;
@@ -144,23 +146,9 @@ static bool capture_admit(uint64_t id,uint32_t duration,uint32_t maximum){
 bool capture_begin(uint64_t id,uint32_t duration){return capture_admit(id,duration,10000);}
 bool capture_rolling_begin(uint64_t id,uint32_t duration){return duration>=10000&&capture_admit(id,duration,600000);}
 void capture_stop(){portENTER_CRITICAL(&log_mux);stats.capture_active=false;portEXIT_CRITICAL(&log_mux);}
-static int logv_impl(const char* format,va_list args,bool live){
-  if(xPortInIsrContext()){portENTER_CRITICAL_ISR(&log_mux);increment(stats.isr_refused);portEXIT_CRITICAL_ISR(&log_mux);return 0;}
-  const uint64_t begin=now_us();uint64_t id=0,seq=0,deadline=0;
-  portENTER_CRITICAL(&log_mux);
-  if(live){if(begin<live_next_us){portEXIT_CRITICAL(&log_mux);return 0;}
-    if(begin>UINT64_MAX-10000000){stats.counter_exhausted=true;portEXIT_CRITICAL(&log_mux);return 0;}live_next_us=begin+10000000;}
-  if(!stats.capture_active||begin>=stats.capture_deadline_us){
-    stats.capture_active=false;
-    if(!live){if(stats.suppressed_no_capture!=UINT64_MAX)++stats.suppressed_no_capture;else stats.counter_exhausted=true;
-      portEXIT_CRITICAL(&log_mux);return 0;}
-    // Capture id0 explicitly denotes a live snapshot, not a retained interval.
-    deadline=begin+ConsoleLineUs;
-  }else{
-    id=stats.capture_id;deadline=stats.capture_deadline_us;
-  }
-  if(stats.log_sequence==UINT64_MAX){stats.counter_exhausted=true;portEXIT_CRITICAL(&log_mux);return 0;}
-  seq=++stats.log_sequence;portEXIT_CRITICAL(&log_mux);
+// Keep the full line buffer out of suppressed/vendor calls and ISR refusal.
+// Formatting remains caller-local: no shared scratch or new producer lock.
+[[gnu::noinline]] static int logv_enqueue(const char* format,va_list args,uint64_t begin,uint64_t id,uint64_t seq,uint64_t deadline){
   Line line;line.deadline=begin+ConsoleLineUs<deadline?begin+ConsoleLineUs:deadline;
   const int prefix=std::snprintf(line.bytes,sizeof(line.bytes),"\nW12_V12_LOG capture_id=%016" PRIx64 " log_seq=%" PRIu64 " enqueue_us=%" PRIu64 " record=",id,seq,begin);
   if(prefix<=0||prefix>=int(sizeof(line.bytes)))return 0;
@@ -197,6 +185,25 @@ static int logv_impl(const char* format,va_list args,bool live){
   stats.peak=lines.peak;const uint64_t work=now_us()-begin;add(stats.enqueue_work_us,work);
   if(work>stats.enqueue_max_us)stats.enqueue_max_us=work>UINT32_MAX?UINT32_MAX:uint32_t(work);
   portEXIT_CRITICAL(&log_mux);return accepted?int(line.length):0;
+}
+[[gnu::noinline]] static int logv_impl(const char* format,va_list args,bool live){
+  if(xPortInIsrContext()){portENTER_CRITICAL_ISR(&log_mux);increment(stats.isr_refused);portEXIT_CRITICAL_ISR(&log_mux);return 0;}
+  const uint64_t begin=now_us();uint64_t id=0,seq=0,deadline=0;
+  portENTER_CRITICAL(&log_mux);
+  if(live){if(begin<live_next_us){portEXIT_CRITICAL(&log_mux);return 0;}
+    if(begin>UINT64_MAX-10000000){stats.counter_exhausted=true;portEXIT_CRITICAL(&log_mux);return 0;}live_next_us=begin+10000000;}
+  if(!stats.capture_active||begin>=stats.capture_deadline_us){
+    stats.capture_active=false;
+    if(!live){if(stats.suppressed_no_capture!=UINT64_MAX)++stats.suppressed_no_capture;else stats.counter_exhausted=true;
+      portEXIT_CRITICAL(&log_mux);return 0;}
+    // Capture id0 explicitly denotes a live snapshot, not a retained interval.
+    deadline=begin+ConsoleLineUs;
+  }else{
+    id=stats.capture_id;deadline=stats.capture_deadline_us;
+  }
+  if(stats.log_sequence==UINT64_MAX){stats.counter_exhausted=true;portEXIT_CRITICAL(&log_mux);return 0;}
+  seq=++stats.log_sequence;portEXIT_CRITICAL(&log_mux);
+  return logv_enqueue(format,args,begin,id,seq,deadline);
 }
 int logv(const char* format,va_list args){return logv_impl(format,args,false);}
 int logf(const char* format,...){va_list args;va_start(args,format);const int n=logv(format,args);va_end(args);return n;}

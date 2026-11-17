@@ -71,7 +71,17 @@ int main(int argc,char** argv){
   ++now;if(!std::strcmp(argv[1],"recreate"))result=0;
   const bool recovered=relay_cap_update(now);if(configure_result){assert(!recovered&&fault&&calls==3&&configures==1);return 0;}assert(calls==4&&removes==1&&configures==1);
   if(!std::strcmp(argv[1],"recreate")){assert(recovered&&!fault&&relay_cap_at==now&&!relay_cap_dirty);}
-  else{assert(!recovered&&fault&&details==61&&!relay_cap_at&&relay_cap_dirty);}
+  else{
+    assert(!recovered&&!fault&&!relay_cap_at&&relay_cap_dirty);
+    if(!std::strcmp(argv[1],"recreate-late")){
+      now+=100000;result=0;assert(relay_cap_update(now)&&!fault&&calls==5&&removes==1&&configures==1);
+      assert(relay_cap_at==now&&!relay_cap_dirty);return 0;
+    }
+    // Persistent capacity uses the whole original500ms budget after the
+    // single recreation. No additional remove/configure is admitted.
+    now+=100000;assert(!relay_cap_update(now)&&!fault&&calls==5&&removes==1&&configures==1);
+    now+=100000;assert(!relay_cap_update(now)&&fault&&details==61&&calls==5&&removes==1&&configures==1);
+  }
 #else
   assert(!relay_cap_update(now)&&fault&&details==61&&calls==3&&!relay_cap_at&&relay_cap_dirty);
 #endif

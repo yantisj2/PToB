@@ -11,4 +11,10 @@ using portMUX_TYPE=int;
 #define portEXIT_CRITICAL_ISR(x) ((void)(x))
 #define pdMS_TO_TICKS(x) (x)
 #define pdPASS 1
-inline bool xPortInIsrContext(){return false;}
+inline bool xPortInIsrContext(){
+#ifdef V12_TEST_ISR_CONTEXT
+ return V12_TEST_ISR_CONTEXT;
+#else
+ return false;
+#endif
+}

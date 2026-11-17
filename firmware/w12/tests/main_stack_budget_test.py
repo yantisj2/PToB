@@ -130,3 +130,27 @@ with tempfile.TemporaryDirectory() as d:
  except ValueError as e:assert 'exceeds configured' in str(e)
  else:raise AssertionError('N30 shared main-task reserve bypassed')
 print('PASS independent N30 version with original shared main-task evidence and reserve')
+
+# Reproduce the additional control/logger path missed by fine_receive alone.
+from stack_budget import HOST_DECLARATIONS,RELAY_HOST_DECLARATIONS,measure_host_control
+host_frames=dict(dispatch=208,host=1024,active=960,gatt=96,join=432,access=544,
+ cleanup=160,log_entry=48,log_admit=128,log_format=1664,relay=1456,cap=448,relay_close=592)
+def host_usage(frames):
+ lines=[]
+ for k,declaration in {**HOST_DECLARATIONS,**RELAY_HOST_DECLARATIONS}.items():
+  if k not in frames:continue
+  unit,tail=declaration if isinstance(declaration,tuple) else ('native_g1.cpp',declaration)
+  lines.append('/fixture/'+unit+':1:1:'+tail+'\t'+str(frames[k])+'\tstatic')
+ return '\n'.join(lines)
+host_text=host_usage(host_frames)
+for config,text,reason in [('CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=8192\n',host_text,'exceeds configured'),
+ ('CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=10240\n',host_usage({**host_frames,'log_admit':1712}),'large formatting'),
+ ('CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=10240\n',host_usage({k:v for k,v in host_frames.items() if k!='gatt'}),'Missing or ambiguous'),
+ ('CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=10240\n',host_text.replace('\t448\tstatic','\t448\tdynamic,bounded'),'Unbounded')]:
+ try:measure_host_control(config,text,True)
+ except ValueError as e:assert reason in str(e),str(e)
+ else:raise AssertionError('Unsafe/unknown host control stack accepted')
+host=measure_host_control('CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=10240\n',host_text,True)
+assert host['paths']['cap']['reserve_bytes']==4096 and host['paths']['cap']['headroom_after_reserve_bytes']>=0
+assert 'cap' not in measure_host_control('CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=10240\n',host_text,False)['paths']
+print('PASS actual control-path reserve model, observed small stack refusal and no large suppressed-log frame')

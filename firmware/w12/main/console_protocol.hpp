@@ -4,9 +4,9 @@
 namespace v12 {
 constexpr uint64_t ConsoleTicketUs=2000000,ConsoleFrameUs=1500000,ConsoleLineUs=250000;
 #ifdef V12_R2_ENABLED
-constexpr unsigned ConsoleFrameBytes=8704,ConsoleResponseRows=9,ConsoleLines=16;
+constexpr unsigned ConsoleFrameBytes=8704,ConsoleResponseRows=9,ConsoleLines=8;
 #else
-constexpr unsigned ConsoleFrameBytes=6144,ConsoleResponseRows=8,ConsoleLines=16;
+constexpr unsigned ConsoleFrameBytes=6144,ConsoleResponseRows=8,ConsoleLines=8;
 #endif
 inline uint32_t console_crc(const void* data,size_t bytes,uint32_t crc=0){
   const auto* p=static_cast<const uint8_t*>(data);crc=~crc;

@@ -14,7 +14,11 @@ G1HciTrace rows[16]{};unsigned head=0,tail=0;uint32_t sequence=0;
 G1HciStatus status;
 uint64_t now(){const auto n=esp_timer_get_time();return n>0?uint64_t(n):0;}
 void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
-bool selected(uint16_t op){return op>=0x2044&&op<=0x2046;}
+bool selected(uint16_t op){return (op>=0x2044&&op<=0x2046)
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  ||op==0x2037 // CAP advertising data: header/status only.
+#endif
+  ;}
 #if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
 struct AttHeader {uint16_t handle=0;uint8_t op=0;uint32_t detail=0;bool valid=false;};
 AttHeader att_header(const os_mbuf* packet){

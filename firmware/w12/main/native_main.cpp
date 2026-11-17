@@ -250,7 +250,7 @@ void pps(const gnss_pps::Observation& edge){
  const auto count=returned;
  for(;returned<8;++returned)response.format(" parent%u=0/0/0/0000000000000000/0000000000000000/0000000000000000/0/0/0/0000000000000000/0000000000000000/0000000000000000/0/0/0",unsigned(returned));
  response.format(" parent_returned=%" PRIu32 " parent_overwritten=%" PRIu32 " parent_read_lost=%" PRIu32 " parent_encoding=SEQ_AT_REASON_FROM6_TO6_V1\n",count,parent.sequence>8?parent.sequence-8:0,read_lost);
- response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready));
+ response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u heap_free=%u heap_min=%u heap_largest=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready),unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),unsigned(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)),unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
  w12_lora_diagnostics(response);
  ui_clock_frame(mesh);
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);

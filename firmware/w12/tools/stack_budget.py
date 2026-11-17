@@ -34,6 +34,46 @@ PPS_DECLARATIONS={
  'gnss_poll':'void gnss_pps::poll(uint64_t)',
 }
 FAST_MAP_DECLARATIONS={'gnss_fast_map':'w12_s3_gnss_map_bracket'}
+HOST_DECLARATIONS={
+ 'dispatch':('native_transport.cpp','void v12::{anonymous}::poll(ble_npl_event*)'),
+ 'host':'void v12::r2_host_poll()',
+ 'active':'void v12::{anonymous}::active_poll(uint64_t)',
+ 'gatt':'void v12::{anonymous}::gatt_poll(uint64_t)',
+ 'join':'void v12::{anonymous}::send_join(uint64_t)',
+ 'access':'int v12::{anonymous}::access(uint16_t, uint16_t, ble_gatt_access_ctxt*, void*)',
+ 'cleanup':'void v12::r2_host_cleanup()',
+ 'log_entry':'int v12::logv(const char*, va_list)',
+ 'log_admit':'int v12::logv_impl(const char*, va_list, bool)',
+ 'log_format':'int v12::logv_enqueue(const char*, va_list, uint64_t, uint64_t, uint64_t, uint64_t)',
+}
+RELAY_HOST_DECLARATIONS={
+ 'relay':'void v12::{anonymous}::relay_poll(uint64_t, bool, bool)',
+ 'cap':'bool v12::{anonymous}::relay_cap_update(uint64_t)',
+ 'relay_close':'void v12::{anonymous}::relay_close(uint64_t, bool)',
+}
+def measure_host_control(config,usage,estimated_relay):
+ sizes=re.findall(r'^CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=(\d+)$',config,re.M)
+ if len(sizes)!=1:raise ValueError('One exact host-task stack configuration required')
+ size=int(sizes[0]);rows=[line.split('\t') for line in usage.splitlines() if line.strip()];frames={}
+ for key,declaration in {**HOST_DECLARATIONS,**(RELAY_HOST_DECLARATIONS if estimated_relay else {})}.items():
+  unit,tail=declaration if isinstance(declaration,tuple) else (None,declaration)
+  matches=[row for row in rows if row[0].endswith(':'+tail) and (not unit or '/'+unit+':' in row[0])]
+  if len(matches)!=1 or len(matches[0])!=3:raise ValueError('Missing or ambiguous host control frame: '+key)
+  if matches[0][2]!='static' or not matches[0][1].isdigit():raise ValueError('Unbounded host control frame: '+key)
+  frames[key]=int(matches[0][1])
+ if frames['log_admit']>256:raise ValueError('Suppressed logger path reserves a large formatting frame')
+ root=('dispatch','host','active');logger=('log_entry','log_admit','log_format')
+ paths={'att':(*root,'gatt',*logger),'join':(*root,'join',*logger),
+        'access':('access',*logger),'cleanup':('cleanup',*logger)}
+ if estimated_relay:paths.update(cap=(*root,'relay','cap',*logger),owner_close=('dispatch','host','relay_close',*logger))
+ result={}
+ for name,keys in paths.items():
+  used=sum(frames[key] for key in keys)
+  if used+RESERVE_BYTES>size:raise ValueError(f'Host control path {name}: {used} + reserve {RESERVE_BYTES} exceeds configured {size}')
+  result[name]={'frames':list(keys),'selected_static_bytes':used,'configured_bytes':size,
+    'reserve_bytes':RESERVE_BYTES,'headroom_after_reserve_bytes':size-used-RESERVE_BYTES}
+ return {'status':'SELECTED_STATIC_HOST_CONTROL_PATHS_WITH_RESERVE_PASS','frames_bytes':frames,'paths':result,
+   'scope':'SELECTED_PATHS_NOT_COMPLETE_CALL_GRAPH','runtime_watermark':'NOT_MEASURED_BY_BUILD'}
 def measure(config,usage,gnss_usage=None,fast_map_usage=None):
  if fast_map_usage is not None and gnss_usage is None:raise ValueError('Fast map requires retained GNSS PPS frames')
  configs=re.findall(r'^CONFIG_ESP_MAIN_TASK_STACK_SIZE=(\d+)$',config,re.M)
@@ -144,6 +184,14 @@ def check(out):
   for name,used in paths.items():
    if used+RESERVE_BYTES>8192:raise ValueError('Radio selected path exceeds8192byte stack: '+name)
    result['radio_paths'][name]={'configured_bytes':8192,'selected_static_bytes':used,'reserve_bytes':RESERVE_BYTES,'headroom_after_reserve_bytes':8192-used-RESERVE_BYTES}
+ if r.get('host_control_stack_contract'):
+  if r['host_control_stack_contract']!='W12_HOST_CONTROL_LOG_RESERVE4096_V1':raise ValueError('Unknown host control stack contract')
+  units=[]
+  for name in ('native_transport.cpp.su','native_g1.cpp.su','bounded_log.cpp.su'):
+   selected=sorted(target.rglob(name))
+   if len(selected)!=1:raise ValueError('One retained host control stack unit required: '+name)
+   units.append(selected[0].read_text())
+  result['host_control_paths']=measure_host_control((target/'sdkconfig').read_text(),'\n'.join(units),r.get('estimated_relay',False))
  return result
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('out',type=Path);a=p.parse_args()

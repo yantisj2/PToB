@@ -51,4 +51,13 @@ int main(){
     assert(__wrap_ble_transport_to_ll_acl_impl(&first)==31);assert(!v12::g1_hci_pop(r));
   }
   assert(tx_acl_calls==6&&rx_acl_calls==1&&rx_calls==27);
+  stall=false;ack_inline=true;
+  assert(__wrap_ble_hs_hci_cmd_tx(0x2037,command,3,response,2)==0);
+  assert(v12::g1_hci_pop(r)&&r.kind==1&&r.opcode==0x2037);
+  assert(v12::g1_hci_pop(r)&&r.kind==3&&r.opcode==0x2037&&r.result==0);
+  assert(v12::g1_hci_pop(r)&&r.kind==2&&r.opcode==0x2037&&r.result==0);
+  uint8_t capacity_ack[]={0x0e,4,1,0x37,0x20,7};expected_event=capacity_ack;
+  assert(__wrap_ble_hs_hci_rx_evt(capacity_ack,expected_arg)==37);
+  assert(v12::g1_hci_pop(r)&&r.kind==3&&r.opcode==0x2037&&r.result==7);
+  assert(!v12::g1_hci_pop(r)&&cmd_calls==4&&rx_calls==29);
 }

@@ -35,11 +35,12 @@ int ble_gap_ext_adv_active(unsigned i){return ext_active[i];}
 int ble_gap_ext_adv_stop(unsigned i){ext_active[i]=false;if(i==1)owner_inject(1);return 0;}
 int cap_remove_result=0;unsigned cap_removed=0;int ble_gap_ext_adv_remove(unsigned i){assert(!ext_active[i]);if(i==1){++cap_removed;return cap_remove_result;}return 0;}
 unsigned discovery_configured=0,cap_sets=0;int cap_set_result=0;
+uint64_t cap_set_completed_at=0;
 int ble_gap_ext_adv_configure(unsigned i,const ble_gap_ext_adv_params* p,int8_t*,int(*)(ble_gap_event*,void*),void*){
  assert(i<2&&p->sid==12+i&&p->connectable==i);
  assert(p->itvl_min==160&&p->itvl_max==160); //100ms discovery,625us units
  discovery_configured|=1u<<i;if(i==1)owner_inject(2);return 0;}
-int ble_gap_ext_adv_set_data(unsigned i,os_mbuf* b){os_mbuf_free_chain(b);if(i==1){++cap_sets;owner_inject(3);return cap_set_result;}return 0;}
+int ble_gap_ext_adv_set_data(unsigned i,os_mbuf* b){os_mbuf_free_chain(b);if(i==1){++cap_sets;owner_inject(3);if(cap_set_completed_at)fake_now=cap_set_completed_at;return cap_set_result;}return 0;}
 int ble_gap_ext_adv_start(unsigned i,int,unsigned){ext_active[i]=true;return 0;}
 int ble_gap_periodic_adv_configure(unsigned i,const ble_gap_periodic_adv_params* p){assert(i==0&&p->itvl_min==50&&p->itvl_max==50);return 0;}
 int ble_gap_periodic_adv_set_data(unsigned i,os_mbuf* b){assert(i==0&&b->bytes.size()==190);
@@ -81,6 +82,25 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac));assert(v12::r2_host_init());assert(v12::r2_host_sync());
  v12::mode=v12::R2Mode::Client;v12::relay_poll(fake_now,false);assert(discovery_configured==3&&!ext_active[1]&&!ext_active[0]&&!pa_active);
 #ifdef PTOB_W12_BLE_RECOVERY
+ if(which.rfind("cap-data-return-",0)==0){
+   const auto start=fake_now;v12::synced=true;v12::sync_handle=17;v12::sync_identity=123;
+   v12::periodic_rx::installed=v12::periodic_rx::armed=true;v12::periodic_rx::capture_epoch=9;
+   ext_active[0]=pa_active=true;cap_set_result=0x207;
+   assert(!v12::relay_cap_update(fake_now)&&!v12::fault);
+   fake_now=start+100000;cap_set_result=which=="cap-data-return-error"?BLE_HS_EINVAL:0;
+   cap_set_completed_at=which=="cap-data-return-before"?start+499999:
+     which=="cap-data-return-backwards"?start-1:which=="cap-data-return-late"?start+600000:start+500000;
+   const bool accepted=v12::relay_cap_update(fake_now);
+   if(which=="cap-data-return-before")assert(accepted&&!v12::fault&&!v12::relay_cap_dirty);
+   else{
+     assert(!accepted&&v12::fault&&v12::relay_cap_dirty&&!v12::relay_cap_at);
+     assert(v12::first_error_rc==(which=="cap-data-return-error"?BLE_HS_EINVAL:0x207));
+     assert(v12::relay_cap_retry.expired(fake_now));
+   }
+   assert(cap_sets==2&&!cap_removed&&v12::synced&&v12::sync_handle==17&&v12::sync_identity==123);
+   assert(v12::periodic_rx::capture_epoch==9&&v12::periodic_rx::armed&&pa_active&&ext_active[0]);
+   puts("PASS actual CAP return boundary preserves original recovery deadline and PA train");return 0;
+ }
  if(which.rfind("connect-owner-",0)==0){
    assert(v12::client.start(fake_now));fake_now=1000010;
    rc7_path root{};root.source_epoch=9;root.node[0]={11,22,1,1,0,0};

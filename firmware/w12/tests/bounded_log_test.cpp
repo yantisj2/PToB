@@ -6,6 +6,8 @@
 #include <cstring>
 #include <functional>
 uint64_t fake_now=1000;unsigned fake_turns=0,fake_stop_after=0;bool fake_reader=false;
+bool fake_isr=false;
+#define V12_TEST_ISR_CONTEXT fake_isr
 unsigned fake_chunk=128;std::function<void()> fake_delay_hook;
 std::function<void()> fake_timer_hook;
 int64_t read_clock(){if(fake_timer_hook)fake_timer_hook();return int64_t(fake_now);}
@@ -29,6 +31,11 @@ void frame(uint64_t nonce){static v12::ConsoleFrame f;v12::frame_begin(f,nonce,1
   }
   assert(v12::frame_submit(f));}
 int main(int argc,char** argv){
+  reset();int formatted=0;fake_isr=true;
+  assert(!v12::logf("ISR%n",&formatted)&&!formatted&&v12::log_status().isr_refused==1);
+  assert(!v12::log_status().log_sequence&&!v12::lines.count);fake_isr=false;
+  assert(!v12::logf("suppressed%n",&formatted)&&!formatted);
+  assert(v12::log_status().suppressed_no_capture==1&&!v12::log_status().log_sequence);
   reset();assert(!v12::log_live("vendor attempted live bypass\n"));
   assert(v12::log_live("W12_G1_LIVE state=SEARCH precision=UNQUALIFIED\n")>0);
   for(unsigned i=0;i<100;++i)assert(!v12::log_live("W12_G1_LIVE state=SEARCH\n"));
@@ -47,9 +54,9 @@ int main(int argc,char** argv){
   assert(v12::log_status().dropped==0&&v12::lines.count==0&&v12::log_status().suppressed_no_capture==10000);
   assert(v12::capture_begin(0x1122,1000));assert(!v12::capture_begin(0x3344,1000));
   for(unsigned i=0;i<40;++i)v12::logf("W12_V12_CALLBACK sample=%u\n",i);
-  assert(v12::lines.count==16&&v12::log_status().dropped==24);run(1500);
+  assert(v12::lines.count==v12::ConsoleLines&&v12::log_status().dropped==40-v12::ConsoleLines);run(1500);
   assert(v12::lines.count==0&&v12::current_line.length==0);
-  assert(v12::log_status().expired==16&&v12::log_status().dropped==40);
+  assert(v12::log_status().expired==v12::ConsoleLines&&v12::log_status().dropped==40);
   v12::logf("after expired lease\n");assert(!v12::log_status().capture_active&&v12::log_status().dropped==40);
   const auto before=v12::log_status();frame(1);run(1600);assert(fake_wire.empty());
   assert(v12::log_status().frame_drops==1&&v12::log_status().dropped==before.dropped+1);

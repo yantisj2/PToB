@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.47'
+VERSION='0.2.49'
 def check_receiver_state_gate(path):
  # Loading the gate must not put N30 tools ahead of this builder's modules:
  # the later inspect_build import belongs to W12 and has a different API.
@@ -176,8 +176,8 @@ def validate_dual_compilation(r,compiled):
   if flag not in tokens:raise ValueError('Missing compiled runtime feature: '+flag)
  if r.get('rc9'):
   if '-DPTOB_RC9=1' not in tokens or not r['lora_rx'] or not r['estimated_relay']:raise ValueError('RC9 compile/profile mismatch')
- if r.get('no_time_sync_watchdog_us')!=(720000000 if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.47') else 300000000):raise ValueError('Watchdog metadata differs')
- if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.47') and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
+ if r.get('no_time_sync_watchdog_us')!=(720000000 if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.49') else 300000000):raise ValueError('Watchdog metadata differs')
+ if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.49') and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
  if r['lora_rx'] and not r['fine_clock']:raise ValueError('LoRa requires fine counter')
 
 def main():
@@ -231,7 +231,10 @@ def main():
  r['att_hci_diagnostics']='HEADER_ONLY_ATT_BOUNDARY_CREDITS_FORWARD_ONCE_V1'
  r['att_access_diagnostics']='W12_PRE_GATE_ATT_ACCESS_AND_FROZEN_GATT_SUBMIT_V1'
  r['acl_scheduling_guard']='W12_SCAN_OFF_ALL_ACL_POST_YIELD_RECHECK_ORIGINAL_BUDGET_V1'
- r['relay_cap_retry']='PAUSED_CAP_DATA207_RECREATE_ONCE_ORIGINAL500MS_FRESH_OWNER_V3'
+ r['relay_cap_retry']='PAUSED_CAP_DATA207_RECREATE_ONCE_FULL500MS_POST_RETURN_V4'
+ r['host_control_stack_contract']='W12_HOST_CONTROL_LOG_RESERVE4096_V1'
+ r['observer_queue_slots']=8
+ r['cap_hci_diagnostics']='CAP2037_BEGIN_RETURN_ACK_NO_PAYLOAD_V1'
  r['main_inlining']='GNSS_MAIN_SHARED_CALLEES_V1' if 'gnss_profile' in d else 'DEFAULT'
  r['lora_selection_policy']='AUTH_META_FIELD_EMITTER_FOUR_NON_EVICTING_REPLAY_FLOORS_V1'
  r['source_renewal_policy']='AUTH_GR3_MATCHED_ORIGINAL_MIN_BOTH_GRANTS_V1'

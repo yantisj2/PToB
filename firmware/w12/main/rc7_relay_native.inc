@@ -430,7 +430,13 @@ bool relay_cap_blocked(){return fault||closing||relay_stopping||control_acl_owne
   if(!mb){fault=true;return false;}
   const int cap_result=ble_gap_ext_adv_set_data(1,mb);
 #if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
-  if(capacity_retry.defer(cap_result,micros())){note(cap_result,R2Api::AdvData);inc(setup_retries);return false;}
+  const auto completed=micros();
+#if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
+  // set_data can yield beyond the original recovery deadline. Check before
+  // a successful result clears the retry episode and permits publication.
+  if(capacity_retry.expired(completed)){error(cap_result?cap_result:0x207,R2Api::AdvData,61);return false;}
+#endif
+  if(capacity_retry.defer(cap_result,completed)){note(cap_result,R2Api::AdvData);inc(setup_retries);return false;}
 #if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
   // set_data/configure may yield to a quarantined CONNECT. Defer known
   // capacity recovery without restarting its original500ms budget; retain

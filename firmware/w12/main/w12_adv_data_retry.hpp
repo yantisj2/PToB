@@ -18,7 +18,11 @@ class AdvDataRetry {
   if(!result){reset();return false;}
   if(result!=0x207||now>UINT64_MAX-100000)return false;
   if(!attempts_)started_=now;
-  if(now<started_||now-started_>=500000||++attempts_>=3)return false;
+  if(now<started_||now-started_>=500000)return false;
+  // The third refusal requests the single recreation. After recreation,
+  // capacity may use the remaining original budget instead of ending a
+  // 500ms episode after only about300ms because of a fixed attempt count.
+  if(++attempts_>=3&&!recreated_)return false;
   retry_at_=now+100000;return true;
  }
  // Reclaim only the stopped CAP instance, once, within the original budget.

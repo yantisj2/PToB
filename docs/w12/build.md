@@ -12,7 +12,7 @@ BLE100 is required for the optional fine-clock/estimated-relay/LoRa combination;
 BLE50 remains client-only. Passive LoRa cannot supply the legacy RC9 server's
 signed source envelope.
 
-GNSS profiles reserve an **8 KiB** host stack statically. Main-component
+GNSS profiles reserve a **10 KiB** host stack statically. Main-component
 sources use `-Os`; GNSS main-loop callees remain shared to limit image size.
 SDK/controller assertions and the **1 MiB** application ceiling
 remain enforced. See [holdover](holdover.md) for the production model and P99.

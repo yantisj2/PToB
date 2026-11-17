@@ -1,5 +1,21 @@
 # W12 changelog
 
+## 0.2.49 — Control recovery and memory headroom
+
+Allow post-recreation controller-capacity retries to use the full existing500ms
+recovery window, with100ms spacing and one recreation. Enforce that deadline
+again after a yielding data call, before success can erase its retry history.
+Other errors and persistent capacity remain faults; source grants and exchange
+deadlines do not change.
+
+Keep eight ordinary observer records, matching N30, while preserving both
+priority CRC response buffers and explicit refused/expired-record counters.
+Reserve10KiB for the W12 host stack and retain the recovered RAM as heap
+headroom. Suppressed logging no longer reserves a formatting buffer. Extend
+native stack evidence to control, CAP, ATT and logger paths with the existing
+4096-byte reserve, and observe CAP data HCI commands without recording payloads.
+Host checks and native resource audits do not establish hardware reliability.
+
 ## 0.2.47 — ATT controller-boundary observations
 
 Extend the existing read-only HCI trace with bounded ATT header observations at

@@ -56,7 +56,10 @@ relay train uses handle 0. Capacity recovery may recreate only stopped handle 1,
 once within the original 500 ms attempt budget, after checking ACL and teardown
 ownership. Removal and later reconfiguration are separate host turns. A complete
 new controller owner resets retry history; a reconfiguration within the same
-attempt does not reset its deadline. Failed commands never count as publication.
+attempt does not reset its deadline. After recreation, capacity retries may use
+the remaining budget at100ms intervals. A fixed attempt count cannot stop the
+episode early, and a successful SDK return at or beyond its deadline cannot
+clear the timeout. Failed commands never count as publication.
 Incoming quarantine blocks CAP data/configure/remove/start just like an admitted
 ACL. Recheck ownership after each yielding SDK boundary, including data/configure
 and immediately before start. An intervening ACL does not restart the attempt
@@ -89,7 +92,8 @@ carries the ATT opcode. Attribute handles are retained only for Read By Type,
 Read, Write Request and Write Command. The trace retains no values or JOIN
 payload. A successful transport return is an SDK boundary observation, not RF
 delivery or remote processing. An inbound header is not authentication. Original
-kinds 1–4 observe periodic-sync HCI commands/events; their pending counter does
+kinds 1–4 observe periodic-sync HCI commands/events and the W12 CAP data
+command0x2037; their pending counter does
 not measure ATT health. Fixed queues can lose diagnostics: retain drop counters
 and missing populations, and never infer callback absence from a missing row.
 
@@ -101,3 +105,10 @@ quarantined CAP recovery and periodic-train preservation. ASan/UBSan and these
 interleavings do not prove absence of all races. Native size/stack checks and
 exact-device runtime verification remain required. No checksum or simulator
 qualifies independently measured RF/UTC accuracy.
+
+W12 reserves eight ordinary log records separately from the two priority CRC
+responses. Saturation refuses a whole ordinary record and increments loss; it
+does not grow a queue or delay a radio owner. Log admission and ISR refusal do
+not reserve the caller-local formatting buffer. Native control/CAP/ATT/logger
+stack paths retain a4096-byte uncounted-callee reserve; runtime high-water and
+heap observations remain necessary.
