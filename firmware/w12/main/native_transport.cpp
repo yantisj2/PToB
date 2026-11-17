@@ -330,8 +330,8 @@ bool transport_init(){
   ble_npl_callout_reset(&poll_callout,ble_npl_time_ms_to_ticks32(1));
 #ifdef PTOB_W12_STATIC_NIMBLE_HOST
   const bool started=host_task.start(host,configMAX_PRIORITIES-4,NIMBLE_CORE);
-  std::printf("W12_NIMBLE_HOST started=%u stack_bytes=%u core=%d heap_free=%u largest_block=%u\n",
-    unsigned(started),unsigned(CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE),int(NIMBLE_CORE),
+  std::printf("W12_NIMBLE_HOST stack_bytes=%u core=%d heap_free=%u largest=%u\n",
+    unsigned(CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE),int(NIMBLE_CORE),
     unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
   return started;
 #else
