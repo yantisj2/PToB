@@ -13,7 +13,7 @@ class AdvDataRetry {
  bool needs_configure()const{return configure_;}
  void removed(){configure_=true;}
  void configured(){configure_=false;}
- bool ready(uint64_t now)const{return !attempts_||now<started_||now>=retry_at_;}
+ bool ready(uint64_t now)const{return !attempts_||expired(now)||now>=retry_at_;}
  bool defer(int result,uint64_t now){
   if(!result){reset();return false;}
   if(result!=0x207||now>UINT64_MAX-100000)return false;

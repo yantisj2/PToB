@@ -250,7 +250,7 @@ void pps(const gnss_pps::Observation& edge){
  const auto count=returned;
  for(;returned<8;++returned)response.format(" parent%u=0/0/0/0000000000000000/0000000000000000/0000000000000000/0/0/0/0000000000000000/0000000000000000/0000000000000000/0/0/0",unsigned(returned));
  response.format(" parent_returned=%" PRIu32 " parent_overwritten=%" PRIu32 " parent_read_lost=%" PRIu32 " parent_encoding=SEQ_AT_REASON_FROM6_TO6_V1\n",count,parent.sequence>8?parent.sequence-8:0,read_lost);
- response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u heap_free=%u heap_min=%u heap_largest=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready),unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),unsigned(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)),unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
+ response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u heap_free=%u heap_largest=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready),unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
  w12_lora_diagnostics(response);
  ui_clock_frame(mesh);
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
@@ -983,9 +983,9 @@ extern "C" void app_main(){
   const auto device=v12::native_device_binding();
   identity=device&&!std::memcmp(factory,device->factory,6);esp_fill_random(&session,sizeof(session));
   std::printf("W12_V12_BOOT unit=%s factory=%s identity=%u session=%016" PRIx64
-    " source=%s build=%s RF=OFF precision=UNAVAILABLE\n",
+    " source=%s build=%s precision=UNAVAILABLE\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
+  if(!identity||!session){std::printf("W12_V12_FATAL reason=BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes
   // legacy NVS. Native credentials remain refused until that separate gate.
@@ -996,12 +996,12 @@ extern "C" void app_main(){
 #ifdef PTOB_W12_FINE_CLOCK
   uint64_t fine_factory=0;for(const auto b:factory)fine_factory=(fine_factory<<8)|b;
   if(!w12_fine_start(session,fine_factory,micros())){
-    boot_fatal("FINE_COUNTER_DOMAIN");return;}
-  std::printf("W12_FINE_CLOCK MCPWM1/80MHz GPIO16 RF=UNKNOWN UTC=UNKNOWN\n");
+    boot_fatal("FINE_COUNTER");return;}
+  std::printf("W12_FINE_CLOCK ready=1\n");
 #endif
   usb_serial_jtag_driver_config_t console{};console.rx_buffer_size=512;console.tx_buffer_size=4096;
-  if(usb_serial_jtag_driver_install(&console)!=ESP_OK){boot_fatal("CONSOLE_DRIVER");return;}
-  if(!v12::log_start()){boot_fatal("CONSOLE_WORKER");return;}
+  if(usb_serial_jtag_driver_install(&console)!=ESP_OK){boot_fatal("USB_DRIVER");return;}
+  if(!v12::log_start()){boot_fatal("LOG_WORKER");return;}
   gpio_config_t button{};button.pin_bit_mask=1;button.mode=GPIO_MODE_INPUT;button.pull_up_en=GPIO_PULLUP_ENABLE;
   if(gpio_config(&button)!=ESP_OK){boot_fatal("BUTTON");return;}
   if(w12::power_wake_init()!=ESP_OK){boot_fatal("POWER_WAKE");return;}

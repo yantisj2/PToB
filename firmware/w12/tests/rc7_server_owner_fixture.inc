@@ -82,6 +82,14 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac));assert(v12::r2_host_init());assert(v12::r2_host_sync());
  v12::mode=v12::R2Mode::Client;v12::relay_poll(fake_now,false);assert(discovery_configured==3&&!ext_active[1]&&!ext_active[0]&&!pa_active);
 #ifdef PTOB_W12_BLE_RECOVERY
+ if(which=="cap-deadline-wake"){
+   const auto start=fake_now;cap_set_result=0x207;
+   for(unsigned n=0;n<3;++n){assert(!v12::relay_cap_update(fake_now)&&!v12::fault);fake_now+=100000;}
+   assert(cap_removed==1);cap_set_completed_at=start+450000;
+   assert(!v12::relay_cap_update(fake_now)&&!v12::fault&&cap_sets==4);
+   fake_now=start+500000;cap_set_completed_at=0;
+   assert(!v12::relay_cap_update(fake_now)&&v12::fault&&cap_sets==4&&cap_removed==1);return 0;
+ }
  if(which.rfind("cap-data-return-",0)==0){
    const auto start=fake_now;v12::synced=true;v12::sync_handle=17;v12::sync_identity=123;
    v12::periodic_rx::installed=v12::periodic_rx::armed=true;v12::periodic_rx::capture_epoch=9;

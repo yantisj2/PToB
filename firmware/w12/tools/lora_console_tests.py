@@ -17,7 +17,7 @@ subprocess.run([os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Pat
 m=dict(factory_mac='02:00:00:00:00:05',source_commit='0'*40,build_id='0'*64,console_frame_bytes=8704,fault_watchdog='SUSTAINED_FAULT_120S_V1',r2_profile='r2-g1',r2_enrollment_sha256='0'*64,r2_group_id='0000000000000011',r2_key_epoch=9,r2_client_identity='0000020000000005')
 wire=(out/'wire.txt').read_bytes();frames=Parser('0000000000000abc',m,'0000000000001234').feed(wire);assert len(frames)==1;require_coverage(frames[0]);assert len(frames[0]['rows'])==10
 assert frames[0]['rows']['W12_UI_CLOCK']['lui']=='11/4294967295'
-assert {k:frames[0]['rows']['W12_V12_STATUS'][k] for k in ('heap_free','heap_min','heap_largest')}==dict(heap_free='24000',heap_min='18000',heap_largest='12000')
+assert {k:frames[0]['rows']['W12_V12_STATUS'][k] for k in ('heap_free','heap_largest')}==dict(heap_free='24000',heap_largest='12000')
 mesh=frames[0]['rows']['W12_R2_STATUS'];assert mesh['dual_schema']=='2' and mesh['parent_view']=='RING8' and len(mesh['parent_events'])==8 and len(wire)<=8704
 def re_crc(raw):
  body,end=raw.split(b'W12_V12_END ',1);end=b'W12_V12_END '+end.rstrip(b'\n').rsplit(b' end_crc32=',1)[0]

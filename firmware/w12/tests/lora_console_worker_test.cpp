@@ -13,7 +13,6 @@ w12::LoRaClockSelection display_clock_selection;bool display_lora_selected=false
 uint64_t micros(){return fake_now;}
 constexpr unsigned MALLOC_CAP_INTERNAL=1;
 unsigned heap_caps_get_free_size(unsigned caps){assert(caps==MALLOC_CAP_INTERNAL);return 24000;}
-unsigned heap_caps_get_minimum_free_size(unsigned caps){assert(caps==MALLOC_CAP_INTERNAL);return 18000;}
 unsigned heap_caps_get_largest_free_block(unsigned caps){assert(caps==MALLOC_CAP_INTERNAL);return 12000;}
 #include "display_second_deadline.hpp"
 namespace v12 {
