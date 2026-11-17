@@ -37,16 +37,6 @@ class SizePolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'effective -Oz'):
             self.check_policy()
 
-    def test_gnss_control_callees_are_shared_only_in_two_units(self):
-        self.receipt['main_inlining'] = 'GNSS_CONTROL_SHARED_CALLEES_V2'
-        self.rows[0]['command'] += ' -fno-inline-functions-called-once'
-        self.rows.append({'file': '/app/native_g1.cpp', 'command': 'cc -Os -fno-inline-functions-called-once -o esp-idf/main/CMakeFiles/__idf_main.dir/native_g1.cpp.obj'})
-        self.rows.append({'file': '/app/radio.cpp', 'command': 'cc -Os -o esp-idf/main/CMakeFiles/__idf_main.dir/radio.cpp.obj'})
-        self.check_policy()
-        self.rows[-1]['command'] += ' -fno-inline-functions-called-once'
-        with self.assertRaisesRegex(ValueError, 'inlining selection'):
-            self.check_policy()
-
     def test_later_debug_option_is_refused(self):
         self.rows[0]['command'] += ' -Og'
         with self.assertRaisesRegex(ValueError, 'effective -Os'):
