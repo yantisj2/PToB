@@ -428,13 +428,13 @@ bool relay_cap_blocked(){return fault||closing||relay_stopping||control_acl_owne
   if(rc7_control_encode(relay_cap,&c,&provision.group)||rc7_capability_encode(wire+23,&c,&provision.group)){fault=true;return false;}
   relay_cap_path=c.path;auto* mb=ble_hs_mbuf_from_flat(wire,sizeof wire);
   if(!mb){fault=true;return false;}
-  const int cap_result=ble_gap_ext_adv_set_data(1,mb);
+  int cap_result=ble_gap_ext_adv_set_data(1,mb);
 #if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
   const auto completed=micros();
 #if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
   // set_data can yield beyond the original recovery deadline. Check before
   // a successful result clears the retry episode and permits publication.
-  if(capacity_retry.expired(completed)){error(cap_result?cap_result:0x207,R2Api::AdvData,61);return false;}
+  if(!cap_result&&capacity_retry.expired(completed))cap_result=0x207;
 #endif
   if(capacity_retry.defer(cap_result,completed)){note(cap_result,R2Api::AdvData);inc(setup_retries);return false;}
 #if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)

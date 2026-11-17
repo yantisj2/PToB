@@ -972,6 +972,10 @@ extern "C" bool IRAM_ATTR clock_reference_bt_bracket(uint64_t* before,uint64_t* 
     v12::r2_shadow_temperature(tick,int32_t(std::llround(double(celsius)*1000)));
 }
 #endif
+// Share identical boot failure reporting without changing retirement or RTC writes.
+[[gnu::noinline]] static void boot_fatal(const char* reason){
+  v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=%s\n",reason);
+}
 extern "C" void app_main(){
   uint8_t factory[6]{};esp_read_mac(factory,ESP_MAC_EFUSE_FACTORY);
   std::snprintf(factory_text,sizeof(factory_text),"%02x:%02x:%02x:%02x:%02x:%02x",
@@ -988,23 +992,23 @@ extern "C" void app_main(){
   gptimer_config_t timer{};timer.clk_src=GPTIMER_CLK_SRC_XTAL;
   timer.direction=GPTIMER_COUNT_UP;timer.resolution_hz=20000000;
   if(gptimer_new_timer(&timer,&clock_timer)!=ESP_OK||gptimer_enable(clock_timer)!=ESP_OK||gptimer_start(clock_timer)!=ESP_OK){
-    v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=XTAL_TIMER\n");return;}
+    boot_fatal("XTAL_TIMER");return;}
 #ifdef PTOB_W12_FINE_CLOCK
   uint64_t fine_factory=0;for(const auto b:factory)fine_factory=(fine_factory<<8)|b;
   if(!w12_fine_start(session,fine_factory,micros())){
-    v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=FINE_COUNTER_DOMAIN\n");return;}
+    boot_fatal("FINE_COUNTER_DOMAIN");return;}
   std::printf("W12_FINE_CLOCK MCPWM1/80MHz GPIO16 RF=UNKNOWN UTC=UNKNOWN\n");
 #endif
   usb_serial_jtag_driver_config_t console{};console.rx_buffer_size=512;console.tx_buffer_size=4096;
-  if(usb_serial_jtag_driver_install(&console)!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_DRIVER\n");return;}
-  if(!v12::log_start()){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=CONSOLE_WORKER\n");return;}
+  if(usb_serial_jtag_driver_install(&console)!=ESP_OK){boot_fatal("CONSOLE_DRIVER");return;}
+  if(!v12::log_start()){boot_fatal("CONSOLE_WORKER");return;}
   gpio_config_t button{};button.pin_bit_mask=1;button.mode=GPIO_MODE_INPUT;button.pull_up_en=GPIO_PULLUP_ENABLE;
-  if(gpio_config(&button)!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=BUTTON\n");return;}
-  if(w12::power_wake_init()!=ESP_OK){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=POWER_WAKE\n");return;}
+  if(gpio_config(&button)!=ESP_OK){boot_fatal("BUTTON");return;}
+  if(w12::power_wake_init()!=ESP_OK){boot_fatal("POWER_WAKE");return;}
   w12::MainButton buttons(gpio_get_level(GPIO_NUM_0)==0);
   ui_ready=display_init();gps_ready=gnss_pps::init(clock_timer,pps);
 #ifdef V12_R2_ENABLED
-  if(!v12::r2_init(session,factory)){v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=R2_ENROLLMENT\n");return;}
+  if(!v12::r2_init(session,factory)){boot_fatal("R2_ENROLLMENT");return;}
   gnss_pps::set_nmea_consumer([](const uint8_t* bytes,unsigned n){v12::r2_nmea(bytes,n,micros());});
 #ifdef V12_R2_FIELD_CLIENT
 #if V12_R2_CONFIG == 13
@@ -1019,7 +1023,7 @@ extern "C" void app_main(){
   v12::diagnostic_tx_identity(factory,session);
   const uint8_t wire_id=device->wire_id;
   if(!ui_ready||!v12::lora_start_worker()||!v12::direct_init(factory,wire_id)||!v12::public_observer_init()||!v12::transport_init()){
-    v12::fault_watchdog_fatal();std::printf("W12_V12_FATAL reason=UI_OR_NATIVE_HOST_INIT RF=OFF\n");return;}
+    boot_fatal("UI_OR_NATIVE_HOST_INIT RF=OFF");return;}
   v12::fault_watchdog_host_expected();
   while(true){
 #ifdef PTOB_W12_SHADOW_HOLDOVER
