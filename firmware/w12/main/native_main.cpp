@@ -983,7 +983,7 @@ extern "C" void app_main(){
   const auto device=v12::native_device_binding();
   identity=device&&!std::memcmp(factory,device->factory,6);esp_fill_random(&session,sizeof(session));
   std::printf("W12_V12_BOOT unit=%s factory=%s identity=%u session=%016" PRIx64
-    " source=%s build=%s precision=UNAVAILABLE\n",
+    " source=%s build=%s\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
   if(!identity||!session){std::printf("W12_V12_FATAL reason=BINDING peripherals=UNTOUCHED\n");return;}
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
@@ -992,12 +992,11 @@ extern "C" void app_main(){
   gptimer_config_t timer{};timer.clk_src=GPTIMER_CLK_SRC_XTAL;
   timer.direction=GPTIMER_COUNT_UP;timer.resolution_hz=20000000;
   if(gptimer_new_timer(&timer,&clock_timer)!=ESP_OK||gptimer_enable(clock_timer)!=ESP_OK||gptimer_start(clock_timer)!=ESP_OK){
-    boot_fatal("XTAL_TIMER");return;}
+    boot_fatal("TIMER");return;}
 #ifdef PTOB_W12_FINE_CLOCK
   uint64_t fine_factory=0;for(const auto b:factory)fine_factory=(fine_factory<<8)|b;
   if(!w12_fine_start(session,fine_factory,micros())){
     boot_fatal("FINE_COUNTER");return;}
-  std::printf("W12_FINE_CLOCK ready=1\n");
 #endif
   usb_serial_jtag_driver_config_t console{};console.rx_buffer_size=512;console.tx_buffer_size=4096;
   if(usb_serial_jtag_driver_install(&console)!=ESP_OK){boot_fatal("USB_DRIVER");return;}
@@ -1008,7 +1007,7 @@ extern "C" void app_main(){
   w12::MainButton buttons(gpio_get_level(GPIO_NUM_0)==0);
   ui_ready=display_init();gps_ready=gnss_pps::init(clock_timer,pps);
 #ifdef V12_R2_ENABLED
-  if(!v12::r2_init(session,factory)){boot_fatal("R2_ENROLLMENT");return;}
+  if(!v12::r2_init(session,factory)){boot_fatal("ENROLLMENT");return;}
   gnss_pps::set_nmea_consumer([](const uint8_t* bytes,unsigned n){v12::r2_nmea(bytes,n,micros());});
 #ifdef V12_R2_FIELD_CLIENT
 #if V12_R2_CONFIG == 13
