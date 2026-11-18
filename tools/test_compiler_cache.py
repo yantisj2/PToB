@@ -40,7 +40,28 @@ def main():
         assert build('recovered') == 19
         finish(ccache, env)
         assert not (os.stat(root / 'artifacts/.compiler-cache/host').st_mode & 0o077)
-    print('PASS actual cached compile/link, paths with spaces, header/flag invalidation and failed-output refusal')
+        # IDF maps absolute SDK filenames in assertions to /IDF. A native
+        # cache must preserve that map even when the SDK is inside the repo.
+        sdk = root / 'sdk'
+        sdk.mkdir()
+        source = sdk / 'component.c'
+        source.write_text('#include <stdio.h>\nint main(void){puts(__FILE__);}\n')
+        build_dir = root / 'build'
+        build_dir.mkdir()
+        native_cache, native_env = environment(root, 'native-w12', a.ccache)
+        compiler = shutil.which('clang')
+        for label, prefix, build_env in [('direct', [], os.environ),
+                                         ('cached', [native_cache], native_env)]:
+            obj = build_dir / (label + '.o')
+            binary = build_dir / label
+            subprocess.run([*prefix, compiler, '-fmacro-prefix-map=' + str(sdk) + '=/IDF',
+                            '-c', str(source), '-o', str(obj)], cwd=build_dir,
+                           env=build_env, check=True)
+            subprocess.run([compiler, str(obj), '-o', str(binary)], check=True)
+            actual = subprocess.check_output([str(binary)], text=True).strip()
+            assert actual == '/IDF/component.c', (label, actual)
+        finish(native_cache, native_env)
+    print('PASS actual cached compile/link, paths with spaces, header/flag invalidation, failed-output refusal and native SDK filename mapping')
 
 
 if __name__ == '__main__':

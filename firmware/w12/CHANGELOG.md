@@ -14,6 +14,12 @@ uses its existing receiver deadline. Loss or withdrawal closes admission and
 revokes time. Clients also expire passive TIME after two seconds without a
 fresh publication. Existing TIME v1 packets remain readable.
 
+Preserve the SDK's shortened assertion filenames when using the optional native
+compiler cache. Relative cache path rewriting previously bypassed the compiler
+map when the SDK lived inside the checkout, increasing both the image and
+RAM-resident strings. Cached and uncached filename behavior has an offline
+regression. Keep the fixed application slot and existing optimization policy.
+
 ## 0.2.49 — Control recovery and memory headroom
 
 Allow post-recreation controller-capacity retries to use the full existing500ms

@@ -34,7 +34,12 @@ def environment(repo, lane, executable=None):
     config.chmod(0o600)
     env = {k: v for k, v in os.environ.items() if not k.startswith('CCACHE_')}
     env.update(CCACHE_DIR=str(cache), CCACHE_CONFIGPATH=str(config),
-               CCACHE_BASEDIR=str(repo), CCACHE_NOHASHDIR='true')
+               CCACHE_NOHASHDIR='true')
+    # IDF's absolute -fmacro-prefix-map must see the original SDK paths.
+    # Rewriting them relative to a native build defeats that map and grows
+    # assertion strings (including RAM-resident ones) with checkout paths.
+    if lane == 'host':
+        env['CCACHE_BASEDIR'] = str(repo)
     return ccache, env
 
 
