@@ -1,12 +1,20 @@
 # Reproduction tools
 
-Run `python3 -B tools/verify_pi5_gateway.py` for the approved seven-page Pi/M-HAT
-draft, complete 600-pulse/600-snapshot population, all tails, period and chrony
-update accounting, separate protocol-health checks and publication identities.
-It uses the standard library and operates no hardware. Private raw extraction
-and independent UTC/electrical/Ethernet accuracy are outside this check.
+Verify the approved seven-page Pi/M-HAT draft from its publication revision.
+The verifier checks the 600-pulse/600-snapshot population, all tails, protocol
+health and the original publication file hashes. Export the revision to a
+temporary directory to run the exact check from a current checkout:
+
+```sh
+pi5_edition=$(mktemp -d)
+git archive 5b0728ed757bc29c7a92f8cba5bb12afbd1c2bf9 | tar -xf - -C "$pi5_edition"
+python3 -B "$pi5_edition/tools/verify_pi5_gateway.py"
+```
+
+This uses public Git history and the Python standard library. It reproduces
+the selected evidence arithmetic and publication identity checks offline.
 See the [paper](../papers/pi5-mhat-gateway/README.md) and
-[Pi setup/scripts](../gateways/pi5/README.md).
+[Pi setup and source checks](../gateways/pi5/README.md).
 
 Native firmware builds automatically retain the latest two successful images per
 device/profile and release compiler intermediates. Use

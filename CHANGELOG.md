@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-18 — Pi 5 USB shadow observer
+
+- Integrate the [Linux T096 RC USB/SOF shadow observer](gateways/pi5/usb/README.md)
+  with guarded capture, saved-data replay, causal association diagnostics and
+  offline reporting tests. The M-HAT/GPIO path supplies chrony.
+- Point Pi/M-HAT paper verification to its frozen publication revision. Live
+  USB association, independent output accuracy and Ethernet endpoint
+  qualification remain open.
+
 ## 2026-11-18 — Common-clock firmware and preserved evidence
 
 - Update [T-Watch 0.1.21](firmware/twatch/CHANGELOG.md) with common BLE/LoRa/HOLD

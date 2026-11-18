@@ -39,5 +39,7 @@ experimental population, not an alternative production installer.
 M-HAT native builders, exact-device USB DFU/install and recovery tools live in
 [`firmware/mhat/tools`](../../../firmware/mhat/README.md). Build outputs use the
 shared [retention lifecycle](../../../docs/firmware-storage.md). The
-[future bridge plan](../../../docs/pi5/bridge-work.md) records the proposed Linux
-T096 USB/SOF input and reverse PTP direction; neither is an implemented script.
+[Linux USB shadow observer](../usb/README.md) uses the same enrolled Pi guard
+for bounded T096 RC capture and can replay saved reports offline. The
+[bridge plan](../../../docs/pi5/bridge-work.md) covers USB qualification and
+future reverse PTP work.

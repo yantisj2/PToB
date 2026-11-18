@@ -158,8 +158,9 @@ UTC/output accuracy and Ethernet endpoint performance remain unmeasured.
 [Source and reproduction](papers/pi5-mhat-gateway/README.md),
 [measured results](evidence/pi5/2026-11-02/README.md) and
 [approval record](papers/pi5-mhat-gateway/publication.json) accompany the draft.
-Linux USB/SOF input from a T096 RC and reverse external-PTP ingress remain
-proposed next steps.
+The Pi target also includes a [Linux USB/SOF shadow observer](gateways/pi5/usb/README.md)
+for a T096 RC. USB clock discipline and reverse external-PTP ingress remain
+[future work](docs/pi5/bridge-work.md).
 
 **Approved public review draft, 1 November 2026:**
 [Trustworthy Hardware Timestamps in Zephyr](https://ptob.dev/research/zephyr-hardware-timestamps/)

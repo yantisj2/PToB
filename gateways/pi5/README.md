@@ -11,6 +11,7 @@ is not the implemented precision timing input.
 **[Setup guide](../../docs/pi5/setup.md)** ·
 **[Monitoring website](dashboard/README.md)** ·
 **[Scripts](tools/README.md)** ·
+**[Linux USB shadow observer](usb/README.md)** ·
 **[Paper and measured results](../../papers/pi5-mhat-gateway/README.md)** ·
 **[Next USB/PTP bridge experiments](../../docs/pi5/bridge-work.md)**
 
@@ -26,6 +27,7 @@ is not the implemented precision timing input.
 | Wi-Fi PTP | PTPd, software timestamps, domain 24, application-specific timescale |
 | Ethernet PTP | Guarded system → PHC transfer and server-only linuxptp, L2/E2E, domain 24 |
 | Monitoring | Read-only Python API, plain HTML/JavaScript charts and bounded local history |
+| USB/SOF diagnostics | Experimental T096 RC observer with offline replay. The M-HAT PPS path remains the chrony input. |
 
 Ethernet cable/endpoint testing and sub-microsecond output accuracy remain
 unqualified. GPIO PPS uses Linux IRQ timestamps; receiver fit residuals,
@@ -83,13 +85,14 @@ python3 -B -m unittest discover -s gateways/pi5/dashboard/tests -v
 node gateways/pi5/dashboard/tests/source_ui_test.cjs
 node gateways/pi5/dashboard/tests/chart_ui_test.cjs
 node gateways/pi5/dashboard/tests/output_ui_test.cjs
-python3 -B tools/verify_pi5_gateway.py
+python3 -B -m unittest gateways.pi5.usb.test_shadow gateways.pi5.usb.test_reporting_gate
 ```
 
-These checks do not connect to hardware or qualify physical output accuracy.
-The [next-session plan](../../docs/pi5/bridge-work.md) starts with a USB-connected
-T096 RC and shadow Linux USB/SOF association. That adapter and reverse
-external-PTP → PToB operation remain future work.
+See the [USB observer checks](usb/README.md#offline-verification) for the native
+host tests and the [paper reproduction instructions](../../tools/README.md) for
+the archived publication checks. The [bridge experiment plan](../../docs/pi5/bridge-work.md)
+covers the remaining hardware checks, including independent USB event
+association, Ethernet output and possible reverse external-PTP ingress.
 
 Original target code and ordinary documentation use MIT. Separately acquired
 Raspberry Pi OS, Debian, Linux, BlueZ, chrony, linuxptp, PTPd, Tailscale and

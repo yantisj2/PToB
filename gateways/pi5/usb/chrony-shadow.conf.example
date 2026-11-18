@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Jonathan Yantis. MIT.
+# Proposal only. All lines are comments; do not install as an active source.
+# Intended distinct source identity: PUSB (USB source), retaining PTOB (GPIO).
+# A future source could use chrony's SOCK refclock at /run/ptob-usb/chrony.sock:
+# refclock SOCK /run/ptob-usb/chrony.sock refid PUSB noselect
+# No emitter exists in this prototype. Unknown uncertainty cannot be replaced
+# by an invented precision value. A separate controlled promotion requires a
+# validated causal frame/host association, original source/map/deadline fences,
+# measured host-clock bounds, source-cohort comparison and intentional GPIO/USB
+# selection policy. Keep the existing chronyd as the sole system-clock writer.

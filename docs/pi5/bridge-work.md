@@ -3,28 +3,25 @@
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
 Start from the [Pi target](../../gateways/pi5/README.md) and its
-[setup guide](setup.md). This is the continuation plan; no USB/SOF or reverse
-PTP performance result is claimed. The complete measured M-HAT/GPIO baseline,
-including all tails, remains in the [selected results](../../evidence/pi5/2026-11-02/README.md).
+[setup guide](setup.md). The complete measured M-HAT/GPIO baseline, including
+all tails, is in the [selected results](../../evidence/pi5/2026-11-02/README.md).
 
-## Next session: USB-connected T096 RC and SOF
+## USB-connected T096 RC and SOF
 
-The next input to evaluate is an exact verified **T096 in RC mode**, connected
-to the Pi over USB. Its accepted BLE source can feed the existing USB source
-stream. The current M-HAT CDC stream supplies diagnostics and is a different
-contract. No T096 image change or physical connection is performed by this plan.
-Read the [T096 guide](../../firmware/t096/README.md),
-[USB observation contract](../../clients/macos/usb/README.md) and
-[macOS client](../../clients/macos/README.md) first.
+The [Linux shadow observer](../../gateways/pi5/usb/README.md) records the USB
+timing stream from a verified **T096 in RC mode** alongside the existing
+M-HAT/GPIO timing path. The remaining work is to establish the correspondence
+between device and host events and measure physical phase uncertainty. See the
+[USB wire contract](../../clients/macos/usb/README.md) and the
+[independent association proposal](usb-integer-association-witness.md).
 
 1. Inventory the exact T096, installed RC/source-stream image, USB topology and
    recovery identity. Preserve source root/boot/epoch, frame/counter epochs,
    map generation and original admission/expiry. Keep credentials private.
-2. Prototype a **shadow-only Linux USB/SOF association**. Capture device SOF
-   counters and frame identities; establish which host event each denotes.
-   Keep submission/completion bounds and ambiguity explicit. USB read arrival
-   is not the original event timestamp, and the macOS host-clock API is not
-   assumed to exist on Linux.
+2. Use the shadow observer to capture device SOF counters and frame identities
+   with stock xHCI read brackets. Retain submission and completion bounds.
+   Validate the corresponding host events with an independent observation of
+   USB SOF.
 3. Train causally: predict an observation using only the preceding fit before
    adding that observation. Withdraw on source/counter reset, ambiguous frame,
    expired map, disconnect or suspend/resume. Log invalid and warmup samples.
@@ -38,12 +35,9 @@ Read the [T096 guide](../../firmware/t096/README.md),
    remains the sole system-clock writer. Use an independent physical reference
    before making an output or UTC accuracy claim.
 
-Existing code to study is in `clients/macos/` and the T096 USB implementation;
-there is no validated Linux SOF/chrony receiver adapter in this Pi target yet.
-The [paper's USB analysis](../../papers/pi5-mhat-gateway/main.pdf) describes
-both the expected benefit of bypassing GPIO IRQ capture and the unknown host
-association/bias terms. The next session should measure those terms rather than
-inherit the historical macOS residual as a Pi result.
+The [USB/SOF research ledger](usb-sof-research.md) records the stock Linux APIs
+and the remaining host association and bias terms. Linux USB/SOF remains a
+shadow input while the M-HAT PPS path supplies chrony.
 
 ## Ethernet output and reverse direction
 

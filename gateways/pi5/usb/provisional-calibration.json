@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "calibration_id": "pi5-usb-shadow-provisional-20261102",
+  "correction_ns": -25600,
+  "operation": "ADD_TO_DERIVED_USB_SHADOW_UTC_AND_PHASE",
+  "provisional": true,
+  "frozen": true,
+  "automatic_refit": false,
+  "absolute_uncertainty_ns": null,
+  "dependent_reference": "M-HAT-disciplined Pi CLOCK_REALTIME",
+  "basis": {
+    "capture": "paired8hz600s-02-settled-candidate.json",
+    "capture_sha256": "3f06b30e711a0e79b6a3e75953aeb212b0c92136476bce8c39c551f96ae4bde2",
+    "cohort": "first chronologically admitted phase cohort A in this capture",
+    "admitted_phase_samples": 648,
+    "uncorrected_mean_ns": "25590.43285965478",
+    "trained_read_method": "seek-read"
+  },
+  "scope": {
+    "driver": "xhci-hcd",
+    "controller_compatible": "snps,dwc3",
+    "speed_mbps": "12",
+    "direct_root_port": true,
+    "read_methods": ["seek-read", "pread", "native-pread"],
+    "expected_silicon": null,
+    "expected_controller": null,
+    "expected_USB_path": null,
+    "transfer_between_methods_or_sources_is_qualified": false
+  }
+}
