@@ -14,6 +14,10 @@ int main(){using namespace watch;View v;assert(valid(v.settings));v.touch(200,46
  char label[32];hold_text(label,sizeof label,58300000);assert(!std::strcmp(label,"58 s"));
  hold_text(label,sizeof label,999999);assert(!std::strcmp(label,"999 ms"));
  hold_text(label,sizeof label,900);assert(!std::strcmp(label,"900 us"));
+ rms_text(label,sizeof label,UINT32_MAX);assert(!std::strcmp(label,"--"));
+ rms_text(label,sizeof label,0);assert(!std::strcmp(label,"0 ns"));
+ rms_text(label,sizeof label,3599390);assert(!std::strcmp(label,"3.60 ms"));
+ rms_text(label,sizeof label,UINT32_MAX-1);assert(!std::strcmp(label,"4.295 s"));
  int order=0;assert(commit_frame(true,[&](){assert(order==0);order=1;return true;},[&](){assert(order==1);order=2;return true;}));assert(order==2);
  assert(!commit_frame(true,[](){return false;},[](){assert(false);return true;}));
  View powered;powered.asleep=true;powered.tick(1000000000,true);assert(!powered.asleep);

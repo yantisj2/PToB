@@ -13,7 +13,8 @@ BLE50 remains client-only. Passive LoRa cannot supply the legacy RC9 server's
 signed source envelope.
 
 GNSS profiles reserve a **10 KiB** host stack statically. Main-component
-sources use `-Os`; GNSS main-loop callees remain shared to limit image size.
+sources use `-Os`. GNSS profiles share main-loop callees. Verified GNSS builds
+with LoRa use `-Oz` in the main task, display renderer and common-clock adapter.
 SDK/controller assertions and the **1 MiB** application ceiling
 remain enforced. See [holdover](holdover.md) for the production model and P99.
 
@@ -763,11 +764,20 @@ T096 core. The engineering99.328ms symbol-delay prior leaves chipset bias and
 total RF/UTC uncertainty unknown. Link RMS describes internal fit residuals.
 
 AUTO and KEEP ON receive continuously, including while BLE is healthy. KEEP
-ON/OFF can be selected by holding 1.5 s on the LoRa page; settings reset on
-reboot. After LoRa supplies the display, BLE returns after30 continuous seconds
-of authenticated precision lock in the same source/clock scope. Observation
-runs at main-loop cadence, independently of the one-second repaint. This dwell
-does not grant BLE relay permission or change RC9 admission.
+ON/OFF can be selected by holding 1.5 s on the LoRa page. Settings reset on
+reboot. The front clock uses one boot-local 20 MHz coordinate and one phase and
+rate actuator. A shared CURRENT latch records the LoRa capture origin at RX
+start. The worker still owns its independent counter extension, packet
+timestamps, authentication, fit and expiry.
+
+The actuator prefers qualified BLE. It slews toward fresh LoRa on BLE loss,
+keeps the BLE rate at handoff, then allows at most 500 ppb of rate adjustment
+per 30 s of physical LoRa progress. Return to BLE requires fresh receiver
+qualification and 100 ms of advancing BLE observations in its admitted
+scope. Phase slew is limited to 50 µs/s with BLE and 5 µs/s with LoRa. HOLD
+preserves the local rate when both inputs are unavailable. RC7 timing and
+admission withdraw on loss of current qualified BLE. RC9 retains its own
+signed-envelope requirements.
 Tap navigates Clock, Precision and LoRa. Precision shows the selected LoRa fit
 while LoRa supplies time; BLE SYNC RMS and TRIM remain BLE metrics. Passive
 training requires at least180s and7 physical pairs. Untrained or expired fit
@@ -797,11 +807,41 @@ python3 firmware/w12/tools/status_budget_test.py --rc7-estimate --lora
 ```
 
 These host checks exercise actual policy/codec/HMAC, replay/expiry,180 s training,
-30 s display-source return at actual observation/repaint cadences,
+common-clock continuity and source return at the observer and repaint cadences,
 720s supervisor/reset boundaries, learned/healthy-RX retention, capture coexistence, owner cancellation, DMA
 failure retention and TX refusal. Native builds use the pinned real RadioLib;
 the owner fixture uses a synthetic RadioLib call boundary. These are separate
 from actual RF interoperability and independently measured clock accuracy.
+
+### GNSS shadow qualification
+
+An explicit verified GNSS build with LoRa supplies one `W12_DUAL_PPS` record
+per physical edge during an ordinary bounded capture. It includes the raw
+counter, PPS map enclosure, reference eligibility, BLE witness, LoRa pair and
+capture epoch, and common-clock UTC and mode. A zero radio projection marks
+an unavailable comparison. LoRa projections use a model that was available
+before the PPS and retain its original lease. Capture and GPS fix gaps remain
+in the denominator. Values report phase against the local PPS input, with
+independent RF, receiver path and UTC uncertainties unresolved.
+
+Start with the engineering symbol delay alone. Record a fixed baseline after
+the GNSS reference and several LoRa timing pairs are ready. Stop the capture
+and preserve its full PPS sequence, status and queue loss counters. If one
+stable receiver/emitter/root path has adequate coverage, freeze the negative
+signed mean and record the baseline provenance with the local device input.
+The ignored device file accepts a `lora_phase` object with hexadecimal
+`emitter` and `root` identities and signed integer `ns` within ±20 ms.
+The correction is added once to the common-clock LoRa input and its PPS
+witness for that path. Other authenticated paths remain available with the
+engineering prior. The public default is zero.
+
+Use a fresh held-out window to measure signed mean, RMS, absolute P99 and the
+worst observed residual. Check the full UTC projections where both sources are
+eligible. Measure the common clock separately through BLE loss, LoRa-only
+operation, re-admission and HOLD. Check relay withdrawal during loss and
+authenticated receiver progress in both directions after restoration. Inspect
+the host, main and LR2021 stack watermarks, heap, queue loss and RTC watchdog
+evidence on the exact build.
 
 ### Separate RC9 service and display cadence
 

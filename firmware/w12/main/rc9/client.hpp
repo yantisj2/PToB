@@ -16,7 +16,7 @@ struct View {
 class Client {
  struct Challenge {uint64_t id=0,boot=0,high=0;} challenges_[8]{};
  Time sample_{};
- uint64_t request_at_=0,response_at_=0,server_at_=0,origin_at_=0,until_=0,last_sampled_=0,self_=0;
+ uint64_t request_at_=0,response_at_=0,server_at_=0,origin_at_=0,until_=0,source_until_=0,last_sampled_=0,self_=0;
  uint32_t publication_=0;
  bool bound_=false,have_sample_=false,pending_=false,withdrawn_=false;
  static void inc(uint32_t& n){if(n!=UINT32_MAX)++n;}
@@ -38,7 +38,7 @@ class Client {
  Control request{};
  uint64_t lease_until=0,renew_at=0;
  uint32_t sequence=0,accepted=0,rejected=0;
- void fence(){sample_={};request={};request_at_=response_at_=server_at_=origin_at_=until_=last_sampled_=self_=0;publication_=0;bound_=have_sample_=pending_=withdrawn_=false;lease_until=renew_at=0;}
+ void fence(){sample_={};request={};request_at_=response_at_=server_at_=origin_at_=until_=source_until_=last_sampled_=self_=0;publication_=0;bound_=have_sample_=pending_=withdrawn_=false;lease_until=renew_at=0;}
  bool make_request(const Control& cap,uint64_t self,uint64_t boot,uint64_t nonce,uint64_t now){
   if(!valid_control(cap)||cap.type!=Type::Capability||cap.sender==self||!self||!boot||!nonce||sequence==UINT32_MAX)return false;
   unsigned at=8;for(unsigned i=0;i<8;i++)if(challenges_[i].id==cap.sender){at=i;break;}
@@ -54,7 +54,7 @@ class Client {
      c.sequence!=request.sequence||c.lease_us>request.lease_us||now<request_at_||now-request_at_>=ExchangeUs||request_at_>UINT64_MAX-c.lease_us)return false;
   const bool same=bound_&&sample_.sender==c.sender&&sample_.sender_boot==c.sender_boot&&now<lease_until;
   if(same&&c.server_us<server_at_)return false;
-  if(!same){sample_={};publication_=c.publication_floor-1;have_sample_=withdrawn_=false;until_=last_sampled_=0;}
+  if(!same){sample_={};publication_=c.publication_floor-1;have_sample_=withdrawn_=false;until_=source_until_=last_sampled_=0;}
   else if(c.publication_floor<=publication_){/* Retain replay high-water on renewal. */}
   else publication_=c.publication_floor-1;
   // Separate conversion anchor: a pending renewal never mutates a live map.
@@ -68,20 +68,28 @@ class Client {
   if(!valid_time(p)||!interval(now,lo,hi)||p.sender!=sample_.sender||p.sender_boot!=sample_.sender_boot||
      p.publication<=publication_||p.sampled_us<server_at_||p.sampled_us<last_sampled_||p.sampled_us>hi||
      (p.valid&&(p.root==self_||p.emitter==self_))){inc(rejected);return false;}
-  uint64_t expiry=0;
+  uint64_t expiry=0,heartbeat=UINT64_MAX;
   if(p.valid&&(!deadline(p.until_us,expiry)||now>=expiry)){inc(rejected);return false;}
+  if(p.utc_us&&(p.sampled_us>UINT64_MAX-SnapshotUs||!deadline(p.sampled_us+SnapshotUs,heartbeat)||now>=heartbeat)){
+   inc(rejected);return false;
+  }
   const bool same=sample_.valid&&p.generation==sample_.generation&&!std::memcmp(p.context,sample_.context,16);
   if(p.valid&&same){
-   if(p.root!=sample_.root||p.emitter!=sample_.emitter||p.source_epoch!=sample_.source_epoch||p.kind!=sample_.kind||
+   if(bool(p.utc_us)!=bool(sample_.utc_us)||p.root!=sample_.root||p.emitter!=sample_.emitter||p.source_epoch!=sample_.source_epoch||p.kind!=sample_.kind||
       (sample_.root_boot&&p.root_boot!=sample_.root_boot)||(sample_.emitter_boot&&p.emitter_boot!=sample_.emitter_boot)||
       (sample_.stream&&p.stream!=sample_.stream)){inc(rejected);return false;}
    if(p.corrected_sequence<sample_.corrected_sequence){inc(rejected);return false;}
    if(p.corrected_sequence==sample_.corrected_sequence){
-    if(withdrawn_||p.edge_us!=sample_.edge_us||p.event_ns!=sample_.event_ns||p.root!=sample_.root||p.source_epoch!=sample_.source_epoch||p.until_us>sample_.until_us){inc(rejected);return false;}
-    expiry=std::min(expiry,until_);
+    if(withdrawn_||p.edge_us!=sample_.edge_us||p.event_ns!=sample_.event_ns||p.root!=sample_.root||
+       p.source_epoch!=sample_.source_epoch||(!p.utc_us&&p.until_us>sample_.until_us)){inc(rejected);return false;}
+    // The passive fit horizon can grow before the next corrected pair.
+    // Fresh snapshots can advance UTC inside this pair's original deadline.
+    expiry=std::min(expiry,source_until_);
+    if(now>=expiry){inc(rejected);return false;}
    }else if(p.edge_us<=sample_.edge_us||p.event_ns<=sample_.event_ns){inc(rejected);return false;}
   }
-  publication_=p.publication;last_sampled_=p.sampled_us;if(p.valid)sample_=p;have_sample_=p.valid;withdrawn_=!p.valid;until_=p.valid?std::min(expiry,lease_until):0;
+  publication_=p.publication;last_sampled_=p.sampled_us;if(p.valid)sample_=p;have_sample_=p.valid;withdrawn_=!p.valid;
+  source_until_=std::min(expiry,lease_until);until_=std::min(source_until_,heartbeat);
   inc(accepted);return true;
  }
  View view(uint64_t now)const{
@@ -89,8 +97,11 @@ class Client {
   v.bound=bound_&&now>=response_at_&&now<lease_until;
   if(!v.bound||!have_sample_||now>=until_)return v;
   uint64_t lo=0,hi=0;if(!interval(now,lo,hi))return v;
+  if(sample_.utc_us)lo=std::max(lo,sample_.sampled_us);
+  if(hi<lo)return v;
   const auto remote=lo+(hi-lo)/2;
-  if(remote<sample_.edge_us||!add(sample_.event_ns/1000,remote-sample_.edge_us,v.utc_us))return v;
+  const auto epoch=sample_.utc_us?sample_.sampled_us:sample_.edge_us;
+  if(remote<epoch||!add(sample_.utc_us?sample_.utc_us:sample_.event_ns/1000,remote-epoch,v.utc_us))return v;
   v.until_us=until_;v.root=sample_.root;v.root_boot=sample_.root_boot;v.source_epoch=sample_.source_epoch;
   v.emitter=sample_.emitter;v.emitter_boot=sample_.emitter_boot;v.publication=publication_;v.assurance=sample_.assurance;v.authority=sample_.authority;
   v.link_rms_ns=sample_.link_rms_ns;v.link_samples=sample_.link_samples;v.valid=true;return v;

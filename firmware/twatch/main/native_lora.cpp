@@ -12,6 +12,7 @@
 #include "ptob_gnss_reference.hpp"
 #include "lora_mapping.hpp"
 #include "lora_native_clock.hpp"
+#include "dual_clock.hpp"
 #include "n30_lora_config.h"
 #include "driver/spi_master.h"
 #include "driver/mcpwm_cap.h"
@@ -36,6 +37,7 @@ portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 v12::LoRaOwnerGate owner;v12::LoRaStatus basic,owned;n30_lora_view published,hardware;
 n30::LoRaPolicy policy;n30::LoRaCounterMap mapping;ptob_gnss::CounterMap::Anchor qualified_map;
 n30::LoRaNativeClock native_clock;
+watch::dual::LoRaBridge dual_bridge;
 int native_error=0;
 struct CurrentFailure {int32_t rc=0;uint8_t reason=0;uint32_t raw=0,previous_raw=0;uint64_t sampled=0,previous_us=0,available=0,epoch=0;bool set=false;} current_failure;
 uint32_t previous_current_raw=0;uint64_t previous_current_us=0;
@@ -65,16 +67,24 @@ void inc(uint32_t& v){if(v<UINT32_MAX)++v;}
 // LoRa owns an independent clock. Keep its short mapping brackets on the
 // original XTAL GPTimer, outside the BLE fine receiver's lock and fence work.
 bool local(uint64_t& tick){return n30_lora_reference_read(&tick)&&tick;}
-[[gnu::noinline]] bool native_local(uint64_t& tick16,uint64_t* sampled_us=nullptr){
+[[gnu::noinline]] bool native_local(uint64_t& tick16,uint64_t* sampled_us=nullptr,watch::dual::LoRaBridge* bridge=nullptr){
  tick16=0;native_error=-12288;
+ if(bridge)*bridge={};
  if(!timer_enabled||!timer_started||!current_enabled)return false;
  uint32_t raw=0;uint64_t sampled=0;
+ const bool lower=!bridge||local(bridge->before);
  const int rc=n30_lora_reference_current(current_channel,&raw,&sampled);
+ // Enclose the physical CURRENT latch, before counter-extension arithmetic.
+ // The returned tick16 describes this raw catch, not the later computation.
+ const bool upper=!bridge||local(bridge->after);
  const bool valid=!rc&&native_clock.current(capture_epoch,raw,sampled,tick16);
  if(!valid){
   const uint8_t reason=rc?0:native_clock.fault();native_error=rc?-4096-rc:-8192-reason;
   if(!current_failure.set)current_failure={rc,reason,raw,previous_current_raw,sampled,previous_current_us,now(),capture_epoch,true};
   return false;
+ }
+ if(bridge&&lower&&upper&&bridge->after>=bridge->before&&bridge->after-bridge->before<=400){
+  bridge->tick16=tick16;bridge->epoch=capture_epoch;bridge->available_us=now();
  }
  previous_current_raw=raw;previous_current_us=sampled;if(sampled_us)*sampled_us=sampled;
  native_error=0;return true;
@@ -348,7 +358,8 @@ void publish(){
  n30_lora_view view;uint64_t current=0,sampled=0;
  // Commit/estimate on the very same group0 hardware counter as HeaderValid.
  // GPTimer/esp_timer supply lifecycle/availability guards only, never phase.
- const bool readable=native_local(current,&sampled);const uint64_t available=now();
+ watch::dual::LoRaBridge bridge;
+ const bool readable=native_local(current,&sampled,&bridge);const uint64_t available=now();
  if(readable)n30_rc8_clock_sample(current,capture_epoch,sampled,available);
  else if(owned.enabled){n30_rc8_clock_sample(0,capture_epoch,available,available);fault(native_error);}
  n30_rc8_snapshot_sample(&view,readable?sampled:available,available);
@@ -368,7 +379,7 @@ void publish(){
   (sleep_state.sleeping?sleep_state.sleep_us:sleep_state.rx_us)+=dt;
  }
  sleep_state.at=available;sleep_state.active=owned.enabled&&!failed;sleep_state.sleeping=radio_sleeping&&sleep_state.active;
- portENTER_CRITICAL(&mux);shadow_published=shadow.v;sleep_published=sleep_state;view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;published_serial=active_serial;worker_published_us=available;published_cleanup_fault=cleanup_failed||owner.stuck;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
+ portENTER_CRITICAL(&mux);shadow_published=shadow.v;sleep_published=sleep_state;view.requested=owner.requested;view.invalid_capture+=capture_invalid;view.capture_overflow=capture_drops;view.request_generation=owner.generation;view.off_ack_generation=owner.off_ack;view.off_acknowledged=owner.drained();published=view;dual_bridge=bridge;published_serial=active_serial;worker_published_us=available;published_cleanup_fault=cleanup_failed||owner.stuck;owned.failed=failed;owned.initialized=resources;owned.packets=hardware.rx_done;owned.crc_errors=hardware.crc_bad;owned.malformed=hardware.malformed;owned.status=int16_t(hardware.error);owned.radio_errors=hardware.spi_error;owned.work_max_us=hardware.work_max_us;basic=owned;portEXIT_CRITICAL(&mux);
 }
 void retire_capture(){
  reset_radio();owned.enabled=false;radio_sleeping=false;shadow.tick(now(),false);
@@ -494,4 +505,10 @@ watch::LoRaShadow::View watch_lora_shadow_snapshot(){
 
 watch::LoRaSleepView watch_lora_sleep_snapshot(){
  portENTER_CRITICAL(&mux);const auto s=sleep_published;portEXIT_CRITICAL(&mux);return s;
+}
+
+void watch_lora_dual_snapshot(n30_lora_view& out,watch::dual::LoRaBridge& bridge){
+ portENTER_CRITICAL(&mux);out=published;bridge=dual_bridge;const bool generation_ok=published.request_generation==owner.generation;out.requested=owner.requested&&allowed;out.request_generation=owner.generation;
+ if(!out.requested||!generation_ok||published_serial!=cancel_serial||emergency){out.state=0;out.until_us=0;bridge={};}
+ portEXIT_CRITICAL(&mux);
 }

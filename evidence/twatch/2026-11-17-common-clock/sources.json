@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "review_date": "2026-11-17",
+  "selection": "Focused primary research and official technical sources; metrics are not pooled with this study.",
+  "sources": [
+    {
+      "id": "RBS",
+      "citation": "J. Elson, L. Girod and D. Estrin. Fine-Grained Network Time Synchronization Using Reference Broadcasts. OSDI, 2002.",
+      "url": "https://www.usenix.org/conference/osdi-02/fine-grained-network-time-synchronization-using-reference-broadcasts",
+      "finding": "Receivers compare the arrival of a shared broadcast, avoiding some sender-side uncertainty. Relative synchronization and externally referenced time are distinct use cases.",
+      "relevance": "Motivates event-level observations and careful separation of relative consistency from external UTC. The current watch uses authenticated source-to-receiver models, not an implementation of RBS."
+    },
+    {
+      "id": "FTSP",
+      "citation": "M. Maroti, B. Kusy, G. Simon and A. Ledeczi. The Flooding Time Synchronization Protocol. SenSys, 2004, pp. 39-49.",
+      "url": "https://www.math.u-szeged.hu/~mmaroti/pdf/2004%20The%20flooding%20time%20synchronization%20protocol.pdf",
+      "finding": "Low-level timestamping and regression of previous observations estimate skew and offset. Root-election transitions preserve learned time, and the paper separately examines drift after synchronization stops.",
+      "relevance": "Continuity through source changes and learned-rate holdover are established ideas. This study's narrower contribution is a dual-radio service policy and causal GNSS-free measurement contract with explicit authentication and expiry."
+    },
+    {
+      "id": "PISync",
+      "citation": "K. S. Yildirim, R. Carli and L. Schenato. Proportional-Integral Clock Synchronization in Wireless Sensor Networks. arXiv:1410.8176, 2014.",
+      "url": "https://arxiv.org/abs/1410.8176",
+      "finding": "PI feedback compensates clock phase and speed differences, with flooding and distributed implementations, analysis, simulations and physical experiments.",
+      "relevance": "Supports treating timekeeping as a phase/rate control problem. It does not validate the gains, sparse LoRa rate law or holdover performance of this watch."
+    },
+    {
+      "id": "CheepSync",
+      "citation": "S. Sridhar, P. Misra, G. S. Gill and J. Warrior. CheepSync: A Time Synchronization Service for Resource Constrained Bluetooth Low Energy Advertisers. IEEE Communications Magazine 54(1), 2016, pp. 136-143.",
+      "url": "https://arxiv.org/abs/1501.06479v2",
+      "finding": "BLE advertiser synchronization uses low-level timestamping and compensation for transmission and clock uncertainties, evaluated on beacon hardware and passive smartphone listeners.",
+      "relevance": "BLE timing predates this study. Different BLE versions, event markers, devices and reference methods prevent a direct accuracy ranking."
+    },
+    {
+      "id": "LongShoT",
+      "citation": "C. G. Ramirez, A. Sergeyev, A. Dyussenova and B. Iannucci. LongShoT: Long-Range Synchronization of Time. IPSN, 2019. DOI:10.1145/3302506.3310408.",
+      "url": "https://par.nsf.gov/servlets/purl/10107899",
+      "finding": "LoRaWAN timing combines hardware/MAC-level timestamps with oscillator-drift compensation and evaluates distributed devices against GPS 1PPS.",
+      "relevance": "Shows why sparse long-range observations and drift compensation matter. Its network transactions and independent GPS witness differ from passive authenticated LoRa fallback here. The primary repository's searchable paper text was available; repeated direct PDF fetches returned HTTP 502."
+    },
+    {
+      "id": "LoRaTimestamp2026",
+      "citation": "S. Rinaldi, E. Mondini, P. Ferrari, A. Flammini and E. Sisinni. LoRa/LoRaWAN Time Synchronization: A Comprehensive Analysis, Performance Evaluation, and Compensation of Frame Timestamping. Future Internet 18(2), 80, 2026. DOI:10.3390/fi18020080.",
+      "url": "https://www.mdpi.com/1999-5903/18/2/80",
+      "finding": "A raw-IQ matched-filter simulation separates sampling phase, frequency mismatch and noise. Longer chirps increase systematic sensitivity to sampling-frequency offset; dispersion and bias are distinct.",
+      "relevance": "A fixed receiver engineering correction is not portable calibration. This simulation does not characterize the watch's SX1262 HeaderValid edge, propagation or field multipath."
+    },
+    {
+      "id": "NTPv4",
+      "citation": "D. Mills, J. Martin, J. Burbank and W. Kasch. Network Time Protocol Version 4: Protocol and Algorithms Specification. RFC 5905, 2010, sections 11-12.",
+      "url": "https://www.rfc-editor.org/rfc/rfc5905.html",
+      "finding": "NTP separates clock-source selection, clustering and combination from the oscillator discipline process. Its combination algorithm averages surviving candidates.",
+      "relevance": "Provides useful terminology, not a claim of NTP conformance. The watch's priority/complementary controller is different from simultaneous statistical combination; shared GM paths are not independent references."
+    },
+    {
+      "id": "NIST1065",
+      "citation": "W. J. Riley and D. A. Howe. Handbook of Frequency Stability Analysis. NIST Special Publication 1065, 2008.",
+      "url": "https://www.nist.gov/publications/handbook-frequency-stability-analysis",
+      "finding": "Describes frequency-stability definitions, measurement systems, data handling, analysis methods and reporting.",
+      "relevance": "Guides later witness-based oscillator characterization. A short, switched, correlated controller-input series is not an independent Allan-deviation or holdover-accuracy qualification."
+    },
+    {
+      "id": "BluetoothGAP",
+      "citation": "Bluetooth SIG. Bluetooth Core Specification 6.1, Generic Access Profile, section 9.5, Periodic Advertising.",
+      "url": "https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-61/out/en/host/generic-access-profile.html",
+      "finding": "Periodic-advertising synchronization establishes reception of a periodic train using discovery or transferred synchronization information.",
+      "relevance": "Controller PA synchronization is a link-reception state. It is not application authentication, valid UTC, receiver quality or a calibrated clock bound."
+    }
+  ],
+  "rights": "Bibliographic facts and original review commentary only. No full third-party papers or figures redistributed. Review commentary: CC-BY-4.0, Jonathan Yantis."
+}

@@ -119,6 +119,17 @@ class CampaignTest(unittest.TestCase):
             row['pps']['capture_epoch'] = 2
         self.assertFalse(campaign.analyze(rows)['calibration_candidates'])
 
+    def test_reference_loss_splits_populations_and_missing_is_retained(self):
+        rows = [record(i) for i in range(1200)]
+        rows[600]['pps']['reference_valid'] = False
+        result = campaign.analyze(rows)
+        self.assertFalse(result['calibration_candidates'])
+        self.assertEqual(len({r['reference_segment'] for r in result['statistics']}), 3)
+        rows = [record(i) for i in range(1200) if i != 600]
+        result = campaign.analyze(rows)
+        self.assertEqual(result['missing_PPS_records'], 1)
+        self.assertEqual(result['records'], 1199)
+
     def test_fixed_windows_and_mixed_images(self):
         row = record(1200)
         with self.assertRaisesRegex(ValueError, 'fixed stage window'):

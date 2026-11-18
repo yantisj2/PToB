@@ -48,6 +48,10 @@ int main(){
   assert(!hold.update(UINT64_MAX,false,relay.path));
   assert(!hold.update(1,false,relay.path)); // Backwards time cannot retain ownership.
   assert(hold.update(100,true,relay.path)&&!hold.update(99,true,relay.path));
+  assert(hold.update(100,true,relay.path,true));
+  assert(hold.update(101,false,relay.path,true)); // Local publication gap.
+  assert(!hold.update(102,false,relay.path,false)&&!hold.deadline()); // BLE loss.
+  assert(!hold.update(103,false,relay.path,true)); // Renew timing before arming.
   uint8_t first[190];assert(relay.packet(first,20400000,group));
   assert(!relay.ready(20400000));
   assert(!relay.selected(first,1,255,20400000,20400800,group));

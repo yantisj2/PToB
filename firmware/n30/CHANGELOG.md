@@ -1,5 +1,19 @@
 # N30 changelog
 
+## 0.2.67 — Passive LoRa RC9 relay
+
+Allow BLE100 `--estimated-relay --lora-rx` builds to publish RC9 TIME v2 from
+their current authenticated LoRa model while qualified normal BLE is absent.
+Keep the independent LoRa source deadline, withdraw time and new admission on
+loss or expiry, and preserve original child leases while draining. Received
+RC9 remains a terminal source and never feeds the publisher.
+
+Retain TIME v1 reception and add v2 reception with a two-second snapshot expiry.
+Expose server lease/service diagnostics in the existing framed response and
+bind the selected server profile in build receipts and native inspection.
+Transport and output uncertainty remain unknown; offline verification does
+not establish exact-device installation or precision acceptance.
+
 ## 0.2.66 — LoRa owner and publication fences
 
 Retain accepted mode intent across worker delays. Make OFF idempotent during its

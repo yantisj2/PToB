@@ -10,6 +10,10 @@ class ShadowNmea {
  char line_[160]{};unsigned size_=0;bool collecting_=false;
  uint64_t packet_=0,fix_at_=0,rmc_at_=0,rmc20_=0,gsa_at_=0;
  uint32_t second_=0,coherent_=0,errors_=0,bytes_=0,sentences_=0;bool rmc_valid_=false,gga_valid_=false;
+ public:
+ struct PpsReference {uint64_t rmc20=0;uint32_t second=0;bool ready=false;};
+ private:
+ PpsReference references_[3]{};unsigned reference_head_=0;
  uint16_t used_=0;uint8_t dimension_=0;
  struct Sky {Satellite sats[16]{};uint64_t at=0;uint16_t total=0;uint8_t count=0,next=0,messages=0;};
  Sky skies_[6]{},pending_[6]{};
@@ -40,6 +44,8 @@ class ShadowNmea {
    if(valid&&rmc_valid_&&second==second_)return; // Multiple talkers, same epoch.
    const bool next=valid&&rmc_valid_&&second==(second_+1)%86400&&now>=rmc_at_&&now-rmc_at_<2000000;
    coherent_=valid?(next?std::min<uint32_t>(3,coherent_+1):1):0;rmc_valid_=valid;second_=second;rmc_at_=now;rmc20_=tick20;
+   if(!next){for(auto& r:references_)r={};reference_head_=0;}
+   if(valid){references_[reference_head_]={tick20,second,coherent_>=3};reference_head_=(reference_head_+1)%3;}
   }
   if(!std::strcmp(type,"GSV")&&count>=4){
    const auto slot=sky(fields[0]),messages=number(fields[1],9),part=number(fields[2],9);
@@ -66,6 +72,15 @@ class ShadowNmea {
  bool packets(uint64_t now)const{return packet_&&now>=packet_&&now-packet_<3000000;}
  bool fix(uint64_t now)const{return gga_valid_&&fix_at_&&now>=fix_at_&&now-fix_at_<2500000&&rmc_valid_&&rmc_at_&&now>=rmc_at_&&now-rmc_at_<1500000;}
  bool reference(uint64_t now)const{return fix(now)&&coherent_>=3;}
+ PpsReference reference_at(uint64_t edge20,uint64_t now)const{
+  if(!reference(now))return {};
+  // UART may deliver this second's RMC after PPS but before the main owner
+  // consumes its queue. Use the coherent RMC actually available before PPS.
+  for(unsigned i=0;i<3;++i){const auto& r=references_[(reference_head_+2-i)%3];
+   if(r.ready&&r.rmc20&&r.rmc20<edge20&&edge20-r.rmc20<30000000)return r;
+  }
+  return {};
+ }
  uint64_t rmc20()const{return rmc20_;}uint32_t second()const{return second_;}uint32_t errors()const{return errors_;}uint32_t bytes()const{return bytes_;}uint32_t sentences()const{return sentences_;}
  void apply(ShadowView& v,uint64_t now)const{
   v.fix=fix(now);v.used=fix_at_&&now>=fix_at_&&now-fix_at_<2500000?used_:0;

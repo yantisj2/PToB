@@ -15,6 +15,11 @@
 #ifdef PTOB_W12_LORA_RX
 #include "w12_lora.hpp"
 #include "sync_watchdog.hpp"
+#elif defined(PTOB_N30_RC9_SERVER)
+#include "../../n30/main/n30_lora.hpp"
+#endif
+#if defined(PTOB_W12_LORA_RX) || defined(PTOB_N30_RC9_SERVER)
+#define PTOB_G1_RC9_SERVER 1
 #include "rc9_source_policy.hpp"
 #endif
 #endif
@@ -735,7 +740,7 @@ const ble_gatt_chr_def chars[]={[]{ble_gatt_chr_def c{};c.uuid=&data_uuid.u;c.ac
 const ble_gatt_svc_def services[]={{.type=BLE_GATT_SVC_TYPE_PRIMARY,.uuid=&service.u,.includes=nullptr,.characteristics=chars},
 #ifdef V12_R2_RC7_TX_ESTIMATE_LAB
 {.type=BLE_GATT_SVC_TYPE_PRIMARY,.uuid=&rc_service.u,.includes=nullptr,.characteristics=relay_chars},
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
 {.type=BLE_GATT_SVC_TYPE_PRIMARY,.uuid=&rc9_service.u,.includes=nullptr,.characteristics=rc9_chars},
 #endif
 #endif
@@ -1845,7 +1850,7 @@ void parent_diagnostic_poll(uint64_t now){
     for(unsigned i=0;i<8;i++){locator_ids[i]=0;locators[i]={};recent[i]={};}
   }
   bool preserve_demand=false;
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
   uint64_t target9=0;portENTER_CRITICAL(&mux);target9=rc9_target;portEXIT_CRITICAL(&mux);
   preserve_demand=!target9&&rc9_server_selected(now);
 #endif

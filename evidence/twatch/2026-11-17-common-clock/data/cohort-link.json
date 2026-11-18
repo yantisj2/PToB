@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "same_boot": true,
+  "same_clock_instance": true,
+  "same_counter_domain": true,
+  "same_firmware_build": true,
+  "sampled_counter_advanced": true,
+  "sampled_UTC_advanced": true,
+  "unobserved_gap_nominal_counter_seconds": 202.75295215,
+  "continuous_between_sample_behavior_verified": false
+}

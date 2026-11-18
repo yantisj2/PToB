@@ -2,11 +2,87 @@
 
 ## Unreleased
 
+- Fix 0.1.21 receiver metrics under common-clock delivery: show fresh BLE RMS
+  first, then LoRa RMS, with independent source labels and expiry. Preserve
+  eligible BLE P99 hold-duration evidence, show large RMS values with scaled
+  units, and retain separate GNSS comparison statistics. Export the last
+  rendered receiver value/source/time for diagnostics. Timing control, source
+  authority, fixed corrections and CPU policy are unchanged.
+
+- Add 0.1.20 `TWATCH_GNSS_FREE_SNAPSHOT_V1`: independent frozen BLE and LoRa
+  models and the persistent common clock at one causal local tick, with full
+  UTC, lineage, original expiry, physical observation IDs, applied corrections
+  and retained pre-update innovations. Keep this separate from captured PPS.
+  Add an explicit reviewed study-only fixed-prior option; unmatched paths
+  retain unknown calibration. The priority controller and CPU policy are unchanged.
+
+- Fix 0.1.19 GM/root roaming: source-specific calibration applicability no longer
+  vetoes authenticated clock availability. Apply extra path corrections only to
+  matching sources and mark unmatched paths uncalibrated. Return to receiver-
+  qualified BLE after 100 ms of advancing physical observations, with the same
+  clock and bounded slewing. Export live clock/source readiness without GNSS PPS.
+
+- Correct 0.1.18 BLE return qualification after short mapping refusals. Withdraw
+  authority during the refusal while retaining qualification only within the
+  existing 500 ms physical-progress bound. Real absence, source/domain changes
+  and original permission expiry still require their original guards.
+
+- Prepare 0.1.17 to correct the common-clock LoRa tracking regression: use the
+  frozen predictor's instantaneous frequency, allow bounded frequency learning
+  from fresh physical pairs after BLE handover, and follow model phase through
+  a 5 µs/s coarse slew. Restore cancelled steering after brief mapping refusals
+  without counting repeated projections as new training or renewing expiry.
+  Add rate-transition accuracy and polling-invariance regressions; hardware
+  acceptance requires an early tracking gate before the longer test.
+- Bind the generated shared-clock calibration/activation header into the native
+  runtime build identity. Support separately reviewed local shared-clock
+  activation in 0.1.16; the public build remains disabled by default. Distinguish finite
+  engineering handover checks from the longer precision campaign.
+- Record the selected 20-minute parallel baseline, fresh 120-second correction
+  check and seven-minute common-clock functional observations, with full
+  denominators and coarse/holdover drift limits. Keep exact-device profiles,
+  raw captures and enrolled images local.
+- Prepare 0.1.15 to reject an unmapped PPS without treating its absent scope as
+  a new source. Resume only on a fresh eligible pulse from the same authenticated
+  context; source/reference/capture/sequence changes still restart settling.
+  Support signed LoRa event corrections strictly inside half a second, with
+  positive/negative millisecond projection and profile-boundary checks. Keep
+  delivery disabled until separate offset validation.
+- Export both full radio UTC projections at each PPS so common-clock review can
+  detect integer-second disagreement as well as signed modulo-PPS phase.
+- Fix 0.1.14 counter-bridge brackets at each owner's actual hardware CURRENT
+  latch, excluding software extension and receiver bookkeeping. Preserve the
+  20 µs refusal limit, causal anchors and original model expiry; export both
+  bracket widths and bridge incarnation for PPS diagnostics. A refused observer
+  bracket does not invalidate a healthy fine capture owner.
+- Retain bounded coherent RMC history in 0.1.13 so UART delivery just after PPS
+  does not discard the preceding fresh GNSS reference. Preserve current fix,
+  freshness and reference-loss gates. Add owner and reference-order regressions.
+
+- Reduce main-task stack pressure in 0.1.12: keep main presentation inputs,
+  radio candidates, time-zone scratch and parallel receiver snapshots in bounded
+  PSRAM allocations. Preserve the internal main stack and radio memory budget;
+  include the complete publication/selector call chain in native stack checks.
+- Preserve capture capability metadata in the indoor test tool. Count compact
+  command acknowledgements separately from clock observations, and keep known
+  GNSS reference reacquisitions separate in PPS analysis.
+
+
+- Implement 0.1.11 parallel physical-PPS comparisons for BLE and strict LoRa,
+  with causal counter brackets, independent contexts, ten-second settling and a
+  bounded CRC diagnostic ring. Add an offline raw-response decoder.
+- Implement one delivered-clock controller with BLE fine updates, qualified
+  return dwell, slower LoRa fallback and retained-rate HOLD. Keep delivery
+  disabled by default; activation requires separate validated corrections and
+  an exact-device/path profile. Preserve raw receiver fits and USB maintenance.
+  Host/native verification is separate from installed acceptance.
+
+
 - Add offline preparation and analysis for a 90-minute BLE/LoRa PPS campaign:
   separate corrections, held-out validation, shared-clock handovers and learned
   holdover. Check original model availability/expiry, context separation,
-  correlated LoRa pair counts and clock continuity. Explicit firmware capability
-  gates keep the current selected-BLE-only firmware from claiming readiness.
+  correlated LoRa pair counts and clock continuity. Explicit capability and calibration
+  gates distinguish the installed selected-BLE-only image from the candidate.
 
 - Add one offline check command covering all watch regressions and capture
   parsers, with per-check logs and an aggregate receipt. Native builds and

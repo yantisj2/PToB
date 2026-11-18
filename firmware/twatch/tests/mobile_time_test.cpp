@@ -56,6 +56,21 @@ int main(){
  v12::R2Status s{};DisplayState d{};s.requested=s.clock_valid=s.following=true;s.root_identity=1;s.root_boot=2;s.source_epoch=3;s.publication=4;s.follower_utc_us=1700000000000000ULL;s.follower_snapshot_us=s.follower_received_us=at;s.service_until_us=s.g1_anchor_deadline_us=at+1000000;s.rc7_bound=true;s.rc7_depth=1;
  auto coarse=ble_candidate(s,d,at,false);assert(usable(coarse,at)&&coarse.fresh&&coarse.clock.source==Source::RC1&&!coarse.clock.locked&&coarse.clock.rms_ns==UINT32_MAX);
  s.fault=true;assert(!ble_candidate(s,d,at,false).clock.time_valid);s.fault=false;s.rc7_depth=2;assert(ble_candidate(s,d,at,false).clock.source==Source::RC2);
+ // Receiver display priority is independent of common-clock source and lock.
+ s.g1_clock_model.tick=1;s.g1_corrected_until_us=at+1000000;d.rms_ns=51;
+ auto fit=ble_candidate(s,d,at,false);assert(!fit.clock.locked&&fit.clock.rms_ns==51);
+ auto lor=candidate(Source::LOR,at);lor.clock.rms_source=Source::LOR;lor.clock.rms_sampled_us=at;lor.clock.rms_until_us=at+250000;lor.clock.rms_ns=24000;
+ Model ui;ui.common_clock=true;ui.source=Source::LOR;ui.holding=ui.local_time=true;
+ receiver_metrics(ui,fit,lor,at);assert(ui.rms_source==Source::BLE&&ui.rms_ns==51&&receiver_rms_current(ui,at));
+ // The original corrected permission can expire before the published frame.
+ fit.clock.rms_until_us=at+100;receiver_metrics(ui,fit,lor,at+100);
+ assert(ui.rms_source==Source::LOR&&ui.rms_ns==24000);
+ receiver_metrics(ui,fit,lor,at+250000);assert(ui.rms_ns==UINT32_MAX&&!receiver_rms_current(ui,at+250000));
+ fit.clock.rms_until_us=at+250000;fit.clock.rms_ns=0;receiver_metrics(ui,fit,lor,at);
+ assert(ui.rms_source==Source::BLE&&ui.rms_ns==0); // A measured zero differs from missing.
+ fit.fresh=false;receiver_metrics(ui,fit,lor,at);assert(ui.rms_source==Source::LOR);
+ fit.fresh=true;fit.clock.hold_valid=true;fit.clock.hold_trials=100;fit.clock.hold_ms=58000;
+ receiver_metrics(ui,fit,lor,at);assert(sampled_hold(ui,at)&&!sampled_hold(ui,at+250000));
  // No synthetic refresh extends a stale radio snapshot or source permission.
  assert(!usable(coarse,at+250000));s.service_until_us=at;assert(!ble_candidate(s,d,at,false).fresh);
  n30_lora_view rx{};rx.requested=rx.active=true;rx.sampled_us=at;rx.watch_pairs=1;rx.watch_age_ms=100;

@@ -228,12 +228,18 @@ def main():
                     receipt['native'].append(json.loads(run([binary, case], f'native-{profile}-{case}')))
             server_fixture(out)
             server = out / 'server'
-            run([os.environ.get('CXX',args.cc + '++'), '-std=c++20', *flags, *native_flags,
-                 '-DV12_R2_G1_LISTENING_PERCENT=100', '-DV12_R2_TX_SHADOW=1',
-                 '-DV12_R2_RC7_TX_ESTIMATE_LAB=1','-DPTOB_W12_BLE_RECOVERY=1', out / 'server.cpp', *objects, '-o', server], 'server-build')
+            server_flags = [os.environ.get('CXX',args.cc + '++'), '-std=c++20', *flags, *native_flags,
+                            '-DV12_R2_G1_LISTENING_PERCENT=100', '-DV12_R2_TX_SHADOW=1',
+                            '-DV12_R2_RC7_TX_ESTIMATE_LAB=1', '-DPTOB_W12_BLE_RECOVERY=1']
+            run([*server_flags, out / 'server.cpp', *objects, '-o', server], 'server-build')
             receipt['server_cases'] = []
             for case in ['cap-deadline-wake','cap-data-return-before','cap-data-return-boundary','cap-data-return-late','cap-data-return-backwards','cap-data-return-error','connect-owner-incoming','connect-owner-quarantine','connect-owner-closed','connect-owner-off','connect-owner-stop-error','cap-owner-preexisting','cap-owner-stop','cap-owner-configure','cap-owner-data','cap-owner-deadline','cap-owner-error','cap-data-recreate','cap-stale-advertising','cap-data-restart','cap-removed-close',*SERVER_CASES,*(['tz-publisher'] if args.tz else [])]:
                 run([server, case], 'server-' + case)
+                receipt['server_cases'].append(case)
+            dual_server = out / 'dual-server'
+            run([*server_flags, '-DPTOB_W12_LORA_RX=1', out / 'server.cpp', *objects, '-o', dual_server], 'dual-server-build')
+            for case in ('slot-quality-gap', 'slot-acquisition-lost'):
+                run([dual_server, case], 'dual-server-' + case)
                 receipt['server_cases'].append(case)
         changed = [str(p) for p in inputs if sha(p) != before[str(p)]]
         if changed:

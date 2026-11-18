@@ -34,6 +34,9 @@ struct Model {
  const BatteryHistory* battery_history=nullptr; // UI-owned PSRAM; never published across tasks.
  uint64_t utc_us=0,sampled_us=0,until_us=0,uptime_s=0;
  uint32_t rms_ns=UINT32_MAX,hold_ms=0,hold_trials=0;
+ // Receiver evidence has its own authority/freshness, independent of clock mode.
+ uint64_t rms_sampled_us=0,rms_until_us=0,hold_sampled_us=0,hold_until_us=0;
+ Source rms_source=Source::None;
  calendar::Snapshot calendar{};
  int16_t source_rssi=-127;
  double signal_position=0,tide_position=0;
@@ -42,6 +45,7 @@ struct Model {
  Source source=Source::None;
  double rms_position=0,hold_position=0,reserve_position=0,phase_position=0;
  RadioState ble_state=RadioState::Changing,lora_state=RadioState::Changing;
+ bool common_clock=false;
  bool motion=false,slewing=false,lora_receiving=false;
  bool local_time=false,time_valid=false,locked=false,holding=false,hold_valid=false,hold_lower=false,lora_on=false,charging=false;
 };
@@ -49,8 +53,23 @@ inline bool shadow_comparison_allowed(const Model& m,uint64_t now){
  return m.time_valid&&!m.local_time&&!m.holding&&now>=m.sampled_us&&now-m.sampled_us<250000&&now<m.until_us&&
   (m.source==Source::BLE||m.source==Source::RC1||m.source==Source::RC2);
 }
-inline bool sampled_hold(const Model& m){
+inline bool metric_fresh(uint64_t sampled,uint64_t until,uint64_t now){
+ return now>=sampled&&now-sampled<250000&&now<until;
+}
+inline bool receiver_rms_current(const Model& m,uint64_t now){
+ if(m.rms_ns==UINT32_MAX)return false;
+ if(m.rms_until_us)return metric_fresh(m.rms_sampled_us,m.rms_until_us,now);
+ return m.time_valid&&!m.local_time&&!m.holding&&(!m.until_us||metric_fresh(m.sampled_us,m.until_us,now));
+}
+inline Source rms_receiver(const Model& m){
+ if(m.rms_source!=Source::None)return m.rms_source;
+ return m.source==Source::BLE||m.source==Source::RC1||m.source==Source::RC2?Source::BLE:m.source==Source::LOR?Source::LOR:Source::None;
+}
+void rms_text(char* out,unsigned size,uint32_t ns);
+inline bool sampled_hold(const Model& m,uint64_t now){
+ if(m.hold_until_us)return m.hold_valid&&m.hold_trials>=100&&metric_fresh(m.hold_sampled_us,m.hold_until_us,now);
  return m.time_valid&&!m.local_time&&!m.holding&&m.hold_valid&&m.hold_trials>=100&&
+  (!m.until_us||metric_fresh(m.sampled_us,m.until_us,now))&&
   (m.source==Source::BLE||m.source==Source::RC1||m.source==Source::RC2);
 }
 inline Source receiver_source(const Model& m,bool current){
@@ -79,7 +98,9 @@ struct PresentationClock {
    anchor=input;
   }else{
    input.tz_minutes=anchor.tz_minutes;input.tz_id=anchor.tz_id;input.local_time=true;input.holding=true;
-   input.locked=false;input.source=Source::None;input.rms_ns=UINT32_MAX;input.hold_valid=false;input.hold_trials=0;
+   input.locked=false;input.source=Source::None;
+   if(!input.rms_until_us)input.rms_ns=UINT32_MAX;
+   if(!input.hold_until_us){input.hold_valid=false;input.hold_trials=0;}
   }
   input.utc_us=utc;input.sampled_us=now;input.until_us=now>UINT64_MAX-250000?UINT64_MAX:now+250000;input.time_valid=true;
   return input;

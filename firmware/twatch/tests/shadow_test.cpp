@@ -44,8 +44,15 @@ int main(){
  sentence(n,"GAGSV,1,1,02,11,31,100,43,12,20,200,30",1200000);v={};n.apply(v,1200000);assert(v.in_view==10);
  for(unsigned i=0;i<3;++i){char body[128];std::snprintf(body,sizeof body,"GNRMC,12000%u.00,A,3000.00,N,08600.00,W,0,0,171126,,,A",i);sentence(n,body,2000000+i*1000000);sentence(n,"GNGGA,120002.00,3000.00,N,08600.00,W,1,11,0.8,0,M,0,M,,",2000000+i*1000000);}
  assert(n.reference(4000000)&&n.rmc20()==80000000&&n.second()==43202);
- const uint8_t bad[]="$GNGGA,120002.00,,,,,0,00*00\r\n";n.feed(bad,sizeof bad-1,4100000,82000000);assert(n.errors()&&n.fix(4100000));
- sentence(n,"GNRMC,120003.00,V,,,,,,,171126,,,N",5000000);assert(!n.fix(5000000)&&!n.reference(5000000));
+ // Post-edge UART delivery must not hide the preceding coherent RMC.
+ sentence(n,"GNRMC,120003.00,A,3000.00,N,08600.00,W,0,0,171126,,,A",5020000);
+ sentence(n,"GNGGA,120003.00,3000.00,N,08600.00,W,1,11,0.8,0,M,0,M,,",5020000);
+ assert(n.rmc20()>100000000);
+ auto preceding=n.reference_at(100000000,5020000);
+ assert(preceding.ready&&preceding.rmc20==80000000&&preceding.second==43202);
+ assert(!n.reference_at(140000000,5020000).ready); // Prior reference too old.
+ const uint8_t bad[]="$GNGGA,120002.00,,,,,0,00*00\r\n";n.feed(bad,sizeof bad-1,5100000,102000000);assert(n.errors()&&n.fix(5100000));
+ sentence(n,"GNRMC,120003.00,V,,,,,,,171126,,,N",6000000);assert(!n.fix(6000000)&&!n.reference(6000000)&&!n.reference_at(120000000,6000000).ready);
  v={};n.apply(v,10000000);assert(!v.in_view&&!v.satellite_count&&!v.used&&!v.fix);
  // Blank/malformed coordinates retain signal bars, never fake north/horizon dots.
  ShadowNmea geometry;sentence(geometry,"GPGSV,1,1,04,01,,,40,02,xx,120,35,03,00,000,30,04,91,360,25",1000000);

@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "frame_count": 702,
+  "conditions": {
+    "cpu_mhz": {
+      "240": 137
+    },
+    "cpu_ble": {
+      "1": 137
+    },
+    "cpu_panel": {
+      "1": 137
+    },
+    "cpu_rc": {
+      "0": 137
+    },
+    "asleep": {
+      "0": 176
+    },
+    "face": {
+      "0": 176
+    },
+    "usb": {
+      "1": 137
+    },
+    "ble_power_requested": {
+      "1": 176
+    },
+    "ble_controller": {
+      "2": 176
+    },
+    "ble_host_running": {
+      "1": 176
+    },
+    "shadow_powered": {
+      "0": 176
+    },
+    "shadow_owner": {
+      "0": 176
+    },
+    "shadow_capture": {
+      "0": 39
+    },
+    "shadow_requested": {
+      "0": 39
+    },
+    "errors": {
+      "0": 176
+    },
+    "ble_operating_fault": {
+      "0": 176
+    },
+    "ble_cleanup_rc": {
+      "0": 176
+    },
+    "fine_cleanup_fault": {
+      "0": 39
+    },
+    "shadow_cleanup_fault": {
+      "0": 39
+    }
+  },
+  "minimum": {
+    "ui_stack_min_bytes": 1708,
+    "heap_internal_min": 1136,
+    "heap_internal_largest": 4096,
+    "touch_errors": 3247,
+    "pmu_key_errors": 5,
+    "imu_errors": 1,
+    "main_stack_free_bytes": 3432
+  },
+  "maximum": {
+    "ui_stack_min_bytes": 1708,
+    "heap_internal_min": 1136,
+    "heap_internal_largest": 4096,
+    "touch_errors": 3575,
+    "pmu_key_errors": 5,
+    "imu_errors": 1,
+    "main_stack_free_bytes": 3432
+  },
+  "shadow_checks": {
+    "shadow_uart_bytes=0": 2,
+    "shadow_pps=0": 2,
+    "shadow_requested=0": 2,
+    "shadow_powered=0": 2,
+    "shadow_owner=0": 2
+  },
+  "lora_owner_samples": {
+    "requested=1,enabled=1,cleanup_fault=0": 151
+  },
+  "ble_fault_samples": {
+    "0": 702
+  },
+  "journal_read_samples": {
+    "valid=0": 4,
+    "valid=1": 18
+  },
+  "temperature": "No independently calibrated ambient/crystal temperature measurement",
+  "load": "Native USB logging and current display/radio CPU locks; snapshots add main-task work",
+  "policy": "CPU_DFS80_240_USB_DORMANT_PANEL_SLEEP_V1 unchanged",
+  "latency_seconds": {
+    "n": 702,
+    "maximum": 0.1991961250314489
+  },
+  "provenance": {
+    "private_frames_sha256": "883da729f2ccab139f6d9d728aa7250d07f96d65101b596b7fbde5dc4ca25e45",
+    "source_sha256": "2279dd838f06cfda061e07aa661be3fe5635e761526d1f6b247c345ff3b75827"
+  }
+}

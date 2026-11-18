@@ -150,6 +150,15 @@ def check(out):
    'fine_main_current':(result['configured_bytes'],f['main']+frame('bool w12_fine_current(uint64_t*)')+pending),
    'fine_receive':(int(host[0]),frame('void v12::r2_host_poll()')+frame('void v12::{anonymous}::active_poll(uint64_t)')+frame('unsigned int v12::{anonymous}::periodic_poll(uint64_t, unsigned int)')+frame('int w12_fine_receive(v12::periodic_rx::Stamp&)')+max(claim,pending)),
    'fine_maintenance':(result['configured_bytes'],f['main']+f['update']+frame('void w12_fine_stop()'))}
+  if r.get('clock_selection_policy')=='COMMON_FINE20_BLE_THEN_LORA_MONOTONIC_V1':
+   paths['common_clock_update']=(result['configured_bytes'],f['main']+f['fault']+
+    frame('void w12::dual_timing_update(const v12::R2Status&, const w12_lora_view&, uint64_t, uint64_t, bool)')+
+    frame('bool w12_fine_current(uint64_t*)')+pending)
+   paths['common_clock_diagnostic']=(result['configured_bytes'],f['main']+f['input']+f['command']+f['lora_diagnostics']+
+    frame('void w12::dual_timing_diag(v12::ConsoleFrame&, uint64_t)'))
+   if gnss_usage is not None:
+    paths['common_clock_pps']=(result['configured_bytes'],f['main']+f['gnss_poll']+f['pps_callback']+f['production_pps_score']+
+     frame('void w12::dual_timing_pps(const gnss_pps::Observation&, const v12::G1GpsShadow::Score&, uint32_t, uint32_t)'))
   if (profile_stack or r.get('version') in ('0.2.6','0.2.7','0.2.8','0.2.9','0.2.10','0.2.11')) and gnss_usage is not None:
    paths['fine_gnss_map']=(result['configured_bytes'],f['main']+
     frame('void gnss_pps::poll(uint64_t)')+

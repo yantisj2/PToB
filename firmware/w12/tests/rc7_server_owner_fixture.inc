@@ -234,6 +234,52 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
    const v12::Rc7ProvisionalPath provisional=which=="provisional-output"?
      v12::Rc7ProvisionalPath{1,v12::provision.identity,11,22,9,47000}:v12::Rc7ProvisionalPath{};
    assert(v12::relay_map.input(root,origin,nullptr,map,20000000,1,fake_now*20,inherited,v12::provision.identity,44,v12::provision.group,provisional,true));
+#ifdef PTOB_W12_LORA_RX
+   if(which=="slot-quality-gap"||which=="slot-acquisition-lost"){
+     assert(v12::client.pending&&v12::client.start(fake_now));
+     v12::joined_peer=v12::sync_identity=11;v12::joined_boot=22;
+     v12::synced=true;v12::sync_handle=17;
+     v12::anchor={true,11,22,1700000000000000,fake_now,fake_now+500000,9,1,500,
+                  fake_now+10000000};
+     v12::Rc7Client child;
+     assert(!child_request(child,300,RC_DYNAMIC_LEASE_US).ready);
+     assert(v12::relay_slots.scanning&&scan_active&&ext_active[1]&&!pa_active);
+     const auto deadline=v12::relay_slots.scan_limit;
+     const auto refresh=[&](){
+       fake_now+=20000;const uint64_t ns=fake_now*1000;
+       origin.issued=ns;origin.expires=ns+1650000000;origin.frame=ns/62500000*62500000;
+       map={fake_now*20,int64_t(ns),0,0,origin.utc_offset};
+       assert(v12::relay_map.input(root,origin,nullptr,map,fake_now*20,1,fake_now*20,0,
+         v12::provision.identity,44,v12::provision.group));
+       v12::relay_poll(fake_now,false);
+     };
+     for(unsigned i=0;i<25;i++)refresh();
+     fixture_parent_locked=false;v12::sync_terminating=which=="slot-acquisition-lost";
+     refresh();
+     assert(!v12::anchor.live(fake_now)&&v12::anchor.valid(fake_now));
+     assert(!ext_active[1]&&!ext_active[0]&&!pa_active&&!v12::relay_demand_live(fake_now));
+     assert(v12::relay_slots.scan_limit==deadline);
+     if(v12::sync_terminating){
+       assert(!v12::relay_slots.scanning&&v12::relay_slots.rollbacks==1&&!v12::relay_retained_slot);
+       puts("PASS lost BLE acquisition cancels passive placement");
+       return 0;
+     }
+     assert(v12::relay_slots.scanning&&scan_active&&!v12::relay_slots.rollbacks);
+     while(fake_now<deadline&&v12::relay_slots.scanning){
+       refresh();
+       assert(!v12::fault&&!ext_active[1]&&!ext_active[0]&&!pa_active);
+     }
+     assert(v12::relay_slots.verified==1&&v12::relay_retained_slot&&!scan_active);
+     fixture_parent_locked=true;
+     refresh();
+     assert(ext_active[1]&&!pa_active&&!v12::relay_demand_live(fake_now));
+     assert(!child_request(child,300,RC_DYNAMIC_LEASE_US).ready);
+     for(unsigned i=0;i<10&&!pa_active;i++)refresh();
+     assert(pa_active&&ext_active[0]&&v12::relay_admissions==2);
+     puts("PASS same-acquisition placement survives quality gap and publication requires fresh demand");
+     return 0;
+   }
+#endif
    if(which.rfind("slot-",0)==0){
      assert(v12::client.pending&&v12::client.start(fake_now));
      auto& demand=v12::relay_children[0];demand.id=300;

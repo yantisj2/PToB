@@ -198,11 +198,12 @@ hardware gate, not inferred from the product photograph. Share the same final
 map with T096, W12, SS3 and macOS builds. Existing images are not changed by a map
 edit. The registry grants no membership, timing authority or installation consent.
 
-## RC9 direct clients
+## RC9 fallback
 
-The independent RC9 client is available in N30 builds. Read the
-[RC9 guide](rc9.md) for source priority, original expiry and UNKNOWN bounds.
-The normal BLE/fine capture calibration is unchanged; RC9 does not train it.
+The independent RC9 client is available in N30 builds. BLE100 builds with
+`--estimated-relay --lora-rx` can also supply RC9 from their local authenticated
+LoRa fit. The [RC9 guide](rc9.md) covers source priority, expiry and unknown
+bounds. RC9 operates independently of the BLE and LoRa clock estimators.
 
 Current coarse and corrected permissions are mandatory for
 AUTO's BLE-lock input, but projects one-second quality against the original

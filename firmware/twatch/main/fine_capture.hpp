@@ -36,3 +36,7 @@ bool watch_pps_start(uint64_t boot,uint64_t factory,uint64_t now);
 bool watch_pps_stop();
 bool watch_pps_healthy();
 bool watch_pps_take(WatchPpsCapture&,bool (*read20)(uint64_t*));
+// Read-only main-owner bridge: XTAL20 encloses the actual fine CURRENT latch,
+// before software extension/receiver bookkeeping. It starts no resources.
+struct WatchClockBridge {uint64_t fine20=0,xtal_before20=0,xtal_after20=0;uint32_t incarnation=0;bool valid=false;};
+bool watch_clock_bridge(bool (*read_xtal20)(uint64_t*),WatchClockBridge&);

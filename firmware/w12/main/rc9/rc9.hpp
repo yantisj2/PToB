@@ -8,6 +8,7 @@ extern "C" {
 namespace v12::rc9 {
 constexpr size_t TimeBytes=190,ControlBytes=212,CapabilityBytes=144;
 constexpr uint64_t HoldUs=12000000,ExchangeUs=2000000;
+constexpr uint64_t SnapshotUs=2000000; // Passive TIME transport freshness
 constexpr uint32_t LeaseUs=360000000,RenewUs=300000000;
 enum class Type:uint8_t {Capability=1,Request=2,Response=3,Time=4};
 struct Control {
@@ -22,6 +23,7 @@ struct Control {
 struct Time {
  uint64_t sender=0,sender_boot=0,sampled_us=0,edge_us=0,until_us=0,event_ns=0;
  uint64_t root=0,root_boot=0,emitter=0,emitter_boot=0,stream=0,created_ns=0,expires_ns=0;
+ uint64_t utc_us=0; // Nonzero for passive TIME v2, at sampled_us
  uint32_t publication=0,source_epoch=0,generation=0,corrected_sequence=0,link_rms_ns=UINT32_MAX;
  uint8_t context[16]{},assurance=0,authority=0,kind=0,link_samples=0;
  bool valid=false;

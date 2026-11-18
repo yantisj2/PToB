@@ -1,0 +1,35 @@
+{
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "status": "FIXED_PRIOR_CONFIGURED_AND_CODE_PATH_AUDIT",
+  "BLE": {
+    "prior_phase80": 125808,
+    "actual_phase80": 126040,
+    "difference_ns": 2900,
+    "device_input_adjustment_already_in_receiver": true,
+    "incremental_common_copy_ns": 0,
+    "duplicate_application": false
+  },
+  "LoRa": {
+    "engineering_convention_ns": 99328000,
+    "extra_common_projection_ns": 3599390,
+    "raw_fit_modified": false
+  },
+  "applicability": {
+    "default": "matching-only extra path corrections",
+    "study": "carry fixed prior on all authenticated paths; calibration match still tested against old path",
+    "new_path_validated": false
+  },
+  "reestimated_from_study": false,
+  "controller_source_unchanged_from_0_1_19": true,
+  "configuration": {
+    "CPU_policy": "CPU_DFS80_240_USB_DORMANT_PANEL_SLEEP_V1",
+    "fine_backend": "TWATCH_RX17_RELATIVE_FINE20",
+    "counter_hz": 20000000
+  },
+  "provenance": {
+    "native_build_receipt_sha256": "bfbb80cf6084cb4befb0c18383b3b0715727de7911949b24c6664853fd5ca97d",
+    "source_sha256": "f69c559283afc84195655e5f7a215119e569fe04bef65feb9ca25651c2d15d81",
+    "application_sha256": "cafabe8d99fbacd6a3fccbb451a153721a34699ea8dfb7d8066b209a92cb5993"
+  }
+}

@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "study": "GNSS_FREE_COMMON_CLOCK_2026_11_17",
+  "draft": true,
+  "warmup_seconds": 900,
+  "sample_interval_seconds": 1,
+  "status_interval_seconds": 5,
+  "stages": [
+    {
+      "name": "gm_baseline",
+      "seconds": 300,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "rc_hop",
+      "seconds": 180,
+      "upstream": "relay",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "gm_return",
+      "seconds": 180,
+      "upstream": "gm",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "lora_bridge",
+      "seconds": 300,
+      "upstream": "auto",
+      "ble": false,
+      "lora": true
+    },
+    {
+      "name": "ble_return",
+      "seconds": 120,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "both_loss_hold",
+      "seconds": 180,
+      "upstream": "auto",
+      "ble": false,
+      "lora": false
+    },
+    {
+      "name": "hold_recovery",
+      "seconds": 420,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "ble_only_control",
+      "seconds": 120,
+      "upstream": "auto",
+      "ble": true,
+      "lora": false
+    },
+    {
+      "name": "both_restore",
+      "seconds": 420,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "repeat1_both",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "repeat1_lora",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": false,
+      "lora": true
+    },
+    {
+      "name": "repeat1_fine_return",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "repeat1_hold",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": false,
+      "lora": false
+    },
+    {
+      "name": "repeat1_recovery",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "repeat2_both",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "repeat2_lora",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": false,
+      "lora": true
+    },
+    {
+      "name": "repeat2_fine_return",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    },
+    {
+      "name": "repeat2_hold",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": false,
+      "lora": false
+    },
+    {
+      "name": "repeat2_recovery",
+      "seconds": 60,
+      "upstream": "auto",
+      "ble": true,
+      "lora": true
+    }
+  ],
+  "fixed_test_seconds": 2820,
+  "fixed_prior": {
+    "ble_device_input_ns": 2900,
+    "ble_incremental_ns": 0,
+    "lora_extra_ns": 3599390,
+    "lora_engineering_convention_ns": 99328000,
+    "reestimate": false,
+    "unmatched_path_validation": "UNKNOWN"
+  },
+  "actions": "Watch-side supported upstream auto/relay/gm-parent; physical owner OFF/ON via UI radio controls. No RF movement claimed unless operator logs it. No injected permission masking.",
+  "source_selection": "Discover RC using upstream relay; pin only a freshly authenticated observed GM temporarily for return. No production mesh pin.",
+  "window_policy": "Every stage has a fixed host-monotonic start/end. Controls and settling consume its window. No dropout, phase, numerical excursion or missing source extends/trims/stops a stage. Missing RC is a result.",
+  "stop_policy": "Only unrecoverable identity/boot/counter loss, device safety/ownership/desktop guard, unproven owner shutdown or persistent unavailable guarded control transport stops a run; retain original deadlines.",
+  "control_bounds": {
+    "BLE_off_seconds": 3,
+    "BLE_on_seconds": 5,
+    "LoRa_owner_seconds": 5,
+    "parent_rebind_seconds": 45,
+    "USB_response_seconds": 1.5,
+    "transport_unavailable_seconds": 30
+  },
+  "readiness": "Exact factory/build/boot/USB sole ownership/recovery verified. All diagnostic slots archived; no safe selective NVS cleanup; coredump disabled. GNSS rail/UART/capture off throughout. Warmup fixed900s includes metadata and physical pairs.",
+  "metrics": [
+    "sample and time-weighted availability with missing denominator",
+    "conditional admission/reacquisition latency intervals/censoring",
+    "mode dwell",
+    "source/parent/root changes",
+    "sampled common counter and full UTC monotonicity",
+    "BLE-LoRa and common-input full UTC disagreement at common tick",
+    "causal pre-update innovations linked to distinct physical observations",
+    "original expiry and correction applicability",
+    "conditional HOLD recovery displacement; no independent holdover error"
+  ],
+  "independent_reference": false,
+  "precision_claims": "No absolute UTC/RMS/P99 accuracy or independently proven holdover accuracy; sampled continuity cannot exclude between-sample faults. BLE/LoRa may share the same GM.",
+  "restoration": "upstream auto, rc-parent auto, gm-parent auto, both requested/physically ON, GNSS OFF, USB/TTY/unit lock released",
+  "license": "CC-BY-4.0",
+  "author": "Jonathan Yantis"
+}

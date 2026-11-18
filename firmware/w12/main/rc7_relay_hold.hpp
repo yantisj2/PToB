@@ -18,8 +18,8 @@ class Rc7RelayHold {
  public:
   void clear(){scope_={};deadline_=recovered_=last_=0;armed_=false;}
   uint64_t deadline()const{return deadline_;}
-  bool update(uint64_t now,bool timing,const rc7_path& scope){
-    if(!now||!rc7_path_valid(&scope)||!scope.depth){clear();return false;}
+  bool update(uint64_t now,bool timing,const rc7_path& scope,bool parent_current=true){
+    if(!parent_current||!now||!rc7_path_valid(&scope)||!scope.depth){clear();return false;}
     if(last_&&now<last_){clear();return false;}
     if(!rc7_path_same(&scope_,&scope)){clear();scope_=scope;}
     if(last_&&now-last_>250000)recovered_=0;

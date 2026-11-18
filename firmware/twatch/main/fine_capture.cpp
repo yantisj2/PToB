@@ -88,7 +88,8 @@ uint64_t coarse(){const auto t=esp_timer_get_time();return t>0?uint64_t(t):0;}
 void inc(uint32_t& x){if(x!=UINT32_MAX)++x;}
 // Pinned private ABI/register adapter; not a stable public IDF API.
 // Caller holds our sole cross-core lock; CH2 has no ISR/callback. Clear only2.
-bool latch(uint32_t& raw,LatchStats* attempt=nullptr){
+struct ReferenceBracket {bool (*read)(uint64_t*)=nullptr;uint64_t before=0,after=0;bool valid=false;};
+bool latch(uint32_t& raw,LatchStats* attempt=nullptr,ReferenceBracket* bracket=nullptr){
  auto& reads=attempt?attempt->reads:current_reads;auto& timeout_count=attempt?attempt->timeouts:timeouts;
  auto& poll_peak=attempt?attempt->poll_max:poll_max;auto& cycle_peak=attempt?attempt->cycles_max:cycles_max;
  auto& wall_peak=attempt?attempt->wall_max_us:wall_max_us;
@@ -104,12 +105,16 @@ bool latch(uint32_t& raw,LatchStats* attempt=nullptr){
  dev->int_clr.val=CurrentMask;
  unsigned clear=0;for(;clear<128;++clear)if(!(dev->int_raw.val&CurrentMask))break;
  if(clear>=128){const auto span=uint32_t(esp_cpu_get_cycle_count()-begin);if(span>cycle_peak)cycle_peak=span;inc(timeout_count);error=-14;return false;}
+ const bool lower=!bracket||!bracket->read||bracket->read(&bracket->before);
  mcpwm_ll_trigger_soft_capture(dev,2);
  unsigned n=0;for(;n<128;++n)if(dev->int_raw.val&CurrentMask)break;
  const auto elapsed=uint32_t(esp_cpu_get_cycle_count()-begin);
  if(elapsed>cycle_peak)cycle_peak=elapsed;
  if(n>=128){inc(timeout_count);error=-1;return false;}
- const auto captured=mcpwm_ll_capture_get_value(dev,2);dev->int_clr.val=CurrentMask;
+ const auto captured=mcpwm_ll_capture_get_value(dev,2);
+ const bool upper=!bracket||!bracket->read||bracket->read(&bracket->after);
+ if(bracket)bracket->valid=bracket->read&&lower&&upper;
+ dev->int_clr.val=CurrentMask;
  const auto wall_end=coarse();
  if(wall_end>=wall_begin&&wall_end-wall_begin>wall_peak)wall_peak=uint32_t(wall_end-wall_begin>UINT32_MAX?UINT32_MAX:wall_end-wall_begin);
  if(!wall_begin||wall_end<wall_begin||wall_end-wall_begin>WallLimitUs){inc(timeout_count);error=-28;return false;}
@@ -117,8 +122,8 @@ bool latch(uint32_t& raw,LatchStats* attempt=nullptr){
  if(n+clear+2>poll_peak)poll_peak=n+clear+2;
  inc(reads);return true;
 }
-bool current(uint64_t now,n30::fine::Time& out){
- uint32_t raw=0;if(!latch(raw))return false;
+bool current(uint64_t now,n30::fine::Time& out,ReferenceBracket* bracket=nullptr){
+ uint32_t raw=0;if(!latch(raw,nullptr,bracket))return false;
  if(now<last_service){error=-2;return false;}
  const auto gap=now-last_service;
  if(gap>service_max_us)service_max_us=uint32_t(gap>UINT32_MAX?UINT32_MAX:gap);
@@ -369,7 +374,7 @@ bool n30_fine_backend_selected(){return bool(PTOB_N30_FINE_BACKEND);}
 bool n30_fine_backend_start(uint64_t boot,uint64_t factory,uint64_t now){
  return fine_start(boot,factory,now,600000,1,false,0,0,true);
 }
-bool n30_fine_backend_current(uint64_t* tick20){
+static bool fine_backend_current(uint64_t* tick20,ReferenceBracket* bracket=nullptr,uint32_t* epoch=nullptr){
  if(!tick20)return false;
  *tick20=0;
  portENTER_CRITICAL(&mux);n30::fine::Time t{};
@@ -383,13 +388,27 @@ bool n30_fine_backend_current(uint64_t* tick20){
   // future values or weakening Counter::event's stale/epoch checks.
   auto* d=timer->group->hal.dev;pending=(d->int_raw.val>>27)&1;
   for(unsigned i=0;i<RadioChannels;++i)if(pending&(1u<<i))captured[i]=mcpwm_ll_capture_get_value(d,i);
-  ok=current(coarse(),t)&&receiver.coordinate(t.raw80,0,*tick20);
+  ok=current(coarse(),t,bracket)&&receiver.coordinate(t.raw80,0,*tick20);
+  if(ok&&epoch)*epoch=incarnation;
   for(unsigned i=0;i<RadioChannels&&ok;++i)if(pending&(1u<<i)){n30::fine::Time edge{};
    ok=counter.event(incarnation,captured[i],edge)&&receiver.pending(edge.raw80);
   }
  }
  if(!ok&&production_owned&&active){if(!error)error=-26;contain();}
  portEXIT_CRITICAL(&mux);return ok;
+}
+bool n30_fine_backend_current(uint64_t* tick20){return fine_backend_current(tick20);}
+bool watch_clock_bridge(bool (*read_xtal20)(uint64_t*),WatchClockBridge& out){
+ out={};if(!read_xtal20)return false;
+ if(!n30_fine_backend_selected()){
+  const bool ok=read_xtal20(&out.fine20)&&out.fine20;
+  out.xtal_before20=out.xtal_after20=out.fine20;out.valid=ok;return ok;
+ }
+ ReferenceBracket bracket{read_xtal20};
+ const bool ok=fine_backend_current(&out.fine20,&bracket,&out.incarnation);
+ out.xtal_before20=bracket.before;out.xtal_after20=bracket.after;
+ out.valid=ok&&bracket.valid&&bracket.after>=bracket.before&&bracket.after-bracket.before<=400;
+ return out.valid;
 }
 int n30_fine_backend_receive(v12::periodic_rx::Stamp& stamp){
  if(!PTOB_N30_FINE_BACKEND)return 0;

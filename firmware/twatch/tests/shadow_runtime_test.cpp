@@ -8,6 +8,7 @@ R2Status test_status;
 R2Status r2_status(){return test_status;}
 bool ConsoleFrame::format(const char* fmt,...){va_list a;va_start(a,fmt);const auto n=std::vsnprintf(bytes+length,sizeof bytes-length,fmt,a);va_end(a);if(n<=0||unsigned(n)>=sizeof bytes-length){failed=true;return false;}for(int i=0;i<n;++i)rows+=bytes[length+i]=='\n';length+=uint16_t(n);return true;}
 }
+namespace watchdual {void reference_lost(){} void edge(const WatchPpsCapture&,const v12::G1GpsShadow::Reference&,bool){}}
 namespace watchboard {bool gnss_power(bool on){++shadow_fake::power_calls;if(shadow_fake::during_power)shadow_fake::during_power();if(shadow_fake::fail_power)return false;shadow_fake::power=on;return true;}}
 bool watch_pps_start(uint64_t boot,uint64_t factory,uint64_t){assert(boot==1&&factory==2);++shadow_fake::capture_starts;shadow_fake::capture=true;return !shadow_fake::fail_capture_start;}
 bool watch_pps_stop(){++shadow_fake::capture_stops;if(shadow_fake::fail_capture_stop)return false;shadow_fake::capture=false;shadow_fake::edges.clear();return true;}

@@ -151,7 +151,7 @@ except RuntimeError:pass
 else:raise AssertionError('Old UI revision accepted RC9')
 assert c.mutation_command(frames[0],'0000000000000004','rc9-parent auto').endswith(b' rc9-parent auto\n')
 assert c.mutation_command(frames[0],'0000000000000004','rc9 diag').endswith(b' rc9 diag\n')
-def rc9_frame(change=None):
+def rc9_frame(change=None,relay=False):
  original=frame(ui=' path=RC9 upstream=AUTO');prefix=original[:original.index(b'W12_V12_END')].decode().splitlines(True)
  values={
   'N30_RC9_STATUS':dict(sampled_us='1000000',UTC_us='1700000000000000',until_us='12000000',valid='1',following='1',fault='0'),
@@ -160,6 +160,9 @@ def rc9_frame(change=None):
   'N30_RC9_COUNTERS':dict(sequence='1',accepted='1',rejected='0'),
   'N30_RC9_LEASE':dict(until_us='360000000',clients='0',serving='0'),
   'N30_RC9_CONTRACT':dict(wire='1',source='RC8',hops='1',precision='UNKNOWN',BLE_training='NONE',relay='NONE',GM='NONE',RX_ONLY='1')}
+ if relay:
+  values['N30_RC9_LEASE'].update(clients='1',serving='1',service_flags='15')
+  values['N30_RC9_CONTRACT'].update(wire='2',relay='PASSIVE_LORA')
  if change:
   row,key,value=change;values[row][key]=value
  replacement=[name+' '+' '.join(k+'='+v for k,v in row.items())+'\n' for name,row in values.items()]
@@ -178,6 +181,13 @@ for change in [('N30_RC9_CONTRACT','precision','FINE'),('N30_RC9_CONTRACT','rela
  except RuntimeError:pass
  else:raise AssertionError('Invalid RC9 claim accepted '+str(change))
 print('PASS RC9 ten-row nonce/CRC parser, revision and independent functional-only claims')
+server_manifest=dict(rm,n30_rc9_server=True)
+assert len(c.Parser(nonce,server_manifest).feed(rc9_frame(relay=True)))==1
+for manifest,change in [(rm,None),(server_manifest,('N30_RC9_LEASE','service_flags','8')),
+                        (server_manifest,('N30_RC9_LEASE','clients','0'))]:
+ try:c.Parser(nonce,manifest).feed(rc9_frame(change,relay=True))
+ except RuntimeError:pass
+ else:raise AssertionError('Invalid RC9 server state accepted')
 
 # .053 extension: original ten rows/CRC, strict versioned22-value vector;
 # retain raw and expanded observations, including maximum-width diagnostics.

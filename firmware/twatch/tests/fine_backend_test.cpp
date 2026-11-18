@@ -19,6 +19,11 @@ v12::n30_probe::Pair last_pair;
 void observe(const v12::n30_probe::Pair& p){last_pair=p;monitor.pair(p);}
 void late_readback(int channel){if(channel==2)fake_now+=100;}
 void backward_readback(int channel){if(channel==2)fake_now-=2;}
+unsigned bridge_reads=0;int bridge_mode=0;
+bool reference_read(uint64_t* out){
+ ++bridge_reads;if(bridge_reads==2&&bridge_mode==1)advance(30);
+ *out=fake_now*20;return !(bridge_reads==2&&bridge_mode==2);
+}
 int main(){
  static_assert(sizeof(packet_edges)==1);
  assert(n30_fine_backend_selected()&&n30_fine_released());
@@ -32,10 +37,19 @@ int main(){
  assert(!n30_fine_window_begin(1,1,2,incarnation)&&!n30_fine_window_refuse(1)&&!n30_fine_window_rearm());
  const uint64_t origin=first_raw32;uint64_t current20=0;
  assert(n30_fine_backend_current(&current20)&&current20>=1000000);
+ WatchClockBridge paired;bridge_reads=0;
+ assert(watch_clock_bridge(reference_read,paired)&&paired.valid&&paired.incarnation==incarnation&&paired.fine20);
+ assert(bridge_reads==2&&paired.xtal_after20>=paired.xtal_before20&&paired.xtal_after20-paired.xtal_before20<=400);
+ for(int refusal:{1,2}){bridge_mode=refusal;bridge_reads=0;
+  assert(!watch_clock_bridge(reference_read,paired)&&!paired.valid);
+  assert(active&&!contained&&!error&&n30_fine_backend_current(&current20));
+ }
+ bridge_mode=0;
  // Real33 failed with poll-ready but4153 CPU cycles. CPU latency does not
  // imply peripheral timeout; readback still has a monotonic100us deadline.
+ const auto prior_wall_peak=wall_max_us;
  fake_cycle_step=4153;uint32_t current_raw=0;
- assert(latch(current_raw)&&cycles_max>=4153&&wall_max_us==1&&!error);
+ assert(latch(current_raw)&&cycles_max>=4153&&wall_max_us==prior_wall_peak&&!error);
  fake_cycle_step=32;
  const auto saved_now=fake_now;const auto saved_raw=fake_raw;
  for(const auto hook:{late_readback,backward_readback}){

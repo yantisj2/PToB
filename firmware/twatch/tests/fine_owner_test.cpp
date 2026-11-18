@@ -24,8 +24,10 @@ void clear_error(){
 [[maybe_unused]] void storm(unsigned channel){if(channel==0)for(unsigned i=0;i<65;++i)edge();}
 void save_frame(const char* name){static v12::ConsoleFrame f;f={};n30_fine_frame(f,0,fake_now);CHECK(!f.failed);FILE* file=std::fopen(name,"w");CHECK(file);std::fwrite(f.bytes,1,f.length,file);std::fclose(file);}
 }
+bool reference_only(uint64_t* out){*out=123456;return true;}
 int main(){
  CHECK(!n30_fine_backend_selected());
+ WatchClockBridge paired;CHECK(watch_clock_bridge(reference_only,paired)&&paired.valid&&paired.fine20==123456&&paired.xtal_before20==paired.xtal_after20);
  CHECK(n30_fine_released()&&fake_allocated==0&&fake_gpio_calls==0);
  CHECK(!n30_fine_start(1,0,fake_now,1000,1)&&fake_gpio_calls==0);
  CHECK(!n30_fine_probe(1,PTOB_N30_FINE_FACTORY,fake_now,100,4));

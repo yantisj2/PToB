@@ -1,5 +1,19 @@
 # W12 changelog
 
+## 0.2.50 — Common BLE and LoRa clock
+
+Drive the front clock from one boot-local actuator with qualified BLE, warm
+authenticated LoRa fallback and local HOLD. Derive the LoRa origin from the
+same hardware latch as the boot counter and reuse the passive model's exact
+projection. Add an optional receiver-local path correction and a single
+bounded dual-source GNSS PPS record. Relay service requires current BLE
+timing. The common clock uses fixed storage and the existing observer queue.
+
+RC9 TIME v2 carries functional UTC from the authenticated LoRa leader and
+uses its existing receiver deadline. Loss or withdrawal closes admission and
+revokes time. Clients also expire passive TIME after two seconds without a
+fresh publication. Existing TIME v1 packets remain readable.
+
 ## 0.2.49 — Control recovery and memory headroom
 
 Allow post-recreation controller-capacity retries to use the full existing500ms

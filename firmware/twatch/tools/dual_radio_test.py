@@ -134,6 +134,7 @@ def analyze(records):
     groups = {}
     coverage = Counter()
     runs = {}
+    reference_segments = {}
     missing = 0
     reference_epochs = 0
     clock_checks = {'instances': set(), 'domains': set(), 'utc_backsteps': 0,
@@ -171,6 +172,10 @@ def analyze(records):
                     raise ValueError('Valid PPS cadence inconsistent with the 1 Hz contract')
             else:
                 reference_epochs += 1
+        segment = reference_segments.get(run, 0)
+        if previous and (epoch != previous[2] or reference_good != previous[5]):
+            segment += 1
+        reference_segments[run] = segment
         runs[run] = (boot, firmware, epoch, number, seen, reference_good)
         coverage[(run, stage)] += 1
         for channel in ('ble', 'lora'):
@@ -178,7 +183,7 @@ def analyze(records):
             scope = value.get('scope', 'UNKNOWN')
             correction = value.get('current_correction_ns', 'UNKNOWN')
             domain = value.get('counter_domain', 'UNKNOWN')
-            key = (run, stage, channel, str(scope), str(domain), str(correction), epoch)
+            key = (run, stage, channel, str(scope), str(domain), str(correction), epoch, segment)
             group = groups.setdefault(key, dict(values=[], seen=[], observations=set(), invalid=Counter(), rows=0, invalid_rows=0))
             group['rows'] += 1
             reasons = channel_reasons(record, channel)
@@ -231,10 +236,10 @@ def analyze(records):
         raise ValueError('No PPS records supplied')
     rows, candidates = [], []
     for key, group in sorted(groups.items()):
-        run, stage, channel, scope, domain, correction, ref_epoch = key
+        run, stage, channel, scope, domain, correction, ref_epoch, ref_segment = key
         values = group['values']
         summary = dict(run=run, stage=stage, channel=channel, scope=scope, counter_domain=domain,
-                       reference_capture_epoch=ref_epoch,
+                       reference_capture_epoch=ref_epoch, reference_segment=ref_segment,
                        current_correction_ns=correction, observed_stage_rows=coverage[(run, stage)],
                        context_rows=group['rows'], ineligible_rows=group['invalid_rows'],
                        distinct_observations=len(group['observations']), invalid_reasons=dict(group['invalid']),
@@ -254,7 +259,7 @@ def analyze(records):
                 step = 50 if channel == 'ble' else 1  # Configuration units, not claimed RF resolution.
                 incremental = (1 if incremental >= 0 else -1) * ((abs(incremental) + step // 2) // step) * step
                 candidates.append(dict(run=run, channel=channel, scope=scope,
-                    reference_capture_epoch=ref_epoch,
+                    reference_capture_epoch=ref_epoch, reference_segment=ref_segment,
                     status='CANDIDATE_REQUIRES_HELD_OUT_VALIDATION', samples=len(values),
                     existing_correction_ns=int(correction), incremental_correction_ns=incremental,
                     candidate_total_correction_ns=int(correction) + incremental,

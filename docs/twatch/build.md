@@ -38,6 +38,33 @@ improve that capture resolution. N30 GPIO4/5 fine capture and W12 calibration
 must not be transplanted onto the watch’s NFC pins. Independent output bounds
 remain unknown.
 
+## Shared clock and PPS diagnostics
+
+The [dual-radio guide](dual-radio-test.md) describes the parallel PPS export,
+controller and exact calibration profile. `--dual-clock-profile` accepts only an
+ignored profile bound to this device and fine-input profile. Omitting it keeps
+shared-clock delivery disabled. Independent held-out BLE and LoRa offset
+validation and candidate review are required before enabling delivery; GNSS
+remains a witness. The builder records capability contracts and activation state
+in its receipt. This does not alter installation authorization or USB guards.
+Calibration bindings do not restrict authenticated root discovery. On an
+unmatched source path the shared clock remains available, omits the extra path
+correction and reports unknown calibration. Root roaming within the enrolled
+trusted group keeps the same clock; another group/key requires trusted
+enrollment. See the dual-radio guide for the distinction between live status
+and frozen PPS observations.
+Check the new owner paths against retained compiler stack receipts with:
+
+```sh
+python3 firmware/twatch/tools/dual_clock_memory_check.py \
+  --build artifacts/watch-build-01 --out artifacts/watch-dual-memory-01
+```
+
+The separate [GNSS-free snapshot contract](gnss-free-snapshot.md) is available
+through `clock read`. Its optional reviewed study profile can carry fixed
+engineering priors onto unmatched paths while retaining unknown calibration.
+Ordinary profiles default to matching-only extra corrections.
+
 ## Inputs and build
 
 Use ignored owner-only device, enrollment and shared registry files. Device schema:
@@ -99,7 +126,7 @@ compiler stack audits remain separate. For UI checks and previews alone:
 python3 firmware/twatch/tools/test.py --out artifacts/watch-host-01
 ```
 
-This produces 75 actual-renderer PPM previews and a host-check receipt.
+This produces 99 actual-renderer PPM previews and a host-check receipt.
 The tests cover navigation, settings bounds, first-touch wake consumption,
 expired timing, framebuffer guards and all screen destinations. Solar checks
 cover fixed Central time independent of the mesh display zone, all eight visible

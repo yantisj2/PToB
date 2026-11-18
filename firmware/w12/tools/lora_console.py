@@ -13,21 +13,33 @@ class Parser(base.Parser):
    rows=f['rows'];m=self.manifest;mesh=rows['W12_R2_STATUS']
    for key,value in [('profile','r2-g1'),('enrollment_sha',m['r2_enrollment_sha256']),('group_id',m['r2_group_id']),('key_epoch',str(m['r2_key_epoch'])),('client_identity',m['r2_client_identity'])]:base.require(mesh.get(key)==value,'LoRa diagnostic identity: '+key)
    if 'dual_schema' in mesh:
-    base.require(mesh['dual_schema'] in ('1','2') and mesh.get('authority')=='UNCHANGED' and mesh.get('parent_ring')=='8' and mesh.get('parent_view')==('RING8' if mesh['dual_schema']=='2' else 'LATEST_ONLY'),'Dual source/parent diagnostic contract')
+    current=mesh['dual_schema']=='3'
+    base.require(mesh['dual_schema'] in ('1','2','3') and mesh.get('authority')==('BLE_ONLY' if current else 'UNCHANGED') and mesh.get('parent_ring')=='8' and mesh.get('parent_view')==('LATEST_ONLY' if mesh['dual_schema']=='1' else 'RING8'),'Dual source/parent diagnostic contract')
     def num(key,bits=64):
      value=mesh.get(key,'');base.require(re.fullmatch(r'(?:0|[1-9][0-9]*)',value) and int(value)<2**bits,'Dual diagnostic integer '+key);return int(value)
     refusal=num('ble_refusal',32);base.require(refusal<4096,'BLE refusal range')
     names=((1,'DISABLED'),(2,'FAULT'),(4,'MODE_DRAIN'),(32,'STALE_SNAPSHOT'),(2048,'RETAINED_HOLD'),(64,'COARSE_PERMISSION'),(128,'CORRECTED_PERMISSION'),(256,'REPLAY_CONTEXT'),(16,'NO_CONTEXT'),(8,'NO_CURRENT_FOLLOW'),(512,'RAW_QUALITY'),(1024,'QUALITY_FORECAST'))
     base.require(mesh.get('ble_why')==next((name for bit,name in names if refusal&bit),'READY') and mesh.get('ble_lock')==str(int(refusal==0)),'Current BLE refusal/lock agreement')
-    for key in ('observed_us','qualify_since_us','permission_pause_us','max_observer_gap_us','first_loss_us','parent_at_us'):num(key)
-    for key in ('qualifying','lora_selected','display_lora'):base.require(mesh.get(key) in ('0','1'),'Selection boolean '+key)
-    for key in ('losses','resets','first_refusal','first_epoch','parent_seq','parent_epoch','parent_train'):num(key,32)
-    base.require(num('remaining_us',32)<=30000000 and num('first_refusal',32)<4096 and num('first_reason',8)<=3,'Bounded return qualifier')
-    base.require(mesh.get('permission_gap_limit_us')=='1500000' and mesh.get('observer_limit_us')=='250000','Separate observation/permission limits')
-    for key in ('first_root','first_boot','parent_peer','parent_root','parent_boot'):base.require(base.HEX16.fullmatch(mesh.get(key,'')),'Dual source identity '+key)
+    num('parent_at_us')
+    for key in ('parent_seq','parent_epoch','parent_train'):num(key,32)
+    for key in ('parent_peer','parent_root','parent_boot'):base.require(base.HEX16.fullmatch(mesh.get(key,'')),'Parent identity '+key)
+    base.require(mesh.get('observer_limit_us')=='250000','Snapshot limit')
+    if current:
+     mode=num('common_mode',8);utc=num('common_ns');num('common_tick');num('lora_origin80')
+     base.require(mode<=3 and bool(utc)==bool(mode),'Common clock state')
+     for key,limit in (('common_ppb',50000),('lora_bias_ns',20000000)):
+      value=mesh.get(key,'')
+      base.require(re.fullmatch(r'-?(?:0|[1-9][0-9]*)',value) and abs(int(value))<=limit,'Common clock signed field '+key)
+    else:
+     for key in ('observed_us','qualify_since_us','permission_pause_us','max_observer_gap_us','first_loss_us'):num(key)
+     for key in ('qualifying','lora_selected','display_lora'):base.require(mesh.get(key) in ('0','1'),'Selection boolean '+key)
+     for key in ('losses','resets','first_refusal','first_epoch'):num(key,32)
+     base.require(num('remaining_us',32)<=30000000 and num('first_refusal',32)<4096 and num('first_reason',8)<=3,'Bounded return qualifier')
+     base.require(mesh.get('permission_gap_limit_us')=='1500000','Permission pause limit')
+     for key in ('first_root','first_boot'):base.require(base.HEX16.fullmatch(mesh.get(key,'')),'Dual source identity '+key)
     reasons=('SCOPE_CHANGE','STARTUP','HOLD_GM','RECOVER_GM','RETURN_GM','LINK_POOR','CLOCK_UNAVAILABLE','CLOCK_STEP','SOURCE_CHANGE','REPLAY_EXPIRED','ROOT_HINT','MANUAL_PARENT','RELAY_ONLY','STOP','BEST_CANDIDATE','LOCK_TRIAL_EXPIRED','PERMISSION_GAP','REPLAY_CONTEXT','SUCCESSOR','PACKET_SCOPE')
     parent=num('parent_reason',8);base.require(parent<len(reasons) and num('parent_depth',8)<=2 and mesh.get('parent_why')==(reasons[parent] if int(mesh['parent_seq']) else 'NONE'),'Parent withdrawal reason')
-    if mesh['dual_schema']=='2':
+    if mesh['dual_schema'] in ('2','3'):
      for key in ('wd_sampled_us','wd_main_at_us','wd_host_at_us','wd_sync_until_us','wd_last_sync_us','wd_fault_since_us','wd_fault_elapsed_us','wd_no_time_since_us','wd_no_time_elapsed_us','wd_previous_elapsed_us'):num(key)
      for key in ('wd_mask','wd_first_mask','wd_previous_mask','wd_restarts','ble_recoveries'):num(key,32)
      for key in ('wd_host_expected','wd_sync_expected','absence_learned','absence_rx_healthy','absence_expected'):base.require(mesh.get(key) in ('0','1'),'Watchdog boolean '+key)

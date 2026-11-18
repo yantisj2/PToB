@@ -9,7 +9,7 @@
 #include "native_lora.hpp"
 #ifdef PTOB_W12_LORA_RX
 #include "w12_lora.hpp"
-#include "lora_clock_selection.hpp"
+#include "dual_timing.hpp"
 #include "w12_lora_config.h"
 #endif
 #include "native_direct.hpp"
@@ -36,7 +36,6 @@
 #include "display_second_deadline.hpp"
 #ifdef PTOB_RC9
 #include "rc9_time.hpp"
-#include "rc9_source_policy.hpp"
 #endif
 #include "fault_watchdog.hpp"
 #ifdef PTOB_W12_SYNC_WATCHDOG
@@ -102,9 +101,6 @@ uint32_t ui_rms_ns=UINT32_MAX;uint8_t ui_gps_lamps=0;
 v12::UpdateGate update_gate;
 w12::PowerOff power_off;
 ptob::SourceAbsencePolicy no_time_retention;
-#ifdef PTOB_W12_LORA_RX
-w12::LoRaClockSelection display_clock_selection;bool display_lora_selected=false;
-#endif
 v12::ConsoleTicket ticket;
 v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;
@@ -129,6 +125,9 @@ v12::G1PpsDiagnostic production_pps_diagnostic;
   const auto ref=gnss_pps::reference();
   const auto score=production_pps_diagnostic.edge(edge.tick,edge.number,edge.map_bracket_ns,edge.mapped,
     {ref.rmc20,ref.second,ref.epoch,ref.fix&&ref.coherent>=3});
+#ifdef PTOB_W12_LORA_RX
+  w12::dual_timing_pps(edge,score,ref.epoch,ref.second);
+#else
   const auto& m=score.map;const auto& r=score.row;
   const auto output_phase=v12::G1PpsDiagnostic::phase(score.utc_ns);
   const auto receiver_phase=score.map_valid?v12::G1PpsDiagnostic::phase(score.utc_ns-m.clock.output_correction_ns):0;
@@ -146,6 +145,7 @@ v12::G1PpsDiagnostic production_pps_diagnostic;
     unsigned(r.following),unsigned(r.permission),r.session,m.root,m.boot,m.source,m.train,m.scope,m.clock.tick,m.lo,m.active,m.until,m.permission,
     m.clock.epoch,m.clock.phase,rate_mppb,unsigned(rate_known),m.clock.utc_offset,
     r.phase_ns,receiver_phase,output_phase,m.clock.output_correction_ns,m.clock.receiver_phase_ns,v12::G1PpsDiagnostic::phase(score.relative_ns-m.clock.receiver_phase_ns),ref.epoch,ref.rmc20,ref.second);
+#endif
 }
 #endif
 #ifdef V12_GPS_SHADOW_OBSERVER
@@ -184,23 +184,37 @@ void pps(const gnss_pps::Observation& edge){
     m.root,m.boot,m.source,m.train,m.scope,m.clock.tick,m.lo,m.active,m.until,m.clock.epoch,m.clock.phase,int64_t(std::llround(m.clock.rate*1000)),score.relative_ns,score.utc_ns,r.phase_ns,
     ref.epoch,ref.rmc20,ref.second,unsigned(gnss_pps::ble_aided()));
 #elif defined(V12_R2_ENABLED)
+#if !defined(PTOB_W12_LORA_RX) || !defined(PTOB_G1_PPS_DIAGNOSTIC)
   const auto followed=v12::r2_status();const auto comparison=v12::r2_shadow_pps(followed,edge.tick,ticks(),edge.mapped);
   std::printf("W12_R2_PPS_SHADOW number=%" PRIu32 " mapped20=%" PRIu64 " model_available20=%" PRIu64
     " root_identity=%016" PRIx64 " root_boot=%016" PRIx64 " source_epoch=%" PRIu32 " publication=%" PRIu32
     " BLE_prediction_valid=%u modulo_error_ns=%" PRId64 " association=UNKNOWN bias=UNKNOWN absolute_UTC=UNQUALIFIED BLE_training=NONE GNSS_aided_this_boot=%u\n",
     edge.number,edge.tick,followed.model_available20,followed.root_identity,followed.root_boot,followed.source_epoch,followed.publication,unsigned(comparison.valid),comparison.modulo_ns,unsigned(gnss_pps::ble_aided()));
   v12::r2_pps(edge.tick,ticks(),micros(),edge.mapped);
+#endif
 #ifdef PTOB_G1_PPS_DIAGNOSTIC
   score_production_pps_diagnostic(edge);
 #endif
 #endif
   if(physical_pps!=UINT32_MAX)++physical_pps;
+#if !defined(PTOB_W12_LORA_RX) || !defined(PTOB_G1_PPS_DIAGNOSTIC)
   std::printf("W12_V12_PPS number=%" PRIu32 " physical_raw80=%" PRIu32 " raw_extended80=%" PRIu64
     " mapped20=%" PRIu64 " map_available20=%" PRIu64 " enclosure_ns=%" PRIu32
     " mapped=%u physical_bias=UNKNOWN independent_output=UNAVAILABLE BLE_training=NONE\n",
     edge.number,edge.capture,edge.raw_extended,edge.tick,edge.anchor_available,edge.map_bracket_ns,unsigned(edge.mapped));
+#endif
 }
 #if defined(PTOB_RC9) || defined(PTOB_W12_LORA_RX)
+[[gnu::noinline]] void diagnostic_header(uint64_t nonce,uint64_t begin){
+ const auto next=ticket.issue(begin);
+ v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);
+}
+[[gnu::noinline]] void diagnostic_mesh_prefix(const v12::R2Status& mesh,bool locked){
+ response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " fault=%u rc7_flags=%" PRIu32 " ble_lock=%u service_until=%" PRIu64 " corrected_until=%" PRIu64 " anchor_until=%" PRIu64,V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.fault),mesh.rc7_server_flags,unsigned(locked),mesh.service_until_us,mesh.g1_corrected_until_us,mesh.g1_anchor_deadline_us);
+}
+[[gnu::noinline]] void diagnostic_device(){
+ response.format("\nW12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready));
+}
 [[gnu::noinline]] void ui_clock_frame(const v12::R2Status& mesh){
 #ifndef R2_TZ_WIRE
  (void)mesh;
@@ -211,31 +225,36 @@ void pps(const gnss_pps::Observation& edge){
  response.format("W12_UI_CLOCK page=%u valid=%u UTC=%" PRIu32 " sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " drawn_us=%" PRIu64 " paint_us=%" PRIu32 " next_us=%" PRIu64 " phase=UTC_SECOND lui=%u/%u\n",unsigned(page),unsigned(ui_valid),ui_utc,ui_sampled_us,ui_utc_us,ui_drawn_us,ui_paint_us,ui_deadline.deadline(),ui_lora_phase,unsigned(ui_lora_utc));
 #endif
 }
-#endif
-#ifdef PTOB_RC9
-[[gnu::noinline]] void rc9_status_frame(uint64_t nonce,uint64_t begin){
- const auto next=ticket.issue(begin);v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);
- const auto mesh=v12::r2_status();const auto r=v12::r2_rc9_status();w12_lora_view l;w12_lora_snapshot(l);
- response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " fault=%u rc7_flags=%" PRIu32 " ble_lock=%u service_until=%" PRIu64 " corrected_until=%" PRIu64 " anchor_until=%" PRIu64 " forecast_ms=%" PRIu32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.fault),mesh.rc7_server_flags,unsigned(w12::ble_locked(mesh,micros())),mesh.service_until_us,mesh.g1_corrected_until_us,mesh.g1_anchor_deadline_us,mesh.g1_relative_quality.hold_ms(mesh.g1_relative_quality.evaluated20,mesh.g1_clock_model,UINT64_MAX));
- response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready));
- response.format("W12_RC9_STATUS sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " until_us=%" PRIu64 " valid=%u following=%u fault=%u\n",r.sampled_us,r.utc_us,r.until_us,unsigned(r.valid),unsigned(r.following),unsigned(r.fault));
- response.format("W12_RC9_ORIGIN server=%016" PRIx64 " server_boot=%016" PRIx64 " root=%016" PRIx64 " root_boot=%016" PRIx64 " source_epoch=%" PRIu32 " emitter=%016" PRIx64 " emitter_boot=%016" PRIx64 "\n",r.server,r.server_boot,r.root,r.root_boot,r.source_epoch,r.emitter,r.emitter_boot);
- response.format("W12_RC9_QUALITY assurance=%u authority=%u metadata_known=%u upstream_link_rms_ns=%" PRIu32 " bound=UNKNOWN\n",unsigned(r.assurance),unsigned(r.authority),unsigned(r.metadata_known),r.rms_ns);
- response.format("W12_RC9_COUNTERS sequence=%" PRIu32 " accepted=%" PRIu32 " rejected=%" PRIu32 "\n",r.sequence,r.accepted,r.rejected);
- response.format("W12_RC9_LEASE until_us=%" PRIu64 " clients=%u serving=%u service_flags=%u radio_hold_ms=%" PRIu32 "\n",r.client_until_us,unsigned(r.clients),unsigned(r.serving),unsigned(r.service_flags),l.rc9_hold_remaining_ms);
- response.format("W12_RC9_CONTRACT wire=1 source=RC8 hops=1 precision=UNKNOWN BLE_training=NONE GM=NONE LoRa_TX=OFF lora_active=%u lora_accepted=%" PRIu32 " lora_rms_ns=%" PRIu32 "\n",unsigned(l.active),l.accepted,l.link_rms_ns);
+[[gnu::noinline]] void diagnostic_finish(const v12::R2Status& mesh){
  ui_clock_frame(mesh);
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
  v12::frame_submit_rc9(response);
 }
 #endif
+#ifdef PTOB_RC9
+[[gnu::noinline]] void rc9_status_frame(uint64_t nonce,uint64_t begin){
+ diagnostic_header(nonce,begin);
+ const auto mesh=v12::r2_status();const auto r=v12::r2_rc9_status();w12_lora_view l;w12_lora_snapshot(l);
+ diagnostic_mesh_prefix(mesh,w12::ble_locked(mesh,micros()));
+ diagnostic_device();
+ response.format("\nW12_RC9_STATUS sampled_us=%" PRIu64 " UTC_us=%" PRIu64 " until_us=%" PRIu64 " valid=%u following=%u fault=%u\n",r.sampled_us,r.utc_us,r.until_us,unsigned(r.valid),unsigned(r.following),unsigned(r.fault));
+ response.format("W12_RC9_ORIGIN server=%016" PRIx64 " server_boot=%016" PRIx64 " root=%016" PRIx64 " root_boot=%016" PRIx64 " source_epoch=%" PRIu32 " emitter=%016" PRIx64 " emitter_boot=%016" PRIx64 "\n",r.server,r.server_boot,r.root,r.root_boot,r.source_epoch,r.emitter,r.emitter_boot);
+ response.format("W12_RC9_QUALITY assurance=%u authority=%u metadata_known=%u upstream_link_rms_ns=%" PRIu32 " bound=UNKNOWN\n",unsigned(r.assurance),unsigned(r.authority),unsigned(r.metadata_known),r.rms_ns);
+ response.format("W12_RC9_COUNTERS sequence=%" PRIu32 " accepted=%" PRIu32 " rejected=%" PRIu32 "\n",r.sequence,r.accepted,r.rejected);
+ response.format("W12_RC9_LEASE until_us=%" PRIu64 " clients=%u serving=%u service_flags=%u radio_hold_ms=%" PRIu32 "\n",r.client_until_us,unsigned(r.clients),unsigned(r.serving),unsigned(r.service_flags),l.rc9_hold_remaining_ms);
+ response.format("W12_RC9_CONTRACT wire=1 source=RC8 hops=1 precision=UNKNOWN BLE_training=NONE GM=NONE LoRa_TX=OFF lora_active=%u lora_accepted=%" PRIu32 " lora_rms_ns=%" PRIu32 "\n",unsigned(l.active),l.accepted,l.link_rms_ns);
+ diagnostic_finish(mesh);
+}
+#endif
 #ifdef PTOB_W12_LORA_RX
 [[gnu::noinline]] void lora_status_frame(uint64_t nonce,uint64_t begin){
- const auto next=ticket.issue(begin);v12::frame_begin(response,nonce,next,begin,factory_text,session,V12_SOURCE_REVISION,V12_BUILD_ID);
+ diagnostic_header(nonce,begin);
  const auto mesh=v12::r2_status();const auto source_now=micros();const auto refusal=w12::ble_lock_refusal(mesh,source_now);
- const auto selection=display_clock_selection.view(source_now);v12::G1ParentEvent parent{},next_parent{};uint32_t parent_cursor=0;
+ v12::G1ParentEvent parent{},next_parent{};uint32_t parent_cursor=0;
  for(unsigned n=0;n<8&&v12::r2_parent_next(parent_cursor,next_parent);++n){parent=next_parent;parent_cursor=parent.sequence;}
- response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " fault=%u rc7_flags=%" PRIu32 " ble_lock=%u service_until=%" PRIu64 " corrected_until=%" PRIu64 " anchor_until=%" PRIu64 " forecast_ms=%" PRIu32 " dual_schema=2 ble_refusal=%" PRIu32 " ble_why=%s observed_us=%" PRIu64 " qualify_since_us=%" PRIu64 " remaining_us=%" PRIu32 " permission_pause_us=%" PRIu64 " max_observer_gap_us=%" PRIu64 " qualifying=%u lora_selected=%u display_lora=%u losses=%" PRIu32 " resets=%" PRIu32 " first_loss_us=%" PRIu64 " first_reason=%u first_refusal=%" PRIu32 " first_root=%016" PRIx64 " first_boot=%016" PRIx64 " first_epoch=%" PRIu32 " parent_seq=%" PRIu32 " parent_at_us=%" PRIu64 " parent_reason=%u parent_why=%s parent_peer=%016" PRIx64 " parent_root=%016" PRIx64 " parent_boot=%016" PRIx64 " parent_epoch=%" PRIu32 " parent_train=%" PRIu32 " parent_depth=%u parent_ring=8 parent_view=RING8 permission_gap_limit_us=1500000 observer_limit_us=250000 authority=UNCHANGED",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.fault),mesh.rc7_server_flags,unsigned(refusal==0),mesh.service_until_us,mesh.g1_corrected_until_us,mesh.g1_anchor_deadline_us,mesh.g1_relative_quality.hold_ms(mesh.g1_relative_quality.evaluated20,mesh.g1_clock_model,UINT64_MAX),refusal,w12::ble_lock_reason(refusal),selection.observed,selection.since,selection.remaining,selection.pause,selection.max_gap,unsigned(selection.qualified),unsigned(selection.lora),unsigned(display_lora_selected),selection.losses,selection.resets,selection.first_loss,unsigned(selection.first_reason),selection.first_refusal,selection.first_root,selection.first_boot,selection.first_epoch,parent.sequence,parent.at,unsigned(parent.reason),parent.sequence?v12::g1_parent_reason(parent.reason):"NONE",parent.to.peer,parent.to.root,parent.to.boot,parent.to.source,parent.to.train,unsigned(parent.to.depth));
+ diagnostic_mesh_prefix(mesh,refusal==0);
+ response.format(" dual_schema=3 ble_refusal=%" PRIu32 " ble_why=%s parent_seq=%" PRIu32 " parent_at_us=%" PRIu64 " parent_reason=%u parent_why=%s parent_peer=%016" PRIx64 " parent_root=%016" PRIx64 " parent_boot=%016" PRIx64 " parent_epoch=%" PRIu32 " parent_train=%" PRIu32 " parent_depth=%u parent_ring=8 parent_view=RING8 observer_limit_us=250000 authority=BLE_ONLY",refusal,w12::ble_lock_reason(refusal),parent.sequence,parent.at,unsigned(parent.reason),parent.sequence?v12::g1_parent_reason(parent.reason):"NONE",parent.to.peer,parent.to.root,parent.to.boot,parent.to.source,parent.to.train,unsigned(parent.to.depth));
+ w12::dual_timing_diag(response,ticks());
  const auto wd=v12::fault_watchdog_status();const auto absence=no_time_retention.view();
  response.format(" wd_sampled_us=%" PRIu64 " wd_main_at_us=%" PRIu64 " wd_host_at_us=%" PRIu64 " wd_host_expected=%u wd_sync_expected=%u wd_sync_until_us=%" PRIu64 " wd_last_sync_us=%" PRIu64 " wd_fault_since_us=%" PRIu64 " wd_fault_elapsed_us=%" PRIu64 " wd_no_time_since_us=%" PRIu64 " wd_no_time_elapsed_us=%" PRIu64 " wd_no_time_limit_us=720000000 wd_minimum_us=5000000 wd_stall_us=5000000 wd_mask=%" PRIu32 " wd_first_mask=%" PRIu32 " wd_previous_mask=%" PRIu32 " wd_restarts=%" PRIu32 " wd_previous_boot=%016" PRIx64 " wd_previous_elapsed_us=%" PRIu64 " wd_previous_api=%u wd_previous_rc=%" PRId32 " absence_learned=%u absence_rx_healthy=%u absence_expected=%u ble_recoveries=%" PRIu32 "",wd.sampled_us,wd.main_at_us,wd.host_at_us,unsigned(wd.host_expected),unsigned(wd.sync_expected),wd.sync_until_us,wd.last_sync_us,wd.fault_since_us,wd.fault_elapsed_us,wd.no_time_since_us,wd.no_time_elapsed_us,wd.mask,wd.first_mask,wd.previous_mask,wd.restarts,wd.previous_boot,wd.previous_elapsed_us,unsigned(wd.previous_api),wd.previous_rc,unsigned(absence.learned),unsigned(absence.healthy_rx),unsigned(absence.expected),mesh.w12_ble_recoveries);
  response.format(" ble_root=%016" PRIx64 " ble_boot=%016" PRIx64 " ble_epoch=%" PRIu32 " ble_publication=%" PRIu32 " ble_origin=%" PRIu64 " ble_quality_scope=%" PRIu32,mesh.root_identity,mesh.root_boot,mesh.source_epoch,mesh.publication,mesh.g1_clock_origin,mesh.g1_relative_quality.scope_generation);
@@ -248,13 +267,13 @@ void pps(const gnss_pps::Observation& edge){
  }
  if(parent.sequence>parent_cursor)read_lost+=parent.sequence-(parent_cursor?parent_cursor:oldest-1);
  const auto count=returned;
- for(;returned<8;++returned)response.format(" parent%u=0/0/0/0000000000000000/0000000000000000/0000000000000000/0/0/0/0000000000000000/0000000000000000/0000000000000000/0/0/0",unsigned(returned));
- response.format(" parent_returned=%" PRIu32 " parent_overwritten=%" PRIu32 " parent_read_lost=%" PRIu32 " parent_encoding=SEQ_AT_REASON_FROM6_TO6_V1\n",count,parent.sequence>8?parent.sequence-8:0,read_lost);
- response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=%u heap_free=%u heap_largest=%u\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session,unsigned(gps_ready),unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
+ static constexpr char empty_scope[]="0000000000000000/0000000000000000/0000000000000000/0/0/0";
+ for(;returned<8;++returned)response.format(" parent%u=0/0/0/%s/%s",unsigned(returned),empty_scope,empty_scope);
+ response.format(" parent_returned=%" PRIu32 " parent_overwritten=%" PRIu32 " parent_read_lost=%" PRIu32 " parent_encoding=SEQ_AT_REASON_FROM6_TO6_V1",count,parent.sequence>8?parent.sequence-8:0,read_lost);
+ diagnostic_device();
+ response.format(" heap_free=%u heap_largest=%u\n",unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
  w12_lora_diagnostics(response);
- ui_clock_frame(mesh);
- response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
- v12::frame_submit_rc9(response);
+ diagnostic_finish(mesh);
 }
 #endif
 
@@ -576,35 +595,36 @@ void pps(const gnss_pps::Observation& edge){
   state.lora_time_valid=state.lora_ui_phase==w12::LoRaUiPhase::Live;
   state.lora_sampled_us=lora_now;state.lora_utc_us=state.lora_ui_phase==w12::LoRaUiPhase::Live?lora_utc:0;state.lora_emitter=lv.metadata_known?v12::R2Dashboard::name(lv.emitter):"NONE";
   state.lora_pair_age_ms=lv.age_ms;state.lora_meta_age_ms=lv.snapshot_age_ms;state.lora_fit_span_ms=lv.fit_span_ms;state.lora_rx_done=lv.rx_done;state.lora_link_rms_ns=lv.link_rms_ns;state.lora_link_samples=lv.link_samples;state.lora_crc=lv.crc_bad;
-  const bool ble_precision=w12::ble_locked(mesh,micros());
-#ifdef PTOB_RC9
-  const auto rc9=v12::r2_rc9_status();
-  const auto source=w12::rc9_source(ble_precision,state.lora_time_valid,lv.active&&lv.requested,rc9.client_until_us,micros(),mesh.requested&&!mesh.fault&&!update_gate.latched()&&lv.mode!=2&&!lv.fault);
-  state.rc9_serving=source.serve_rc9&&w12::rc9_original_envelope(lv);state.rc9_clients=rc9.clients;
-#else
-
-#endif
-  const bool select_lora=display_lora_selected&&(state.lora_time_valid||!ble_precision);
-  state.precision_lora=select_lora&&lv.requested&&lv.active&&!lv.fault;
-  if(state.precision_lora){state.precision_live=state.lora_time_valid;state.rms_ns=UINT32_MAX;
-   state.r2_relative_lock=false;state.hold_1us_ms=0;
-   if(!state.lora_time_valid){state.valid=false;state.utc=0;state.role="WAIT_RX";state.timing_source=DisplayState::Lora;state.followed_clock=state.lora_emitter;state.r2_connection="RC9";}
+  const auto common_tick=ticks();
+  const auto& common=w12::dual_timing_segment(common_tick);
+  const auto common_ns=common.at(common_tick);
+  if(common_ns){
+   const auto mode=common.mode_at(common_tick);
+   selected_utc=common_ns/1000;selected_at=micros();
+   state.valid=true;state.utc=uint32_t(common_ns/1000000000);state.gps_source=false;
+   state.precision_lora=mode==w12::ClockMode::LoRa;
+   state.precision_live=mode!=w12::ClockMode::Hold;
+   state.precision_rate_ppb=common.rate;
+   state.timing_source=state.precision_lora?DisplayState::Lora:mode==w12::ClockMode::Ble?DisplayState::Ble:DisplayState::NoSource;
+   if(mode!=w12::ClockMode::Ble){
+    state.role=state.precision_lora?"LORA":"HOLD";state.r2_connection=state.role;
+    state.followed_clock=state.precision_lora?state.lora_emitter:"NONE";
+    state.r2_root_clock=state.precision_lora?v12::R2Dashboard::name(lv.root):"NONE";
+    state.r2_relative_lock=false;state.rms_ns=state.precision_lora&&lv.link_samples>=4?lv.link_rms_ns:UINT32_MAX;
+    state.hold_1us_ms=0;
+   }
   }
-  if(select_lora&&state.lora_time_valid){
-   selected_utc=lora_utc;selected_at=lora_now;
-   state.valid=true;state.utc=uint32_t(lora_utc/1000000);state.timing_source=DisplayState::Lora;state.role="LORA";
-   state.r2_connection=state.rc9_serving?"RC9":"LORA";state.followed_clock=state.lora_emitter;state.r2_root_clock=v12::R2Dashboard::name(lv.root);state.r2_relative_lock=false;state.rms_ns=lv.link_samples>=4?lv.link_rms_ns:UINT32_MAX;state.hold_1us_ms=0;
-   state.precision_live=true;
-  }
-#endif
 #ifdef PTOB_RC9
   const auto rc9_clock=v12::r2_rc9_status();uint64_t rc9_utc=0;
-  if(!state.precision_lora&&!w12::ble_locked(mesh,micros())&&w12::rc9_time(rc9_clock,micros(),rc9_utc)){
+  state.rc9_serving=rc9_clock.serving;state.rc9_clients=rc9_clock.clients;
+  if((!common_ns||common.mode_at(common_tick)==w12::ClockMode::Hold||mesh.rc_parent.target==rc9_clock.server)&&
+     !w12::ble_locked(mesh,micros())&&w12::rc9_time(rc9_clock,micros(),rc9_utc)){
    selected_utc=rc9_utc;selected_at=micros();state.valid=true;state.utc=uint32_t(rc9_utc/1000000);
    state.timing_source=DisplayState::Rc9;state.role="RC9";state.followed_clock=v12::R2Dashboard::name(rc9_clock.server);
    state.r2_connection="RC9";state.r2_root_clock=v12::R2Dashboard::name(rc9_clock.root);
-   state.r2_relative_lock=false;state.precision_live=false;state.rms_ns=UINT32_MAX;state.hold_1us_ms=0;
+   state.r2_relative_lock=false;state.precision_lora=state.precision_live=false;state.rms_ns=UINT32_MAX;state.hold_1us_ms=0;
   }
+#endif
 #endif
 #endif
 #ifdef PTOB_W12_DUAL_UI
@@ -891,15 +911,21 @@ void stop_all(){
 #else
   const auto source_now=micros();w12_lora_control(w12::ble_locked(mesh,source_now),source_now,mesh.requested&&!mesh.fault&&!update_gate.latched());
 #endif
+  static uint64_t common_sample_us=0;
+  const bool sample=source_now-common_sample_us>=20000;
+  const auto before=sample?ticks():0;
   w12_lora_view lora_time;w12_lora_snapshot(lora_time);
   const auto selection_now=micros();uint64_t selection_utc=0;
-  // Observe every main turn, independently of the one-second repaint cadence.
-  // This display dwell never enters authenticated relay/admission decisions.
-  const bool was_lora=display_lora_selected;
-  display_lora_selected=display_clock_selection.select(w12::ble_locked(mesh,selection_now),w12::lora_time(lora_time,selection_now,selection_utc),mesh.root_identity,mesh.root_boot,mesh.source_epoch,mesh.g1_clock_origin,selection_now,w12::ble_permission_gap(mesh,selection_now),mesh.g1_relative_quality.scope_generation,mesh.publication,w12::ble_lock_refusal(mesh,selection_now));
+  if(sample){
+   common_sample_us=source_now;
+   w12::dual_timing_update(mesh,lora_time,before,selection_now,w12::ble_locked(mesh,selection_now));
+  }
   static auto displayed_phase=w12::LoRaUiPhase::Disabled;
-  const auto phase=w12::lora_ui_phase(lora_time,PTOB_W12_LORA_ENABLED!=0,selection_now,selection_utc!=0,mesh.fault);
-  if(phase!=displayed_phase||was_lora!=display_lora_selected){displayed_phase=phase;last_ui=0;}
+  static auto common_mode=w12::ClockMode::Unsynced;
+  const auto phase=w12::lora_ui_phase(lora_time,PTOB_W12_LORA_ENABLED!=0,selection_now,w12::lora_time(lora_time,selection_now,selection_utc),mesh.fault);
+  const auto mode=w12::dual_timing_segment(before).mode_at(before);
+  if(phase!=displayed_phase||(sample&&mode!=common_mode)){displayed_phase=phase;last_ui=0;}
+  if(sample)common_mode=mode;
   auto sync_until=w12::synchronized_until(mesh,lora_time,micros());
 #ifdef PTOB_RC9
   if(rc9_current)sync_until=std::max(sync_until,std::min(rc9.until_us,rc9.sampled_us+w12::SyncSnapshotMaxUs));

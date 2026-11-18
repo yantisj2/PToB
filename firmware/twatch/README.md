@@ -12,7 +12,7 @@ fallback. Built for the **T-Watch Ultra V1 with SX1262**, ESP32-S3 and
 analog complications for reception, lock, RMS, hold and battery reserve.
 **Solar** follows the sun through sunrise, sunset and twilight, with a moon-phase
 graphic and corner dials for RMS, P99 hold, source strength and tides.
-**Shadow** compares the selected BLE clock with the built-in GNSS PPS, with a
+**Shadow** compares the eligible BLE receiver model with the built-in GNSS PPS, with a
 satellite sky plot, reception bars and a ten-second settling countdown.
 
 These are [native-renderer previews](../../docs/twatch/images/README.md) with
@@ -53,9 +53,14 @@ and screen-use tracking, not a current measurement or battery-life estimate.
 
 BLE is preferred, with LoRa receiving in parallel when enabled. **HOLD** means
 the watch is keeping time from its last valid clock; it can continue until reboot,
-but its accuracy is unknown. **Sync RMS** describes internal timing fit quality.
-**P99** is a sampled sub-1 µs hold statistic; `--` means evidence is not ready.
-Neither value certifies UTC accuracy.
+but its accuracy is unknown. **BLE RMS** shows a fresh BLE receiver fit whenever
+available, including during acquisition; **LOR RMS** is the fallback. The label
+identifies the receiver independently of the clock SOURCE and PLL status. Values
+use ns, us, ms or s without hiding large fits. Expired or missing evidence stays
+`--`. **BLE P99** is a sampled sub-1 µs hold-duration statistic for the BLE
+receiver, not a prediction of the common clock’s holdover accuracy. Neither
+metric certifies UTC accuracy. Shadow shows receiver RMS in its header and keeps
+GNSS comparison error statistics separate below.
 
 ## Shadow PPS
 
@@ -64,6 +69,9 @@ opening an app or sleeping the display switches its main supply off; GNSS backup
 power is preserved. The face progresses through satellite search, fix, physical
 PPS, ten seconds of settling and measurement. The sweep shows acquisition;
 the pulse marker flashes only for a captured PPS edge.
+
+The comparison uses the BLE receiver model, including when common-clock
+delivery is enabled; it does not measure the common clock’s electrical output.
 
 **MEAN** is signed clock offset; **P99 ABS** is the 99th percentile of absolute
 offset, with **RMS** and sample count below. Here P99 is an error statistic; on
@@ -80,14 +88,22 @@ clock authority or update Solar's fixed location. Receiver bias and absolute UTC
 accuracy remain unqualified. GNSS reception, timing accuracy and power savings require field validation.
 Installation uses the separately authorized exact-device procedure.
 
-The [device measurement note](../../docs/twatch/shadow-pps-note.md) records a
-short settled shadow-PPS baseline and the tested unit's provisional fixed phase
-adjustment, with post-correction residual validation still pending.
+The [device measurement note](../../docs/twatch/shadow-pps-note.md) records the
+tested unit's local BLE/LoRa adjustments, fresh post-correction residuals and
+finite shared-clock checks, including observed coarse/holdover drift.
 
 The [longer BLE/LoRa test](../../docs/twatch/dual-radio-test.md) prepares separate
-offset measurements, held-out validation and a future shared-clock handover and
-holdover trial. Parallel LoRa PPS observation and shared discipline are not yet
-implemented in current firmware; activation is gated on confirmed offsets.
+offset measurements, held-out validation and shared-clock handover and holdover
+trials. The firmware records parallel BLE/LoRa PPS and implements one clock controller
+with BLE fine timing, LoRa coarse fallback and learned-rate HOLD. Shared delivery
+defaults to disabled; an exact-device profile enables reviewed local operation.
+The tested profile remains provisional. Physical PPS precision and longer
+handover/holdover acceptance require the full measurement campaign.
+
+For work with GNSS off, [common-clock snapshots](../../docs/twatch/gnss-free-snapshot.md)
+expose both receiver models and the delivered clock at one causal local tick.
+They measure service and model consistency; they do not supply an independent
+accuracy witness.
 
 ## Build and flash
 

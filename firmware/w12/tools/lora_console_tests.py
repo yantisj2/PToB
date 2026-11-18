@@ -9,7 +9,7 @@ from framed_console import require_coverage
 APP=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);p.add_argument('--tz',action='store_true');a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
 s=(APP/'main/native_main.cpp').read_text();start=s.index('[[gnu::noinline]] void lora_status_frame');end=s.index('\n}\n#endif',start)+2;(out/'actual_lora_frame.inc').write_text(s[start:end])
-start=s.index('[[gnu::noinline]] void ui_clock_frame');end=s.index('\n}\n#endif',start)+2;(out/'actual_ui_clock.inc').write_text(s[start:end])
+start=s.index('[[gnu::noinline]] void diagnostic_header');end=s.index('\n}\n#endif',start)+2;(out/'actual_ui_clock.inc').write_text(s[start:end])
 flags=['-std=c++20','-O1','-g','-Wall','-Wextra','-Werror','-Wno-sign-compare','-fsanitize=address,undefined','-fno-sanitize-recover=all','-DV12_R2_ENABLED=1','-DPTOB_W12_BLE_RECOVERY=1','-DPTOB_RC9=1']
 if a.tz:flags+=['-DR2_TZ_WIRE=1']
 for q in (out,APP/'tests/console_fakes',APP/'main',APP/'main/r2/r2-g1',APP/'main/r2/rc7/include'):flags+=['-I'+str(q)]
@@ -18,12 +18,12 @@ m=dict(factory_mac='02:00:00:00:00:05',source_commit='0'*40,build_id='0'*64,cons
 wire=(out/'wire.txt').read_bytes();frames=Parser('0000000000000abc',m,'0000000000001234').feed(wire);assert len(frames)==1;require_coverage(frames[0]);assert len(frames[0]['rows'])==10
 assert frames[0]['rows']['W12_UI_CLOCK']['lui']=='11/4294967295'
 assert {k:frames[0]['rows']['W12_V12_STATUS'][k] for k in ('heap_free','heap_largest')}==dict(heap_free='24000',heap_largest='12000')
-mesh=frames[0]['rows']['W12_R2_STATUS'];assert mesh['dual_schema']=='2' and mesh['parent_view']=='RING8' and len(mesh['parent_events'])==8 and len(wire)<=8704
+mesh=frames[0]['rows']['W12_R2_STATUS'];assert mesh['dual_schema']=='3' and mesh['parent_view']=='RING8' and len(mesh['parent_events'])==8 and len(wire)<=8704
 def re_crc(raw):
  body,end=raw.split(b'W12_V12_END ',1);end=b'W12_V12_END '+end.rstrip(b'\n').rsplit(b' end_crc32=',1)[0]
  end=re.sub(rb' crc32=[0-9a-f]{8}',b' crc32='+f'{zlib.crc32(body):08x}'.encode(),end)
  return body+end+b' end_crc32='+f'{zlib.crc32(end,zlib.crc32(body)):08x}'.encode()+b'\n'
-for old,new in ((b'wd_no_time_limit_us=720000000',b'wd_no_time_limit_us=300000000'),(b'absence_expected=0',b'absence_expected=2'),(b'authority=UNCHANGED',b'authority=GRANTED'),(b'parent_view=RING8',b'parent_view=COMPLETE_HISTORY'),(b'parent_returned=8',b'parent_returned=9'),(b'permission_gap_limit_us=1500000',b'permission_gap_limit_us=0'),(b'remaining_us=30000000',b'remaining_us=30000001'),(('ble_refusal='+mesh['ble_refusal']).encode(),b'ble_refusal=4096')):
+for old,new in ((b'wd_no_time_limit_us=720000000',b'wd_no_time_limit_us=300000000'),(b'absence_expected=0',b'absence_expected=2'),(b'authority=BLE_ONLY',b'authority=GRANTED'),(b'parent_view=RING8',b'parent_view=COMPLETE_HISTORY'),(b'parent_returned=8',b'parent_returned=9'),(b'common_mode=0',b'common_mode=4'),(b'lora_bias_ns=0',b'lora_bias_ns=20000001'),(('ble_refusal='+mesh['ble_refusal']).encode(),b'ble_refusal=4096')):
  assert old in wire
  try:Parser('0000000000000abc',m,'0000000000001234').feed(re_crc(wire.replace(old,new)))
  except RuntimeError:pass

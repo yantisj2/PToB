@@ -27,7 +27,7 @@ esp_err_t spi_device_queue_trans(spi_device_handle_t,spi_transaction_t* t,TickTy
 esp_err_t spi_device_get_trans_result(spi_device_handle_t,spi_transaction_t** o,TickType_t wait){assert(wait==5&&fake::pending);if(fake::dma_fail)return -1;*o=fake::pending;std::memset((*o)->rx_buffer,0,(*o)->length/8);fake::pending=nullptr;++fake::ends;if(fake::cancel){fake::cancel=false;assert(v12::lora_request(false,0));}return 0;}
 extern "C" bool clock_reference_read(uint64_t* t){++fake::fine_reads;fake::us+=50;*t=9000000+fake::us*20;return true;}
 bool w12_fine_lora_current(uint64_t* t){++fake::lora_reads;*t=fake::us*20;return fake::clock_ok;}
-bool w12_fine_lora_start(bool(*)(uint64_t,uint64_t),uint64_t){fake::capture=true;return !fake::capture_fail;}
+bool w12_fine_lora_start(bool(*)(uint64_t,uint64_t),uint64_t,uint64_t& origin){origin=1;fake::capture=true;return !fake::capture_fail;}
 bool w12_fine_fault(){return false;}
 bool w12_fine_lora_stop(){fake::capture=false;return true;}
 #ifndef PTOB_W12_TEST_REAL_PASSIVE

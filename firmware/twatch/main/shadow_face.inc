@@ -33,6 +33,8 @@ void shadow_face(Canvas& c,const Model& m,uint64_t now){
  c.line(44,186,366,186,ShadowRule);
  c.line(44,186,64,186,pps?ShadowLime:ShadowRule);c.line(64,186,64,178,flash?ShadowLime:ShadowRule);c.line(64,178,74,178,flash?ShadowLime:ShadowRule);c.line(74,178,74,186,flash?ShadowLime:ShadowRule);
  c.text(84,173,pps?"PPS 1Hz":"PPS --",14,pps?ShadowLime:ShadowMuted);
+ char rx[24];if(receiver_rms_current(m,now))rms_text(rx,sizeof rx,m.rms_ns);else std::snprintf(rx,sizeof rx,"--");
+ std::snprintf(b,sizeof b,"%s %s",rms_caption(m),rx);centered(c,225,67,b,14,ShadowMuted);
  std::snprintf(b,sizeof b,"MESH %s",m.local_time?"HOLD":live?source(m.source):"WAIT");c.text(250,173,b,14,ShadowMuted);
  // Actual azimuth/elevation only. The acquisition sweep has no satellite dots.
  constexpr int cx=109,cy=250,radius=49;

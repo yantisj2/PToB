@@ -1,0 +1,739 @@
+{
+  "schema": 1,
+  "title": "One T-Watch Ultra: GNSS-witnessed parallel models and finite common-clock checks",
+  "date": "2026-11-17",
+  "dataset_license": "CC-BY-4.0",
+  "attribution": "Jonathan Yantis",
+  "subject": "One LILYGO T-Watch Ultra V1 / SX1262 test unit",
+  "measurement": "On-device clock-model projections at captured built-in GNSS PPS; no independently measured output or RF antenna-onset timestamp",
+  "contracts": [
+    "TWATCH_DUAL_RADIO_PPS_V1",
+    "TWATCH_COMMON_CLOCK_V1"
+  ],
+  "fixed_adjustments_ns": {
+    "BLE_existing": 2900,
+    "BLE_incremental": 0,
+    "LoRa_engineering_convention": 99328000,
+    "LoRa_incremental": 3599390
+  },
+  "training": {
+    "firmware": {
+      "version": "0.1.14",
+      "source_sha256": "ad2a104773c2864a8cc6f11235a6eb09cd9ca2bb2ee4810caa5a2cdb344e098c",
+      "application_sha256": "08df1865172e84f1c6466d296bb5e1e5389c07bce67eccf9482a08332b8a6dce",
+      "shared_clock_enabled": false
+    },
+    "seconds": 1200,
+    "physical_PPS": 1200,
+    "missing_PPS": 0,
+    "eligible_contexts_per_channel": 1,
+    "statistics": {
+      "ble": {
+        "samples": 794,
+        "mean_ns": -87.10327455919395,
+        "p99_abs_ns": 151.07,
+        "rms_ns": 91.65294302277215,
+        "maximum_abs_ns": 172,
+        "distinct_observations": 794,
+        "observed_stage_rows": 1200,
+        "context_rows": 1158,
+        "ineligible_rows": 364,
+        "invalid_reasons": {
+          "ELIGIBLE": 364,
+          "SETTLING": 364
+        },
+        "first_half_mean_ns": -82.57,
+        "second_half_mean_ns": -91.70558375634518
+      },
+      "lora": {
+        "samples": 1157,
+        "mean_ns": -3599389.9913569577,
+        "p99_abs_ns": 3605778.08,
+        "rms_ns": 3599390.9222106976,
+        "maximum_abs_ns": 3608515,
+        "distinct_observations": 41,
+        "observed_stage_rows": 1200,
+        "context_rows": 1198,
+        "ineligible_rows": 41,
+        "invalid_reasons": {
+          "ELIGIBLE": 41,
+          "MAP_VALID": 23,
+          "SETTLING": 41
+        },
+        "first_half_mean_ns": -3599407.470989761,
+        "second_half_mean_ns": -3599372.0525394045
+      }
+    },
+    "BLE_recalibration_accepted": false,
+    "LoRa_candidate_derived": true,
+    "all_context_coverage": {
+      "ble": {
+        "eligible_PPS": 794,
+        "rejected_PPS": 406,
+        "unscoped_PPS": 42,
+        "invalid_reasons": {
+          "ELIGIBLE": 406,
+          "AUTHENTICATED": 42,
+          "STRICT": 42,
+          "MAP_VALID": 42,
+          "REQUESTED": 42,
+          "OWNER_ACTIVE": 42,
+          "SETTLING": 406,
+          "CAPTURE_EPOCH_MISMATCH": 42,
+          "OWNER_GENERATION_MISMATCH": 42,
+          "RACING_FUTURE_OR_EXPIRED_MODEL": 42
+        }
+      },
+      "lora": {
+        "eligible_PPS": 1157,
+        "rejected_PPS": 43,
+        "unscoped_PPS": 2,
+        "invalid_reasons": {
+          "ELIGIBLE": 43,
+          "AUTHENTICATED": 2,
+          "STRICT": 2,
+          "MAP_VALID": 25,
+          "REQUESTED": 2,
+          "OWNER_ACTIVE": 2,
+          "SETTLING": 43,
+          "CAPTURE_EPOCH_MISMATCH": 2,
+          "OWNER_GENERATION_MISMATCH": 2,
+          "RACING_FUTURE_OR_EXPIRED_MODEL": 2
+        }
+      }
+    }
+  },
+  "post_correction_engineering_check": {
+    "firmware": {
+      "version": "0.1.15",
+      "source_sha256": "91d8bc528e2611440735417cff821600288536f243f4cebf76c27482d4186d57",
+      "application_sha256": "b8df8d2fb13e6d3010d8ed6c4df5b8679b2c26d63c28984b0a52ab294880597d",
+      "shared_clock_enabled": false
+    },
+    "seconds": 120,
+    "physical_PPS": 120,
+    "statistics": {
+      "ble": {
+        "samples": 115,
+        "mean_ns": -51.0,
+        "p99_abs_ns": 112.44,
+        "rms_ns": 58.703158940258206,
+        "maximum_abs_ns": 135,
+        "distinct_observations": 115,
+        "observed_stage_rows": 120,
+        "context_rows": 115,
+        "ineligible_rows": 0,
+        "invalid_reasons": {},
+        "first_half_mean_ns": -50.29824561403509,
+        "second_half_mean_ns": -51.689655172413794
+      },
+      "lora": {
+        "samples": 115,
+        "mean_ns": -341.74782608695654,
+        "p99_abs_ns": 4375.44,
+        "rms_ns": 1567.0541984467434,
+        "maximum_abs_ns": 4617,
+        "distinct_observations": 5,
+        "observed_stage_rows": 120,
+        "context_rows": 119,
+        "ineligible_rows": 4,
+        "invalid_reasons": {
+          "ELIGIBLE": 4,
+          "MAP_VALID": 4,
+          "SETTLING": 4
+        },
+        "first_half_mean_ns": -385.7118644067797,
+        "second_half_mean_ns": -295.42857142857144
+      }
+    },
+    "joint_full_UTC_alignment": {
+      "samples": 110,
+      "mean_ns": -331.43636363636364,
+      "p99_abs_ns": 4384.45,
+      "rms_ns": 1562.7442819953274,
+      "maximum_abs_ns": 4588
+    },
+    "status": "PASS_FOR_PROVISIONAL_SHARED_CLOCK_FUNCTIONAL_TEST",
+    "full_20min_validation": false,
+    "all_context_coverage": {
+      "ble": {
+        "eligible_PPS": 115,
+        "rejected_PPS": 5,
+        "unscoped_PPS": 5,
+        "invalid_reasons": {
+          "ELIGIBLE": 5,
+          "AUTHENTICATED": 5,
+          "STRICT": 5,
+          "MAP_VALID": 5,
+          "REQUESTED": 5,
+          "OWNER_ACTIVE": 5,
+          "SETTLING": 5,
+          "CAPTURE_EPOCH_MISMATCH": 5,
+          "OWNER_GENERATION_MISMATCH": 5,
+          "RACING_FUTURE_OR_EXPIRED_MODEL": 5
+        }
+      },
+      "lora": {
+        "eligible_PPS": 115,
+        "rejected_PPS": 5,
+        "unscoped_PPS": 1,
+        "invalid_reasons": {
+          "ELIGIBLE": 5,
+          "AUTHENTICATED": 1,
+          "STRICT": 1,
+          "MAP_VALID": 5,
+          "REQUESTED": 1,
+          "OWNER_ACTIVE": 1,
+          "SETTLING": 5,
+          "CAPTURE_EPOCH_MISMATCH": 1,
+          "OWNER_GENERATION_MISMATCH": 1,
+          "RACING_FUTURE_OR_EXPIRED_MODEL": 1
+        }
+      }
+    }
+  },
+  "common_clock_functional_check": {
+    "firmware": {
+      "version": "0.1.16",
+      "source_sha256": "50056910083fe13ffba7a1b3e5790f38368540951c211104e1b0f9e74b03d440",
+      "application_sha256": "2d9af25a9acee9e4aeff096f95c28abd5527e11be57b05cfc189cb7292be6b20",
+      "shared_clock_enabled": true
+    },
+    "seconds": 420,
+    "status": "FINITE_SHARED_CLOCK_FUNCTIONAL_PASS",
+    "stages": [
+      {
+        "stage": "functional_ble_60s",
+        "physical_PPS": 60,
+        "referenced_clock_PPS": 60,
+        "modes": {
+          "BLE_FINE": 57,
+          "LORA_COARSE": 3
+        },
+        "retained_rate_ppb": null
+      },
+      {
+        "stage": "functional_lora_120s",
+        "physical_PPS": 120,
+        "referenced_clock_PPS": 120,
+        "modes": {
+          "LORA_COARSE": 118,
+          "HOLD": 2
+        },
+        "retained_rate_ppb": -21382.453672
+      },
+      {
+        "stage": "functional_ble_return_90s",
+        "physical_PPS": 90,
+        "referenced_clock_PPS": 90,
+        "modes": {
+          "LORA_COARSE": 43,
+          "BLE_FINE": 47
+        },
+        "retained_rate_ppb": null
+      },
+      {
+        "stage": "functional_hold_60s",
+        "physical_PPS": 60,
+        "referenced_clock_PPS": 60,
+        "modes": {
+          "HOLD": 60
+        },
+        "retained_rate_ppb": -21596.092629
+      },
+      {
+        "stage": "functional_return_90s",
+        "physical_PPS": 90,
+        "referenced_clock_PPS": 90,
+        "modes": {
+          "HOLD": 34,
+          "BLE_FINE": 56
+        },
+        "retained_rate_ppb": null
+      }
+    ],
+    "clock_statistics": [
+      {
+        "stage": "functional_ble_60s",
+        "mode": "BLE_FINE",
+        "samples": 57,
+        "mean_ns": -59.666666666666664,
+        "p99_abs_ns": 115.88,
+        "rms_ns": 66.95625699572216,
+        "maximum_abs_ns": 117
+      },
+      {
+        "stage": "functional_ble_60s",
+        "mode": "LORA_COARSE",
+        "samples": 3,
+        "mean_ns": 214.0,
+        "p99_abs_ns": 230.66,
+        "rms_ns": 214.44968329812627,
+        "maximum_abs_ns": 231
+      },
+      {
+        "stage": "functional_ble_return_90s",
+        "mode": "BLE_FINE",
+        "samples": 47,
+        "mean_ns": 2321.191489361702,
+        "p99_abs_ns": 57599.74,
+        "rms_ns": 12569.681297268186,
+        "maximum_abs_ns": 80522
+      },
+      {
+        "stage": "functional_ble_return_90s",
+        "mode": "LORA_COARSE",
+        "samples": 43,
+        "mean_ns": 73233.6511627907,
+        "p99_abs_ns": 80178.86,
+        "rms_ns": 73372.79155632175,
+        "maximum_abs_ns": 80291
+      },
+      {
+        "stage": "functional_hold_60s",
+        "mode": "HOLD",
+        "samples": 60,
+        "mean_ns": 9065.5,
+        "p99_abs_ns": 23094.23,
+        "rms_ns": 11662.055456336446,
+        "maximum_abs_ns": 23450
+      },
+      {
+        "stage": "functional_lora_120s",
+        "mode": "HOLD",
+        "samples": 2,
+        "mean_ns": 32030.5,
+        "p99_abs_ns": 46280.19,
+        "rms_ns": 35176.39933961405,
+        "maximum_abs_ns": 46571
+      },
+      {
+        "stage": "functional_lora_120s",
+        "mode": "LORA_COARSE",
+        "samples": 118,
+        "mean_ns": 25920.161016949154,
+        "p99_abs_ns": 61372.11,
+        "rms_ns": 32197.272631757627,
+        "maximum_abs_ns": 62328
+      },
+      {
+        "stage": "functional_return_90s",
+        "mode": "BLE_FINE",
+        "samples": 56,
+        "mean_ns": -116.48214285714286,
+        "p99_abs_ns": 189.9,
+        "rms_ns": 121.00228746362016,
+        "maximum_abs_ns": 202
+      },
+      {
+        "stage": "functional_return_90s",
+        "mode": "HOLD",
+        "samples": 34,
+        "mean_ns": 30762.029411764706,
+        "p99_abs_ns": 34686.01,
+        "rms_ns": 30905.002869800108,
+        "maximum_abs_ns": 34720
+      }
+    ],
+    "holdover_points": [
+      {
+        "stage": "functional_hold_60s",
+        "target_seconds": 1,
+        "age_us": 1282404,
+        "phase_ns": -249
+      },
+      {
+        "stage": "functional_hold_60s",
+        "target_seconds": 10,
+        "age_us": 10282600,
+        "phase_ns": 1082
+      },
+      {
+        "stage": "functional_transition",
+        "target_seconds": 60,
+        "age_us": 60283703,
+        "phase_ns": 24103
+      }
+    ],
+    "single_clock_instance": true,
+    "single_counter_domain": true,
+    "UTC_backsteps": 0,
+    "counter_reversals": 0,
+    "HOLD_authority_claims": 0,
+    "LoRa_fine_quality_claims": 0,
+    "radio_intent_restored": "BOTH_ON"
+  },
+  "provenance": {
+    "selected_aggregate_only": true,
+    "raw_records": "Retained locally; not included in this public aggregate",
+    "raw_responses_sha256": {
+      "training": "7298578891028638fd92c76ce0fd17a1307f786aa37d6dbf139762c1268e89c0",
+      "corrected": "b3bea127ccd7b54dab502562d6806502b88ff154e9ac9ad5f4b802c4aed0fa1c",
+      "functional": "6fbc7e612107cfb36b593e278e6490f8c84a86d07419e7aa1c10985cc8b61d00"
+    }
+  },
+  "limitations": [
+    "Built-in GNSS input and model comparisons do not qualify independent output or absolute UTC accuracy",
+    "BLE794/1200 training coverage was below the1080 gate; its existing provisional correction was retained",
+    "Corrected engineering window was120s, separate from the planned20min held-out precision validation",
+    "Earlier rejected counter-bridge acquisition attempts and missing/invalid observations remain retained locally",
+    "LoRa PPS projections from one timing pair are correlated; all41 training pairs and window denominators are preserved",
+    "Counter-bridge enclosure contributes uncertainty to LoRa measurements",
+    "Common-clock LoRa-only error reached62.328us over120s; BLE return included80.522us before bounded settling",
+    "Both-radio holdover reached24.103us at60.284s in one trial; longer horizons were not measured",
+    "The90min precision campaign is incomplete; RF marker remains HeaderValid and no GNSS feedback trains the clock"
+  ],
+  "controller_regression_diagnosis": {
+    "firmware_version": "0.1.16",
+    "joint_lora_only_PPS": 118,
+    "lora_model_pps_rms_ns": 12606.01,
+    "common_clock_pps_rms_ns": 32197.273,
+    "clock_minus_lora_rms_ns": 21170.157,
+    "clock_minus_lora_maximum_ns": 50416,
+    "retained_clock_rate_ppb": -21382.453672,
+    "finding": "Controller froze the learned BLE frequency during LoRa-only operation, filtered model phase again and could lose phase steering across brief projection refusals. It also used base rate rather than the damped predictor instantaneous rate.",
+    "RF_receive_and_estimator_sources_changed_from_0_1_14": false,
+    "thermal_or_load_cause_independently_proven": false
+  },
+  "controller_fix_short_check": {
+    "firmware": {
+      "version": "0.1.17",
+      "source_sha256": "a51dd3b0133d2f34a936d1d57f476fa0e9e6766e1d0f981fd073dd8f13a253d7",
+      "application_sha256": "f35bd4dc116950f65c20ec95c8aeceb505c258e7b91a055a95e5d31f18a0ee01"
+    },
+    "seconds": 185,
+    "stages": [
+      {
+        "stage": "gate_ble_20s",
+        "seconds": 20
+      },
+      {
+        "stage": "gate_lora_90s",
+        "seconds": 90
+      },
+      {
+        "stage": "gate_ble_return_75s",
+        "seconds": 75
+      }
+    ],
+    "clock_statistics": [
+      {
+        "stage": "gate_ble_20s",
+        "mode": "BLE_FINE",
+        "samples": 20,
+        "mean_ns": -32.8,
+        "p99_abs_ns": 82.1,
+        "rms_ns": 40.75168708164117,
+        "maximum_abs_ns": 84
+      },
+      {
+        "stage": "gate_ble_return_75s",
+        "mode": "BLE_FINE",
+        "samples": 41,
+        "mean_ns": -26.390243902439025,
+        "p99_abs_ns": 106.4,
+        "rms_ns": 47.53176088346535,
+        "maximum_abs_ns": 110
+      },
+      {
+        "stage": "gate_ble_return_75s",
+        "mode": "LORA_COARSE",
+        "samples": 34,
+        "mean_ns": 8989.382352941177,
+        "p99_abs_ns": 11930.45,
+        "rms_ns": 9291.020663554045,
+        "maximum_abs_ns": 11975
+      },
+      {
+        "stage": "gate_lora_90s",
+        "mode": "HOLD",
+        "samples": 2,
+        "mean_ns": 5799.0,
+        "p99_abs_ns": 13961.02,
+        "rms_ns": 10107.110615799156,
+        "maximum_abs_ns": 14077
+      },
+      {
+        "stage": "gate_lora_90s",
+        "mode": "LORA_COARSE",
+        "samples": 88,
+        "mean_ns": 6503.011363636364,
+        "p99_abs_ns": 16644.09,
+        "rms_ns": 8705.630899152153,
+        "maximum_abs_ns": 17421
+      }
+    ],
+    "final_coarse_checkpoint": {
+      "channel": "lora",
+      "clock_pps": {
+        "n": 30,
+        "mean_ns": 11493.9,
+        "rms_ns": 11979.613592822321,
+        "peak_ns": 17421
+      },
+      "model_pps": {
+        "n": 30,
+        "mean_ns": 11142.966666666667,
+        "rms_ns": 11709.61109658785,
+        "peak_ns": 17098
+      },
+      "clock_minus_model": {
+        "n": 30,
+        "mean_ns": 350.93333333333334,
+        "rms_ns": 1939.571859973226,
+        "peak_ns": 7886
+      },
+      "mode_fraction": 1.0,
+      "physical_observations": 2,
+      "stage": "gate_lora_90s",
+      "checkpoint_s": 88
+    },
+    "final_fine_checkpoint": {
+      "channel": "ble",
+      "clock_pps": {
+        "n": 27,
+        "mean_ns": -29.59259259259259,
+        "rms_ns": 52.67194066420311,
+        "peak_ns": 110
+      },
+      "model_pps": {
+        "n": 27,
+        "mean_ns": -29.62962962962963,
+        "rms_ns": 52.74045463925729,
+        "peak_ns": 110
+      },
+      "clock_minus_model": {
+        "n": 27,
+        "mean_ns": 0.037037037037037035,
+        "rms_ns": 0.8819171036881969,
+        "peak_ns": 3
+      },
+      "mode_fraction": 1.0,
+      "physical_observations": 27,
+      "stage": "gate_ble_return_75s",
+      "checkpoint_s": 70
+    },
+    "status": "FIVE_SHORT_ACCURACY_CHECKPOINTS_PASS",
+    "clock_instances": 1,
+    "counter_domains": 1,
+    "UTC_backsteps": 0,
+    "long_precision_campaign_complete": false,
+    "limitations": "One short controller check with radio power transitions. LoRa input-model drift remains present; shared-clock tracking and raw radio-model precision are distinct."
+  },
+  "controller_fix_0_1_17_followon": {
+    "status": "ALL_FIXED_STAGES_COMPLETED_WITH_BLE_FINE_COVERAGE_FAILURE",
+    "seconds": 420,
+    "stages": [
+      {
+        "stage": "functional_ble_60s",
+        "physical_PPS": 60,
+        "referenced_clock_PPS": 60,
+        "modes": {
+          "BLE_FINE": 30,
+          "HOLD": 2,
+          "LORA_COARSE": 28
+        },
+        "retained_rate_ppb": null
+      },
+      {
+        "stage": "functional_lora_120s",
+        "physical_PPS": 120,
+        "referenced_clock_PPS": 120,
+        "modes": {
+          "LORA_COARSE": 120
+        },
+        "retained_rate_ppb": null
+      },
+      {
+        "stage": "functional_ble_return_90s",
+        "physical_PPS": 90,
+        "referenced_clock_PPS": 90,
+        "modes": {
+          "LORA_COARSE": 30,
+          "HOLD": 5,
+          "BLE_FINE": 55
+        },
+        "retained_rate_ppb": null
+      },
+      {
+        "stage": "functional_hold_60s",
+        "physical_PPS": 60,
+        "referenced_clock_PPS": 60,
+        "modes": {
+          "LORA_COARSE": 1,
+          "HOLD": 59
+        },
+        "retained_rate_ppb": -21916.823747
+      },
+      {
+        "stage": "functional_return_90s",
+        "physical_PPS": 90,
+        "referenced_clock_PPS": 90,
+        "modes": {
+          "HOLD": 71,
+          "BLE_FINE": 19
+        },
+        "retained_rate_ppb": null
+      }
+    ],
+    "paired_LoRa_only": {
+      "same_PPS": 120,
+      "clock": {
+        "samples": 120,
+        "mean_ns": 12477.483333333334,
+        "rms_ns": 14761.393320641066,
+        "maximum_abs_ns": 27780
+      },
+      "lora": {
+        "samples": 120,
+        "mean_ns": 11758.55,
+        "rms_ns": 13856.861595734199,
+        "maximum_abs_ns": 27388
+      },
+      "clock_minus_lora": {
+        "samples": 120,
+        "mean_ns": 718.9333333333333,
+        "rms_ns": 3339.1909499158623,
+        "maximum_abs_ns": 13796
+      }
+    },
+    "recoverable_accuracy_excursions": 1,
+    "UTC_backsteps": 0,
+    "counter_reversals": 0,
+    "clock_instances": 1,
+    "failure": "A brief BLE mapping refusal restarted return qualification; fresh BLE projections remained available while the controller waited. Not a completed accuracy qualification.",
+    "clock_statistics": [
+      {
+        "stage": "functional_ble_60s",
+        "mode": "BLE_FINE",
+        "samples": 30,
+        "mean_ns": -32.733333333333334,
+        "p99_abs_ns": 102.3,
+        "rms_ns": 46.22841838811562,
+        "maximum_abs_ns": 111
+      },
+      {
+        "stage": "functional_ble_60s",
+        "mode": "HOLD",
+        "samples": 2,
+        "mean_ns": -978.5,
+        "p99_abs_ns": 1670.87,
+        "rms_ns": 1206.8987115744221,
+        "maximum_abs_ns": 1685
+      },
+      {
+        "stage": "functional_ble_60s",
+        "mode": "LORA_COARSE",
+        "samples": 28,
+        "mean_ns": -1792.75,
+        "p99_abs_ns": 3333.77,
+        "rms_ns": 1965.2845213861528,
+        "maximum_abs_ns": 3428
+      },
+      {
+        "stage": "functional_ble_return_90s",
+        "mode": "BLE_FINE",
+        "samples": 55,
+        "mean_ns": -33.58181818181818,
+        "p99_abs_ns": 91.0,
+        "rms_ns": 48.17298375268407,
+        "maximum_abs_ns": 91
+      },
+      {
+        "stage": "functional_ble_return_90s",
+        "mode": "HOLD",
+        "samples": 5,
+        "mean_ns": 11067.8,
+        "p99_abs_ns": 16450.92,
+        "rms_ns": 12333.973787875504,
+        "maximum_abs_ns": 16503
+      },
+      {
+        "stage": "functional_ble_return_90s",
+        "mode": "LORA_COARSE",
+        "samples": 30,
+        "mean_ns": 13440.8,
+        "p99_abs_ns": 19251.03,
+        "rms_ns": 14338.618557355285,
+        "maximum_abs_ns": 19423
+      },
+      {
+        "stage": "functional_hold_60s",
+        "mode": "HOLD",
+        "samples": 59,
+        "mean_ns": 8372.559322033898,
+        "p99_abs_ns": 22460.44,
+        "rms_ns": 11176.799045268062,
+        "maximum_abs_ns": 22827
+      },
+      {
+        "stage": "functional_hold_60s",
+        "mode": "LORA_COARSE",
+        "samples": 1,
+        "mean_ns": -306.0,
+        "p99_abs_ns": 306,
+        "rms_ns": 306.0,
+        "maximum_abs_ns": 306
+      },
+      {
+        "stage": "functional_lora_120s",
+        "mode": "LORA_COARSE",
+        "samples": 120,
+        "mean_ns": 12477.483333333334,
+        "p99_abs_ns": 25653.98,
+        "rms_ns": 14761.393320641066,
+        "maximum_abs_ns": 27780
+      },
+      {
+        "stage": "functional_return_90s",
+        "mode": "BLE_FINE",
+        "samples": 19,
+        "mean_ns": -44.05263157894737,
+        "p99_abs_ns": 102.06,
+        "rms_ns": 49.98789327111326,
+        "maximum_abs_ns": 108
+      },
+      {
+        "stage": "functional_return_90s",
+        "mode": "HOLD",
+        "samples": 71,
+        "mean_ns": 18299.845070422536,
+        "p99_abs_ns": 32890.6,
+        "rms_ns": 23614.014309065125,
+        "maximum_abs_ns": 32948
+      }
+    ],
+    "CPU_observation": "All340 sampled UI frequency readings were240MHz, including132 readings with BLE CPU hold released and panel hold active.",
+    "subsequent_source_fix": "0.1.18 preserves qualification only while physical BLE progress remains within500ms; new absence/context/expiry regressions required."
+  },
+  "next_controller_candidate": {
+    "version": "0.1.18",
+    "source_sha256": "1998e47d9fd5f33a4bef99367f9123ce4a29b8772116f29c254c04f081faeccf",
+    "application_sha256": "932921afd327624e57f1cd79efc58ea76741268fe92c8e477dbf59328593bf96",
+    "status": "INSTALLED_APP_READBACK_USB_RADIO_STARTUP_PASS_FIELD_SWITCHING_RETEST_PENDING",
+    "offline_suites_passed": 26,
+    "scope": "Preserve BLE return qualification across brief mapping refusals only while physical progress remains within500ms; unchanged source/domain/expiry guards, calibrated offsets, RF trigger and CPU policy.",
+    "new_hardware_precision_result": false
+  },
+  "root_roaming_followup": {
+    "firmware": {
+      "version": "0.1.19",
+      "source_sha256": "9cb36e1bd6659175455cdfba851a74e8994dcd8dc3e592a772a177500f916d92",
+      "application_sha256": "f407d4e84561d53255db71d2f5d7a92546265ed6b9626ebb4cc6c28f74460c70"
+    },
+    "observed_failure": "BLE had authenticated a different root, but common-clock calibration applicability vetoed availability and left HOLD.",
+    "fix": "Discover/select authenticated sources independently of measured-correction applicability; unmatched extra corrections are omitted, calibration is unknown. Receiver-qualified BLE return uses100ms advancing physical progress.",
+    "offline_suites_passed": 26,
+    "actual_new_root_following_verified": true,
+    "physical_BLE_OFF_ON_same_boot_verified": true,
+    "receiver_reacquisition_seconds": 10.021707459003665,
+    "first_observed_ready_to_three_verified_fine_reads_seconds": 0.7750133340014145,
+    "clock_counter_and_UTC_monotonic": true,
+    "GNSS_changed_or_precision_measured": false,
+    "on_device_physical_LoRa_fallback_retested": false,
+    "offline_actual_adapter_LoRa_fallback_pass": true,
+    "radios_restored_on_USB_released": true,
+    "root_roaming_trust_scope": "Existing enrolled trusted group; a different group/key requires trusted enrollment.",
+    "new_path_calibration_confirmed": false
+  }
+}

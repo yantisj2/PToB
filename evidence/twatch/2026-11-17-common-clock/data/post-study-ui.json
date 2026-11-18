@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "status": "POST_STUDY_UI_VERIFIED_SEPARATE_POPULATION",
+  "firmware_version": "0.1.21",
+  "application_sha256": "f1405b66b96bca2dbff64a3b5181131ffa8d62b64ee59ee5dbb17ca00fbcea34",
+  "application_bytes": 1374768,
+  "source_sha256": "4edf3f253e49a642943e7c970b63bbbaad4ae253dd61ef2b226e069107a37979",
+  "runtime_build_id": "9292030f1003c341d21fa09da555bdfa1cfe56a17feba97b000fd4c7bb533320",
+  "study_firmware_version": "0.1.20",
+  "study_data_sealed_before_UI_changes": true,
+  "receiver_metrics_contract": "FRESH_BLE_FIRST_LORA_FALLBACK_RX_RMS_V1",
+  "controller_unchanged_from_study": true,
+  "fixed_correction_profiles_unchanged": true,
+  "CPU_policy_unchanged": true,
+  "offline_suites_passed": 26,
+  "synthetic_preview_states": 99,
+  "faces_visually_reviewed_offline": 4,
+  "faces_runtime_render_verified": [
+    0,
+    1,
+    2
+  ],
+  "Shadow_hardware_activated": false,
+  "GNSS_enabled": false,
+  "receiver_fit_RMS_ns_by_rendered_face": [
+    {
+      "face": 0,
+      "RMS_ns": 62,
+      "receiver": "BLE"
+    },
+    {
+      "face": 1,
+      "RMS_ns": 62,
+      "receiver": "BLE"
+    },
+    {
+      "face": 2,
+      "RMS_ns": 62,
+      "receiver": "BLE"
+    },
+    {
+      "face": 0,
+      "RMS_ns": 64,
+      "receiver": "BLE"
+    }
+  ],
+  "final_Digital_receiver_fit_RMS_ns": 57,
+  "independent_accuracy_verified": false,
+  "app_only_actual_application_readback": true,
+  "protected_prefix_and_final_sector_tail_verified": true,
+  "whole_flash_backup": false,
+  "diagnostic_erasure": false,
+  "AUTO_restored": true,
+  "both_radio_owners_ON_restored": true,
+  "Digital_restored": true,
+  "USB_TTY_and_unit_lock_released": true,
+  "host_checker_failures": [
+    "First helper expected compact-only fields in full status",
+    "Second helper required completed rebind even when boot-default AUTO was already active; source contract permits state0 auto and state3 applied"
+  ],
+  "original_failed_attempts_retained": true,
+  "private_receipt_hashes": {
+    "ui-21-native-02/receipt.json": "bab52973b88589b5e488c655c9fd413c6dc49c719152dc477a7a76e538fdea7b",
+    "ui-21-all-checks-02/receipt.json": "91deeb1ec543d315cea6b294e28f94df02f8a7e49166c9b118cb5633d35a81b7",
+    "ui-21-hardware/review.json": "04288541df02db3f5fd196ccfc29c7dae744ea96f280098781010bafa29dd496",
+    "ui-21-hardware/flash/receipt.json": "1281fecabaf78d6334d8bec16d38344d3a89828a9d3d6da7e669ce207eeb0d2b",
+    "ui-21-runtime-final/receipt.json": "074e78f948805f729c79ced5c1a716f905a80609618cead7e19bd8a849bcbc61",
+    "ui-21-runtime-final/release.json": "f50547be64afe258ba94f8503acc0742083089921cbfed5add90feff85522f9d"
+  }
+}

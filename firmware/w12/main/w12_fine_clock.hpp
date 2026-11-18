@@ -28,7 +28,9 @@ struct mcpwm_cap_channel_t;
 bool w12_fine_gnss_map_bracket(mcpwm_cap_channel_t*,uint64_t* before20,uint64_t* after20);
 
 using W12LoRaCapture=bool(*)(uint64_t tick20,uint64_t cookie);
-bool w12_fine_lora_start(W12LoRaCapture,uint64_t cookie);
+// Return the LR2021 counter origin in raw 80 MHz ticks since the boot origin.
+// Both extensions observe the same physical CURRENT latch at acquisition.
+bool w12_fine_lora_start(W12LoRaCapture,uint64_t cookie,uint64_t& origin80);
 // Independent LoRa epoch/extension; no BLE Receiver history/fence processing.
 // Same physical MCPWM1 timer as CH1. Never returns BLE or GPTimer coordinates.
 bool w12_fine_lora_current(uint64_t* tick20);

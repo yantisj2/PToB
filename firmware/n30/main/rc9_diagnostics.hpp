@@ -16,6 +16,11 @@
  f.format("N30_RC9_ORIGIN server=%016" PRIx64 " server_boot=%016" PRIx64 " root=%016" PRIx64 " root_boot=%016" PRIx64 " source_epoch=%" PRIu32 " emitter=%016" PRIx64 " emitter_boot=%016" PRIx64 "\n",s.server,s.server_boot,s.root,s.root_boot,s.source_epoch,s.emitter,s.emitter_boot);
  f.format("N30_RC9_QUALITY assurance=%u authority=%u metadata_known=%u upstream_link_rms_ns=%" PRIu32 " bound=UNKNOWN\n",unsigned(s.assurance),unsigned(s.authority),unsigned(s.metadata_known),s.rms_ns);
  f.format("N30_RC9_COUNTERS sequence=%" PRIu32 " accepted=%" PRIu32 " rejected=%" PRIu32 "\n",s.sequence,s.accepted,s.rejected);
+#ifdef PTOB_N30_RC9_SERVER
+ f.format("N30_RC9_LEASE until_us=%" PRIu64 " clients=%u serving=%u service_flags=%u\n",s.client_until_us,unsigned(s.clients),unsigned(s.serving),unsigned(s.service_flags));
+ f.format("N30_RC9_CONTRACT wire=2 source=RC8 hops=1 precision=UNKNOWN BLE_training=NONE relay=PASSIVE_LORA GM=NONE RX_ONLY=1\n");
+#else
  f.format("N30_RC9_LEASE until_us=%" PRIu64 " clients=%u serving=%u\n",s.client_until_us,unsigned(s.clients),unsigned(s.serving));
  f.format("N30_RC9_CONTRACT wire=1 source=RC8 hops=1 precision=UNKNOWN BLE_training=NONE relay=NONE GM=NONE RX_ONLY=1\n");
+#endif
 }

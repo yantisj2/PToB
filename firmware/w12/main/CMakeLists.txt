@@ -113,6 +113,12 @@ if(PTOB_W12_GNSS_INDICATORS)
   # Share main-loop callees to retain the full GNSS/radio diagnostics in 1 MiB.
   # Counter capture, BLE owner and SDK/controller compilation stay unchanged.
   set_source_files_properties("native_main.cpp" PROPERTIES COMPILE_OPTIONS "-fno-inline-functions-called-once")
+  if(PTOB_W12_LORA_RX)
+    # Bound task orchestration, rendering and the new local clock. Preserve
+    # the SDK, BLE/LoRa owners, fine capture and GNSS driver optimization.
+    set_property(SOURCE "native_main.cpp" "../legacy/display.cpp" "dual_timing.cpp"
+                 APPEND PROPERTY COMPILE_OPTIONS "-Oz")
+  endif()
 endif()
 
 if(V12_R2_PROFILE STREQUAL "r2-g1")
@@ -152,7 +158,7 @@ if(PTOB_W12_LORA_RX)
  endif()
  file(GLOB radio_sources "${PTOB_RADIOLIB}/src/modules/LR2021/*.cpp")
  list(APPEND radio_sources "${PTOB_RADIOLIB}/src/Module.cpp" "${PTOB_RADIOLIB}/src/Hal.cpp" "${PTOB_RADIOLIB}/src/protocols/PhysicalLayer/PhysicalLayer.cpp" "${PTOB_RADIOLIB}/src/modules/LR11x0/LR_common.cpp")
- target_sources(${COMPONENT_LIB} PRIVATE "w12_lora_radio.cpp" "lora_diagnostics.cpp" "lora_core.c" "../../t096/protocol/lora_passive.c" "../../t096/src/lora_passive_core.c" ${radio_sources})
+ target_sources(${COMPONENT_LIB} PRIVATE "w12_lora_radio.cpp" "lora_diagnostics.cpp" "lora_core.c" "dual_timing.cpp" "lora_projection.c" "../../t096/protocol/lora_passive.c" "../../t096/src/lora_passive_core.c" ${radio_sources})
  target_include_directories(${COMPONENT_LIB} PRIVATE "rc8" "${CMAKE_CURRENT_LIST_DIR}/../../t096/include" "${CMAKE_CURRENT_LIST_DIR}/../../t096/protocol" "${PTOB_RADIOLIB}/src")
  target_compile_definitions(${COMPONENT_LIB} PRIVATE PTOB_W12_LORA_RX=1 R2_LORA_PASSIVE_SLOW=1 R2_LORA_FIXED500_EXPERIMENT=1 R2_LORA_FIXED500_EVENT_DELAY_NS=99328000)
 else()

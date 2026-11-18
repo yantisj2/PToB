@@ -1,4 +1,4 @@
-# RC9 functional snapshot service, wire 1
+# RC9 functional snapshot service
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
@@ -95,6 +95,23 @@ an explicitly different contract.
 | 160 | 4 | Original corrected RC8 sequence |
 | 164 | 10 | Reserved |
 
+### Passive LoRa TIME v2
+
+Passive schedule 8 TIME retains the 190-byte layout and uses header version 2
+and HMAC domain `RC9TIME2`. Bytes 164–171 carry fitted UTC microseconds at
+the publisher sample time. Bytes 172–173 remain reserved. Root boot, emitter
+boot and stream are required. Creation, expiry, assurance and authority
+fields remain zero. The publisher copies the receiver’s current deadline
+and corrected-pair identity. It uses the current leader selected by
+authenticated LoRa reception. A repeated snapshot cannot extend the
+deadline of that physical pair.
+
+Control messages and explicit TIME withdrawal retain wire 1. A current client
+can receive TIME v1 from an older publisher. Passive TIME requires a v2-aware
+client. Valid v2 snapshots expire independently after two seconds from
+publication, bounded by both the LoRa deadline and the child lease. This caps
+stale time after missed withdrawal or loss of the BLE publisher.
+
 ## Client lifetime
 
 The challenge exchange bounds publisher monotonic time relative to the original
@@ -104,7 +121,7 @@ earliest causal conversion and the original lease; UTC extrapolation uses the
 midpoint of the coarse interval, with UNKNOWN error. Neither arrival time nor a
 GATT round trip trains a fine clock.
 
-The original RC8 expiry must be later than its snapshot and at most12s after
+For TIME v1, the original RC8 expiry must be later than its snapshot and at most12s after
 its original physical RX event. Repeated publications of that same physical
 pair, polling, metadata and control renewal cannot extend the client's saved
 expiry. A changed context/generation retains its own event and expiry. A newer

@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "device": "One LILYGO T-Watch Ultra V1 / SX1262; private exact identity verified",
+  "firmware_version": "0.1.20",
+  "application_bytes": 1372304,
+  "application_sha256": "cafabe8d99fbacd6a3fccbb451a153721a34699ea8dfb7d8066b209a92cb5993",
+  "source_sha256": "f69c559283afc84195655e5f7a215119e569fe04bef65feb9ca25651c2d15d81",
+  "runtime_build_id": "155efdd0d0538e56bf399295f53078d90418cf4b8fa6bdbe6eb1ffaa59944ed0",
+  "public_base_commit": "b3e6377a4cbb0c957b3d2bc30423f421b5517817",
+  "source_dirty": true,
+  "clock_backend": {
+    "RF_bound": "UNKNOWN",
+    "UTC_bound": "UNKNOWN",
+    "capture_hz": 80000000,
+    "counter_hz": 20000000,
+    "endpoint_class": {
+      "ext_header": 0,
+      "extra_us": 4,
+      "pdu_length": 191,
+      "phy": 0
+    },
+    "mode": "TWATCH_RX17_RELATIVE_FINE20",
+    "phase80": 126040
+  },
+  "energy_policy": "CPU_DFS80_240_USB_DORMANT_PANEL_SLEEP_V1",
+  "GNSS": "OFF; no independent timing witness",
+  "controller_source_sha256": "6e0e01d6c91945dc0e59ec3d648e15a5579bb4810e25a5098c177148c4bc66cf",
+  "proof": "Exact factory/boot/source/build, exclusive USB, original bounded drain, own verified recovery, whole new app readback, protected prefix and necessary sector tail comparison; raw receipts private",
+  "image_publicly_distributed": false,
+  "precision": "UNQUALIFIED"
+}

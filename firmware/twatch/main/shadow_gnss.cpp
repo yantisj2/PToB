@@ -3,6 +3,7 @@
 #include "watch.hpp"
 #include "shadow_nmea.hpp"
 #include "fine_capture.hpp"
+#include "dual_radio.hpp"
 #include "board.hpp"
 #include "g1_pps_diagnostic.hpp"
 #include "bounded_log.hpp"
@@ -117,13 +118,16 @@ void poll(uint64_t now){
  if(buffered>1536){new(&state->nmea) watch::ShadowNmea;state->stats.withdraw();uart_flush_input(UART_NUM_1);}
  for(unsigned i=0;i<2;++i){const int n=uart_read_bytes(UART_NUM_1,bytes,sizeof bytes,0);if(n<=0)break;uint64_t tick=0;if(read_clock)read_clock(&tick);state->nmea.feed(bytes,unsigned(n),now,tick);}
  state->nmea.apply(view,now);
- if(!state->nmea.reference(now)){state->stats.withdraw();}
+ if(!state->nmea.reference(now)){state->stats.withdraw();watchdual::reference_lost();}
  WatchPpsCapture edge;
  for(unsigned i=0;i<4&&watch_pps_take(edge,read_clock);++i){
+  const auto prior=state->nmea.reference_at(edge.tick20,now);
+  const v12::G1GpsShadow::Reference reference{prior.rmc20,prior.second,gen?gen:1,prior.ready};
+  watchdual::edge(edge,reference,view.fix);
   view.edges=edge.number;
   state->last_pps=edge.seen_us;
   const auto score=state->witness.edge(edge.tick20,edge.number,edge.enclosure_ns,edge.valid,
-    {state->nmea.rmc20(),state->nmea.second(),gen?gen:1,state->nmea.reference(now)});
+    reference);
   const auto& map=score.map;
   if(state->incarnation!=edge.incarnation){
    state->incarnation=edge.incarnation;

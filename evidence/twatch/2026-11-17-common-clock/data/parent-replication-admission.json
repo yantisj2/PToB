@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "method": "First observed authenticated source state and previous negative-to-positive sampling bracket; earlier transient admissions cannot be excluded; independent of fit readiness",
+  "host_anchor_spread_seconds": 0.00010791700333356857,
+  "latencies": [
+    {
+      "stage": "parent_repeat1_relay",
+      "target": "authenticated RC hop",
+      "lower_seconds": 56.34755995799787,
+      "upper_seconds": 61.516357042011805,
+      "censored": false,
+      "censor_seconds": null,
+      "window_seconds": 120,
+      "sampling": "full source-bearing status, nominal5s plus control requests; timestamp anchor spread retained",
+      "clock_quality_inferred": false,
+      "observed_within_45s": false,
+      "availability_failure_45s": true
+    },
+    {
+      "stage": "parent_repeat1_gm",
+      "target": "authenticated direct GM",
+      "lower_seconds": 5.980882499949075,
+      "upper_seconds": 11.003299582982436,
+      "censored": false,
+      "censor_seconds": null,
+      "window_seconds": 120,
+      "sampling": "full source-bearing status, nominal5s plus control requests; timestamp anchor spread retained",
+      "clock_quality_inferred": false,
+      "observed_within_45s": true,
+      "availability_failure_45s": false
+    },
+    {
+      "stage": "parent_repeat2_relay",
+      "target": "authenticated RC hop",
+      "lower_seconds": 15.806153125013225,
+      "upper_seconds": 20.83769512490835,
+      "censored": false,
+      "censor_seconds": null,
+      "window_seconds": 120,
+      "sampling": "full source-bearing status, nominal5s plus control requests; timestamp anchor spread retained",
+      "clock_quality_inferred": false,
+      "observed_within_45s": true,
+      "availability_failure_45s": false
+    },
+    {
+      "stage": "parent_repeat2_gm",
+      "target": "authenticated direct GM",
+      "lower_seconds": 5.913961166981608,
+      "upper_seconds": 10.965895000030287,
+      "censored": false,
+      "censor_seconds": null,
+      "window_seconds": 120,
+      "sampling": "full source-bearing status, nominal5s plus control requests; timestamp anchor spread retained",
+      "clock_quality_inferred": false,
+      "observed_within_45s": true,
+      "availability_failure_45s": false
+    }
+  ],
+  "provenance": {
+    "frames_sha256": "883da729f2ccab139f6d9d728aa7250d07f96d65101b596b7fbde5dc4ca25e45",
+    "events_sha256": "352925ceba3f40ca183fd5d020dbd4e15b73e38777b49e10f74496605ce32c52",
+    "protocol_sha256": "eb5f4c48b3e6f5a491be2ea87d911f443b55bc5f8069ec76f00979d0339b9cce"
+  }
+}

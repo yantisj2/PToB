@@ -85,10 +85,19 @@ int main(){
  auto ble=ble_candidate(s,display,s.follower_snapshot_us,false,result);
  CHECK(ble.clock.hold_valid&&ble.clock.hold_ms==1750&&ble.clock.hold_trials>=100&&!ble.clock.hold_lower);
  auto lower=ble.clock;lower.hold_lower=true;lower.hold_ms=58000;
- CHECK(sampled_hold(lower));InstrumentMotion motion;motion.apply(lower,1000000);
- for(unsigned i=1;i<=100;++i)motion.apply(lower,1000000+i*50000);
+ const auto shown_at=s.follower_snapshot_us;
+ CHECK(sampled_hold(lower,shown_at)&&!sampled_hold(lower,shown_at+250000));
+ InstrumentMotion motion;motion.apply(lower,shown_at);
+ for(unsigned i=1;i<=100;++i){
+  const auto frame_at=shown_at+i*50000;lower.hold_sampled_us=frame_at;lower.hold_until_us=frame_at+250000;
+  motion.apply(lower,frame_at);
+ }
  CHECK(motion.hold>.9&&lower.hold_position>.9);
- lower.holding=true;CHECK(!sampled_hold(lower));lower.holding=false;lower.source=Source::LOR;CHECK(!sampled_hold(lower));
+ // Explicit receiver provenance survives a different delivered-clock mode.
+ lower.holding=true;lower.source=Source::LOR;CHECK(sampled_hold(lower,shown_at+5000000));
+ CHECK(!sampled_hold(lower,shown_at+5250000));
+ // The legacy model has no independent receiver evidence.
+ lower.hold_until_us=0;CHECK(!sampled_hold(lower,shown_at));
  MobileSelection selection;Candidate absent;
  CHECK(selection.select(ble,absent,absent,s.follower_snapshot_us).hold_valid);
  auto lor=ble;lor.clock.source=Source::LOR;lor.clock.hold_valid=false;

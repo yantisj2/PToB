@@ -6,11 +6,14 @@
 #include "native_r2.hpp"
 #include "w12_lora.hpp"
 #include "sync_watchdog.hpp"
-#include "lora_clock_selection.hpp"
+#include "dual_timing.hpp"
 #include "fault_watchdog.hpp"
 ptob::SourceAbsencePolicy no_time_retention;
-w12::LoRaClockSelection display_clock_selection;bool display_lora_selected=false;
 uint64_t micros(){return fake_now;}
+uint64_t ticks(){return fake_now*20;}
+void w12::dual_timing_diag(v12::ConsoleFrame& f,uint64_t){
+ f.format(" common_mode=0 common_tick=20000 common_ns=0 common_ppb=0 lora_origin80=0 lora_bias_ns=0");
+}
 constexpr unsigned MALLOC_CAP_INTERNAL=1;
 unsigned heap_caps_get_free_size(unsigned caps){assert(caps==MALLOC_CAP_INTERNAL);return 24000;}
 unsigned heap_caps_get_largest_free_block(unsigned caps){assert(caps==MALLOC_CAP_INTERNAL);return 12000;}

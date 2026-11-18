@@ -10,6 +10,9 @@
 #include "lora_mapping.hpp"
 #include "lora_native_clock.hpp"
 #include "n30_lora_config.h"
+#ifdef PTOB_N30_RC9_SERVER
+#include "rc9/rc9.hpp"
+#endif
 #include "driver/spi_master.h"
 #include "driver/mcpwm_cap.h"
 #include "driver/gpio.h"
@@ -381,3 +384,24 @@ bool n30_lora_hold60(uint64_t id){
  portEXIT_CRITICAL(&mux);if(ok&&task)xTaskNotifyGive(task);return ok;
 }
 void n30_lora_snapshot(n30_lora_view& out){portENTER_CRITICAL(&mux);out=published;out.requested=owner.requested&&allowed;out.request_generation=owner.generation;out.off_ack_generation=owner.off_ack;out.off_acknowledged=owner.drained();if(!out.requested||published_serial!=cancel_serial){out.utc_us=out.until_us=out.watch_utc_us=0;out.watch_valid=false;out.state=0;}if(emergency){out.fault=true;out.active=false;out.until_us=0;out.error=-ETIMEDOUT;out.spi_retired=out.capture_released=out.off_acknowledged=false;}portEXIT_CRITICAL(&mux);}
+#ifdef PTOB_N30_RC9_SERVER
+bool n30_rc9_lora_snapshot(v12::rc9::Time& out){
+ out.utc_us=0;
+ portENTER_CRITICAL(&mux);
+ const auto& l=published;
+ const bool permit=allowed&&!off_intent&&!emergency&&!l.fault;
+ // Export only the current independent LoRa model. The display watch and
+ // the finite frozen-rate test never grant on-air time.
+ if(permit&&owner.requested&&published_serial==cancel_serial&&l.active&&l.state==2&&
+    l.time_valid&&l.metadata_known&&l.model_valid&&!l.hold_active){
+  out.utc_us=l.utc_us;out.sampled_us=l.sampled_us;out.edge_us=l.edge_us;out.until_us=l.until_us;
+  out.event_ns=l.event_ns;out.root=l.root;out.root_boot=l.root_boot;out.emitter=l.emitter;
+  out.emitter_boot=l.emitter_boot;out.stream=l.stream;out.source_epoch=l.source_epoch;
+  out.generation=l.generation;out.corrected_sequence=l.corrected_sequence;
+  out.link_rms_ns=l.link_rms_ns;out.link_samples=l.link_samples;out.kind=l.kind;
+  std::memcpy(out.context,l.context,sizeof(out.context));
+ }
+ portEXIT_CRITICAL(&mux);
+ return permit;
+}
+#endif

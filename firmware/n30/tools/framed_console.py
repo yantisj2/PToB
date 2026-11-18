@@ -298,7 +298,7 @@ def validate_lora(rows,require_map_classification=False):
   base.require(q['hold_state'] in ('0','1','2','3') and q.get('hold_abort') in ('0','1','2','3','4','5','6','7') and q.get('hold_result') in ('0','1','2'),'LoRa hold state/result syntax')
   if q['hold_state']=='1':base.require(int(q['hold_until_us'])-int(q['hold_start_us'])==60000000 and int(q['hold_grant_until_us'])>int(q['hold_until_us']),'LoRa finite original grant bound')
 
-def validate_rc9(rows):
+def validate_rc9(rows, relay=False):
  for name,keys in {'STATUS':'sampled_us UTC_us until_us valid following fault','ORIGIN':'source_epoch','QUALITY':'assurance authority metadata_known upstream_link_rms_ns','COUNTERS':'sequence accepted rejected','LEASE':'until_us clients serving'}.items():
   for key in keys.split():
    value=rows['N30_RC9_'+name].get(key,'');base.require(value.isdigit() and 0<=int(value)<2**64,'RC9 numeric '+key)
@@ -307,8 +307,15 @@ def validate_rc9(rows):
   for key in keys.split():base.require(rows['N30_RC9_'+row][key] in ('0','1'),'RC9 boolean '+key)
  base.require(int(rows['N30_RC9_QUALITY']['assurance'])<=2 and int(rows['N30_RC9_QUALITY']['authority'])<=2,'RC9 assurance range')
  base.require(rows['N30_RC9_QUALITY'].get('bound')=='UNKNOWN','RC9 bound')
- base.require(rows['N30_RC9_LEASE']['clients']=='0' and rows['N30_RC9_LEASE']['serving']=='0','N30 RC9 must be client only')
- for key,value in dict(wire='1',source='RC8',hops='1',precision='UNKNOWN',BLE_training='NONE',relay='NONE',GM='NONE',RX_ONLY='1').items():base.require(rows['N30_RC9_CONTRACT'].get(key)==value,'RC9 contract '+key)
+ lease=rows['N30_RC9_LEASE']
+ if relay:
+  flags=lease.get('service_flags','')
+  base.require(flags.isdigit() and int(flags)<=15 and int(lease['clients'])<=8,'RC9 server state')
+  if lease['serving']=='1':
+   base.require(int(lease['until_us'])>0 and int(lease['clients'])>0 and int(flags)&2,'RC9 serving without an owner and lease')
+ else:
+  base.require(lease['clients']=='0' and lease['serving']=='0','N30 RC9 client-only state')
+ for key,value in dict(wire='2' if relay else '1',source='RC8',hops='1',precision='UNKNOWN',BLE_training='NONE',relay='PASSIVE_LORA' if relay else 'NONE',GM='NONE',RX_ONLY='1').items():base.require(rows['N30_RC9_CONTRACT'].get(key)==value,'RC9 contract '+key)
 
 class Parser(base.Parser):
  def __init__(self,nonce,manifest,session=None,capture_base=None):
@@ -328,7 +335,7 @@ class Parser(base.Parser):
  def feed(self,data):
   frames=super().feed(data)
   for f in frames:
-   if self.manifest.get('n30_frame_kind')=='RC9':validate_rc9(f['rows'])
+   if self.manifest.get('n30_frame_kind')=='RC9':validate_rc9(f['rows'],self.manifest.get('n30_rc9_server') is True)
    if self.manifest.get('n30_frame_kind')=='LORA':validate_lora(f['rows'],bool(self.manifest.get('lora_map_refusal_contract')))
    if self.manifest.get('n30_frame_kind')=='DUAL':validate_dual(f['rows'])
    if self.manifest.get('n30_frame_kind')=='TIMING':validate_timing(f['rows'])

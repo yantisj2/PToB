@@ -10,6 +10,7 @@ extern "C" {
 // renew an original event, companion, source envelope or physical120s passive timing lease.
 struct w12_lora_view {
  uint64_t sampled_us,utc_us,until_us,edge_us,edge_tick,capture_epoch;
+ uint64_t model_tick16,model_ns,origin80;
  uint64_t emitter,emitter_boot,root,root_boot,parent,parent_boot,stream;
  uint64_t created_ns,expires_ns,event_ns,metadata_us,meta_utc_ns;
  uint32_t source_epoch,generation,meta_seed,meta_cursor,sequence,corrected_sequence,map_generation,map_age_us;
@@ -28,6 +29,7 @@ struct w12_lora_view {
  uint32_t rc9_hold_remaining_ms;
  bool off_acknowledged,spi_retired,capture_released,reset_asserted,ble_locked;
 };
+bool w12_lora_project(uint64_t tick,uint64_t anchor,uint64_t ns,int32_t rate,int32_t phase,uint64_t* out);
 #ifdef __cplusplus
 }
 #endif

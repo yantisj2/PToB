@@ -187,7 +187,7 @@ overwrite loss. Simulations do not identify every cause of a hardware outage or
 qualify RF, UTC precision or endurance.
 
 W12 exposes the same current BLE refusal through `lora diag` in its existing
-ten-row CRC response. `remaining_us`, `permission_pause_us`, `losses` and
+ten-row CRC response. In schemas 1 and 2, `remaining_us`, `permission_pause_us`, `losses` and
 `resets` show the return dwell independently of the screen. The first-loss
 capsule retains the prior qualified root/boot/epoch and interruption reason.
 Schema1's `parent_view=LATEST_ONLY` limits its parent summary to the latest
@@ -195,6 +195,10 @@ entry. Schema2 returns eight bounded parent vectors, with `parent_overwritten`
 and `parent_read_lost` disclosing unavailable history. It also exposes current
 BLE scope, automatic rebind count and watchdog input/timer/RTC evidence. Reads
 consume no history, and `authority=UNCHANGED` grants no timing permission.
+Schema 3 reports the W12 common clock and current LoRa offset alongside the
+eight parent vectors and watchdog evidence. `common_mode` reports 0 for
+unsynced, 1 for BLE, 2 for LoRa and 3 for HOLD. See the
+[W12 timing and PPS guide](../w12/build.md#optional-lr2021-dual-timing-and-screens).
 
 ## Source-envelope renewal and physical pairing
 

@@ -13,3 +13,7 @@ bool n30_lora_configured();
 bool n30_lora_cleanup_fault();
 void n30_lora_snapshot(n30_lora_view&);
 void n30_lora_diagnostics(v12::ConsoleFrame&);
+#ifdef PTOB_N30_RC9_SERVER
+namespace v12::rc9 {struct Time;}
+bool n30_rc9_lora_snapshot(v12::rc9::Time&);
+#endif

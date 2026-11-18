@@ -77,5 +77,54 @@ int main(){
  // Source/context/generation replacement cannot extend an unchanged pair.
  t=bound();assert(t.receive(p,1120000));auto fresh=p;fresh.publication++;fresh.context[0]++;fresh.generation++;
  fresh.root=77;fresh.root_boot=88;fresh.sampled_us++;assert(t.receive(fresh,1120001));assert(t.view(1120001).root==77);
- assert(!t.view(1).valid);std::puts("PASS RC9 codec/authentication/client causal expiry/replay/withdrawal; precision UNKNOWN");
+ assert(!t.view(1).valid);
+ // Passive leader TIME carries the actual LoRa projection and its long source
+ // deadline. Subsequent snapshots renew transport freshness only.
+ auto passive=p;passive.root_boot=77;passive.emitter_boot=88;passive.stream=99;
+ passive.created_ns=passive.expires_ns=0;passive.until_us=passive.edge_us+120000000;
+ passive.utc_us=passive.event_ns/1000+210000;
+ assert(encode_time(tw,passive,group)&&decode_time(td,tw,sizeof tw,group));
+ assert(td.utc_us==passive.utc_us&&td.until_us==passive.until_us&&!td.created_ns&&!td.expires_ns);
+ dump("passive",tw,sizeof tw);
+ corrupt(tw,[&](const uint8_t* w,size_t n){return decode_time(td,w,n,group);});
+ assert(encode_time(tw,passive,group));assert(!r2_group_mac(tw+174,&group,"RC9TIME1",tw,174));
+ assert(!decode_time(td,tw,sizeof tw,group));
+ // A newer fit horizon on the same pair should not interrupt a fresh
+ // heartbeat, postpone the first deadline, or revive the expired pair.
+ auto extended=passive;extended.until_us=5200000;
+ t=bound();assert(t.receive(extended,1120000));
+ const auto first_pair=t.view(1120000);
+ ++extended.publication;extended.sampled_us+=50000;extended.utc_us+=50000;extended.until_us+=100000;
+ assert(t.receive(extended,1170000));
+ const auto later_snapshot=t.view(1170000);
+ assert(later_snapshot.valid&&later_snapshot.utc_us>first_pair.utc_us&&later_snapshot.until_us==first_pair.until_us);
+ assert(!t.view(first_pair.until_us).valid);
+ ++extended.publication;extended.sampled_us+=40000;extended.utc_us+=40000;
+ assert(!t.receive(extended,first_pair.until_us));
+ ++extended.corrected_sequence;++extended.edge_us;++extended.event_ns;
+ assert(t.receive(extended,first_pair.until_us)&&t.view(first_pair.until_us).valid);
+ t=bound();assert(t.receive(passive,1120000));v=t.view(1120000);
+ assert(v.valid&&v.utc_us>=passive.utc_us&&v.until_us<1120000+SnapshotUs);
+ assert(!t.view(v.until_us).valid&&t.view(v.until_us).bound);
+ const auto first_transport_expiry=v.until_us;
+ for(unsigned i=1;i<=120;i++){
+  ++passive.publication;passive.sampled_us+=1000000;passive.utc_us+=1000000;
+  if(passive.sampled_us>=passive.until_us)break;
+  const uint64_t received=1120000+1000000*i;
+  if(received<120750000){
+   assert(t.receive(passive,received));v=t.view(received);
+   assert(v.valid&&v.until_us>first_transport_expiry&&passive.until_us==124900000);
+  }
+ }
+ assert(!t.view(121000000).valid);
+ t=bound();passive.sampled_us=5100000;passive.publication=1;
+ assert(t.receive(passive,1120000));
+ auto revoke=Time{};revoke.sender=passive.sender;revoke.sender_boot=passive.sender_boot;
+ revoke.publication=2;revoke.sampled_us=5100001;
+ assert(t.receive(revoke,1120001)&&!t.view(1120001).valid);
+ passive.publication=3;passive.sampled_us+=2;
+ assert(!t.receive(passive,1120002));
+ ++passive.corrected_sequence;++passive.event_ns;++passive.edge_us;
+ assert(t.receive(passive,1120002)&&t.view(1120002).valid);
+ std::puts("PASS RC9 codec/authentication/client causal expiry/replay/withdrawal; precision UNKNOWN");
 }

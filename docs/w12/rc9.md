@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Jonathan Yantis. MIT.
 
-Version0.2.4 optionally receives and serves the separate [RC9 wire](../../firmware/w12/main/rc9/README.md).
+W12 optionally receives and serves the separate [RC9 wire](../../firmware/w12/main/rc9/README.md).
 A W12 selecting RC8 LoRa drains its normal RC7 publisher before advertising
 RC9 on SID14/15 and service UUID09. It never labels LoRa time RC1/RC2, trains
 normal G1 from RC9, recascades RC9, or becomes GM. The same sole controller owner
@@ -10,7 +10,7 @@ retains transient GATT admission, handle quarantine and original2s teardown.
 
 An authenticated direct child requests at most360s and renews at300s. The
 original lease keeps RC8 reception and RC9 TIME available through BLE recovery
-and temporary RC8 gaps. Version0.2.14 gives qualified normal BLE the local
+and temporary RC8 gaps. Qualified normal BLE takes the local
 display immediately and stops new RC9 capability admissions and renewals.
 Requests queued before recovery cannot extend a lease afterward. Existing
 children retain their original lease while seeking normal BLE independently;
@@ -21,9 +21,15 @@ owner fault and maintenance override demand.
 A stale display snapshot withdraws time but cannot shorten or extend the original
 client lease. Server/client restart requires a new boot-bound exchange.
 
-Packets retain the actual RC8 edge, original12s hold and UTC envelope. Missing
-companion boots/stream/quality stay unknown. Authentication establishes group
-membership; pre-companion RC8 does not establish the complete emitter identity.
+Current W12 publishers relay the fitted UTC of the authenticated passive LoRa
+leader using TIME v2. TIME carries the corrected physical pair, root, emitter,
+and their boot/stream context. It expires at the LoRa receiver deadline or
+after two seconds without a fresh snapshot, whichever comes first. Withdrawal
+stops new admission and revokes time for existing clients. Legacy TIME v1
+remains readable and retains its original signed envelope and 12-second hold.
+Passive TIME v2 requires a v2-aware client. CoreSE's pinned TIME v1 client
+cannot consume these new passive snapshots and rejects them without supplying
+time; its normal BLE reception is independent of RC9.
 RC9 is functional UTC with unknown queue, radio delay and total precision.
 Its upstream link RMS is not the BLE hop precision or an absolute UTC bound.
 

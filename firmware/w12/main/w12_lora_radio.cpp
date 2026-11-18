@@ -35,7 +35,7 @@ uint64_t rc9_client_until=0,rc9_source_until=0;
 uint64_t rc9_hold_observed_until=0;
 uint32_t cancel_serial=0,active_serial=0,core_generation=0,request_serial=0,published_serial=0;
 uint64_t raw_capture=0;uint32_t raw_generation=0,raw_serial=0;
-uint64_t capture_epoch=0,header_capture=0,header_until=0;
+uint64_t capture_epoch=0,origin80=0,header_capture=0,header_until=0;
 uint32_t header_generation=0,header_serial=0;bool header_pending=false;
 bool ble_lock_observed=false;
 uint8_t requested_mode=0;bool mode_pending=false,cycle_pending=false,ble_locked=false,allowed=false;
@@ -134,7 +134,7 @@ int capture_start(){
  if(capture_epoch==UINT64_MAX)return -EOVERFLOW;
  edge_enabled=true; // Claim before enable, including partial failure cleanup.
  portENTER_CRITICAL(&mux);++capture_epoch;latched=false;capture_active=true;portEXIT_CRITICAL(&mux);
- if(!w12_fine_lora_start(on_edge,capture_epoch)){portENTER_CRITICAL(&mux);capture_active=false;portEXIT_CRITICAL(&mux);return -EIO;}
+ if(!w12_fine_lora_start(on_edge,capture_epoch,origin80)){portENTER_CRITICAL(&mux);capture_active=false;portEXIT_CRITICAL(&mux);return -EIO;}
  return 0;
 }
 void capture_stop(){
@@ -212,6 +212,7 @@ W12_STACK_FRAME int receive(){
 }
 void publish(){
  w12_lora_view view;w12_rc8_snapshot(&view,now());
+ view.origin80=origin80;
  // Worker-owned protocol state and hardware counters are merged outside the
  // short cross-core publication lock. Unknown uncertainty remains unknown.
  view.requested=false;view.active=owned.enabled;view.fault=failed;view.mode=uint8_t(policy.mode());view.transition_remaining_ms=policy.remaining_ms(now());

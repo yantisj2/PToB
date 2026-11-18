@@ -9,6 +9,7 @@
 #include "ptob_registry.h"
 #include "watch.hpp"
 #include "shadow_gnss.hpp"
+#include "dual_radio.hpp"
 #include "control_frame.hpp"
 #include "fine_capture.hpp"
 #include "watch_button.hpp"
@@ -67,7 +68,11 @@ uint8_t radio_pending=0,radio_busy=0,radio_failed=0;uint64_t radio_retry_after[2
 watch::calendar::Snapshot published_calendar;
 watch::MobileSelection selection;uint32_t ble_refusal_seen=0;
 watchimu::Status imu_status;bool shown_asleep=false;uint32_t wrist_wakes=0;
-watch::Model published;uint32_t frames=0,errors=0,render_us=0,flush_us=0,frame_gap_max_us=0;uint64_t shown_utc=0,shown_at=0;uint8_t shown_source=0;bool ready=false,stop_requested=false,stopped=false;int page_request=-1;int face_request=-1;bool sleep_request=false;uint8_t shown_face=0,sleep_seconds=30;bool shown_local=false,shown_clock=false,shown_usb=false;
+// Main-owner publication inputs never live on the UI task or main call stack.
+struct PublicationWorkspace {n30_lora_view lora;watch::Candidate ble,lor,rc;watch::Model output;n30::Model zone;};
+static_assert(sizeof(PublicationWorkspace)<=8192,"Bounded PSRAM-only publication scratch");
+PublicationWorkspace* publication=nullptr;
+watch::Model published;uint32_t frames=0,errors=0,render_us=0,flush_us=0,frame_gap_max_us=0;uint64_t shown_utc=0,shown_at=0;uint8_t shown_source=0,shown_rms_source=0;uint32_t shown_rms_ns=UINT32_MAX;uint64_t shown_metrics_at=0;bool ready=false,stop_requested=false,stopped=false;int page_request=-1;int face_request=-1;bool sleep_request=false;uint8_t shown_face=0,sleep_seconds=30;bool shown_local=false,shown_clock=false,shown_usb=false;
 bool radio_request(unsigned index){
  if(index>1)return false;
  const uint8_t bit=1u<<index;const auto now=uint64_t(esp_timer_get_time());
@@ -196,7 +201,8 @@ void worker(void*){
    if(history)history_totals(*history,now,b);
    portENTER_CRITICAL(&mux);battery_status=b;portEXIT_CRITICAL(&mux);last_history_status=now;
   }
-  m=presentation.present(m,now);
+  if(!m.common_clock)m=presentation.present(m,now);
+  else if(m.time_valid&&now>=m.sampled_us){m.utc_us+=now-m.sampled_us;m.sampled_us=now;}
   m.shadow=watchshadow::snapshot();
   const uint64_t minute=m.utc_us/60000000;
   if(minute!=calendar_minute||m.time_valid!=calendar_valid||m.local_time!=calendar_estimated){
@@ -213,7 +219,7 @@ void worker(void*){
    m.battery=battery;m.uptime_s=now/1000000;m.charging=usb;m.battery_history=history;motion.apply(m,now);
    phase(9);const auto render_begin=now_us();watch::render(frame,m,view,now,&render_cache);const auto render_elapsed=now_us()-render_begin;phase(10);const auto flush_begin=now_us();bool ok=watch::commit_frame(waking,[&](){return watchboard::flush(frame,&render_cache);},[&](){return watchboard::sleep(false);});if(ok&&waking)sleeping=false;const auto flush_elapsed=now_us()-flush_begin;const auto gap=last_frame?now-last_frame:0;last_frame=now;
    if(history)history->observe(now_us(),!sleeping);
-   portENTER_CRITICAL(&mux);render_us=uint32_t(render_elapsed);flush_us=uint32_t(flush_elapsed);if(gap<1000000&&gap>frame_gap_max_us)frame_gap_max_us=uint32_t(gap);ready=ok;if(ok)++frames;else ++errors;
+   portENTER_CRITICAL(&mux);render_us=uint32_t(render_elapsed);flush_us=uint32_t(flush_elapsed);if(gap<1000000&&gap>frame_gap_max_us)frame_gap_max_us=uint32_t(gap);ready=ok;if(ok){++frames;shown_rms_ns=view.screen==watch::Screen::Face&&watch::receiver_rms_current(m,now)?m.rms_ns:UINT32_MAX;shown_rms_source=shown_rms_ns!=UINT32_MAX?uint8_t(watch::rms_receiver(m)):0;shown_metrics_at=now;}else ++errors;
    if(ok&&waking){wake_latency_us=uint32_t(std::min<uint64_t>(UINT32_MAX,now_us()-(wake_event_at?wake_event_at:render_begin)));wake_render_us=uint32_t(render_elapsed);wake_flush_us=uint32_t(flush_elapsed);wake_source=wake_kind;wake_event_at=0;wake_kind=0;}
    portEXIT_CRITICAL(&mux);
    if(!ok){watchshadow::visible(false);const bool idle=watchboard::idle();portENTER_CRITICAL(&mux);stopped=idle;ui_task=nullptr;portEXIT_CRITICAL(&mux);vTaskDelete(nullptr);return;}
@@ -226,6 +232,9 @@ void worker(void*){
 }
 }
 bool display_init(){
+ auto* memory=heap_caps_malloc(sizeof(PublicationWorkspace),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+ if(!memory)return false;
+ publication=new(memory) PublicationWorkspace;
  button_raw=gpio_get_level(GPIO_NUM_0)==0;physical_button.update(button_raw,now_us());
  esp_timer_create_args_t timer{};timer.callback=sample_button;timer.name="watch_key";timer.skip_unhandled_events=true;
  if(esp_timer_create(&timer,&button_timer)!=ESP_OK)return false;
@@ -236,15 +245,17 @@ bool display_init(){
 void watch::button_power_stage(uint8_t stage,int error){portENTER_CRITICAL(&mux);button_power=stage;button_power_error=error;portEXIT_CRITICAL(&mux);}
 void n30_display_observe_source(const v12::R2Status&,uint64_t,uint32_t refusal){ble_refusal_seen=refusal;}
 void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t now,bool ble_parked){
- n30_lora_view lora;n30_lora_snapshot(lora);
+ if(!publication)return;
+ auto& lora=publication->lora;n30_lora_snapshot(lora);
  const auto hold=watch::holdover_update(s,now,ble_parked);
- auto ble=watch::ble_candidate(s,d,now,ble_parked,hold);auto lor=watch::lora_candidate(lora,now);watch::Candidate rc;
+ auto& ble=publication->ble;auto& lor=publication->lor;auto& rc=publication->rc;
+ watch::fill_ble_candidate(ble,s,d,now,ble_parked,hold);watch::fill_lora_candidate(lor,lora,now);new(&rc) watch::Candidate;
  const auto r=v12::r2_rc9_status();uint64_t utc=0;
  if(!ble_parked&&s.requested&&!s.fault&&!s.rc7_upstream_mode_pending&&n30::rc9_time(r,now,utc)){
   rc.clock.time_valid=true;rc.clock.utc_us=utc;rc.clock.sampled_us=now;rc.clock.until_us=std::min(r.until_us,now+250000);
   rc.clock.source=watch::Source::RC9;rc.root=r.root;rc.boot=r.root_boot;rc.epoch=r.source_epoch;rc.fresh=true;
  }
- auto w=selection.select(ble,lor,rc,now);w.lora_on=lor.clock.lora_on;w.lora_receiving=lor.clock.lora_receiving;
+ auto& w=publication->output;new(&w) watch::Model(selection.select(ble,lor,rc,now));w.lora_on=lor.clock.lora_on;w.lora_receiving=lor.clock.lora_receiving;
  const auto ble_power=v12::transport_watch_ble_status();
  w.ble_state=ble_power.off_ack()&&!ble_power.requested?watch::RadioState::Off:ble_power.operating_fault||ble_power.stage==watch::BlePower::Fault||s.fault?watch::RadioState::Fault:ble_power.off_ack()?watch::RadioState::Off:ble_power.stage==watch::BlePower::Active&&s.requested?watch::RadioState::On:watch::RadioState::Changing;
  w.lora_state=lora.fault?watch::RadioState::Fault:lora.requested&&lora.active?watch::RadioState::On:!lora.requested&&lora.off_acknowledged&&lora.spi_retired&&lora.capture_released&&lora.reset_asserted?watch::RadioState::Off:watch::RadioState::Changing;
@@ -258,10 +269,19 @@ void n30_display_publish(const v12::R2Status& s,const DisplayState& d,uint64_t n
  if(radio_failed&1)w.ble_state=watch::RadioState::Fault;
  if(radio_failed&2)w.lora_state=watch::RadioState::Fault;
  portEXIT_CRITICAL(&mux);
- auto zone_model=n30::model(s,d,now,ptob_registry_name(s.root_identity),ble_parked);
+ auto& zone_model=publication->zone;new(&zone_model) n30::Model(n30::model(s,d,now,ptob_registry_name(s.root_identity),ble_parked));
  static n30::DisplayTimeZone zone;zone.update(zone_model,s.tz_received,s.joined_peer,s.joined_boot,lora,now);
  if(r2_tz_valid(zone_model.tz)&&now<zone_model.tz_until_us){w.tz_minutes=zone_model.tz.offset_min;w.tz_id=zone_model.tz.id;}
  watchshadow::selected(w,now);
+ const auto common=watchdual::clock();
+ if(common.enabled){
+  w.time_valid=common.valid;w.utc_us=common.utc_ns/1000;w.sampled_us=common.sampled_us;w.until_us=now+250000;
+  w.holding=common.mode==watch::dual::Mode::Hold;w.local_time=w.holding;w.locked=common.fine;
+  w.source=common.mode==watch::dual::Mode::Ble?ble.clock.source:common.mode==watch::dual::Mode::LoRa?watch::Source::LOR:watch::Source::None;
+  w.source_rssi=common.mode==watch::dual::Mode::Ble?ble.clock.source_rssi:common.mode==watch::dual::Mode::LoRa?lor.clock.source_rssi:-127;
+  w.common_clock=true;
+ }
+ watch::receiver_metrics(w,ble,lor,now);
  portENTER_CRITICAL(&mux);published=w;portEXIT_CRITICAL(&mux);
 }
 
@@ -271,6 +291,8 @@ void watch::display_control(v12::ConsoleFrame& f){
  watch::control_ui(f,u,p,g,n30_fine_released(),n30_fine_cleanup_fault());
 }
 void n30_display_status(v12::ConsoleFrame& f){portENTER_CRITICAL(&mux);auto n=frames,e=errors,duration=render_us,flush=flush_us,gap=frame_gap_max_us;bool r=ready,local=shown_local,clock=shown_clock;auto face=shown_face,sleep=sleep_seconds,source=shown_source;auto utc=shown_utc,at=shown_at;auto imu=imu_status;auto wakes=wrist_wakes;const auto edges=button_edges,singles=button_singles,doubles=button_doubles,gap_button=button_gap_us;const auto power=button_power;const auto power_error=button_power_error;const auto ts=touch_samples,te=touch_errors,td=touch_drops,tg=touch_gap_us,tk=touch_stack,tst=touch_strokes,tact=touch_actions,wl=wake_latency_us,wr=wake_render_us,wf=wake_flush_us;const auto ws=wake_source,ph=ui_phase;const auto ph_at=ui_phase_at;const auto loops=ui_loops,loop_max=ui_loop_max_us;bool asleep=shown_asleep,usb=shown_usb;portEXIT_CRITICAL(&mux);f.format("TWATCH_UI version=1 width=410 height=502 frames=%u errors=%u ready=%u face=%u sleep_s=%u local=%u clock=%u render_us=%u flush_us=%u frame_gap_max_us=%u source=%u utc_us=%llu sampled_us=%llu asleep=%u imu=%u imu_algorithm=1001 imu_stage=%u imu_error=%d imu_events=%u imu_errors=%u wrist_wakes=%u imu_samples=%u arm_lower=%u imu_bus=%u imu_budget=%u glance_s=5 usb=%u key_edges=%u key_single=%u key_double=%u key_gap_us=%u power_stage=%u power_error=%d touch_samples=%u touch_errors=%u touch_drops=%u touch_gap_us=%u touch_stack=%u touch_strokes=%u touch_actions=%u wake_us=%u wake_render_us=%u wake_flush_us=%u wake_source=%u GNSS=FACE_AUTO precision=UNQUALIFIED",unsigned(n),unsigned(e),unsigned(r),unsigned(face),unsigned(sleep),unsigned(local),unsigned(clock),unsigned(duration),unsigned(flush),unsigned(gap),unsigned(source),(unsigned long long)utc,(unsigned long long)at,unsigned(asleep),unsigned(imu.ready),unsigned(imu.stage),int(imu.error),unsigned(imu.wake_events),unsigned(imu.errors),unsigned(wakes),unsigned(imu.samples),unsigned(imu.lowered),unsigned(imu.bus_errors),unsigned(imu.budget_errors),unsigned(usb),unsigned(edges),unsigned(singles),unsigned(doubles),unsigned(gap_button),unsigned(power),power_error,unsigned(ts),unsigned(te),unsigned(td),unsigned(tg),unsigned(tk),unsigned(tst),unsigned(tact),unsigned(wl),unsigned(wr),unsigned(wf),unsigned(ws));
+ portENTER_CRITICAL(&mux);const auto rms=shown_rms_ns;const auto rms_source=shown_rms_source;const auto rms_at=shown_metrics_at;portEXIT_CRITICAL(&mux);
+ f.format(" shown_rms_ns=%u shown_rms_source=%u shown_metrics_us=%llu",unsigned(rms),unsigned(rms_source),(unsigned long long)rms_at);
  f.format(" ui_phase=%u ui_phase_age_us=%llu ui_loops=%u ui_loop_max_us=%u",unsigned(ph),(unsigned long long)(now_us()>=ph_at?now_us()-ph_at:0),unsigned(loops),unsigned(loop_max));
  portENTER_CRITICAL(&mux);const auto pk=power_key_presses,pke=power_key_errors,ui_stack=ui_stack_min;const auto battery=battery_status;portEXIT_CRITICAL(&mux);
  f.format(" pmu_key=%u pmu_key_errors=%u",unsigned(pk),unsigned(pke));

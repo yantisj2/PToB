@@ -101,6 +101,11 @@ absolute UTC or physical PPS accuracy. Gaps between BLE witnesses remain
 unmeasured. RC9 can provide functional UTC, but cannot populate local fine RMS,
 relative offset or precision lock.
 
+The pinned CoreSE RC9 client accepts TIME v1. Current W12/N30 passive-LoRa
+publishers send TIME v2, which this client rejects without supplying time.
+Use normal BLE reception or a compatible TIME v1 publisher; updating W12/N30
+does not update the CoreSE receiver. See the [RC9 contract](../w12/main/rc9/README.md).
+
 Reference values describe the reporting GM. HDOP is satellite geometry, not
 timing accuracy; legacy reports without HDOP leave it unknown. `VAR NONE` means
 no variance was reported, and `ACC UNKNOWN` preserves unknown accuracy. PDOP,

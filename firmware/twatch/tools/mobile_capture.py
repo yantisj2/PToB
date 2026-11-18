@@ -57,7 +57,7 @@ def main():
  assert repo/'artifacts' in out.parents and not out.exists()
  assert subprocess.run(['git','-C',str(repo),'check-ignore','--quiet',str(out)]).returncode==0
  receipt=json.loads(a.receipt.read_text());assert receipt['artifact_class']=='PTOB_TWATCH_RC' and receipt['device_id']=='0000'+factory.replace(':','')
- manifest=dict(receipt['runtime_identity'],factory_mac=factory,r2_profile='r2-g1',console_frame_bytes=8704,fault_watchdog='SUSTAINED_FAULT_120S_V1',fine_capture_profile=receipt.get('fine_capture_profile',{}),lora_shadow_schedule=receipt.get('lora_shadow_schedule'))
+ manifest=dict(receipt['runtime_identity'],factory_mac=factory,r2_profile='r2-g1',console_frame_bytes=8704,fault_watchdog='SUSTAINED_FAULT_120S_V1',fine_capture_profile=receipt.get('fine_capture_profile',{}),lora_shadow_schedule=receipt.get('lora_shadow_schedule'),GNSS=receipt.get('GNSS'),control_contract=receipt.get('control_contract'),dual_radio_test_contracts=receipt.get('dual_radio_test_contracts',[]))
  desktop();ports=[q for q in list_ports.comports() if (q.vid,q.pid)==(0x303a,0x1001) and (q.serial_number or '').lower()==factory];assert len(ports)==1,'Exact watch missing'
  port=ports[0].device;out.mkdir(mode=0o700);frames=[];session=None;restore=False;failure=None;roaming=None
  with open('/tmp/ptob-lab-TWATCH-'+factory.replace(':','')+'.lock','a') as lock:

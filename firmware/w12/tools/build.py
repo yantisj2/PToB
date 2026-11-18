@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.49'
+VERSION='0.2.50'
 def check_receiver_state_gate(path):
  # Loading the gate must not put N30 tools ahead of this builder's modules:
  # the later inspect_build import belongs to W12 and has a different API.
@@ -41,8 +41,9 @@ def validate_inputs(enrollment,device):
  group=enrollment['group_id'];epoch=enrollment['key_epoch'];key=bytes.fromhex(enrollment['psk'])
  if not(re.fullmatch('[0-9a-f]{16}',group) and int(group,16) and type(epoch)is int and 0<epoch<2**32 and len(key)==32 and any(key)):raise ValueError('Invalid group enrollment')
  required={'board','factory_mac','device_id','label','legacy_wire_id'}
- if not required<=set(device) or set(device)-required-{'gnss_profile','provisional_path'}:raise ValueError('Unexpected device fields')
+ if not required<=set(device) or set(device)-required-{'gnss_profile','provisional_path','lora_phase'}:raise ValueError('Unexpected device fields')
  provisional_profile(device)
+ lora_phase(device)
  if 'gnss_profile' in device and device['gnss_profile']!=GNSS_PROFILE:raise ValueError('Unsupported GNSS route; explicit reviewed W12 L76K RX39/PPS41 profile required')
  mac=device['factory_mac'];identity=device['device_id'];label=device['label'];wire=device['legacy_wire_id']
  if not(device['board']=='meshnology_w12_esp32s3' and re.fullmatch('[0-9a-f]{2}(:[0-9a-f]{2}){5}',mac) and int(mac.replace(':',''),16) and not int(mac[:2],16)&1 and identity=='0000'+mac.replace(':','') and re.fullmatch('[A-Za-z0-9_-]{1,24}',label) and type(wire)is int and 1<=wire<=254):raise ValueError('Explicit W12 factory binding/label required')
@@ -70,13 +71,20 @@ def validate_map_compilation(receipt,device,compiled,config):
  return enabled
 
 def validate_size_compilation(receipt,compiled,config):
- policy={'W12_MAIN_OS_SDK_DEBUG_V1':'-Os','W12_MAIN_OZ_GNSS_SDK_DEBUG_V1':'-Oz'}.get(receipt.get('application_optimization'))
+ size_profile=receipt.get('application_optimization')
+ policy={'W12_MAIN_OS_SDK_DEBUG_V1':'-Os','W12_MAIN_OZ_GNSS_SDK_DEBUG_V1':'-Oz',
+         'W12_DUAL_GNSS_CONSOLE_DISPLAY_OZ_V1':'-Os',
+         'W12_DUAL_GNSS_CLOCK_OZ_V1':'-Os'}.get(size_profile)
  if policy is None:raise ValueError('W12 application size policy missing')
- rows=[shlex.split(row['command']) for row in compiled if '__idf_main.dir/' in row['command']]
+ rows=[row for row in compiled if '__idf_main.dir/' in row['command']]
  if not rows or not any(row['file'].endswith('/native_main.cpp') and '__idf_main.dir/' in row['command'] for row in compiled):raise ValueError('W12 main component compile commands missing')
- for tokens in rows:
+ for row in rows:
+  tokens=shlex.split(row['command'])
+  narrow={'W12_DUAL_GNSS_CONSOLE_DISPLAY_OZ_V1':('/native_main.cpp','/legacy/display.cpp'),
+          'W12_DUAL_GNSS_CLOCK_OZ_V1':('/native_main.cpp','/legacy/display.cpp','/dual_timing.cpp')}
+  expected='-Oz' if row['file'].endswith(narrow.get(size_profile,())) else policy
   optimization=[v for v in tokens if re.fullmatch(r'-O(?:[0-3sgz]|fast)',v)]
-  if not optimization or optimization[-1]!=policy:raise ValueError('W12 main component must compile with effective '+policy)
+  if not optimization or optimization[-1]!=expected:raise ValueError('W12 main component must compile with effective '+expected)
  inlining=receipt.get('main_inlining')
  if inlining not in (None,'DEFAULT','GNSS_MAIN_SHARED_CALLEES_V1'):raise ValueError('Unknown W12 main inlining policy')
  if inlining is not None:
@@ -163,10 +171,21 @@ def verify_sdk(sdk,lock):
   if sha(sdk/name)!=digest:raise ValueError('Pinned fine-capture ABI changed: '+name)
  return status
 
-def lora_header(device,enrollment,transmitter,enabled=None):
+def lora_phase(device):
+ phase=device.get('lora_phase')
+ if phase is None:return {'emitter':'0000000000000000','root':'0000000000000000','ns':0}
+ if (not isinstance(phase,dict) or set(phase)!={'emitter','root','ns'} or
+     any(not isinstance(phase[k],str) or not re.fullmatch('[0-9a-f]{16}',phase[k]) or not int(phase[k],16) for k in ('emitter','root')) or
+     type(phase['ns']) is not int or abs(phase['ns'])>20000000):
+  raise ValueError('Expected exact LoRa emitter/root and signed phase correction within 20 ms')
+ return phase
+
+def lora_header(device,enrollment,transmitter,enabled=None,phase_supported=True):
  key=bytes.fromhex(enrollment['psk'])
  enable='' if enabled is None else '#define PTOB_W12_LORA_ENABLED '+str(int(enabled))+'\n'
- return '#pragma once\n#include <cstdint>\n#define PTOB_W12_FACTORY_ID UINT64_C(0x'+device['device_id']+')\n#define PTOB_W12_LORA_TX_FACTORY UINT64_C(0x'+transmitter+')\n#define PTOB_W12_GROUP_ID UINT64_C(0x'+enrollment['group_id']+')\n#define PTOB_W12_KEY_EPOCH '+str(enrollment['key_epoch'])+'\n'+enable+'static constexpr uint8_t PTOB_W12_GROUP_KEY[32]={'+','.join(map(str,key))+'};\n'
+ phase=lora_phase(device)
+ calibration=f"#define PTOB_W12_LORA_CAL_EMITTER UINT64_C(0x{phase['emitter']})\n#define PTOB_W12_LORA_CAL_ROOT UINT64_C(0x{phase['root']})\n#define PTOB_W12_LORA_CAL_NS ({phase['ns']})\n" if phase_supported else ''
+ return '#pragma once\n#include <cstdint>\n#define PTOB_W12_FACTORY_ID UINT64_C(0x'+device['device_id']+')\n#define PTOB_W12_LORA_TX_FACTORY UINT64_C(0x'+transmitter+')\n#define PTOB_W12_GROUP_ID UINT64_C(0x'+enrollment['group_id']+')\n#define PTOB_W12_KEY_EPOCH '+str(enrollment['key_epoch'])+'\n'+enable+calibration+'static constexpr uint8_t PTOB_W12_GROUP_KEY[32]={'+','.join(map(str,key))+'};\n'
 def verify_radio(path,lock):
  if git(path,'rev-parse','HEAD')!=lock['radiolib']['commit'] or git(path,'status','--porcelain','--untracked-files=all'):raise ValueError('Pinned clean public RadioLib required')
  if sha(path/'license.txt')!=lock['radiolib']['license_sha256']:raise ValueError('RadioLib license changed')
@@ -176,8 +195,9 @@ def validate_dual_compilation(r,compiled):
   if flag not in tokens:raise ValueError('Missing compiled runtime feature: '+flag)
  if r.get('rc9'):
   if '-DPTOB_RC9=1' not in tokens or not r['lora_rx'] or not r['estimated_relay']:raise ValueError('RC9 compile/profile mismatch')
- if r.get('no_time_sync_watchdog_us')!=(720000000 if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.49') else 300000000):raise ValueError('Watchdog metadata differs')
- if r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.49') and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
+ extended=r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.49','0.2.50')
+ if r.get('no_time_sync_watchdog_us')!=(720000000 if extended else 300000000):raise ValueError('Watchdog metadata differs')
+ if extended and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
  if r['lora_rx'] and not r['fine_clock']:raise ValueError('LoRa requires fine counter')
 
 def main():
@@ -209,6 +229,7 @@ def main():
  if not re.fullmatch('[0-9a-f]{16}',tx) or (int(tx,16) and (registry['devices'].get(tx,{}).get('target')!='t096' or tx==d['device_id'])):p.error('Exact registry T096 transmitter factory required')
  if (int(tx,16) and not a.radiolib) or (a.radiolib and not a.fine_clock):p.error('LoRa RX requires fine clock and public RadioLib; legacy transmitter hint cannot enable it alone')
  if a.rc9 and not(a.radiolib and a.estimated_relay):p.error('RC9 requires LoRa RX and BLE100 relay owner')
+ if 'lora_phase' in d and not a.radiolib:p.error('LoRa phase correction requires LoRa RX')
  if a.radiolib:verify_radio(a.radiolib.resolve(),lock)
  out.mkdir(parents=True);target=out/'target';target.mkdir();inputs=out/'local';inputs.mkdir()
  paths=source_map();sources={n:sha(f) for n,f in paths.items()};source_hash=hashlib.sha256(json.dumps(sources,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -222,8 +243,9 @@ def main():
  (inputs/'w12_fine_config.h').write_text(fine_header(d,a.fine_clock))
  # Registry/generator/device hashes bind display metadata and local input changes into runtime enrollment identity.
  enrollment_header=inputs/'r2-enrollment.h';enrollment_header.write_text('/* runtime_source:'+runtime_hash+' registry:'+sha(a.registry)+' generator:'+sha(REPO/'registry/registry.py')+' device:'+sha(a.device_config)+' */\nstatic const r2_group_enrollment provision={{{'+','.join(map(str,key))+'},UINT64_C(0x'+e['group_id']+'),'+str(e['key_epoch'])+'},UINT64_C(0x'+d['device_id']+'),'+json.dumps(d['label'])+',40000};\n')
- r={'schema':1,'stack_evidence_contract':'W12_PROFILE_STACK_V1','ble_acquisition_recovery':'W12_NEARBY_NO_CORRECTED_PROGRESS15S_BOUNDED_REBIND_V1','ble_startup_policy':'W12_USABLE_GM_TRIAL_SHARED_COOLDOWN_V1','ble_bootstrap_policy':'W12_COARSE_JOIN200MS_FULL_RTT_GUARD_V1','ble_bootstrap_uncertainty_limit_us':200000,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'runtime_sources':runtime,'runtime_source_sha256':runtime_hash,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','button_power_contract':'OFF_MAIN_HOLD4_DRAIN2_RELEASE40_GPIO0_WAKE_V1','shadow_holdover_contract':'BLE_THERMAL_SHADOW_120S_RATE_ANCHOR_V3','holdover_servo_contract':'BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3','holdover_rate_contract':'CAUSAL_CHANNEL16_32_MEDIAN_DELTA5_V1','holdover_horizon_contract':'SAMPLED_PREFIX_Q99_1US_WITNESS_V2','holdover_temperature_policy':'SHADOW_ONLY','holdover_test_contract':'FINITE_LOCAL_OUTPUT_120S_BLE_WITNESS_V1','host_task_allocation_policy':'GNSS_STATIC_CHECKED_CONFIGURED_STACK_V1' if 'gnss_profile' in d else 'SDK_DYNAMIC_V1','application_optimization':'W12_MAIN_OS_SDK_DEBUG_V1','build_generator':a.generator,'compiler_cache':'LOCAL_512M' if a.compiler_cache else 'DISABLED','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':720000000,'no_time_retention_policy':'HEALTHY_RX_OR_LEARNED_BOOT_CACHE_NO_ABSENCE_RESET_V2','watchdog_diagnostics':'INPUTS_TIMERS_RTC_BLE_REBINDS_CRC_V1','watchdog_policy':'ALL_MIN5S_STALL5S_FAULT120S_NOTIME720S_RETAIN_V3','watchdog_minimum_us':5000000,'watchdog_worker_stall_us':5000000,'clock_selection_policy':'MAIN_QUALIFIED30S_PAUSE_PERMISSION1500MS_LORA_RETURN_V4' if a.radiolib else None,'lora_snapshot_policy':'PRIOR_CLOCK_OBSERVATION_LABEL_FRESH250MS_ORIGINAL_LEASE_V1' if a.radiolib else None,'lora_contract':'PASSIVE_WIRE3_SCHEDULE8_LR2021_HEADER_VALID_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1' if a.radiolib else None,'lora_event_delay_ns':99328000 if a.radiolib else None,'lora_calibration':'ENGINEERING_SYMBOL_MODEL_UNCALIBRATED_LR2021_ENDPOINT_UNKNOWN' if a.radiolib else None,'rc9_passive_bridge':'GATED_MISSING_ORIGINAL_SIGNED_ENVELOPE_KEEP_WIRE1_12S_V1' if a.rc9 else None,'lora_rx':bool(a.radiolib),'rc9':a.rc9,'pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','rc9_server_recovery_policy':'QUALIFIED_BLE_DISPLAY_DRAIN_ORIGINAL_CHILD_LEASE_V1' if a.rc9 else None,'fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if a.rc9 else None,'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d),'phase_offsets':phase_offsets(),'bluetooth_clock_map':'FINE_RAW_CURRENT_BRACKET' if a.fine_clock else 'GPTIMER_DRIVER_BRACKET','programmed_clock_projection':'MEAN4_VALIDATED_NO_TRIMMING' if a.estimated_relay else None}
+ r={'schema':1,'stack_evidence_contract':'W12_PROFILE_STACK_V1','ble_acquisition_recovery':'W12_NEARBY_NO_CORRECTED_PROGRESS15S_BOUNDED_REBIND_V1','ble_startup_policy':'W12_USABLE_GM_TRIAL_SHARED_COOLDOWN_V1','ble_bootstrap_policy':'W12_COARSE_JOIN200MS_FULL_RTT_GUARD_V1','ble_bootstrap_uncertainty_limit_us':200000,'artifact_class':'PTOB_W12_RC','version':VERSION,'status':'INCOMPLETE','public_commit':git(REPO,'rev-parse','HEAD'),'source_dirty':dirty,'repository_dirty':repository_dirty,'source_sha256':source_hash,'sources':sources,'runtime_sources':runtime,'runtime_source_sha256':runtime_hash,'dependencies':lock,'sdk_path':str(sdk),'app_path':str(APP),'sdk_submodules':modules.splitlines(),'time_zone_contract':'COARSE_TZ_V1_ORDERED_DYNAMIC_LOCAL_DISPLAY','button_power_contract':'OFF_MAIN_HOLD4_DRAIN2_RELEASE40_GPIO0_WAKE_V1','shadow_holdover_contract':'BLE_THERMAL_SHADOW_120S_RATE_ANCHOR_V3','holdover_servo_contract':'BLE_RATE_CONSENSUS_TEMPERATURE_SHADOW_V3','holdover_rate_contract':'CAUSAL_CHANNEL16_32_MEDIAN_DELTA5_V1','holdover_horizon_contract':'SAMPLED_PREFIX_Q99_1US_WITNESS_V2','holdover_temperature_policy':'SHADOW_ONLY','holdover_test_contract':'FINITE_LOCAL_OUTPUT_120S_BLE_WITNESS_V1','host_task_allocation_policy':'GNSS_STATIC_CHECKED_CONFIGURED_STACK_V1' if 'gnss_profile' in d else 'SDK_DYNAMIC_V1','application_optimization':'W12_MAIN_OS_SDK_DEBUG_V1','build_generator':a.generator,'compiler_cache':'LOCAL_512M' if a.compiler_cache else 'DISABLED','profile':'RC','listening_percent':a.listening_percent,'estimated_relay':a.estimated_relay,'tx_actual_capture':False,'precision':'UNQUALIFIED','installed':False,'fine_clock':a.fine_clock,'no_time_sync_watchdog_us':720000000,'no_time_retention_policy':'HEALTHY_RX_OR_LEARNED_BOOT_CACHE_NO_ABSENCE_RESET_V2','watchdog_diagnostics':'INPUTS_TIMERS_RTC_BLE_REBINDS_CRC_V1','watchdog_policy':'ALL_MIN5S_STALL5S_FAULT120S_NOTIME720S_RETAIN_V3','watchdog_minimum_us':5000000,'watchdog_worker_stall_us':5000000,'clock_selection_policy':'MAIN_QUALIFIED30S_PAUSE_PERMISSION1500MS_LORA_RETURN_V4' if a.radiolib else None,'lora_snapshot_policy':'PRIOR_CLOCK_OBSERVATION_LABEL_FRESH250MS_ORIGINAL_LEASE_V1' if a.radiolib else None,'lora_contract':'PASSIVE_WIRE3_SCHEDULE8_LR2021_HEADER_VALID_FIXED922400_SF11_BW500_CR8_RX_ONLY_V1' if a.radiolib else None,'lora_event_delay_ns':99328000 if a.radiolib else None,'lora_calibration':'ENGINEERING_SYMBOL_MODEL_UNCALIBRATED_LR2021_ENDPOINT_UNKNOWN' if a.radiolib else None,'rc9_passive_bridge':'PASSIVE_TIME_V2_LEADER_AND_SNAPSHOT_EXPIRY' if a.rc9 else None,'lora_rx':bool(a.radiolib),'rc9':a.rc9,'pa_termination_policy':'SDK_HCI_ACK_EXACT_OWNER_V1','leader_recovery_policy':'FENCED_SCOPE_CACHE_CLEAR_1500MS_V3','gm_successor_policy':'GM7_V3_AUTHENTICATED_NOMINEE_RECOVERY_3S_V1','rc9_server_recovery_policy':'QUALIFIED_BLE_DISPLAY_DRAIN_ORIGINAL_CHILD_LEASE_V1' if a.rc9 else None,'fallback_recovery_policy':'AUTO_RC9_PASSIVE_NORMAL_RETRY_V1' if a.rc9 else None,'lora_transmitter_factory':tx,'radiolib_path':str(a.radiolib.resolve()) if a.radiolib else None,'clock_backend':fine_backend(a.fine_clock),'gnss_fast_map_diagnostic':fast_map,'registry_sha256':sha(a.registry),'registry_generator_sha256':sha(REPO/'registry/registry.py'),'enrollment_mode':'LOCAL_BUILD_TIME_NO_NVS_WRITE','device_config_sha256':sha(a.device_config),'provisional_path_profile':provisional_profile(d),'phase_offsets':phase_offsets(),'bluetooth_clock_map':'FINE_RAW_CURRENT_BRACKET' if a.fine_clock else 'GPTIMER_DRIVER_BRACKET','programmed_clock_projection':'MEAN4_VALIDATED_NO_TRIMMING' if a.estimated_relay else None}
  r['receiver_state_gate']={'receipt':str(a.state_machine_receipt.resolve()),'sha256':sha(a.state_machine_receipt),'status':'PASS_SOURCE_BOUND_OFFLINE'} if a.state_machine_receipt else None
+ if a.radiolib:r.update(clock_selection_policy='COMMON_FINE20_BLE_THEN_LORA_MONOTONIC_V1',lora_phase=lora_phase(d))
  r['direct_parent_gap_policy']='SAME_DIRECT_PHYSICAL_TRAIN_STALL15S_NO_TIME_V2'
  r['lora_owner_contract']='PERSISTENT_MODE_COOKIE_REVOKE_FENCE_DRAIN200MS_V2'
  r['lora_reset_readback']='INPUT_OUTPUT_PAD_LEVEL_OFF_PROOF_V1'
@@ -236,9 +258,10 @@ def main():
  r['observer_queue_slots']=8
  r['cap_hci_diagnostics']='CAP2037_BEGIN_RETURN_ACK_NO_PAYLOAD_V1'
  r['main_inlining']='GNSS_MAIN_SHARED_CALLEES_V1' if 'gnss_profile' in d else 'DEFAULT'
+ if a.radiolib and 'gnss_profile' in d:r['application_optimization']='W12_DUAL_GNSS_CLOCK_OZ_V1'
  r['lora_selection_policy']='AUTH_META_FIELD_EMITTER_FOUR_NON_EVICTING_REPLAY_FLOORS_V1'
  r['source_renewal_policy']='AUTH_GR3_MATCHED_ORIGINAL_MIN_BOTH_GRANTS_V1'
- r['dual_state_diagnostics']='MAIN_ELIGIBILITY_DWELL_FIRST_LOSS_PARENT8_LORA_CRC_V2'
+ r['dual_state_diagnostics']='COMMON_FINE20_PARENT8_LORA_CRC_V3' if a.radiolib else 'MAIN_ELIGIBILITY_DWELL_FIRST_LOSS_PARENT8_LORA_CRC_V2'
  dump(out/'receipt.json',r)
  env=os.environ.copy()
  for k in ['CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS','EXTRA_COMPONENT_DIRS','SDKCONFIG_DEFAULTS']:env.pop(k,None)

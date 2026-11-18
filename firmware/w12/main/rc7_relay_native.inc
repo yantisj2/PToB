@@ -130,10 +130,18 @@ uint32_t relay_flags(uint64_t now20){
 #ifdef PTOB_RC9
  if(relay_profile==9)return 0;
 #endif
- return 1u|2u|(uint32_t(relay_advertising)<<2)|(uint32_t(relay_pa)<<3)|
+ uint32_t flags=1u|2u|(uint32_t(relay_advertising)<<2)|(uint32_t(relay_pa)<<3)|
   (uint32_t(relay_map.ready(now20)&&relay_pa)<<4)|(uint32_t(relay_session.handle!=None)<<5)|
   (uint32_t(relay_selected!=0)<<6)|(uint32_t(relay_estimate_refused!=0)<<7)|(uint32_t(relay_admission_locked)<<8)|
-  (uint32_t(relay_hold.deadline()!=0)<<9);}
+  (uint32_t(relay_hold.deadline()!=0)<<9);
+#ifdef PTOB_W12_LORA_RX
+ // Passive placement state rides on the existing worker snapshot.
+ flags|=(uint32_t(relay_slots.scanning)<<10)|(uint32_t(relay_slots.scanning&&relay_slots.listening)<<11)|
+  (uint32_t(relay_slots.rollbacks!=0)<<12)|(uint32_t(relay_slots.busy!=0)<<13)|
+  (uint32_t(relay_retained_slot)<<14)|(uint32_t(relay_start20!=0)<<16);
+#endif
+ return flags;
+}
 bool relay_quarantine_owned(){for(const auto h:relay_quarantined)if(h!=None)return true;return false;}
 bool relay_owned(){const auto tx=periodic_tx::status();return relay_configured||relay_pa||relay_discovery||relay_advertising||relay_session.handle!=None||relay_quarantine_owned()||tx.installed||tx.armed;}
 bool relay_acl_available(){return relay_session.handle==None&&!relay_quarantine_owned();}
@@ -185,7 +193,7 @@ void relay_quarantine_poll(uint64_t now){
   }
 }
 void relay_fence(){
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
  // Background normal-BLE scope changes cannot retire a live RC9 source lease.
  if(relay_profile==9&&!closing&&!fault&&!relay_stopping)return;
 #endif
@@ -329,13 +337,13 @@ int relay_gap(ble_gap_event* e,void*){
   return 0;
 }
 uint16_t relay_control_bytes(){
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
  if(relay_profile==9)return rc9::ControlBytes;
 #endif
  return RC_DYNAMIC_CONTROL_BYTES;
 }
 int relay_access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void* profile){
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
   const auto expected=reinterpret_cast<uintptr_t>(profile)==9?9:7;
   if(relay_profile!=expected)return BLE_ATT_ERR_UNLIKELY;
 #else
@@ -355,13 +363,13 @@ int relay_access(uint16_t h,uint16_t,ble_gatt_access_ctxt* ctx,void* profile){
 }
 const ble_gatt_chr_def relay_chars[]={[]{ble_gatt_chr_def c{};c.uuid=&rc_data_uuid.u;c.access_cb=relay_access;
   c.flags=BLE_GATT_CHR_F_WRITE|BLE_GATT_CHR_F_READ;return c;}(),{}};
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
 const ble_gatt_chr_def rc9_chars[]={[]{ble_gatt_chr_def c{};c.uuid=&rc9_data_uuid.u;c.access_cb=relay_access;
  c.arg=reinterpret_cast<void*>(uintptr_t(9));c.flags=BLE_GATT_CHR_F_WRITE|BLE_GATT_CHR_F_READ;return c;}(),{}};
 #endif
 void relay_input(const rc7_path& parent,const rc5_origin& origin,const uint8_t* proof,uint64_t original20,
                  uint32_t incarnation,uint64_t completion20,uint32_t inherited_age){
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
   if(relay_profile==9||rc9_server_selected(micros()))return;
 #endif
   if(!full_listening()||closing||fault||relay_stopping)return;
@@ -373,6 +381,9 @@ void relay_input(const rc7_path& parent,const rc5_origin& origin,const uint8_t* 
     inc(relay_queue_diagnostic.inputs);
     relay_data_dirty=true;
     if(!rc7_path_same(&old,&relay_map.path)){
+#ifdef PTOB_W12_LORA_RX
+      if(relay_slots.scanning)rc_slots_rollback(&relay_slots,micros());
+#endif
       relay_hold.clear();relay_cap_dirty=true;relay_stop_pa();relay_start20=0;
     }
   }else inc(relay_queue_diagnostic.input_refused);
@@ -381,7 +392,7 @@ bool relay_cap_configure(){
   ble_gap_ext_adv_params a{};a.own_addr_type=BLE_OWN_ADDR_RANDOM;a.itvl_min=a.itvl_max=160;
   a.primary_phy=a.secondary_phy=Rc7TxReference::Ble1MPhy;a.tx_power=0;int8_t power=127;
   a.sid=13;a.connectable=1;
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
   if(relay_profile==9)a.sid=15;
 #endif
   return relay_api(ble_gap_ext_adv_configure(1,&a,&power,relay_gap,nullptr),R2Api::AdvConfigure);
@@ -462,7 +473,7 @@ bool relay_configure(){
   ble_gap_ext_adv_params a{};a.own_addr_type=BLE_OWN_ADDR_RANDOM;a.itvl_min=a.itvl_max=160; //100ms request
   static_assert(Rc7TxReference::Ble1MPhy==BLE_HCI_LE_PHY_1M,"Relay endpoint requires1M");
   a.primary_phy=a.secondary_phy=Rc7TxReference::Ble1MPhy;a.sid=12;a.tx_power=0;
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
   if(relay_profile==9)a.sid=14;
 #endif
   ble_gap_periodic_adv_params p{};p.itvl_min=p.itvl_max=50;
@@ -502,7 +513,21 @@ void relay_requests(uint64_t now,uint64_t now20){
        (!relay_slots.changed_at||now-relay_slots.changed_at>=RC_SLOT_COOLDOWN_US))relay_rescan_pending=true;
   }
 }
+#ifdef PTOB_W12_LORA_RX
+bool relay_placement_current(uint64_t now){
+  return relay_map.valid&&joined_peer&&sync_identity==joined_peer&&synced&&
+    !sync_terminating&&!sync_cleanup_queued&&!sync_cleanup_requested&&anchor_valid(now);
+}
+#endif
 void relay_slot_poll(uint64_t now,bool upstream_due){
+#ifdef PTOB_W12_LORA_RX
+  // Passive placement follows the acquired train and its replay context.
+  // Timing loss stops service and clears child demand independently.
+  if(relay_slots.scanning&&!relay_placement_current(now)){
+    rc_slots_rollback(&relay_slots,now);
+    return;
+  }
+#endif
   if(!relay_map.valid||relay_session.handle!=None||peer.handle!=None||peer.connecting||upstream_due){
     rc_slots_listen(&relay_slots,now,false);
     if(relay_slots.scanning&&now>=relay_slots.scan_limit)rc_slots_rollback(&relay_slots,now);
@@ -542,9 +567,15 @@ bool relay_check_lock(){
   const auto now=micros();
   const bool parent_locked=counter&&!fault&&relay_parent_locked(now);
   const bool timing=parent_locked&&relay_map.live(now20);
+#ifdef PTOB_W12_LORA_RX
+  // Keep downstream ownership through a bounded local PA/slot gap while
+  // qualified BLE remains current. A parent loss clears this hold immediately.
+  relay_admission_locked=relay_hold.update(now,timing,relay_map.path,parent_locked&&relay_map.valid);
+#else
   relay_admission_locked=counter&&!fault&&relay_map.valid&&relay_hold.update(now,timing,relay_map.path);
-  // Withdraw corrections immediately, while keeping the same authenticated
-  // train, child demand and management service through a bounded quality gap.
+#endif
+  // Withdraw corrections immediately. The ownership hold is scoped to the
+  // same authenticated train and retains the child demands only while armed.
   // A fresh accepted parent original is required before timing can resume.
   if(!timing&&relay_map.withdraw_time()){relay_data_dirty=true;relay_cap_dirty=true;}
   if(!relay_admission_locked){
@@ -554,7 +585,9 @@ bool relay_check_lock(){
     // A deliberate slot move fences only the downstream map until the next
     // parent original. It must not erase demand while that parent stays locked.
     if(!parent_locked||relay_map.valid)for(auto& child:relay_children)child={};
+#ifndef PTOB_W12_LORA_RX
     if(!parent_locked&&relay_slots.scanning)rc_slots_rollback(&relay_slots,micros());
+#endif
     relay_terminate(micros());
     RelayWrite discard{};while(relay_writes.pop(discard)){}
   }
@@ -567,7 +600,7 @@ void relay_poll(uint64_t now,bool upstream_due,bool admitting){
 #ifdef PTOB_RC9
   if(rc9_bound()&&!rc9_server_selected(now)){if(relay_owned())relay_close(now);return;}
 #endif
-#if defined(PTOB_RC9) && defined(PTOB_W12_LORA_RX)
+#ifdef PTOB_G1_RC9_SERVER
   if(relay_stopping){
    if(relay_owned())return;
    relay_stopping=false;relay_stop_deadline=0;relay_cap_dirty=true;
@@ -609,7 +642,11 @@ void relay_poll(uint64_t now,bool upstream_due,bool admitting){
   relay_publication_demand();
   if(fault)return;
   if(upstream_due||peer.connecting||peer.handle!=None)relay_pause_cap();
-  if(relay_admission_locked)relay_slot_poll(micros(),upstream_due);
+  if(relay_admission_locked
+#ifdef PTOB_W12_LORA_RX
+     ||relay_slots.scanning
+#endif
+  )relay_slot_poll(micros(),upstream_due);
   if(fault)return;
   if(synced&&!upstream_due&&!relay_slots.scanning)stop_scan();
   if(relay_admission_locked&&relay_acl_available()&&peer.handle==None&&!peer.connecting){
@@ -733,6 +770,7 @@ void relay_poll(uint64_t now,bool upstream_due,bool admitting){
 uint64_t rc9_server_demand_until(){return 0;}
 uint8_t rc9_server_clients(uint64_t){return 0;}
 bool rc9_server_selected(uint64_t){return false;}
+bool rc9_server_serving(uint64_t){return false;}
 uint8_t rc9_server_flags(){return 0;}
 #endif
 bool relay_slot_scanning(){return false;}

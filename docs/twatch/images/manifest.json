@@ -2,17 +2,17 @@
   "schema": 1,
   "scope": "SYNTHETIC_NATIVE_RENDERER_PREVIEWS_NOT_HARDWARE",
   "renderer": "firmware/twatch/main/watch.cpp",
-  "renderer_sha256": "31e4c211e654baf85d228d999e9589daf3427d47b118e51587485d94ad66e90c",
+  "renderer_sha256": "cca86e46af2103aa7ef5ba66c92669697a2330ff77b695f719487c5751af496b",
   "fixture": "firmware/twatch/tools/preview.cpp",
-  "fixture_sha256": "6e997bd01a1c5921f57aeab7b7c09a9ee8dcdabd213ae93dfb591a76b0345cd3",
+  "fixture_sha256": "f6e15824f13850150199f3a85959cce26ef3589f88093d3ab09bbecbb139b425",
   "images": {
     "battery.png": "14a8d7ab1b85efb7b83e9b5e77e6d23e34e42a7fb219fbb86d4d0613789b719f",
-    "digital.png": "1baf74911568dd3ccb96d4768a2e844cda601f488ac79f0330bb87eb410e998e",
-    "instrument.png": "3278af330e6aacff413c3d1ddf01f5cfcbcfc51a6a461b8d3908d60956c1bbe3",
+    "digital.png": "e758c0a9b3affd80aa16098510183c3213a09720e2b4633331e720bcfe952511",
+    "instrument.png": "c473f895d0bc8a257e4596c97989efbdb01c1439afbbd732273c156fce04bba7",
     "launcher.png": "241232ee5da483836a94619efd477034a499de2c5b62f86f86739a8c0124851a",
     "settings.png": "0e3aeeef14d1ea3f6339adb4b0ee1c0b87282b311ced137efd5e4823db1c817d",
-    "solar.png": "b863e52406068b57ad990d114c4ed7dd9af8e390ce5890bebeb54869ff8ba8d6",
-    "shadow.png": "2182a8bb80ed563cba4c79237a143cc9d2f8692d479e75ce5c10678a528abfce"
+    "solar.png": "3dd711ab05bd153893d195a8205f3118647871ec72cbe691ffe9b4b7c8e2dbbb",
+    "shadow.png": "b09de80fd91581a03d6760902be83cb052f8a1401130f33c3de0ba5defc6f4ff"
   },
   "calendar": "firmware/twatch/main/calendar.cpp",
   "calendar_sha256": "58e39c74ee82ef527a598b578cb2dab0be67d48ef609128205359cbc793f2a69",
@@ -23,14 +23,18 @@
   "battery_history": "firmware/twatch/main/battery_history.hpp",
   "battery_history_sha256": "721d9fb6c3ca6c69dd136239c2306c62347c69c83f9be5638ea339543be365d4",
   "shadow_renderer": "firmware/twatch/main/shadow_face.inc",
-  "shadow_renderer_sha256": "16dc94d4795912633fdfbf173076b1e050df4daacb35be496b965857cb87b6e1",
+  "shadow_renderer_sha256": "29244c40d51af780675b4601405fb8568042ad16e5d656b5b258005b0d6449e9",
   "shadow_model": "firmware/twatch/main/shadow_model.hpp",
   "shadow_model_sha256": "b4039fb33055e3710bc385cdc210d94ba55d0d3c7e1f1c43ffd91cd1da677a42",
   "shadow_fixture": "shadow: synthetic 11/18 satellites, captured-edge pulse annunciator, +87.4 ns MEAN, 246 ns P99 ABS, 112 ns RMS; no hardware observation",
-  "shadow_revalidation": {
-    "method": "Current native fixture with the documented100pixel rounded black preview mask exactly matches all retained PNG pixels",
-    "native_fixture_ppm_sha256": "e927a61b09ea9cf274647d5156bdb8e4455efd972bd16178cc16d421730ea39b",
-    "previous_model_sha256": "1646f36516c74e909f511d4813471595f210903be9da54f0d5bd6bb4e5b0b883",
-    "scope": "SYNTHETIC_NATIVE_RENDERER_PREVIEW_NOT_HARDWARE"
+  "receiver_metrics": "Fresh BLE receiver RMS first, LoRa fallback; explicit receiver captions and scaled values; GNSS error statistics stay separate.",
+  "native_fixture_sha256": {
+    "digital.png": "4acda933282615d6892aa29de24a052d24f536faec56b6c67995db0c47c97dbe",
+    "instrument.png": "af7eae4b8f49ea2ec68ac4ac1b26a7c325a76a580c66214c483f85d1460f2aff",
+    "solar.png": "be841c331ca292f2afdf897fd2362bf0fa8d6a3816f73e1f148f7a865b4dcfe2",
+    "shadow.png": "e142cddf81c749bf645edc703f7e9d1c7fe4325735c54253494d61723e12ea16",
+    "battery.png": "8956fba9734ae19da45f06ff6a918d153d50c2eab77463f8eade0b31c5fc0db9",
+    "launcher.png": "53de3ca125782e36ad996f120b0878a96b924eb6636908f10d39b86bdc95d5c4",
+    "settings.png": "956088b9af576e0071833ca2533fd0f6a89088126092d1c3afafe31df829845a"
   }
 }

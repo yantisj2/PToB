@@ -28,6 +28,7 @@ struct Canvas {
  void chevron(int x,int y){for(int i=0;i<8;++i){rect(x+i,y+i,2,2,Muted);rect(x+i,y+14-i,2,2,Muted);}}
 };
 const char* source(Source s){switch(s){case Source::BLE:return "BLE";case Source::LOR:return "LOR";case Source::RC1:return "RC1";case Source::RC2:return "RC2";case Source::RC9:return "RC9";default:return "---";}}
+const char* rms_caption(const Model& m){const auto s=rms_receiver(m);return s==Source::BLE?"BLE RMS":s==Source::LOR?"LOR RMS":"RX RMS";}
 constexpr double Pi=3.14159265358979323846;
 struct Point {int x,y;};
 Point polar(int x,int y,double r,double angle){const double a=angle*Pi/180;return {x+int(std::lround(std::sin(a)*r)),y-int(std::lround(std::cos(a)*r))};}
@@ -92,7 +93,7 @@ void instrument_base(Canvas& c){ constexpr auto Case=rgb(26,38,29),Bevel=rgb(73,
  centered(c,156,174,"RADIO",14,Etch);
  centered(c,254,174,"LORA",14,Etch);
  for(auto q:{Point{116,249},Point{294,249}}){well(c,q.x,q.y,48);ticks(c,q.x,q.y,41,30,-135,270,Etch);}
- centered(c,116,194,"SYNC RMS",14,Etch);centered(c,294,194,"P99 HOLD",14,Etch);
+
  const char* rmslabels[]={"0ns","2.5","5","7.5","10us"};for(int i=0;i<5;++i){auto q=polar(116,249,29,-135+i*67.5);centered(c,q.x,q.y-7,rmslabels[i],14,Lume);}
  const char* holdlabels[]={"<=1","15","30","45",">=60"};for(int i=0;i<5;++i){auto q=polar(294,249,31,-135+i*67.5);centered(c,q.x,q.y-7,holdlabels[i],14,Lume);}
  well(c,205,337,43);ticks(c,205,342,34,20,-110,220,Etch);
@@ -141,10 +142,12 @@ void instrument(Canvas& c,const Model& m,uint64_t now,RenderCache* cache){
  circle(c,265,154,4,Recess,true);metal_ring(c,265,154,4,3,true);
  if(m.lora_on)circle(c,265,154,2,Lume,true);
  // Linear 0ns..10us RMS scale: quarter divisions are 2500ns.
- const bool rms=evidence&&m.rms_ns!=UINT32_MAX;double a=-135+270*(m.motion?m.rms_position:rms?std::min(uint32_t(10000),m.rms_ns)/10000.0:1);
+ centered(c,116,194,rms_caption(m),14,Etch);centered(c,294,194,"BLE P99 HOLD",14,Etch);
+ const bool rms=receiver_rms_current(m,now);double a=-135+270*(m.motion?m.rms_position:rms?std::min(uint32_t(10000),m.rms_ns)/10000.0:1);
  needle(c,116,249,a,37,1,Lume);circle(c,116,249,3,Bevel,true);
- if(rms&&m.rms_ns>10000)centered(c,116,284,"OVER",14,Etch);
- const bool hold=evidence&&sampled_hold(m);
+ char metric[24];if(rms)rms_text(metric,sizeof metric,m.rms_ns);else std::snprintf(metric,sizeof metric,"--");
+ centered(c,116,284,metric,14,Etch);
+ const bool hold=sampled_hold(m,now);
  a=-135+270*(m.motion?m.hold_position:hold?(std::max(1.0,std::min(60.0,m.hold_ms/1000.0))-1)/59:0);
  needle(c,294,249,a,37,1,Lume);circle(c,294,249,3,Bevel,true);centered(c,294,hold&&m.hold_lower?251:257,hold&&m.hold_lower?">=s":"s",14,Etch);
  // Mechanical power-reserve sector, with a distinct unavailable parking mark.
@@ -358,12 +361,12 @@ void solar_face(Canvas& c,const Model& m,uint64_t now,RenderCache* cache){
   for(int row=0;row<RenderCache::Rows;++row)for(int col=0;col<RenderCache::Cols;++col){if(!cache->used[row*RenderCache::Cols+col])continue;const int x=col*32,y=row*32,w=std::min(32,Width-x),h=std::min(32,Height-y);for(int j=0;j<h;++j)std::memcpy(c.p+(y+j)*Width+x,backdrop+(y+j)*Width+x,w*sizeof(uint16_t));}
  }else{if(backdrop)std::memcpy(c.p,backdrop,Width*Height*sizeof(uint16_t));else solar_base(c,a,known);if(cache)std::memset(cache->changed,1,sizeof cache->changed);}
  if(cache){std::memset(cache->used,0,sizeof cache->used);cache->valid=backdrop!=nullptr;cache->face=2;cache->generation=generation;cache->buffer=c.p;c.damage=cache;}
- const bool evidence=live&&!m.local_time&&!m.holding,rms=evidence&&m.rms_ns!=UINT32_MAX,hold=evidence&&sampled_hold(m),signal=evidence&&m.source_rssi>-127&&m.source_rssi<=0;
+ const bool evidence=live&&!m.local_time&&!m.holding,rms=receiver_rms_current(m,now),hold=sampled_hold(m,now),signal=evidence&&m.source_rssi>-127&&m.source_rssi<=0;
  char b[48];
- if(rms){if(m.rms_ns>10000)std::snprintf(b,sizeof b,">10 us");else if(m.rms_ns<1000)std::snprintf(b,sizeof b,"%u ns",unsigned(m.rms_ns));else std::snprintf(b,sizeof b,"%.1f us",m.rms_ns/1000.0);}else std::snprintf(b,sizeof b,"--");
- solar_subdial(c,solar::CornerLeft,solar::CornerTop,m.motion?m.rms_position:rms?std::min(1.0,m.rms_ns/10000.0):1,"RMS",b,SolarBlue,rms);
+ if(rms)rms_text(b,sizeof b,m.rms_ns);else std::snprintf(b,sizeof b,"--");
+ solar_subdial(c,solar::CornerLeft,solar::CornerTop,m.motion?m.rms_position:rms?std::min(1.0,m.rms_ns/10000.0):1,rms_caption(m),b,SolarBlue,rms);
  if(hold)hold_text(b,sizeof b,uint64_t(m.hold_ms)*1000);else std::snprintf(b,sizeof b,"--");
- solar_subdial(c,solar::CornerRight,solar::CornerTop,m.motion?m.hold_position:hold?(std::max(1.0,std::min(60.0,m.hold_ms/1000.0))-1)/59:0,"P99",b,SolarBlue,hold);
+ solar_subdial(c,solar::CornerRight,solar::CornerTop,m.motion?m.hold_position:hold?(std::max(1.0,std::min(60.0,m.hold_ms/1000.0))-1)/59:0,"BLE P99",b,SolarBlue,hold);
  const char* radio=live&&(m.local_time||m.holding)?"HOLD":evidence?source(m.source):"--";
  solar_subdial(c,solar::CornerLeft,solar::CornerBottom,m.motion?m.signal_position:signal?std::max(0.0,std::min(1.0,(m.source_rssi+110)/70.0)):0,"SRC",radio,SolarBlue,signal);
  const bool tide=known&&a.tides==calendar::Coverage::Available&&a.tide_position_valid;
@@ -446,6 +449,13 @@ void hold_text(char* out,unsigned size,uint64_t us){
 void View::tick(uint64_t now,bool usb){if(usb&&!manual_sleep){asleep=false;glance_until_us=0;activity_us=now;return;}if(now<activity_us){activity_us=now;glance_until_us=0;return;}if(glance_until_us?now>=glance_until_us:now-activity_us>=uint64_t(settings.timeout_s)*1000000){asleep=true;glance_until_us=0;}}
 void View::button(uint64_t now){glance_until_us=0;activity_us=now;if(asleep){asleep=false;manual_sleep=false;return;}screen=screen==Screen::Face?Screen::Launcher:Screen::Face;}
 void View::touch(int x,int y,uint64_t now){if(x<0||x>=Width||y<0||y>=Height)return;glance_until_us=0;activity_us=now;if(asleep){asleep=false;manual_sleep=false;return;}if(screen==Screen::Face){if(y>=430)screen=Screen::Launcher;return;}if(y<95){screen=screen==Screen::Launcher?Screen::Face:Screen::Launcher;return;}if(screen==Screen::Launcher){if(y<215)screen=Screen::Faces;else if(y<325)screen=Screen::Settings;else if(y<425)screen=Screen::Battery;else screen=Screen::Face;}else if(screen==Screen::Battery){if(x>=42&&x<368&&y>=100&&y<148){const uint8_t hours[]={1,6,12,24};battery_hours=hours[std::min(3,(x-42)/82)];}}else if(screen==Screen::Faces){if(y>=105&&y<425){settings.face=uint8_t((y-105)/80);dirty=true;screen=Screen::Face;}}else if(screen==Screen::Settings){if(y>=105&&y<185){settings.brightness=uint8_t(settings.brightness==100?10:std::min(100,int(settings.brightness)+10));dirty=true;}else if(y>=185&&y<265){settings.timeout_s=settings.timeout_s==15?30:settings.timeout_s==30?60:settings.timeout_s==60?90:15;dirty=true;}else if(y>=265&&y<345){radio_request=1;}else if(y>=345&&y<425){radio_request=2;}}}
+void rms_text(char* out,unsigned size,uint32_t ns){
+ if(ns==UINT32_MAX)std::snprintf(out,size,"--");
+ else if(ns<10000)std::snprintf(out,size,"%u ns",unsigned(ns));
+ else if(ns<1000000)std::snprintf(out,size,"%.1f us",ns/1000.0);
+ else if(ns<1000000000)std::snprintf(out,size,"%.2f ms",ns/1000000.0);
+ else std::snprintf(out,size,"%.3f s",ns/1000000000.0);
+}
 void render(uint16_t* pixels,const Model& m,const View& v,uint64_t now,RenderCache* cache){
  Canvas c{pixels};
  if(!v.asleep&&v.screen==Screen::Face&&v.settings.face==3){if(cache){cache->valid=false;std::memset(cache->changed,1,sizeof cache->changed);}shadow_face(c,m,now);return;}
@@ -493,12 +503,12 @@ void render(uint16_t* pixels,const Model& m,const View& v,uint64_t now,RenderCac
  c.digit(327,230,16,34,live?date.tm_sec/10:-1,Amber);c.digit(349,230,16,34,live?date.tm_sec%10:-1,Amber);
  for(int i=0;i<60;++i)c.rect(48+i*5,282,3,i%5==0?9:5,live&&i<=date.tm_sec?Amber:Rule);
  c.frame(32,316,346,67,8,Rule);c.rect(139,324,1,51,Rule);c.rect(264,324,1,51,Rule);
- c.text(46,322,"SOURCE",20,Muted);c.text(151,322,"SYNC RMS",20,Muted);c.text(278,322,"PLL",20,Muted);
+ c.text(46,322,"SOURCE",20,Muted);c.text(151,322,rms_caption(m),20,Muted);c.text(278,322,"PLL",20,Muted);
  c.text(46,346,m.local_time?"HOLD":live?source(m.source):"---",26,Ink);
- if(live&&m.rms_ns!=UINT32_MAX)(m.rms_ns<10000?std::snprintf(b,sizeof b,"%u ns",unsigned(m.rms_ns)):m.rms_ns<1000000?std::snprintf(b,sizeof b,"%u us",unsigned(m.rms_ns/1000)):std::snprintf(b,sizeof b,">=1 ms"));else std::snprintf(b,sizeof b,"-- ns");c.text(151,346,b,26,Ink);
- c.text(278,346,!live?"WAIT":m.holding?"HOLD":m.locked?"LOCK":"ACQ",26,live&&m.locked?Green:Amber);
- c.frame(32,393,346,39,8,Rule);c.text(46,399,"P99 <1us HOLD",20,Muted);
- if(live&&sampled_hold(m))hold_text(b,sizeof b,uint64_t(m.hold_ms)*1000);else std::snprintf(b,sizeof b,"--");c.text(250,395,b,26,Ink);
+ if(receiver_rms_current(m,now))rms_text(b,sizeof b,m.rms_ns);else std::snprintf(b,sizeof b,"--");c.text(151,346,b,26,Ink);
+ c.text(278,346,!live?"WAIT":m.holding?"HOLD":m.locked?"LOCK":m.common_clock&&m.source==Source::LOR?"COARSE":"ACQ",m.common_clock&&m.source==Source::LOR&&!m.locked?20:26,live&&m.locked?Green:Amber);
+ c.frame(32,393,346,39,8,Rule);c.text(46,399,"BLE P99 <1us HOLD",20,Muted);
+ if(sampled_hold(m,now))hold_text(b,sizeof b,uint64_t(m.hold_ms)*1000);else std::snprintf(b,sizeof b,"--");c.text(250,395,b,26,Ink);
  c.text(66,450,m.lora_on?"LOR":"LOR OFF",20,m.lora_on?Muted:Amber);
  if(m.lora_on){for(int i=0;i<3;++i)c.rect(104+i*6,466-i*4,3,4+i*4,m.lora_receiving?Green:Rule);}
 

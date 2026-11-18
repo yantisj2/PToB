@@ -33,6 +33,8 @@ class Parser(base.Parser):
   if manifest.get('watch_frame')=='TIMING':self.expected_rows=(*timing.TIMING_ROWS[:-1],'TWATCH_UI')
   if manifest.get('watch_frame')=='IMU':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','TWATCH_IMU','W12_V12_COMMAND','TWATCH_UI')
   if manifest.get('watch_frame')=='SHADOW':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','TWATCH_SHADOW','W12_V12_COMMAND','TWATCH_UI')
+  if manifest.get('watch_frame')=='CLOCK':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','TWATCH_CLOCK_SNAPSHOT','W12_V12_COMMAND')
+  if manifest.get('watch_frame')=='PPS':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','TWATCH_DUAL_PPS','W12_V12_COMMAND')
   if manifest.get('watch_frame')=='DUAL':self.expected_rows=('W12_R2_STATUS','W12_V12_STATUS','TWATCH_SOURCE','W12_V12_COMMAND','TWATCH_UI')
  def feed(self,data):
   frames=super().feed(data)
@@ -43,6 +45,12 @@ class Parser(base.Parser):
    if 'TWATCH_LORA_SLEEP' in frame['rows']:validate_lora_sleep(frame['rows'],self.manifest.get('lora_shadow_schedule'))
    if 'TWATCH_IMU' in frame['rows']:
     imu=frame['rows']['TWATCH_IMU'];base.require(imu.get('version')=='1' and imu.get('diagnostic_only')=='1','Unexpected IMU diagnostic contract')
+   if self.manifest.get('watch_frame')=='CLOCK':
+    row=frame['rows']['TWATCH_CLOCK_SNAPSHOT'];base.require('TWATCH_GNSS_FREE_SNAPSHOT_V1' in self.manifest.get('dual_radio_test_contracts',[]),'Snapshot capability missing');base.require(row.get('contract')=='TWATCH_GNSS_FREE_SNAPSHOT_V1' and row.get('version')=='1','GNSS-free snapshot contract required')
+    continue
+   if self.manifest.get('watch_frame')=='PPS':
+    row=frame['rows']['TWATCH_DUAL_PPS'];base.require('TWATCH_DUAL_RADIO_PPS_V1' in self.manifest.get('dual_radio_test_contracts',[]),'Candidate PPS capability missing');base.require(row.get('contract')=='TWATCH_DUAL_RADIO_PPS_V1' and row.get('clock_contract')=='TWATCH_COMMON_CLOCK_V1','Parallel PPS contract required')
+    continue
    ui=frame['rows']['TWATCH_UI']
    for key,value in [('version','1'),('width','410'),('height','502'),('GNSS','FACE_AUTO' if self.manifest.get('version') in ('0.1.7','0.1.8','0.1.9','0.1.10') or self.manifest.get('GNSS')=='SHADOW_FACE_AUTO_RX_ONLY_V1' or self.manifest.get('control_contract')=='BOUNDED_CONTROL_V1' else 'OFF'),('precision','UNQUALIFIED')]:
     base.require(ui.get(key)==value,'Unexpected watch UI contract: '+key)
@@ -138,7 +146,7 @@ def capture_action(action):
  return bool(m and 10000<=int(m[1])<=600000)
 
 def mutation_command(frame,nonce,action):
- base.require(timing_action(action) or fine_action(action) or window_action(action) or capture_action(action) or re.fullmatch(r'ui face [0-3]',action) or action in ('prepare_update','bootrom','ui page 0','ui page 1','ui page 2','ui page 3','ui page 4','lora diag','imu diag','imu restart','shadow diag','ui sleep','dual read 0 0','upstream auto','upstream relay','rc-parent auto','gm-parent auto','lora auto','ui radio ble','ui radio lora') or re.fullmatch(r'dual read (?:[0-9]|10) 0',action) or re.fullmatch(r'(rc|gm)-parent [0-9a-f]{16}',action),'Unsupported watch action')
+ base.require(timing_action(action) or fine_action(action) or window_action(action) or capture_action(action) or re.fullmatch(r'pps read (0|[1-9][0-9]{0,9})',action) and int(action[9:])<=0xffffffff or re.fullmatch(r'ui face [0-3]',action) or action in ('clock read','prepare_update','bootrom','ui page 0','ui page 1','ui page 2','ui page 3','ui page 4','lora diag','imu diag','imu restart','shadow diag','ui sleep','dual read 0 0','upstream auto','upstream relay','rc-parent auto','gm-parent auto','lora auto','ui radio ble','ui radio lora') or re.fullmatch(r'dual read (?:[0-9]|10) 0',action) or re.fullmatch(r'(rc|gm)-parent [0-9a-f]{16}',action),'Unsupported watch action')
  base.require(base.HEX16.fullmatch(nonce) and int(nonce,16) and nonce!=frame['begin']['nonce'],'Fresh nonce required')
  b=frame['begin']
  return INPUT_ABORT+f"v12 do {b['ticket']} {nonce} {b['factory']} {b['session']} {action}\n".encode()

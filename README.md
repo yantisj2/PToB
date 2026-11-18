@@ -83,10 +83,11 @@ Firmware-rendered previews with illustrative values, not live measurements.
 Select a screen to open its target guide.
 
 The T-Watch's fourth face automatically powers GNSS while visible and compares
-its PPS with selected BLE timing. On the tested watch, a short **14-sample**
-settled baseline measured **−2.9104 µs MEAN**; its local profile now applies a
-provisional **+2.900 µs** adjustment. Post-correction residual validation remains
-pending. See the [device measurement note](docs/twatch/shadow-pps-note.md).
+its PPS with the eligible BLE receiver model, independently of common-clock
+delivery. A tested unit uses local **+2.900 µs BLE** and
+**+3.599390 ms LoRa** adjustments. The [device measurement note](docs/twatch/shadow-pps-note.md)
+records residuals, coverage and finite shared-clock handover/holdover checks;
+absolute UTC accuracy and the longer precision campaign remain unqualified.
 
 The [T096 timing schematic](https://ptob.dev/hardware/t096/timing/) and
 [ESP32-S3 timing schematic](https://ptob.dev/hardware/esp32-s3/timing/) show how

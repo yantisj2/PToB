@@ -36,7 +36,7 @@ idf_component_register(SRCS "energy.cpp" "imu.cpp" "../vendor/bhi260/bhy2.c" "..
   LDFRAGMENTS "${CMAKE_CURRENT_LIST_DIR}/../../n30/main/lora_map.lf"
   REQUIRES bt mbedtls esp_driver_spi esp_driver_gptimer esp_driver_i2c esp_driver_gpio
     esp_driver_usb_serial_jtag esp_driver_uart esp_driver_mcpwm esp_pm esp_timer esp_hw_support nvs_flash)
-target_sources(${COMPONENT_LIB} PRIVATE "shadow_gnss.cpp" "watch_holdover.cpp" "calendar.cpp" "lora_shadow_diagnostics.cpp")
+target_sources(${COMPONENT_LIB} PRIVATE "shadow_gnss.cpp" "dual_radio.cpp" "watch_holdover.cpp" "calendar.cpp" "lora_shadow_diagnostics.cpp")
 if(V12_R2_RX_SHADOW)
   file(SHA256 "$ENV{IDF_PATH}/components/esp_driver_gptimer/src/gptimer_priv.h" timer_abi_sha)
   if(NOT timer_abi_sha STREQUAL "1b75930c75158fd6f32640d0ff094919a786d4057c0b9e9258e71ce6495542d4")
@@ -164,3 +164,5 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE R2_LORA_PASSIVE_SLOW=1 R2_LO
 
 # N30-only receiver build: preserve all shared G1 source behavior and guards.
 set_source_files_properties("${w12}/main/native_g1.cpp" PROPERTIES COMPILE_OPTIONS "-Os")
+
+configure_file("${PTOB_DUAL_CLOCK_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/twatch_dual_clock_config.h" COPYONLY)

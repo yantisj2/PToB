@@ -88,6 +88,7 @@ void w12_rc8_snapshot(struct w12_lora_view* out,uint64_t now){
    // The estimate belongs to the actual preceding clock observation. A later
    // publication cannot relabel that old tick as now or renew either lease.
    out->state=2;out->sampled_us=current_us;out->utc_us=ns/1000;out->until_us=r->physical_deadline_us<r->observed_deadline_us?r->physical_deadline_us:r->observed_deadline_us;
+   out->model_tick16=r->display_tick;out->model_ns=r->display_ns;
   }else if(!r->have_pair)out->state=3;
  }
  // assurance/authority remain zero: no independently bounded admission or relay.

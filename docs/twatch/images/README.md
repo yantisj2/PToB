@@ -33,3 +33,7 @@ statistics, distinct from the hold-duration P99 on the other faces. The actual
 receiver never fabricates sky positions when GSV coordinates are unavailable.
 Search, fix, PPS, ten-second settling and measurement are native states; preview
 motion and values do not establish installed GNSS reception or timing accuracy.
+
+All faces label the available receiver RMS as BLE or LOR, independently of the
+delivered-clock source. Shadow places this receiver fit in its header and keeps
+GNSS MEAN/P99 ABS/RMS below. These synthetic values are not accuracy evidence.

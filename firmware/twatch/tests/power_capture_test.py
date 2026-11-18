@@ -11,4 +11,9 @@ assert continuity([f(1,100),f(2,99)])['backward_steps']==1
 assert not continuity([f(1,100),f(4000000,100,at=1)])['passed']
 assert continuity([f(1,100),f(4000000,100,asleep=True,at=1)])['passed']
 assert not continuity([f(1,0,False)])['passed']
+ack={'rows':{'TWATCH_UI':{'control_version':'1','ready':'1'}}}
+assert continuity([f(1,100),ack,f(2,101)])['passed']
+assert continuity([f(1,100),ack,f(2,101)])['control_acknowledgements_without_time']==1
+assert not continuity([ack])['passed']
+assert not continuity([f(1,100),{'rows':{'TWATCH_UI':{'control_version':'1','clock':'0'}}}])['passed']
 print('PASS clock continuity: acquisition, retained-clock loss, backward step, stale awake display, sleeping display and absent evidence')

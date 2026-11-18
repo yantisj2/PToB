@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "scope": "Host preparation failures before fixed study; no passing-only hardware-window selection",
+  "records": [
+    {
+      "kind": "missing_pyserial_in_default_python",
+      "operation": "readiness import",
+      "hardware_opened": false
+    },
+    {
+      "kind": "sandbox_macos_inventory_refusal",
+      "operation": "desktop readiness guard",
+      "hardware_opened": false,
+      "resolution": "Authorized sandbox escalation; original guard retained"
+    },
+    {
+      "kind": "host_source_field_mismatch",
+      "operation": "first read-only readiness response",
+      "hardware_opened": true,
+      "controls": false,
+      "resolution": "Correct source commit versus aggregate source-digest field; CRC raw response retained"
+    },
+    {
+      "kind": "local_helper_import_missing",
+      "operation": "pre-update diagnostic archive",
+      "hardware_opened": false,
+      "resolution": "Resolve existing local Session helper import"
+    },
+    {
+      "kind": "nonexistent_optional_memory_script",
+      "operation": "offline stack check command",
+      "hardware_opened": false,
+      "resolution": "Use documented native stack-budget adapter; actual main/UI/dual checks pass"
+    },
+    {
+      "kind": "sandbox_python_cache_path_refusal",
+      "operation": "offline py_compile",
+      "hardware_opened": false,
+      "resolution": "Use in-memory compile without cache writes"
+    }
+  ]
+}

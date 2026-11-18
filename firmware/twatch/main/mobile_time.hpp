@@ -134,12 +134,12 @@ struct InstrumentMotion {
   if(initialized&&now<last)*this={};
   const double dt=initialized?std::min(1.0,double(now-last)/1000000):0;last=now;initialized=true;
   const bool evidence=m.time_valid&&!m.local_time&&!m.holding;
-  const bool known=evidence&&m.rms_ns!=UINT32_MAX;
+  const bool known=receiver_rms_current(m,now);
   if(known)loss_since=0;else if(!loss_since)loss_since=now;
   const bool grace=!known&&loss_since&&now-loss_since<500000;
   const double target=known?std::min(1.0,m.rms_ns/10000.0):1;
   if(!grace)rms=approach(rms,target,dt/(known?3.0:30.0));
-  const bool h=evidence&&sampled_hold(m);
+  const bool h=sampled_hold(m,now);
   if(!grace)hold=approach(hold,h?(std::max(1.0,std::min(60.0,m.hold_ms/1000.0))-1)/59:0,dt/4);
   reserve=approach(reserve,m.battery>=0?std::min(100,int(m.battery))/100.0:0,dt/5);
   if(!grace)phase=approach(phase,evidence&&m.locked?1:m.time_valid&&(m.holding||m.local_time)?.5:0,dt/2);

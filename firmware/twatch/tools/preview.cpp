@@ -88,6 +88,18 @@ int main(int argc,char** argv){if(argc!=3)return 2;watch::Model m;m.ble_state=wa
   if(!std::strcmp(argv[1],"shadow-invalid-sky"))for(unsigned i=0;i<12;++i)s.satellites[i].position_known=false;
   if(!std::strcmp(argv[1],"shadow-tail")){s.mean_tenth_ns=-12345678;s.p99_ns=500000000;s.approximate=true;s.rms_ns=250000000;s.samples=UINT32_MAX;}
  }
+ // Common-clock UI regressions use synthetic receiver metrics, never measurements.
+ if(!std::strncmp(argv[1],"metrics-",8)){
+  v.settings.face=uint8_t(std::atoi(argv[1]+8));if(v.settings.face>=watch::FaceCount)return 4;
+  m.common_clock=true;m.rms_source=watch::Source::BLE;m.rms_ns=51;m.rms_sampled_us=now;m.rms_until_us=now+250000;
+  m.hold_sampled_us=now;m.hold_until_us=now+250000;
+  if(std::strstr(argv[1],"-lora")){m.source=watch::Source::LOR;m.locked=false;m.rms_source=watch::Source::LOR;m.rms_ns=3599390;m.hold_valid=false;}
+  if(std::strstr(argv[1],"-hold")){m.source=watch::Source::None;m.holding=m.local_time=true;m.locked=false;}
+  if(std::strstr(argv[1],"-expired")){m.rms_until_us=now;m.hold_until_us=now;}
+  if(std::strstr(argv[1],"-maximum"))m.rms_ns=UINT32_MAX-1;
+  if(std::strstr(argv[1],"-zero"))m.rms_ns=0;
+  m.calendar=watch::calendar::snapshot(m.utc_us/1000000,true,m.local_time);
+ }
  static uint16_t frame[watch::Width*watch::Height];watch::render(frame,m,v,now);
  FILE* f=std::fopen(argv[2],"wb");if(!f)return 3;std::fprintf(f,"P6\n%d %d\n255\n",watch::Width,watch::Height);for(auto p:frame){unsigned char c[]={uint8_t((p>>11)*255/31),uint8_t(((p>>5)&63)*255/63),uint8_t((p&31)*255/31)};std::fwrite(c,1,3,f);}std::fclose(f);
 }

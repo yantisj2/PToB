@@ -181,10 +181,12 @@ remains independent; reading a screen or its cache triggers no master request.
 GD-only occasional windows do not clear GS role history or reset its independent
 PRIMARY/HOT observation timers.
 
-RC9's authenticated 190-byte time snapshot contains functional UTC plus some
+CoreSE accepts the authenticated 190-byte RC9 TIME v1 snapshot, containing functional UTC plus some
 upstream link metadata. That RMS is a remote link observation, never the CoreSE's
 fine causal RMS or an independent UTC bound. Current CoreSE rendering withholds
 local precision readouts whenever RC9 supplies the UTC display.
+The pinned client rejects passive TIME v2 from current W12/N30 publishers;
+those snapshots do not provide CoreSE time.
 
 WIRE uses stable cached labels and values between reports. `GM UPTIME EST` is a
 coarse extrapolation of the GM boot clock at its last report, never UTC. `EPOCH

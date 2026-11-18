@@ -15,6 +15,7 @@ retain the selected inputs, separate populations and review history.
 
 | Claim or question | Evidence | Boundary |
 | --- | --- | --- |
+| T-Watch GNSS-free BLE / LoRa / HOLD service and source transitions | [November 17 common-clock study](twatch/2026-11-17-common-clock/README.md) | Completed fixed primary and separate parent-repetition cohorts; paper withdrawn and further research deferred; model consistency and sampled continuity, not independent UTC/output or holdover accuracy |
 | Pi 5 / M-HAT forward PPS gateway continuity and timing tails | [November 2 Pi final window](pi5/2026-11-02/README.md) | Approved for public draft review; 600/600 pulses, 872 ns GPIO phase RMS / 4.809 µs absolute P99 / 7.017 µs max; disciplined-clock feedback metric, not independent UTC or Ethernet accuracy |
 | Longest sampled sub-1 µs W12 holdover at P99 | [October 30 holdover](w12/2026-10-30-holdover/README.md) | Replayed 64 s rolling device grid; separate 75 s fixed cohort, failure at 76 s; later 24 s windows retained; BLE-relative sampled shadow, not independent UTC/output |
 | Current W12 delivered clock, UTC-basis repair and downstream TX baseline | [October 24 W12 baseline](s3/2026-10-24-w12-utc-basis/README.md) | 522/600 W12 PPS eligible, 60.328 ns RMS / 180 ns maximum; downstream 451/600 and 211 ns maximum; sampled TX 58/120 and 226 ns maximum. Availability and calibrated UTC/output gate remain open |
@@ -40,6 +41,7 @@ record remains a build result. A reviewed simulation remains simulation.
 Run from the repository root with Python 3.9 or newer:
 
 ```sh
+python3 evidence/twatch/2026-11-17-common-clock/verify.py
 python3 papers/mcxo-holdover-duration/tools/verify.py
 python3 tools/verify_evidence.py
 python3 tools/verify_v14.py

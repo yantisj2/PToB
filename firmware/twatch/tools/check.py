@@ -18,7 +18,7 @@ SUITES = [
     'console_input_tests', 'fine_tests', 'holdover_tests', 'imu_fifo_tests',
     'lora_shadow_tests', 'maintenance_tests', 'mobile_policy_tests',
     'radio_owner_tests', 'radio_tests', 'roaming_tests', 'servo_tests',
-    'watchdog_tests', 'energy_tests', 'shadow_tests',
+    'watchdog_tests', 'energy_tests', 'shadow_tests', 'dual_clock_tests',
 ]
 
 
@@ -30,7 +30,7 @@ def main():
     args = parser.parse_args()
     cases = [(name, APP / 'tools' / (name + '.py'), True) for name in SUITES]
     cases += [(name, APP / 'tests' / (name + '.py'), False)
-              for name in ('power_capture_test', 'roaming_capture_test', 'dual_radio_test_test')]
+              for name in ('power_capture_test', 'roaming_capture_test', 'dual_radio_test_test', 'dual_wire_test')]
     if args.list:
         print(json.dumps([name for name, _, _ in cases], indent=2))
         return

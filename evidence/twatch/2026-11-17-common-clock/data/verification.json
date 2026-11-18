@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "author": "Jonathan Yantis",
+  "license": "CC-BY-4.0",
+  "status": "PRIMARY_FIXED_WINDOWS_COMPLETED_AGGREGATES_RECOMPUTED",
+  "GNSS_enabled": false,
+  "independent_accuracy_verified": false,
+  "private_receipts_sha256": {
+    "native-01/receipt.json": "bfbb80cf6084cb4befb0c18383b3b0715727de7911949b24c6664853fd5ca97d",
+    "hardware/review.json": "55618f93d2883c87978519be505dd5fb610f9482bc1241c06804417103dc0df4",
+    "hardware/flash/receipt.json": "d2547be2aa50ff8d59dde1ff84ddda034bdc1ecc8b43df8da5c8c314c1a75fb0",
+    "campaign-01/receipt.json": "5eafb862dedd8738ca0e4bc45e72191cf2176120812235afb9e48a248c13d942",
+    "campaign-01/release.json": "f50547be64afe258ba94f8503acc0742083089921cbfed5add90feff85522f9d",
+    "all-checks-01/receipt.json": "f52d2cd14a49458f21cba6ee5258a3788858c58171b265d2fdb9cc1c856e99de",
+    "dual-tests-final/receipt.json": "dd5e65f9d4c54401ee38cab1262631f0885c2f082a4a53129f9d5bf11a1c217b",
+    "dual-memory/receipt.json": "1e2767d4786398b5ca676251f5446747b2cd61fa8bbdd8a06e645a8d1611d1a9",
+    "base-stack/receipt.json": "1db1bb9fbae3a52ef9967ca438b65543e8ff789d0ce148784a93b38180c954dc",
+    "ui-memory/receipt.json": "ff3fda884471c0831a01c06bd50737e3e130f853e5bc34bf64b8b2d5c9427156"
+  }
+}

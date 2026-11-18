@@ -115,7 +115,9 @@ int main(int argc,char** argv){
     assert(!w12_fine_lora_current(&tick)&&tick==0);
     advance(1000);assert(w12_fine_current(&tick));
     const auto ble_origin=tick;
-    assert(w12_fine_lora_start(+[](uint64_t t,uint64_t cookie){assert(t>=1000000&&cookie==7);return false;},7));
+    uint64_t origin=0;
+    assert(w12_fine_lora_start(+[](uint64_t t,uint64_t cookie){assert(t>=1000000&&cookie==7);return false;},7,origin));
+    assert(origin==(ble_origin+20-1000000)*4); // One synthetic latch advances 1 us.
     assert(lora_active&&enabled[1]&&fake_device.cap_chn_cfg[1].capn_en);
     advance(1000);mcpwm_capture_event_data_t e{fake_raw,0};fake_channels[1].cb(&fake_channels[1],&e,nullptr);
     assert(w12_fine_current(&tick)&&!error&&active);
@@ -127,7 +129,8 @@ int main(int argc,char** argv){
     assert(w12_fine_current(&tick)&&!error&&active);
     assert(!w12_fine_lora_current(&lora_tick)&&!lora_tick);
     advance(1000);assert(w12_fine_current(&tick));
-    assert(w12_fine_lora_start(+[](uint64_t t,uint64_t cookie){assert(t>=1000000&&cookie==7);return false;},7));
+    assert(w12_fine_lora_start(+[](uint64_t t,uint64_t cookie){assert(t>=1000000&&cookie==7);return false;},7,origin));
+    assert(origin==(tick+20-1000000)*4);
     // A BLE association failure must not be evaluated by the LoRa reader.
     receiver.observe({});assert(receiver.status().fault);
     assert(w12_fine_lora_current(&lora_tick)&&active&&!error);

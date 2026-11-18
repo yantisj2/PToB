@@ -5,9 +5,11 @@ void w12_lora_snapshot(w12_lora_view& out){
 }
 void radio_live(){
  auto& l=rc9_radio;l={};l.requested=l.active=true;l.state=2;l.sampled_us=fake_now;
- l.utc_us=1700000000000000ULL+fake_now;l.edge_us=fake_now-100;l.until_us=l.edge_us+12000000;
- l.event_ns=(l.utc_us-100)*1000;l.created_ns=l.event_ns-1000000;l.expires_ns=l.event_ns+1000000000;
- l.emitter=55;l.root=66;l.source_epoch=1;l.generation=1;l.corrected_sequence=1;l.context[0]=1;l.kind=2;
+ l.metadata_known=l.time_valid=l.model_valid=true;
+ l.utc_us=1700000000000000ULL+fake_now;l.edge_us=fake_now-100;l.until_us=l.edge_us+120000000;
+ l.event_ns=(l.utc_us-100)*1000;
+ l.emitter=55;l.root=66;l.emitter_boot=101;l.root_boot=102;l.stream=103;
+ l.source_epoch=1;l.generation=1;l.corrected_sequence=1;l.context[0]=1;l.kind=2;
  l.link_rms_ns=123;l.link_samples=8;
 }
 void* rc9_arg(){return reinterpret_cast<void*>(uintptr_t(9));}
@@ -26,16 +28,44 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
   client_case(which=="client-recovery-pin",which=="client-scan"?"scan":which=="client-expired"?"expired":which=="client-recovery-pin"?"pin":which=="client-no-source"?"no-source":which=="client-hint"?"hint":"return");return 0;
  }
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac)&&v12::r2_host_init()&&v12::r2_host_sync());
- step(8);assert(v12::client.running);fixture_parent_locked=false;radio_live();v12::relay_poll(fake_now,false);
+ step(8);assert(v12::client.running);
+ if(which=="rc7-placement-while-lora-live"){
+  rc7_path root{};root.source_epoch=9;root.node[0]={11,22,1,1,0,0};
+  const uint64_t ns=fake_now*1000;
+  const rc5_origin origin={11,22,9,ns,ns+1650000000,1700000000000000000,ns/62500000*62500000,0,0};
+  const v12::G1ClockPrediction map{fake_now*20,int64_t(ns),0,0,origin.utc_offset};
+  assert(v12::relay_map.input(root,origin,nullptr,map,fake_now*20,1,fake_now*20,0,
+    v12::provision.identity,44,v12::provision.group));
+  v12::joined_peer=v12::sync_identity=11;v12::joined_boot=22;v12::synced=true;v12::sync_handle=17;
+  v12::anchor={true,11,22,1700000000000000,fake_now,fake_now+100000,9,1,500,fake_now+10000000};
+  v12::Rc7Client child;assert(!child_request(child,300,RC_DYNAMIC_LEASE_US).ready);
+  assert(v12::relay_slots.scanning&&!pa_active&&v12::relay_admissions==1);
+  const auto limit=v12::relay_slots.scan_limit;
+  fake_now+=200000;fixture_parent_locked=false;radio_live();
+  v12::relay_poll(fake_now,false);
+  assert(v12::relay_profile==7&&v12::relay_slots.scanning&&v12::relay_slots.scan_limit==limit);
+  assert(!v12::relay_admission_locked&&!v12::relay_demand_live(fake_now)&&!pa_active&&!ext_active[1]);
+  v12::sync_terminating=true;
+  v12::relay_poll(fake_now,false);
+  assert(!v12::fault&&v12::relay_profile==9&&pa_active&&ext_active[1]&&!v12::relay_slots.scanning);
+  puts("PASS live LoRa preserves bounded passive RC7 survey and starts RC9 after BLE acquisition loss");
+  return 0;
+ }
+ fixture_parent_locked=false;radio_live();v12::relay_poll(fake_now,false);
  std::fprintf(stderr,"state fault=%u profile=%u pa=%u adv=%u/%u selected=%u configured=%u stopping=%u api=%u rc=%d\n",v12::fault,v12::relay_profile,pa_active,ext_active[0],ext_active[1],v12::rc9_server_selected(fake_now),v12::relay_configured,v12::relay_stopping,unsigned(v12::first_error_api),v12::first_error_rc);
  assert(!v12::fault&&v12::relay_profile==9&&pa_active&&ext_active[0]&&ext_active[1]&&!v12::periodic_tx::tx_installed);
  assert(!v12::relay_flags(fake_now*20));v12::rc9::Time p;assert(v12::rc9::decode_time(p,pa_wire.data(),190,v12::provision.group)&&p.valid);
- assert(p.link_rms_ns==123&&p.root_boot==0&&p.emitter_boot==0&&p.edge_us==rc9_radio.edge_us&&p.until_us==rc9_radio.until_us);
+ assert(p.link_rms_ns==123&&p.root_boot==102&&p.emitter_boot==101&&p.edge_us==rc9_radio.edge_us&&p.until_us==rc9_radio.until_us);
+ assert(p.utc_us==rc9_radio.utc_us&&!p.created_ns&&!p.expires_ns);
  const auto physical_until=p.until_us;
  if(which=="speculative"){
   v12::relay_poll(fake_now,true);assert(ext_active[1]&&v12::rc9_server_flags()==15&&!v12::fault);
   v12::relay_poll(fake_now,true,true);assert(!ext_active[1]&&v12::rc9_server_flags()==7&&!v12::fault);
   v12::relay_poll(fake_now,true);assert(ext_active[1]&&v12::rc9_server_flags()==15);
+ }else if(which=="client-pin-local-lora"){
+  assert(v12::r2_rc9_parent(77));step(8);
+  assert(v12::parent_diagnostic.state==3&&!v12::rc9_server_selected(fake_now));
+  assert(!pa_active&&!ext_active[0]&&!ext_active[1]);
  }else if(which=="race"){
   snapshot_race=true;fake_now+=300000;v12::relay_poll(fake_now,false);
   assert(v12::rc9::decode_time(p,pa_wire.data(),190,v12::provision.group)&&p.valid&&p.sampled_us>=rc9_radio.sampled_us);
@@ -69,10 +99,13 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
    assert(v12::relay_profile==9&&pa_active&&!ext_active[1]&&v12::rc9_server_demand_until()==lease);
    fake_now=lease;radio_live();v12::relay_poll(fake_now,false);
    assert(v12::relay_profile==7&&!pa_active&&!v12::rc9_server_demand_until()&&!v12::fault);
-  }else if(which=="withdraw"){
-   rc9_radio.state=1;v12::relay_poll(fake_now,false);
+  }else if(which=="withdraw"||which=="source-expired"){
+   if(which=="withdraw")rc9_radio.time_valid=false;
+   else {fake_now=rc9_radio.until_us;rc9_radio.sampled_us=fake_now;}
+   v12::relay_poll(fake_now,false);
    assert(v12::rc9::decode_time(p,pa_wire.data(),190,v12::provision.group)&&!p.valid);
-   assert(v12::rc9_server_demand_until()==lease&&v12::rc9_server_selected(fake_now));
+   assert(!v12::rc9_server_serving(fake_now)&&!ext_active[1]&&
+     v12::rc9_server_demand_until()==lease&&v12::rc9_server_selected(fake_now));
   }else if(which=="lease"){
    const auto before=v12::rc9_publication;fake_now+=300000;radio_live();rc9_radio.until_us=physical_until;
    v12::relay_poll(fake_now,false);assert(v12::rc9_publication>before&&v12::rc9_server_demand_until()==lease);

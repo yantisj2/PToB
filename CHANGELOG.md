@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-18 — Common-clock firmware and preserved evidence
+
+- Update [T-Watch 0.1.21](firmware/twatch/CHANGELOG.md) with common BLE/LoRa/HOLD
+  delivery, GNSS-free snapshots and independent receiver metrics. Update
+  [W12 0.2.50](firmware/w12/CHANGELOG.md) with its common clock and RC9 TIME v2,
+  and [N30 0.2.67](firmware/n30/CHANGELOG.md) with the passive-LoRa RC9 relay.
+  TIME v2 requires an updated client; CoreSE's pinned client remains TIME v1.
+- Withdraw the unapproved BLE / LoRa / HOLD paper draft at the author's request.
+  Retain the [study evidence](evidence/twatch/2026-11-17-common-clock/README.md),
+  frozen protocols, analysis tools, failures, missing observations and tails.
+  Further research is deferred.
+- Keep the measured firmware distinct from the subsequent watch display fix.
+  Independent UTC, physical output and holdover accuracy remain unqualified.
+
 ## 2026-11-07 — T096 continuity fixes and ESP32-REF examples
 
 - Wake the T096 display on timing-source and LoRa train changes. Improve

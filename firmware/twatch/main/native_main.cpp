@@ -64,11 +64,13 @@
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "esp_heap_caps.h"
+#include <new>
 #include "esp_attr.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "gnss_pps.hpp"
 #include "shadow_gnss.hpp"
+#include "dual_radio.hpp"
 #include "watch.hpp"
 #include "control_frame.hpp"
 #include "w12_device_profile.hpp"
@@ -93,6 +95,11 @@ uint8_t page=display_pages::Front;
 bool identity=false,gps_ready=false,ui_ready=false;
 #ifdef V12_R2_ENABLED
 v12::R2Dashboard dashboard;
+// Main owner only. Avoid nesting full receiver/display snapshots under the
+// publication/selector call chain. Allocation failure never borrows internal RAM.
+struct UiPublishInput {v12::R2Status mesh;DisplayState state;};
+static_assert(sizeof(UiPublishInput)<=6144,"Bounded PSRAM main presentation inputs");
+UiPublishInput* ui_input=nullptr;
 uint64_t last_g1_diagnostic=0;
 unsigned g1_diagnostic_peer=0;
 uint32_t g1_parent_history_sequence=0;uint64_t g1_parent_history_capture=0;
@@ -124,6 +131,8 @@ v12::ConsoleFrame response;
 uint64_t last_nonce=0,update_completed_us=0;bool lora_diagnostic_response=false,rc9_diagnostic_response=false;
 bool timing_diagnostic_response=false;uint32_t timing_after=0;
 bool imu_diagnostic_response=false;
+bool snapshot_diagnostic_response=false;
+bool pps_diagnostic_response=false;uint32_t pps_after=0;
 bool compact_control=false;bool shadow_diagnostic_response=false;bool dual_diagnostic_response=false;uint32_t dual_after=0,dual_parent_after=0;
 bool fine_diagnostic_response=false;uint32_t fine_after=0;uint64_t fine_factory=0;
 bool window_diagnostic_response=false,window_edge_response=false,window_late_response=false;uint32_t window_after=0;
@@ -218,9 +227,10 @@ void pps(const gnss_pps::Observation& edge){
  const auto mesh=v12::r2_status();
   response.format("W12_R2_STATUS profile=%s enrollment_sha=%s self=3 client_capabilities=0 client_control=0 source=0 serving=0 group_id=%016" PRIx64 " key_epoch=%" PRIu32 " client_identity=%016" PRIx64 " following=%u requested=%u fault=%u pcfg=%08" PRIx32 "\n",V12_R2_PROFILE,V12_R2_ENROLLMENT_SHA,mesh.group_id,mesh.key_epoch,mesh.client_identity,unsigned(mesh.following),unsigned(mesh.requested),unsigned(mesh.fault),uint32_t(v12::rc7_provisional_config().id>>32));
  response.format("W12_V12_STATUS factory=%s source=%s build=%s session=%016" PRIx64 " GPS_inputs=0\n",factory_text,V12_SOURCE_REVISION,V12_BUILD_ID,session);
- if(shadow_diagnostic_response)watchshadow::detail(response);else if(imu_diagnostic_response)n30_display_imu_frame(response);else if(dual_diagnostic_response)n30_display_dual_frame(response,dual_after,dual_parent_after,begin);else if(rc9_diagnostic_response)n30_rc9_diagnostics(response);else if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else {n30_lora_diagnostics(response);watch_lora_shadow_diagnostics(response);}
+ if(snapshot_diagnostic_response)watchdual::snapshot_frame(response);else if(pps_diagnostic_response)watchdual::frame(response,pps_after);else if(shadow_diagnostic_response)watchshadow::detail(response);else if(imu_diagnostic_response)n30_display_imu_frame(response);else if(dual_diagnostic_response)n30_display_dual_frame(response,dual_after,dual_parent_after,begin);else if(rc9_diagnostic_response)n30_rc9_diagnostics(response);else if(window_diagnostic_response)n30_window_frame(response,window_edge_response,window_after,window_late_response);else if(fine_diagnostic_response)n30_fine_frame(response,fine_after,begin);else if(timing_diagnostic_response)n30_timing_frame(response,timing_after,begin);else {n30_lora_diagnostics(response);watch_lora_shadow_diagnostics(response);}
  response.format("W12_V12_COMMAND nonce=%016" PRIx64 " action=%s accepted=%u reason=%s admitted_us=%" PRIu64 " NVS=PRESERVED\n",last_command.nonce,last_command.action,unsigned(last_command.accepted),last_command.reason,last_command.admitted_us);
- n30_display_status(response);v12::frame_submit(response);
+ if(!pps_diagnostic_response&&!snapshot_diagnostic_response)n30_display_status(response);
+ v12::frame_submit(response);
 }
 [[gnu::noinline]] void status(uint64_t nonce,uint64_t begin){
   const uint64_t next=ticket.issue(begin);
@@ -446,15 +456,15 @@ void pps(const gnss_pps::Observation& edge){
   if(compact_control)watch::display_control(response);else n30_display_status(response);
   v12::frame_submit(response);
 }
-void respond_status(uint64_t nonce,uint64_t begin){if(shadow_diagnostic_response||imu_diagnostic_response||dual_diagnostic_response||rc9_diagnostic_response||lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
+void respond_status(uint64_t nonce,uint64_t begin){if(snapshot_diagnostic_response||pps_diagnostic_response||shadow_diagnostic_response||imu_diagnostic_response||dual_diagnostic_response||rc9_diagnostic_response||lora_diagnostic_response||timing_diagnostic_response||fine_diagnostic_response||window_diagnostic_response)lora_status_frame(nonce,begin);else status(nonce,begin);}
 [[gnu::noinline]] void ui(){
-  if(!ui_ready)return;
+  if(!ui_ready||!ui_input)return;
   const auto s=v12::transport_status();const auto gps=gnss_pps::shadow_view(ticks());
-  DisplayState state;state.page=page;state.unit_label=v12::native_device_binding()->label;
+  auto& state=ui_input->state;new(&state) DisplayState;state.page=page;state.unit_label=v12::native_device_binding()->label;
   state.role="V12 UNQUAL";state.basic_profile=true;state.ble_rx_enabled=s.radio_requested;
   state.scan=s.client.scan;state.basic_callbacks=s.reports;state.basic_queue_drops=s.queue_drops;
 #ifdef V12_R2_ENABLED
-  const auto mesh=v12::r2_status();
+  auto& mesh=ui_input->mesh;new(&mesh) v12::R2Status(v12::r2_status());
   state.ble_rx_enabled=mesh.requested;state.scan=mesh.scan;state.basic_callbacks=mesh.rx+mesh.pa_reports;state.basic_queue_drops=mesh.drops;
 #endif
   state.basic_malformed=s.incomplete+s.oversize;state.no_stamp=s.reports;
@@ -581,6 +591,8 @@ void stop_all(){
     last_command={nonce,admitted,ok,"UI_RADIO",ok?"QUEUED_OWNER_ACTION":"BUSY_OR_MAINTENANCE"};
   }
   else if(!std::strcmp(action,"imu restart")){const bool ok=n30_display_imu_restart();last_command={nonce,admitted,ok,"IMU_RESTART",ok?"QUEUED_UI_OWNER":"BUSY_OR_MAINTENANCE"};}
+  else if(!std::strcmp(action,"clock read")){snapshot_diagnostic_response=true;last_command={nonce,admitted,true,"CLOCK_READ","READ_ONLY_GNSS_FREE_SNAPSHOT"};}
+  else if(!std::strncmp(action,"pps read ",9)){uint64_t cursor=0;const char* p=action+9;bool ok=*p!=0;unsigned digits=0;for(;*p&&ok;++p){ok=*p>='0'&&*p<='9'&&++digits<=10;if(ok){cursor=cursor*10+unsigned(*p-'0');ok=cursor<=UINT32_MAX;}}if(ok){pps_after=uint32_t(cursor);pps_diagnostic_response=true;}last_command={nonce,admitted,ok,"PPS_READ",ok?"READ_ONLY_CRC_SNAPSHOT":"INVALID_CURSOR"};}
   else if(!std::strcmp(action,"shadow diag")){shadow_diagnostic_response=true;last_command={nonce,admitted,true,"SHADOW_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strcmp(action,"imu diag")){imu_diagnostic_response=true;last_command={nonce,admitted,true,"IMU_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
   else if(!std::strcmp(action,"lora diag")){lora_diagnostic_response=true;last_command={nonce,admitted,true,"LORA_DIAG","READ_ONLY_CRC_SNAPSHOT"};}
@@ -696,7 +708,7 @@ void stop_all(){
     const bool ok=v12::capture_begin(nonce,duration);last_command={nonce,admitted,ok,"CAPTURE",ok?"FINITE_OBSERVER_LEASE":"BUSY_OR_BOUND"};
   }else{last_command.reason="UNKNOWN_OR_UNAVAILABLE_PROTOCOL";}
   if(!last_command.accepted&&commands_rejected!=UINT32_MAX)++commands_rejected;
-  respond_status(nonce,admitted);shadow_diagnostic_response=imu_diagnostic_response=dual_diagnostic_response=rc9_diagnostic_response=lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
+  respond_status(nonce,admitted);snapshot_diagnostic_response=false;pps_diagnostic_response=false;shadow_diagnostic_response=imu_diagnostic_response=dual_diagnostic_response=rc9_diagnostic_response=lora_diagnostic_response=timing_diagnostic_response=fine_diagnostic_response=window_diagnostic_response=false;
 }
 [[gnu::noinline]] void input(){
   static char line[192]{};static unsigned used=0;static bool discard=false;
@@ -937,14 +949,18 @@ extern "C" void app_main(){
     " max_data=191 max_GMs=4 activities=6 syncs=2 adv_sets=2 mtu=247"
     " precision=UNAVAILABLE GM=DISABLED LoRa=OFF WiFi=OFF PTS=OFF\n",
     V12_UNIT,factory_text,unsigned(identity),session,V12_SOURCE_REVISION,V12_BUILD_ID);
-  std::printf("TWATCH_TARGET version=0.1.8 profile=RC GPS=SHADOW_FACE_AUTO flash_mb=16 console=USB_JTAG hardware=UNVALIDATED\n");
+  std::printf("TWATCH_TARGET version=0.1.21 profile=RC GPS=SHADOW_FACE_AUTO flash_mb=16 console=USB_JTAG hardware=UNVALIDATED\n");
   if(!identity||!session){std::printf("W12_V12_FATAL reason=FACTORY_OR_BOOT_BINDING peripherals=UNTOUCHED\n");return;}
   if(!watch::energy::init()){std::printf("W12_V12_FATAL reason=CPU_POWER_POLICY\n");return;}
   for(const auto byte:factory)fine_factory=(fine_factory<<8)|byte;
+  auto* input_memory=heap_caps_malloc(sizeof(UiPublishInput),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+  if(!input_memory){std::printf("W12_V12_FATAL reason=PRESENTATION_PSRAM\n");return;}
+  ui_input=new(input_memory) UiPublishInput;
   n30_timing_init();
   watch::holdover_init();
   n30_window_init(clock_reference_read);
   watchshadow::init(session,fine_factory,clock_reference_read);
+  watchdual::init(session,clock_reference_read);
   if(!v12::fault_watchdog_start(factory,session)){std::printf("W12_V12_FATAL reason=FAULT_SUPERVISOR\n");return;}
   // This initial diagnostic candidate never initializes, migrates or writes
   // legacy NVS. Native credentials remain refused until that separate gate.
@@ -1000,6 +1016,7 @@ extern "C" void app_main(){
 #endif
     gnss_pps::poll(ticks());
     #endif
+    watchdual::poll(micros());
     watchshadow::poll(micros());
     input();
     // Physical display-worker action; the main owner calls the unchanged W12

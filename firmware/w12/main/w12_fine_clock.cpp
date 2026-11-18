@@ -32,6 +32,7 @@ int error=0;
 bool lora_active=false,lora_borrowed=false;W12LoRaCapture callback=nullptr;uint64_t lora_cookie=0;
 uint32_t sequence=0,burst=0;
 uint64_t burst_at=0;
+uint32_t boot_raw80=0;
 W12FineStatus stats{};
 void inc(uint32_t& x){if(x!=UINT32_MAX)++x;}
 uint64_t coarse(){const auto n=esp_timer_get_time();return n>0?uint64_t(n):0;}
@@ -186,7 +187,7 @@ W12_STACK_FRAME bool start(uint64_t now){
   uint32_t first=0,second=0;
   if(!latch(first)||!latch(second)||!uint32_t(second-first)||uint32_t(second-first)>=80000||
      coarse()<now||coarse()-now>=1000000||!counter.begin(1,second,coarse(),hz))return false;
-  receiver.begin(second,second,1);sequence=burst=0;burst_at=coarse();
+  boot_raw80=second;receiver.begin(second,second,1);sequence=burst=0;burst_at=coarse();
   if(!route())return false;
   auto* d=timer->group->hal.dev;d->int_clr.val=RadioMask;
   unsigned n=0;for(;n<128;++n)if(!(d->int_raw.val&RadioMask))break;
@@ -326,12 +327,15 @@ W12FineStatus w12_fine_status(){
   portEXIT_CRITICAL(&mux);return result;
 }
 
-bool w12_fine_lora_start(W12LoRaCapture cb,uint64_t cookie){
+bool w12_fine_lora_start(W12LoRaCapture cb,uint64_t cookie,uint64_t& origin80){
+ origin80=0;
  if(!cb||!cookie)return false;
  portENTER_CRITICAL(&mux);
  if(!active||error||lora_borrowed||enabled[1]){portEXIT_CRITICAL(&mux);return false;}
- uint32_t raw=0;
- if(!latch(raw)||!lora_counter.begin(1,raw,coarse(),80000000)){portEXIT_CRITICAL(&mux);return false;}
+ uint32_t raw=0;w12::fine::Time boot{};
+ const auto at=coarse();
+ if(!latch(raw)||!counter.current(1,raw,at,boot)||!lora_counter.begin(1,raw,at,80000000)){portEXIT_CRITICAL(&mux);return false;}
+ origin80=boot.raw80-boot_raw80;
  callback=cb;lora_cookie=cookie;lora_active=lora_borrowed=true;
  esp_rom_gpio_connect_in_signal(w12::lora_board::IrqGpio,mcpwm_periph_signals.groups[1].captures[1].cap_sig,false);
  timer->group->hal.dev->int_clr.val=UINT32_C(1)<<28;
