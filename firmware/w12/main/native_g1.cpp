@@ -403,6 +403,22 @@ bool direct_acquisition_reserved(uint64_t now){
   (void)now;return false;
 #endif
 }
+bool relay_acquisition_reserved(uint64_t now){
+#if (defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)) && !defined(PTOB_TWATCH)
+  const auto received=parent_selection.quality().last_rx;
+  const auto progress=rc_client.progress_at;
+  // A current authenticated PA can carry standby packets during a timing
+  // gap. Preserve its owner while fresh physical packets still arrive and
+  // the independent corrected-progress budget has room. FOLLOW stays off.
+  return full_listening()&&!closing&&!fault&&!parent_diagnostic.pending()&&
+    rc_bound()&&parent_scope()&&parent_selection.accepts(joined_peer,true)&&
+    anchor.valid(now)&&now<rc_client.lease_until&&synced&&!sync_terminating&&
+    !sync_cleanup_queued&&!sync_cleanup_requested&&received&&now>=received&&
+    now-received<250000&&progress&&now>=progress&&now-progress<BleAcquisitionPolicy::StallUs;
+#else
+  (void)now;return false;
+#endif
+}
 bool precision_reserved(uint64_t now){
   bool current=current_parent_time(now);
 #if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
@@ -1622,16 +1638,12 @@ W12_STACK_FRAME void active_poll(uint64_t now){
   if(parent_failure.identity){parent_selection.failed(parent_failure.identity,parent_failure.relay,parent_failure.at);parent_failure={};}
   parent_selection.usable(following(now)&&corrected_clock.covers(now,now)&&!fault&&!closing,now);
   parent_selection.tick(now,synced&&!sync_terminating&&client_window_active(now,window_phase),scan&&!peer.connecting);
-  // A continuous permission gap requests fresh admission, as T096 does; it
-  // does not discard an independently valid replay/acquisition anchor. Old
-  // FOLLOW already ended at its signed deadline. Only a newly matched fresh
-  // correction can restore it. Losing the anchor here also loses PA reception
-  // and turns a missed window into repeated expensive JOIN-only acquisition.
-  // Source permission already withdrew FOLLOW at its signed expiry. After
-  // the existing1.5s acquisition-loss bound, stop retrying a six-minute old
-  // session and rediscover. Short packet gaps keep their current acquisition.
+  // Source permission already withdrew FOLLOW at its signed expiry. Keep a
+  // still-progressing acquisition separate from that permission. When it is
+  // no longer eligible, drain and rediscover after the original gap bound.
   if(anchor.source&&anchor.until&&now>=anchor.until&&now-anchor.until>=G1Anchor::RebootstrapGapUs&&
-     !corrected_clock.covers(now,now)&&!direct_acquisition_reserved(now))forget_leader(now,false,G1ParentReason::PermissionGap);
+     !corrected_live&&!direct_acquisition_reserved(now)&&!relay_acquisition_reserved(now))
+    forget_leader(now,false,G1ParentReason::PermissionGap);
   else if(anchor.source&&!anchor.valid(now))forget_leader(now,false,G1ParentReason::ReplayContext);
   if(!rc_bound()&&anchor.source&&anchor.rebootstrap(now))member=false;
   if(usable_utc()&&anchor.valid(now)&&!anchor.live(now))coarse_hold.retain(anchor);

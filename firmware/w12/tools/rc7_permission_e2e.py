@@ -238,7 +238,8 @@ def main():
                 receipt['server_cases'].append(case)
             dual_server = out / 'dual-server'
             run([*server_flags, '-DPTOB_W12_LORA_RX=1', out / 'server.cpp', *objects, '-o', dual_server], 'dual-server-build')
-            for case in ('slot-quality-gap', 'slot-acquisition-lost'):
+            for case in ('slot-quality-gap', 'slot-acquisition-lost', 'hold-transient',
+                         'hold-expiry', 'hold-flapping', 'hold-lease-expiry'):
                 run([dual_server, case], 'dual-server-' + case)
                 receipt['server_cases'].append(case)
         changed = [str(p) for p in inputs if sha(p) != before[str(p)]]

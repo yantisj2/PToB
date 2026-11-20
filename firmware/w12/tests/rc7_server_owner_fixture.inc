@@ -245,6 +245,7 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      assert(!child_request(child,300,RC_DYNAMIC_LEASE_US).ready);
      assert(v12::relay_slots.scanning&&scan_active&&ext_active[1]&&!pa_active);
      const auto deadline=v12::relay_slots.scan_limit;
+     const auto demand=v12::relay_demand_until();
      const auto refresh=[&](){
        fake_now+=20000;const uint64_t ns=fake_now*1000;
        origin.issued=ns;origin.expires=ns+1650000000;origin.frame=ns/62500000*62500000;
@@ -253,17 +254,23 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
          v12::provision.identity,44,v12::provision.group));
        v12::relay_poll(fake_now,false);
      };
-     for(unsigned i=0;i<25;i++)refresh();
+     for(unsigned i=0;i<25;i++){
+       refresh();
+       // Keep the first slot selectable so this exercises the same train.
+       rc_slots_seen(&v12::relay_slots,2,-40,fake_now);
+     }
      fixture_parent_locked=false;v12::sync_terminating=which=="slot-acquisition-lost";
      refresh();
      assert(!v12::anchor.live(fake_now)&&v12::anchor.valid(fake_now));
-     assert(!ext_active[1]&&!ext_active[0]&&!pa_active&&!v12::relay_demand_live(fake_now));
+     assert(!ext_active[1]&&!ext_active[0]&&!pa_active);
      assert(v12::relay_slots.scan_limit==deadline);
      if(v12::sync_terminating){
+       assert(!v12::relay_demand_live(fake_now));
        assert(!v12::relay_slots.scanning&&v12::relay_slots.rollbacks==1&&!v12::relay_retained_slot);
        puts("PASS lost BLE acquisition cancels passive placement");
        return 0;
      }
+     assert(v12::relay_demand_until()==demand);
      assert(v12::relay_slots.scanning&&scan_active&&!v12::relay_slots.rollbacks);
      while(fake_now<deadline&&v12::relay_slots.scanning){
        refresh();
@@ -272,11 +279,10 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      assert(v12::relay_slots.verified==1&&v12::relay_retained_slot&&!scan_active);
      fixture_parent_locked=true;
      refresh();
-     assert(ext_active[1]&&!pa_active&&!v12::relay_demand_live(fake_now));
-     assert(!child_request(child,300,RC_DYNAMIC_LEASE_US).ready);
+     assert(ext_active[1]&&v12::relay_demand_until()==demand);
      for(unsigned i=0;i<10&&!pa_active;i++)refresh();
-     assert(pa_active&&ext_active[0]&&v12::relay_admissions==2);
-     puts("PASS same-acquisition placement survives quality gap and publication requires fresh demand");
+     assert(pa_active&&ext_active[0]&&v12::relay_admissions==1);
+     puts("PASS same-acquisition placement preserves original demand through a quality gap");
      return 0;
    }
 #endif
@@ -472,6 +478,12 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
 
    if(which.rfind("hold-",0)==0){
      assert(v12::client.pending&&v12::client.start(fake_now));
+#ifdef PTOB_W12_LORA_RX
+     v12::joined_peer=v12::sync_identity=11;v12::joined_boot=22;
+     v12::synced=true;v12::sync_handle=17;
+     v12::anchor={true,11,22,1700000000000000,fake_now,fake_now+500000,9,1,500,
+                  fake_now+90000000};
+#endif
      const auto original=v12::relay_map.original20,upstream_map=v12::relay_map.map.tick;
      const auto epoch=v12::periodic_rx::capture_epoch,train=v12::relay_map.path.node[1].train;
      const auto demand=v12::relay_demand_until(),lost_at=fake_now;
@@ -483,7 +495,12 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
        assert(v12::relay_data_dirty);v12::relay_poll(fake_now,false);
      }
      assert(pa_active&&ext_active[0]&&v12::periodic_tx::tx_installed);
-     assert(v12::relay_admission_locked&&v12::relay_demand_until()==demand&&!v12::fault);
+#ifdef PTOB_W12_LORA_RX
+     assert(!v12::relay_admission_locked&&!ext_active[1]);
+#else
+     assert(v12::relay_admission_locked);
+#endif
+     assert(v12::relay_demand_until()==demand&&!v12::fault);
      assert(!v12::relay_map.ready(fake_now*20)&&!v12::relay_map.sent[0].publication);
      rc7_packet standby{};assert(!rc7_decode(&standby,pa_wire.data(),190,&v12::relay_map.path,&v12::provision.group)&&!standby.count);
      const auto deadline=v12::relay_hold.deadline();assert(deadline==lost_at+30000000);
@@ -497,7 +514,12 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
      if(which=="hold-transient"){
        fake_now+=1000000;recover();assert(pa_active&&ext_active[0]&&v12::relay_demand_until()==demand);
        fake_now+=40;estimate_queued=true;v12::relay_poll(fake_now,false);assert(v12::relay_map.ready(fake_now*20));
-       assert(v12::relay_map.path.node[1].train==train&&v12::relay_hold.deadline()==deadline);
+       assert(v12::relay_map.path.node[1].train==train);
+#ifdef PTOB_W12_LORA_RX
+       assert(!v12::relay_hold.deadline());
+#else
+       assert(v12::relay_hold.deadline()==deadline);
+#endif
      }else if(which=="hold-management"){
        v12::Rc7Client child;const auto reply=child_request(child,500,80000);
        assert(!reply.ready&&v12::relay_admissions==1&&pa_active&&!v12::relay_map.ready(fake_now*20));
@@ -517,12 +539,21 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
        fake_now=drain;v12::relay_poll(fake_now,false);assert(v12::fault&&v12::relay_session.drain==drain);
        puts("PASS radio hold retains the original independent ACL drain deadline and late fault");return 0;
      }else if(which=="hold-expiry"||which=="hold-flapping"){
-       if(which=="hold-flapping")for(unsigned i=0;i<29;i++){
+       auto expiry=deadline;
+#ifdef PTOB_W12_LORA_RX
+       constexpr unsigned recoveries=35;
+#else
+       constexpr unsigned recoveries=29;
+#endif
+       if(which=="hold-flapping")for(unsigned i=0;i<recoveries;i++){
          fake_now=lost_at+(i+1)*1000000;recover();fixture_parent_locked=false;v12::relay_poll(fake_now,false);
-         assert(pa_active&&v12::relay_hold.deadline()==deadline);
+#ifdef PTOB_W12_LORA_RX
+         expiry=fake_now+v12::Rc7RelayHold::HoldUs;
+#endif
+         assert(pa_active&&v12::relay_hold.deadline()==expiry&&v12::relay_demand_until()==demand);
        }
-       fake_now=deadline-1;v12::relay_poll(fake_now,false);assert(pa_active);
-       fake_now=deadline;v12::relay_poll(fake_now,false);
+       fake_now=expiry-1;v12::relay_poll(fake_now,false);assert(pa_active);
+       fake_now=expiry;v12::relay_poll(fake_now,false);
        assert(!pa_active&&!ext_active[0]&&!ext_active[1]&&!v12::periodic_tx::tx_installed);
        assert(!v12::relay_demand_live(fake_now)&&v12::relay_map.path.node[1].train==train+1);
      }

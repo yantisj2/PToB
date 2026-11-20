@@ -38,6 +38,47 @@ void priority_packet(){
 }
 void priority_marker_returned(){if(priority_inject){priority_inject=false;priority_packet();}}
 void priority_join_written(){priority_empty_before_write=v12::periodic.count==0;if(priority_delay)fake_now+=60000;}
+#if defined(PTOB_N30) || defined(PTOB_W12_BLE_RECOVERY)
+void relay_permission_gap_case(const std::string& which,uint64_t until){
+  auto& relay=v12::rc_client;
+  relay.receiver.path.source_epoch=2;
+  relay.receiver.path.node[0]={501,601,3,2,0,0};
+#ifdef PTOB_N30
+  relay.receiver.path.depth=2;
+  relay.receiver.path.node[1]={700,800,4,4,1,1};
+  relay.receiver.path.node[2]={777,877,5,5,2,1};
+#else
+  relay.receiver.path.depth=1;
+  relay.receiver.path.node[1]={777,877,5,5,1,1};
+#endif
+  assert(rc7_path_valid(&relay.receiver.path));
+  relay.receiver.clock.bound=true;
+  relay.utc_known=true;
+  relay.lease_until=relay.renew_at=v12::anchor.context_until=fake_now+60000000;
+  relay.progress_at=fake_now;
+  v12::joined_peer=v12::sync_identity=777;v12::joined_boot=877;
+  v12::member=v12::synced=true;v12::sync_handle=9;
+  v12::sync_address=v12::canonical(777);
+  v12::parent_selection.bind(777,877,5,fake_now,true);
+  v12::parent_selection.tick(fake_now,true,false);
+  const auto progress=relay.progress_at,lease=relay.lease_until;
+  fake_now=until+v12::G1Anchor::RebootstrapGapUs;
+  if(!which.ends_with("-rx-silence"))v12::parent_selection.delivered(5,10,fake_now-1);
+  if(which.ends_with("-replay-expiry"))v12::anchor.context_until=fake_now;
+  if(which.ends_with("-lease-expiry"))relay.lease_until=fake_now;
+  v12::active_poll(fake_now);
+  if(which.ends_with("-standby")){
+   assert(v12::rc_bound()&&v12::synced&&v12::sync_handle==9&&!v12::sync_cleanup_requested);
+   assert(relay.lease_until==lease&&relay.progress_at==progress&&v12::anchor.until==until);
+   assert(!v12::following(fake_now)&&!v12::corrected_clock.covers(fake_now,fake_now));
+   fake_now=progress+v12::BleAcquisitionPolicy::StallUs;
+   v12::parent_selection.delivered(5,11,fake_now-1);
+   v12::active_poll(fake_now);
+  }
+  assert(!v12::rc_bound()&&!v12::anchor.source&&!v12::following(fake_now));
+  pump_cleanup();assert(!v12::synced&&!v12::fault);
+}
+#endif
 int main(int argc,char** argv){
  assert(argc==2);const std::string which=argv[1];const uint8_t mac[]={2,3,4,5,6,7};
  assert(v12::r2_init(44,mac)&&v12::r2_host_init()&&v12::r2_host_sync());step(8);v12::stop_scan();
@@ -108,6 +149,10 @@ int main(int argc,char** argv){
   assert(v12::anchor.boot==601&&v12::anchor.source_epoch==epoch&&v12::anchor.publication==train);
   assert(!v12::parent_selection.needs_alternative()); // New trial; JOIN is still not precision lock.
   assert(!v12::corrected_clock.covers(fake_now,fake_now));
+#ifdef PTOB_N30
+ }else if(which=="n30-rc7-standby"||which=="n30-rc7-replay-expiry"||which=="n30-rc7-rx-silence"){
+  relay_permission_gap_case(which,until);
+#endif
  }else if(which=="n30-relay-retry-budget"){
   // A previously good, now unlocked GM keeps getting control opportunities.
   // Its 10s retries can permanently starve the shared 20s/60s relay budget.
@@ -256,7 +301,13 @@ int main(int argc,char** argv){
   else if(which=="wrong-parent")v12::sync_identity=999;
   else if(which=="clock-failure")priority_clock_ok=false;
   else assert(false);
-  v12::start_scan();assert(scan_active&&!v12::fault);
+  v12::start_scan();
+#ifdef PTOB_N30
+  if(which=="source-expiry"){
+   assert(!scan_active&&!v12::following(fake_now)&&v12::direct_acquisition_reserved(fake_now)&&!v12::fault);
+  }else
+#endif
+  assert(scan_active&&!v12::fault);
  }
  std::puts("PASS production precision scheduling, unchanged quality/expiry and bounded ownership");
 }

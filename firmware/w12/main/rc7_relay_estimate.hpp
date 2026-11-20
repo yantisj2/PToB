@@ -26,6 +26,7 @@ class Rc7RelayEstimate {
   SelectionReason selected_reason_=SelectionReason::None;
   bool timing_suspended_=false;
   uint64_t provisional_id_=0;int32_t provisional_offset_ns_=0;
+  uint64_t correction_expires_[2]{};
   Rc7TxReference::Projection selected_reference_{};
   static bool same_origin(const rc5_origin& a,const rc5_origin& b){
     return a.root==b.root&&a.boot==b.boot&&a.epoch==b.epoch&&a.issued==b.issued&&
@@ -35,6 +36,11 @@ class Rc7RelayEstimate {
   const PreparedPublication* snapshot(uint32_t publication)const{
     for(const auto& p:snapshots_)if(p.publication==publication)return &p;
     return nullptr;
+  }
+  bool correction_live(unsigned index,uint64_t root_now)const{
+    const auto& correction=sent[index];
+    return correction.publication&&correction.generation==path.node[path.depth].train&&
+      correction.tx_ns<origin.expires&&root_now<correction_expires_[index];
   }
  public:
   SelectionReason selected_reason()const{return selected_reason_;}
@@ -108,8 +114,11 @@ class Rc7RelayEstimate {
     const auto n=map.relative_at(now20);
     return n>0&&uint64_t(n)>=origin.issued&&uint64_t(n)<origin.expires;
   }
-  bool ready(uint64_t now20)const{return live(now20)&&publication&&sent[0].publication&&
-    sent[0].generation==path.node[path.depth].train;}
+  bool ready(uint64_t now20)const{
+    if(!live(now20)||!publication)return false;
+    const auto root_now=uint64_t(map.relative_at(now20));
+    return correction_live(0,root_now)||correction_live(1,root_now);
+  }
   // Worker builds frozen bytes and a causal publication snapshot. Only commit
   // after expected-bank reservation and successful public PA data queuing.
   bool prepare_packet(uint8_t wire[190],PreparedPublication& prepared,
@@ -120,8 +129,14 @@ class Rc7RelayEstimate {
     rc7_packet p{};p.origin=origin;std::memcpy(p.proof,proof,16);
     const auto& own=path.node[path.depth];p.sender=own.id;p.boot=own.boot;p.train=own.train;
     p.epoch=own.epoch;p.depth=path.depth;p.slot=own.slot;p.publication=publication+1;
-    for(const auto& c:sent)if(timing&&c.publication&&c.tx_ns>=origin.issued&&c.tx_ns<origin.expires&&
-      c.generation==own.train&&uint64_t(inherited_age_us)+(now20-original20+19)/20<500000)p.correction[p.count++]=c;
+    if(timing){
+      const auto root_now=uint64_t(map.relative_at(now20));
+      for(unsigned i=0;i<2;++i){
+        // The receiver matches this correction against its saved original.
+        // A later carrier grant does not replace the original's expiry.
+        if(correction_live(i,root_now))p.correction[p.count++]=sent[i];
+      }
+    }
     if(rc7_encode(wire,&p,&path,&group))return false;
     prepared={path,origin,timing?map:G1ClockPrediction{},timing?original20:0,now20,
       timing?inherited_age_us:0,p.publication,timing?provisional_id_:0,timing?provisional_offset_ns_:0};return true;
@@ -180,7 +195,10 @@ class Rc7RelayEstimate {
        uint64_t(delivered)<selected.origin.issued||uint64_t(delivered)>=selected.origin.expires)
       return refuse(SelectionReason::SnapshotEnvelope);
     selected_reference_=reference;
-    sent[1]=sent[0];sent[0]={selected.publication,event,channel,selected.train,uint32_t(age),uint64_t(delivered),UINT32_MAX};return true;
+    sent[1]=sent[0];correction_expires_[1]=correction_expires_[0];
+    sent[0]={selected.publication,event,channel,selected.train,uint32_t(age),uint64_t(delivered),UINT32_MAX};
+    correction_expires_[0]=frozen->origin.expires;
+    return true;
   }
   rc7_control capability(uint64_t self,uint64_t boot,uint64_t challenge,bool publishing)const{
     rc7_control c{};c.type=RC7_CAPABILITY;c.sender=self;c.sender_boot=boot;c.next_challenge=challenge;

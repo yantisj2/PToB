@@ -79,13 +79,21 @@ static void attach(struct bt_conn *c, uint64_t id) {
   callbacks.connected(c, 0);
   assert(peers[0].conn == c && c->refs == 2);
   assert(!r2_ble_admission_bind(id, c->address.a.val));
-  att_mtu_updated(c, 226, 226);
-  peers[0].discovered = 1;
-  peers[0].handle = 42;
-  assert(r2_ble_ready(4) && r2_ble_admission_peer() == 4 &&
-         r2_ble_peer_identity(4, NULL) == id);
   assert(index_conn(c) == 0 && index_addr(&c->address) == 0 && self == 255 &&
          nodes == 1);
+}
+static void peer_mtu(struct bt_conn *c) {
+  unsigned mtu_calls = fake_mtu_calls, lookups = reads;
+  att_mtu_updated(c, 23, 23);
+  r2_ble_poll(fake_time);
+  assert(fake_mtu_calls == mtu_calls && !peers[0].mtu.func &&
+         reads == lookups && !r2_ble_ready(4));
+  att_mtu_updated(c, 226, 226);
+  r2_ble_poll(fake_time);
+  assert(fake_mtu_calls == mtu_calls && !peers[0].mtu.func &&
+         reads == lookups + 1 && peers[0].lookup.func && !r2_ble_ready(4));
+  located(c, 0, &peers[0].lookup, discovery_marker, sizeof discovery_marker);
+  assert(r2_ble_ready(4));
 }
 static void diagnostic_layout(void){
  uint32_t guarded[R2_GM_TRANSPORT_WORDS+2];for(unsigned i=0;i<ARRAY_SIZE(guarded);i++)guarded[i]=0xabcdef01;
@@ -127,8 +135,13 @@ static void client_bootstrap(void) {
     r2_ble_poll(fake_time);
     assert(creates == before + 1 && peers[0].conn == &outgoing &&
            !r2_ble_admission_server());
-    att_mtu_updated(&outgoing, 226, 226);
+    unsigned mtu_calls = fake_mtu_calls;
     r2_ble_poll(fake_time + 1);
+    assert(fake_mtu_calls == mtu_calls + 1 && peers[0].mtu.func &&
+           !r2_ble_ready(4));
+    att_mtu_updated(&outgoing, 226, 226);
+    mtu_done(&outgoing, 0, &peers[0].mtu);
+    r2_ble_poll(fake_time + 2);
     assert(peers[0].lookup.func && !r2_ble_ready(4));
     located(&outgoing, 0, &peers[0].lookup, discovery_marker,
             sizeof discovery_marker);
@@ -152,7 +165,7 @@ static void client_bootstrap(void) {
     assert(r2_ble_receive(&event) && event.peer == 255);
     r2_ble_admission_release();
     callbacks.disconnected(&outgoing, 19);
-    r2_ble_poll(fake_time + 2);
+    r2_ble_poll(fake_time + 3);
     assert(!peers[0].conn && outgoing.refs == 1);
     bt_conn_unref(&outgoing);
   }
@@ -181,6 +194,11 @@ int main(void) {
          !r2_ble_control_available() && !r2_ble_control_member());
   struct bt_conn first = {0};
   attach(&first, 999);
+  att_mtu_updated(&first, 226, 226);
+  peers[0].discovered = 1;
+  peers[0].handle = 42;
+  assert(r2_ble_ready(4) && r2_ble_admission_peer() == 4 &&
+         r2_ble_peer_identity(4, NULL) == 999);
   diagnostic_layout();
   uint8_t low[R2_AUTH_BYTES] = {12, R2_AUTH_HELLO},
           high[R2_AUTH_BYTES] = {12, R2_AUTH_SERVICE};
@@ -219,6 +237,7 @@ int main(void) {
   assert(!r2_ble_group_start(123, 456, 1, own));
   struct bt_conn second = {0};
   attach(&second, 888);
+  peer_mtu(&second);
   atomic_t busy_before = peers[0].tx_busy;
   callbacks.disconnected(&first, 19);
   att_mtu_updated(&first, 23, 23);

@@ -69,6 +69,36 @@ int main(){
   s.tick20=s.available20=21600000;s.map_enclosure_ns=100;s.event=2;s.channel=13;
   assert(!client.receive(p,s,s.available20));
   assert(relay.selected(second,2,13,s.tick20,s.tick20+800,group));
+  {
+    auto publisher=relay;
+    auto receiver=client;
+    auto renewed=origin;
+    renewed.issued=1100000000;renewed.expires=renewed.issued+1650000000;
+    renewed.frame=1062500000;
+    auto updated=map;updated.tick=22400000;updated.epoch=1120000000;
+    assert(publisher.input(root,renewed,nullptr,updated,22400000,1,22400000,0,100,200,group));
+    uint8_t followup[190];assert(publisher.packet(followup,22800000,group));
+    rc7_packet carrier{};
+    assert(!rc7_decode(&carrier,followup,190,&publisher.path,&group)&&carrier.origin.issued==renewed.issued);
+    assert(carrier.count&&carrier.correction[0].tx_ns<renewed.issued);
+    auto stamp=s;stamp.sequence=2;stamp.tick20=stamp.available20=22800000;stamp.event=3;stamp.channel=14;
+    assert(receiver.receive(carrier,stamp,stamp.available20));
+    assert(receiver.receiver.clock.reference.origin.expires==origin.expires);
+    updated.tick=53000000;updated.epoch=2650000000;
+    const auto train=publisher.path.node[1].train;
+    const auto before_expiry=updated.tick-1;
+    auto earlier=updated;earlier.tick=before_expiry;earlier.epoch-=50;
+    assert(publisher.input(root,renewed,nullptr,earlier,before_expiry,1,before_expiry,0,100,200,group));
+    assert(publisher.ready(before_expiry));
+    assert(publisher.input(root,renewed,nullptr,updated,updated.tick,1,updated.tick,0,100,200,group));
+    assert(publisher.live(updated.tick)&&!publisher.ready(updated.tick));
+    assert(publisher.response(response,client.request,8,updated.tick)&&!response.ready);
+    assert(publisher.packet(followup,updated.tick,group));
+    assert(!rc7_decode(&carrier,followup,190,&publisher.path,&group)&&!carrier.count);
+    assert(publisher.selected(followup,4,15,updated.tick,updated.tick+800,group));
+    assert(publisher.path.node[1].train==train&&publisher.ready(updated.tick+800));
+    assert(publisher.response(response,client.request,8,updated.tick+800)&&response.ready);
+  }
   uint8_t third[190];assert(relay.packet(third,22800000,group));
   assert(!rc7_decode(&p,third,190,&relay.path,&group));
   s.sequence=2;s.tick20=s.available20=22800000;s.event=3;s.channel=14;

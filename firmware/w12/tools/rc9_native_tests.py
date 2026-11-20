@@ -28,7 +28,7 @@ objects=[a.objects.resolve()/(n+'.o') for n in ('group_auth','group_join','group
 cmd=[os.environ.get('CXX','/opt/homebrew/opt/llvm/bin/clang++' if Path('/opt/homebrew/opt/llvm/bin/clang++').is_file() else 'clang++'),*flags,out/'rc9.cpp',APP/'main/rc9/rc9.cpp',*objects,'-o',out/'native']
 (out/'compile-command.json').write_text(json.dumps(list(map(str,cmd)),indent=2)+'\n')
 with (out/'compile.log').open('w') as f:subprocess.run(list(map(str,cmd)),stdout=f,stderr=subprocess.STDOUT,check=True)
-cases=('client-terminate-ack','client-pending-relay-return','client-relay-return','recover','client-cache-fence','client-scan','client-return','client-expired','client-recovery-pin','client-no-source','client-hint','client','client-pin','speculative','race','rc7-placement-while-lora-live','withdraw','source-expired','client-pin-local-lora','lease','rebind','off')
+cases=('client-terminate-ack','client-pending-relay-return','client-relay-return','recover','client-cache-fence','client-scan','client-return','client-expired','client-recovery-pin','client-no-source','client-hint','client','client-pin','speculative','race','rc7-placement-while-lora-live','rc7-hold-while-lora-live','withdraw','source-expired','client-pin-local-lora','lease','rebind','off')
 for case in cases:
  with (out/(case+'.log')).open('w') as f:subprocess.run([out/'native',case],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=15)
 paths=[APP/'main/native_g1.cpp',APP/'main/g1_parent_selection.hpp',APP/'main/rc7_relay_native.inc',APP/'main/rc9_client_native.inc',APP/'main/rc9_server_native.inc',APP/'tests/native_g1_test.cpp',APP/'tools/rc7_permission_e2e.py',APP/'tests/rc9_native_client_fixture.inc',APP/'tests/rc9_native_fixture.inc',Path(__file__)]

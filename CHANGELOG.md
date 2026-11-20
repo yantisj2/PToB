@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-19 — Bounded RC7 recovery and GM admission
+
+- Update [W12 0.2.55](firmware/w12/CHANGELOG.md) and
+  [N30 0.2.68](firmware/n30/CHANGELOG.md) to retain authenticated RC7 reception
+  through bounded timing gaps. Preserve original timing, replay and lease
+  expiry; keep correction grant rollover and fresh physical recovery distinct
+  from renewed permission.
+- Update [T096 0.15.363](firmware/t096/CHANGELOG.md) to leave incoming GM7 MTU
+  negotiation to the joining client while retaining admission deadlines.
+  Continuous hardware reliability and independent precision remain unqualified.
+
 ## 2026-11-18 — Pi 5 USB shadow observer
 
 - Integrate the [Linux T096 RC USB/SOF shadow observer](gateways/pi5/usb/README.md)

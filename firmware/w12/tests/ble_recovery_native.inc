@@ -171,5 +171,11 @@ int main(int argc,char** argv){
  else if(which=="startup-unusable")startup_unusable_case();
  else if(which.starts_with("startup-slow"))startup_slow_case(which);
  else if(which.starts_with("pa-"))acquisition_pa_case(which);
+ else if(which.starts_with("relay-")){
+  fake_now=100000000;v12::window_start=v12::G1Window::start(fake_now);
+  v12::anchor={true,501,601,UINT64_C(1700000000000000)+fake_now,fake_now,fake_now+1500000,2,3,160000};
+  v12::Rc7PermissionInspect::seed(v12::corrected_clock,v12::anchor,fake_now);
+  relay_permission_gap_case(which,v12::anchor.until);
+ }
  else acquisition_case(which);
 }

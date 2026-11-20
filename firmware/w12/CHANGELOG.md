@@ -1,5 +1,43 @@
 # W12 changelog
 
+## 0.2.55 — Retain relay reception during bounded timing gaps
+
+An RC7 receiver can keep its current periodic acquisition while fresh
+authenticated physical reports continue and the original corrected-progress
+budget remains open. Timing output expires at its original deadline. Silence,
+replay or lease expiry, and completion of the existing recovery budget still
+require a fresh acquisition.
+
+## 0.2.54 — Keep eligible timing through grant rollover
+
+On receipt of an authenticated GR3 report, retire an older pair that has
+exhausted its permission and check the next retained physical pair. Each
+original and its correction carrier still enforce their signed deadlines.
+An RC7 publisher advertises READY only while it can carry a correction
+eligible under both grants. Fresh timing can restore READY on the same train.
+
+## 0.2.53 — Carry pending RC7 corrections across source grant rollover
+
+A newly issued grant can carry a pending correction for a previously captured
+original in the same train. Retain that correction only while its original
+grant is live. The receiver continues to match it to the original event and
+enforce the original authenticated deadline.
+
+## 0.2.52 — Recover a held RC7 train on fresh physical timing
+
+Restart the loss hold only after a new qualified parent original. Short gaps
+interspersed with genuinely corrected timing can keep the same train across
+the hold window. Repeated polling and old samples earn no recovery credit.
+
+## 0.2.51 — Preserve RC7 trains during brief upstream gaps
+
+Keep the periodic train and original child lease through a bounded timing gap
+on the same authenticated BLE acquisition. Pause admissions and send standby
+packets until fresh parent timing returns. While an RC7 child still has demand
+within that hold, a warm LoRa clock can serve local time without changing the
+BLE relay profile. Real acquisition loss, context changes, lease expiry and
+the original hold deadline still retire the train.
+
 ## 0.2.50 — Common BLE and LoRa clock
 
 Drive the front clock from one boot-local actuator with qualified BLE, warm

@@ -1,5 +1,12 @@
 # N30 changelog
 
+## 0.2.68 — Retain a live RC7 acquisition through a timing gap
+
+Keep receiving the same authenticated RC7 train if fresh physical packets
+are still arriving within the corrected-progress recovery budget. Timing
+permission expires at its original deadline. Reception, replay or progress
+expiry still requires fresh admission through the existing owner drain.
+
 ## 0.2.67 — Passive LoRa RC9 relay
 
 Allow BLE100 `--estimated-relay --lora-rx` builds to publish RC9 TIME v2 from

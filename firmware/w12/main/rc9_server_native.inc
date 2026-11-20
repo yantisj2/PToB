@@ -33,13 +33,15 @@ w12::Rc9SourceDecision rc9_server_source(uint64_t now){
  Rc9LoRaView l;const bool radio_permit=rc9_lora_snapshot(l);now=micros();uint64_t utc=0;
  portENTER_CRITICAL(&mux);const bool client_pin=rc9_target!=0;portEXIT_CRITICAL(&mux);
 #ifdef PTOB_W12_LORA_RX
- // Keep an already-started passive survey through a brief timing gap on
- // the same BLE acquisition. A profile swap would discard the survey.
- const bool placing=relay_profile==7&&relay_slots.scanning&&now<relay_slots.scan_limit&&relay_placement_current(now);
+ // A profile swap would discard an in-progress survey or an existing RC7
+ // train. Give both their original bounded recovery window.
+ const bool normal_relay=relay_profile==7&&relay_acquisition_current(now)&&
+   ((relay_slots.scanning&&now<relay_slots.scan_limit)||
+    (relay_hold.can_retain(now)&&relay_demand_live(now)));
 #else
- constexpr bool placing=false;
+ constexpr bool normal_relay=false;
 #endif
- const bool permit=radio_permit&&!client_pin&&!placing&&full_listening()&&!closing&&!fault&&!stop_pending;
+ const bool permit=radio_permit&&!client_pin&&!normal_relay&&full_listening()&&!closing&&!fault&&!stop_pending;
  return w12::rc9_source(relay_parent_locked(now),rc9_lora_time(l,now,utc),
    rc9_server_demand_until(),now,permit);
 }

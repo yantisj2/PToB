@@ -223,18 +223,28 @@ This is packet-format normalization, with unknown controller/RF delay; it does
 not qualify physical precision. Legacy schema-1 profiles retain their **total**
 adjustment from the raw programmed start. See the
 [reference semantics and regression](tx-reference.md).
-Version 0.1.1 requests 100 ms for both RC discovery advertisers, matching T096;
+RC discovery advertisers request 100 ms, matching T096;
 the separate precision train stays at 62.5 ms. Downstream advertising and
-publication initially wait for current parent clock lock. Version 0.1.19 keeps
-an established train and management discovery through a timing/quality gap for
-up to 30 seconds. Corrections and READY withdraw immediately; canonical count0
+publication initially wait for current parent clock lock. An established train
+can remain through a timing/quality gap for up to 30 seconds. Corrections and
+READY withdraw immediately; canonical count0
 packets retain synchronization without refreshing timing authority. Same-scope
 fresh corrections can resume timing on the original train and child leases.
-Two seconds of observed lock recovery, with no observation gap above 250 ms,
-reset the loss deadline; flicker, polling and fresh packets without lock do not.
+For the dual BLE/LoRa profile, the same authenticated upstream acquisition and
+original child demand can retain the train while new admissions pause. A fresh
+qualified parent original resets that loss episode; polling or an old original
+does not. Profiles without the physical-original reset retain the two-second
+observed-lock recovery rule, with no observation gap above 250 ms.
 Child demand expiry, explicit stop, fault, changed source/path, controller
 ownership and the original two-second drains retain their own gates. Upstream
 reception remains available to acquire the parent.
+
+An RC7 receiver can retain its current authenticated acquisition through a
+timing-permission gap only while physical packets remain fresh within 250 ms
+and the original 15-second corrected-progress budget is open. FOLLOW and timing
+output still expire at their original deadlines. Silence, replay-context or
+lease expiry, ownership loss and exhaustion of the progress budget require
+fresh acquisition through the existing drain.
 See the [changelog](../../firmware/w12/CHANGELOG.md) for the lock prerequisites
 and the distinction between relative quality and qualified precision.
 Version 0.1.8 started continuous BLE100's direct G1 proactive replay refresh at

@@ -7,7 +7,7 @@ from pathlib import Path
 APP=Path(__file__).resolve().parents[1];REPO=APP.parents[1]
 sys.path.insert(0,str(REPO/'registry'))
 from registry import load as load_registry,header as registry_header
-VERSION='0.2.50'
+VERSION='0.2.55'
 def check_receiver_state_gate(path):
  # Loading the gate must not put N30 tools ahead of this builder's modules:
  # the later inspect_build import belongs to W12 and has a different API.
@@ -195,7 +195,7 @@ def validate_dual_compilation(r,compiled):
   if flag not in tokens:raise ValueError('Missing compiled runtime feature: '+flag)
  if r.get('rc9'):
   if '-DPTOB_RC9=1' not in tokens or not r['lora_rx'] or not r['estimated_relay']:raise ValueError('RC9 compile/profile mismatch')
- extended=r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.49','0.2.50')
+ extended=r['version'] in ('0.2.39','0.2.40','0.2.41','0.2.42','0.2.43','0.2.44','0.2.45','0.2.46','0.2.49','0.2.50','0.2.51','0.2.52','0.2.53','0.2.54','0.2.55')
  if r.get('no_time_sync_watchdog_us')!=(720000000 if extended else 300000000):raise ValueError('Watchdog metadata differs')
  if extended and '-DV12_NO_TIME_SYNC_US=720000000' not in tokens:raise ValueError('Compiled W12 no-time watchdog differs')
  if r['lora_rx'] and not r['fine_clock']:raise ValueError('LoRa requires fine counter')

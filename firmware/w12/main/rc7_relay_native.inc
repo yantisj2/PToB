@@ -514,7 +514,7 @@ void relay_requests(uint64_t now,uint64_t now20){
   }
 }
 #ifdef PTOB_W12_LORA_RX
-bool relay_placement_current(uint64_t now){
+bool relay_acquisition_current(uint64_t now){
   return relay_map.valid&&joined_peer&&sync_identity==joined_peer&&synced&&
     !sync_terminating&&!sync_cleanup_queued&&!sync_cleanup_requested&&anchor_valid(now);
 }
@@ -522,8 +522,8 @@ bool relay_placement_current(uint64_t now){
 void relay_slot_poll(uint64_t now,bool upstream_due){
 #ifdef PTOB_W12_LORA_RX
   // Passive placement follows the acquired train and its replay context.
-  // Timing loss stops service and clears child demand independently.
-  if(relay_slots.scanning&&!relay_placement_current(now)){
+  // Timing permission and child demand have separate lifetimes.
+  if(relay_slots.scanning&&!relay_acquisition_current(now)){
     rc_slots_rollback(&relay_slots,now);
     return;
   }
@@ -568,30 +568,36 @@ bool relay_check_lock(){
   const bool parent_locked=counter&&!fault&&relay_parent_locked(now);
   const bool timing=parent_locked&&relay_map.live(now20);
 #ifdef PTOB_W12_LORA_RX
-  // Keep downstream ownership through a bounded local PA/slot gap while
-  // qualified BLE remains current. A parent loss clears this hold immediately.
-  relay_admission_locked=relay_hold.update(now,timing,relay_map.path,parent_locked&&relay_map.valid);
+  // Keep the existing train and child deadlines through a short timing gap
+  // on the same upstream acquisition. Fresh admissions still need lock.
+  const bool retain=counter&&!fault&&relay_hold.update(now,timing,relay_map.path,
+    parent_locked||relay_acquisition_current(now),relay_map.original20);
+  relay_admission_locked=parent_locked&&retain;
 #else
   relay_admission_locked=counter&&!fault&&relay_map.valid&&relay_hold.update(now,timing,relay_map.path);
+  const bool retain=relay_admission_locked;
 #endif
   // Withdraw corrections immediately. The ownership hold is scoped to the
   // same authenticated train and retains the child demands only while armed.
   // A fresh accepted parent original is required before timing can resume.
   if(!timing&&relay_map.withdraw_time()){relay_data_dirty=true;relay_cap_dirty=true;}
-  if(!relay_admission_locked){
-    // Startup still requires lock. Loss beyond the original hold deadline
-    // retires downstream owners; parent reception and its fitter survive.
-    relay_pause_cap();relay_idle_publication(micros());
+  if(!relay_admission_locked)relay_pause_cap();
+  if(!retain){
+    // Loss beyond the original hold deadline retires downstream owners;
+    // parent reception and its fitter survive.
+    relay_idle_publication(micros());
     // A deliberate slot move fences only the downstream map until the next
     // parent original. It must not erase demand while that parent stays locked.
     if(!parent_locked||relay_map.valid)for(auto& child:relay_children)child={};
 #ifndef PTOB_W12_LORA_RX
     if(!parent_locked&&relay_slots.scanning)rc_slots_rollback(&relay_slots,micros());
 #endif
+  }
+  if(!relay_admission_locked){
     relay_terminate(micros());
     RelayWrite discard{};while(relay_writes.pop(discard)){}
   }
-  return relay_admission_locked&&!fault;
+  return retain&&!fault;
 }
 #include "rc9_server_native.inc"
 void relay_poll(uint64_t now,bool upstream_due,bool admitting){
@@ -662,7 +668,8 @@ void relay_poll(uint64_t now,bool upstream_due,bool admitting){
 #if !defined(PTOB_N30) && defined(PTOB_W12_BLE_RECOVERY)
     if(relay_cap_blocked())return;
 #endif
-    if(!upstream_due&&!relay_advertising&&relay_api(ble_gap_ext_adv_start(1,0,0),R2Api::AdvStart))relay_advertising=true;
+    if(relay_admission_locked&&!upstream_due&&!relay_advertising&&
+       relay_api(ble_gap_ext_adv_start(1,0,0),R2Api::AdvStart))relay_advertising=true;
   }
   periodic_tx::EstimateRecord capture{};
   for(unsigned i=0;i<periodic_tx::Capacity&&periodic_tx::pop_estimated(capture);i++){

@@ -29,7 +29,8 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
  }
  const auto* mac=v12::native_device_binding()->factory;assert(v12::r2_init(44,mac)&&v12::r2_host_init()&&v12::r2_host_sync());
  step(8);assert(v12::client.running);
- if(which=="rc7-placement-while-lora-live"){
+ if(which=="rc7-placement-while-lora-live"||which=="rc7-hold-while-lora-live"){
+  const bool placement=which=="rc7-placement-while-lora-live";
   rc7_path root{};root.source_epoch=9;root.node[0]={11,22,1,1,0,0};
   const uint64_t ns=fake_now*1000;
   const rc5_origin origin={11,22,9,ns,ns+1650000000,1700000000000000000,ns/62500000*62500000,0,0};
@@ -38,17 +39,26 @@ int main(int argc,char** argv){assert(argc==2);const std::string which=argv[1];
     v12::provision.identity,44,v12::provision.group));
   v12::joined_peer=v12::sync_identity=11;v12::joined_boot=22;v12::synced=true;v12::sync_handle=17;
   v12::anchor={true,11,22,1700000000000000,fake_now,fake_now+100000,9,1,500,fake_now+10000000};
+  if(!placement){
+   v12::relay_retained_slot=v12::relay_map.path.node[1].slot;
+   v12::relay_startup_checked=true;
+  }
   v12::Rc7Client child;assert(!child_request(child,300,RC_DYNAMIC_LEASE_US).ready);
-  assert(v12::relay_slots.scanning&&!pa_active&&v12::relay_admissions==1);
+  if(!placement){fake_now+=16000;v12::relay_poll(fake_now,false);}
+  assert(v12::relay_slots.scanning==placement&&pa_active==!placement&&v12::relay_admissions==1);
   const auto limit=v12::relay_slots.scan_limit;
   fake_now+=200000;fixture_parent_locked=false;radio_live();
   v12::relay_poll(fake_now,false);
-  assert(v12::relay_profile==7&&v12::relay_slots.scanning&&v12::relay_slots.scan_limit==limit);
-  assert(!v12::relay_admission_locked&&!v12::relay_demand_live(fake_now)&&!pa_active&&!ext_active[1]);
+  assert(v12::relay_profile==7&&v12::relay_slots.scanning==placement&&v12::relay_slots.scan_limit==limit);
+  assert(!v12::relay_admission_locked&&v12::relay_demand_live(fake_now)&&pa_active==!placement&&!ext_active[1]);
+  if(!placement){
+   rc7_packet standby{};
+   assert(!rc7_decode(&standby,pa_wire.data(),190,&v12::relay_map.path,&v12::provision.group)&&!standby.count);
+  }
   v12::sync_terminating=true;
   v12::relay_poll(fake_now,false);
   assert(!v12::fault&&v12::relay_profile==9&&pa_active&&ext_active[1]&&!v12::relay_slots.scanning);
-  puts("PASS live LoRa preserves bounded passive RC7 survey and starts RC9 after BLE acquisition loss");
+  puts("PASS live LoRa preserves the RC7 owner through a gap and starts RC9 after BLE acquisition loss");
   return 0;
  }
  fixture_parent_locked=false;radio_live();v12::relay_poll(fake_now,false);

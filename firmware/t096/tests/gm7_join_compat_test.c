@@ -43,12 +43,13 @@ static void incoming_client(struct bt_conn *c,unsigned role){
 }
 static void ready_incoming(struct bt_conn *c){
  incoming_client(c,BT_CONN_ROLE_PERIPHERAL);
- unsigned dc=disconnects;service_poll();
- assert(!peers[0].disconnect_requested&&disconnects==dc&&peers[0].mtu.func);
+ unsigned dc=disconnects, mtu_calls=fake_mtu_calls;
+ att_mtu_updated(c,23,23);service_poll();
+ assert(!peers[0].disconnect_requested&&disconnects==dc&&fake_mtu_calls==mtu_calls);
+ assert(!peers[0].mtu.func&&!peers[0].lookup.func&&!r2_ble_ready(4));
  /* Poll between every actual public callback; no preseeded ready fields. */
  att_mtu_updated(c,226,226);service_poll();assert(!peers[0].disconnect_requested);
- peers[0].mtu.func(c,0,&peers[0].mtu);service_poll();
- assert(peers[0].lookup.func&&!r2_ble_ready(4));
+ assert(fake_mtu_calls==mtu_calls&&!peers[0].mtu.func&&peers[0].lookup.func&&!r2_ble_ready(4));
  located(c,0,&peers[0].lookup,discovery_marker,sizeof discovery_marker);service_poll();
  assert(r2_ble_ready(4)&&!peers[0].disconnect_requested);
 }
@@ -116,12 +117,12 @@ static void follower_rejected(bool recover){
 }
 static void expiry_release_stop(void){
  begin_server();struct bt_conn c;incoming_client(&c,BT_CONN_ROLE_PERIPHERAL);service_poll();
- uint64_t end=peers[0].provisional_until;assert(peers[0].mtu.func&&!peers[0].disconnect_requested);
+ uint64_t end=peers[0].provisional_until;assert(!peers[0].mtu.func&&!peers[0].disconnect_requested);
  fake_time=end-2;src.sampled_us=fake_time;src.until_us=fake_time+1200000;
  service_poll();assert(!peers[0].disconnect_requested&&peers[0].provisional_until==end);
  service_poll();assert(fake_time==end&&peers[0].disconnect_requested&&peers[0].provisional_until==end);
  close_client(&c,true);
- begin_server();incoming_client(&c,BT_CONN_ROLE_PERIPHERAL);service_poll();assert(peers[0].mtu.func);
+ begin_server();incoming_client(&c,BT_CONN_ROLE_PERIPHERAL);service_poll();assert(!peers[0].mtu.func);
  r2_ble_admission_release();assert(peers[0].disconnect_requested);close_client(&c,true);
  begin_server();ready_incoming(&c);fake_early_tx=false;
  uint8_t low[R2_AUTH_BYTES]={12,R2_AUTH_HELLO};assert(!r2_ble_send(4,low)&&peers[0].tx_busy==1);

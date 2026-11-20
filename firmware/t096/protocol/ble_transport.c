@@ -905,7 +905,9 @@ static void poll_owned(uint64_t now)
     bool serving_guest=(relay_server||gm7_server)&&i==admission_peer&&p->admission_server;
     if(!stopping&&p->conn&&!desired(i)&&!serving_guest){r2_ble_disconnect(i);continue;}
     if(!stopping&&!p->disconnect_requested&&atomic_get(&p->connected)){
-      if(!p->mtu.func&&!usable_mtu(p)){p->mtu.func=mtu_done;int rc=gatt_call(i,GATT_MTU,0,NULL);if(rc){if(!gatt_pending(i))p->mtu.func=NULL;if(rc!=-EALREADY)transport_error(rc,"MTU",i);}}
+      /* GM7 accepts incoming client JOINs. Let the client initiate MTU so
+       * this transient slot has no local MTU callback to retire. */
+      if(!gm7_server&&!p->mtu.func&&!usable_mtu(p)){p->mtu.func=mtu_done;int rc=gatt_call(i,GATT_MTU,0,NULL);if(rc){if(!gatt_pending(i))p->mtu.func=NULL;if(rc!=-EALREADY)transport_error(rc,"MTU",i);}}
       if(gatt_pending(i))continue;
       /* Keep our accepted asynchronous params owned until its own callback.
        * A peer-first exchange has no outstanding local callback to wait for. */

@@ -114,6 +114,13 @@ N30 shares [GM successor recovery](../w12/build.md#gm-successor-recovery)
 with W12. Its build receipt identifies the revision-3 control consumer and
 three-second advisory recovery preference; enrollment and calibration are unchanged.
 
+An RC7 receiver can retain its current authenticated acquisition during a
+timing-permission gap while physical packets remain fresh within 250 ms and
+the original 15-second corrected-progress budget is open. This preserves
+reception only: FOLLOW and timing output expire at their original deadlines.
+Silence, replay-context or lease expiry, ownership loss and exhaustion of the
+progress budget require fresh acquisition through the existing owner drain.
+
 `N30_TRAINED_ACTUATOR_30S_FRESH_PAIR_V1` preserves the trained actuator during a bounded handoff. After direct GM
 loss, the display keeps the last trained clock in HOLD through a new coarse
 JOIN. Only a new authenticated, physically matched correction seeds its running

@@ -65,6 +65,29 @@ int main(){
  auto matched=renewal.packet(4,2000000000,3650000000);matched.count=1;
  matched.correction[0]={3,3,5,UINT64_C(2225000)*1000*2/125,3};
  assert(renewal.feed(matched,2287500)&&renewal.clock.until()>old_limit&&renewal.clock.until()<3650000);
+ for(uint64_t delay:{62500u,125000u}){
+  // The first pair has no remaining permission after the coarse guard.
+  // A missed carrier must not also discard the second, independently live pair.
+  constexpr uint64_t first=2100000,second=2162500;
+  const auto carrier=second+delay;
+  for(bool newer_live:{false,true}){
+   Trial rollover;
+   assert(!rollover.feed(rollover.packet(1,1000000000,2300000000),first));
+   assert(!rollover.feed(rollover.packet(2,2000000000,newer_live?3650000000:2300000000),second));
+   auto correction=rollover.packet(3,2000000000,3650000000);
+   correction.count=2;
+   correction.correction[0]={1,1,4,first*16,3};
+   correction.correction[1]={2,2,5,second*16,3};
+   assert(rollover.feed(correction,carrier)==newer_live);
+   const auto deadline=rollover.clock.until();
+   if(newer_live){
+    assert(rollover.clock.accepted()==1&&rollover.clock.original20()==second*20);
+    assert(deadline>2300000&&deadline<3650000&&!rollover.clock.covers(deadline,deadline));
+   }else assert(!deadline&&!rollover.clock.accepted());
+   assert(!rollover.feed(correction,carrier+62500));
+   assert(rollover.clock.until()==deadline&&rollover.clock.accepted()==unsigned(newer_live));
+  }
+ }
  unsigned schedules=0;
  for(uint64_t phase:{0u,62500u,125000u,250000u,375000u})
   for(uint64_t delay:{62500u,125000u,187500u,249000u,250000u})

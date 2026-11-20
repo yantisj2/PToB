@@ -18,6 +18,13 @@
   Keep the production shadow assertions and require both page commands to run.
   These fixture corrections do not establish hardware acceptance.
 
+## 0.15.363 — Client-initiated MTU for GM7 admission
+
+- Let the joining client negotiate ATT MTU on an incoming GM7 connection.
+  The GM still requires a sufficient negotiated MTU before discovery and keeps
+  the original admission and authentication deadlines. This avoids starting a
+  local MTU callback on the transient GM7 admission slot.
+
 ## 0.15.362 — USB workaround and explicit GM TX boot default
 
 - Retain the optional PHY-awake USB workaround tested with LoRa TX. It preserves

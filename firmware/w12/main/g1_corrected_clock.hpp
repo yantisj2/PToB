@@ -529,7 +529,7 @@ class G1CorrectedClock {
       if(permission>elapsed&&permission-elapsed>best->enclosure&&permission-elapsed-best->enclosure>guard)
         remaining=(permission-elapsed-best->enclosure-guard)/1000;
       if(!remaining){
-#ifndef PTOB_N30
+#if !defined(PTOB_N30) && !defined(PTOB_W12_BLE_RECOVERY)
         return refuse();
 #else
         // A single report can carry corrections on both sides of a grant

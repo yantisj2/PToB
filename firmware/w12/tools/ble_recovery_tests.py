@@ -47,6 +47,7 @@ def main():
  native_flags+=['-I'+str(x) for x in (APP/'tests',W12/'tests/r2_fakes',W12/'tests/console_fakes',W12/'legacy/reference')]
  run([cxx,'-std=c++20',*flags,*native_flags,out/'successor.cpp',*objects,'-o',out/'native'],'native-build')
  for case in ('permission-gap-parent','startup-unusable','startup-slow','startup-slow-expired','startup-slow-short','startup-slow-mac','pa-authenticated','pa-bad-mac','pa-old-capture'):run([out/'native',case],'native-'+case)
+ for case in ('relay-standby','relay-replay-expiry','relay-rx-silence','relay-lease-expiry'):run([out/'native',case],'native-'+case)
  for case in ('startup','stall','progress','busy','off','fault','absence','pin','relay-only','drain-failure'):run([out/'native','ble-acquisition-'+case],'native-ble-acquisition-'+case)
  (out/'receipt.json').write_text(json.dumps({'status':'PASS','checks':records,'native_source_sha256':sha(W12/'main/native_g1.cpp'),'policy_sha256':sha(W12/'main/g1_gm_successor.hpp'),'wire_revision':3,'target':'W12','hardware_access':False,'precision':'UNQUALIFIED'},indent=2)+'\n')
  print('PASS W12 delayed admission, actual-owner recovery/drain/PA authentication, policy and diagnostic width; no hardware access')
