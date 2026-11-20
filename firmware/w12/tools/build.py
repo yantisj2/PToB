@@ -93,6 +93,17 @@ def validate_size_compilation(receipt,compiled,config):
    tokens=shlex.split(row['command']);selected=row['file'].endswith('/native_main.cpp') and inlining=='GNSS_MAIN_SHARED_CALLEES_V1'
    flags=[v for v in tokens if v in ('-finline-functions-called-once','-fno-inline-functions-called-once')]
    if flags!=(['-fno-inline-functions-called-once'] if selected else []):raise ValueError('W12 GNSS main inlining selection differs from receipt')
+ placement=receipt.get('host_instruction_placement')
+ if placement not in (None,'DEFAULT','GNSS_LORA_COMPACT_V1'):raise ValueError('Unknown W12 host instruction placement')
+ compact=placement=='GNSS_LORA_COMPACT_V1'
+ if compact and (size_profile!='W12_DUAL_GNSS_CLOCK_OZ_V1' or receipt.get('host_task_allocation_policy')!='GNSS_STATIC_CHECKED_CONFIGURED_STACK_V1' or not receipt.get('lora_rx')):raise ValueError('Compact host placement requires the GNSS/LoRa profile')
+ selected=0
+ for row in compiled:
+  owner=compact and '__idf_main.dir/' in row['command'] and row['file'].endswith('/native_g1.cpp')
+  selected+=owner
+  flags=[v for v in shlex.split(row['command']) if v in ('-mtarget-align','-mno-target-align')]
+  if flags!=(['-mno-target-align'] if owner else []):raise ValueError('W12 host instruction placement differs from receipt')
+ if compact and selected!=1:raise ValueError('One compact W12 host owner required')
  for flag in ('CONFIG_COMPILER_OPTIMIZATION_DEBUG=y','CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=y','CONFIG_COMPILER_OPTIMIZATION_ASSERTION_LEVEL=2'):
   if flag not in config.splitlines():raise ValueError('SDK optimization/assertion policy changed: '+flag)
 
@@ -258,6 +269,7 @@ def main():
  r['observer_queue_slots']=8
  r['cap_hci_diagnostics']='CAP2037_BEGIN_RETURN_ACK_NO_PAYLOAD_V1'
  r['main_inlining']='GNSS_MAIN_SHARED_CALLEES_V1' if 'gnss_profile' in d else 'DEFAULT'
+ r['host_instruction_placement']='GNSS_LORA_COMPACT_V1' if a.radiolib and 'gnss_profile' in d else 'DEFAULT'
  if a.radiolib and 'gnss_profile' in d:r['application_optimization']='W12_DUAL_GNSS_CLOCK_OZ_V1'
  r['lora_selection_policy']='AUTH_META_FIELD_EMITTER_FOUR_NON_EVICTING_REPLAY_FLOORS_V1'
  r['source_renewal_policy']='AUTH_GR3_MATCHED_ORIGINAL_MIN_BOTH_GRANTS_V1'

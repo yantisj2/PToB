@@ -15,6 +15,12 @@ signed source envelope.
 GNSS profiles reserve a **10 KiB** host stack statically. Main-component
 sources use `-Os`. GNSS profiles share main-loop callees. Verified GNSS builds
 with LoRa use `-Oz` in the main task, display renderer and common-clock adapter.
+That full profile also uses `-mno-target-align` only in the serialized G1 host
+owner. It trades optional branch-target instruction widening for code density;
+the [GCC option](https://gcc.gnu.org/onlinedocs/gcc-14.2.0/gcc/Xtensa-Options.html#index-mtarget-align)
+keeps required instruction alignment. Capture/IRQ drivers and SDK placement
+retain their defaults. Receipts and native inspection bind this selection;
+hardware controller latency and reliability still require observation.
 SDK/controller assertions and the **1 MiB** application ceiling
 remain enforced. See [holdover](holdover.md) for the production model and P99.
 

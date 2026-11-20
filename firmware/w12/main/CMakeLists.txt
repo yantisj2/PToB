@@ -118,6 +118,10 @@ if(PTOB_W12_GNSS_INDICATORS)
     # the SDK, BLE/LoRa owners, fine capture and GNSS driver optimization.
     set_property(SOURCE "native_main.cpp" "../legacy/display.cpp" "dual_timing.cpp"
                  APPEND PROPERTY COMPILE_OPTIONS "-Oz")
+    # Prefer compact instructions over optional branch-target widening in
+    # the serialized host owner. Capture/IRQ drivers and the SDK keep their
+    # existing placement, optimization and assertion settings.
+    set_property(SOURCE "native_g1.cpp" APPEND PROPERTY COMPILE_OPTIONS "-mno-target-align")
   endif()
 endif()
 

@@ -8,6 +8,13 @@ budget remains open. Timing output expires at its original deadline. Silence,
 replay or lease expiry, and completion of the existing recovery budget still
 require a fresh acquisition.
 
+Keep the full GNSS/LoRa/RC9 image within its fixed application slot by using
+compact Xtensa instruction placement in the serialized G1 host owner. Preserve
+all diagnostics, SDK assertions, capture/IRQ driver settings and features.
+Record the exact profile selection in receipts and verify the actual compiler
+flags during native inspection. This does not qualify hardware latency or
+continuous reliability.
+
 ## 0.2.54 — Keep eligible timing through grant rollover
 
 On receipt of an authenticated GR3 report, retire an older pair that has
